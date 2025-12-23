@@ -13,6 +13,9 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,33 +60,54 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        violet: {
+          50: "hsl(270, 80%, 98%)",
+          100: "hsl(270, 80%, 95%)",
+          200: "hsl(270, 80%, 90%)",
+          300: "hsl(270, 80%, 80%)",
+          400: "hsl(270, 80%, 70%)",
+          500: "hsl(270, 80%, 60%)",
+          600: "hsl(270, 80%, 50%)",
+          700: "hsl(270, 80%, 40%)",
+          800: "hsl(270, 80%, 30%)",
+          900: "hsl(270, 80%, 20%)",
+        },
+        pink: {
+          50: "hsl(320, 80%, 98%)",
+          100: "hsl(320, 80%, 95%)",
+          200: "hsl(320, 80%, 90%)",
+          300: "hsl(320, 80%, 80%)",
+          400: "hsl(320, 80%, 70%)",
+          500: "hsl(320, 80%, 60%)",
+          600: "hsl(320, 80%, 50%)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        "2xl": "1.5rem",
+        "3xl": "2rem",
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+      },
+      boxShadow: {
+        glow: "0 0 40px hsla(270, 80%, 60%, 0.3)",
+        "glow-lg": "0 0 60px hsla(270, 80%, 60%, 0.4)",
+        soft: "0 10px 40px hsla(270, 50%, 30%, 0.1)",
+        "soft-lg": "0 20px 60px hsla(270, 50%, 30%, 0.15)",
       },
     },
   },
