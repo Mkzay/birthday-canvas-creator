@@ -14,7 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      birthday_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          page_id: string
+          photo_url: string | null
+          sender_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          page_id: string
+          photo_url?: string | null
+          sender_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          page_id?: string
+          photo_url?: string | null
+          sender_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "birthday_messages_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "birthday_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      birthday_pages: {
+        Row: {
+          allow_photos: boolean
+          birthday_date: string
+          close_date: string | null
+          cover_photo_url: string | null
+          created_at: string
+          creator_message: string | null
+          id: string
+          recipient_name: string
+          require_names: boolean
+          status: string
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allow_photos?: boolean
+          birthday_date: string
+          close_date?: string | null
+          cover_photo_url?: string | null
+          created_at?: string
+          creator_message?: string | null
+          id?: string
+          recipient_name: string
+          require_names?: boolean
+          status?: string
+          theme?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allow_photos?: boolean
+          birthday_date?: string
+          close_date?: string | null
+          cover_photo_url?: string | null
+          created_at?: string
+          creator_message?: string | null
+          id?: string
+          recipient_name?: string
+          require_names?: boolean
+          status?: string
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
