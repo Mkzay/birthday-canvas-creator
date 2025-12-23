@@ -280,6 +280,18 @@ const BirthdayPage = () => {
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [showShareCard, setShowShareCard] = useState(false);
 
+  // Handle scroll to show messages
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!showMessages && window.scrollY > 100) {
+        setShowMessages(true);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [showMessages]);
+
   useEffect(() => {
     if (pageId) {
       fetchData();
@@ -414,7 +426,7 @@ const BirthdayPage = () => {
               variant="hero" 
               size="xl" 
               onClick={() => setShowMessages(true)}
-              className="gap-3 animate-glow-pulse text-lg px-8 py-6 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              className="gap-3 animate-glow-pulse text-lg px-8 py-6 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 mb-32"
             >
               <Sparkles className="w-6 h-6 animate-spin-slow" />
               Open Your Wishes
@@ -426,15 +438,12 @@ const BirthdayPage = () => {
           <button 
             onClick={() => setShowMessages(true)}
             className={cn(
-              "absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 transition-all duration-300 z-10 group",
+              "absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 transition-all duration-300 z-10 group",
               theme.text, "opacity-60 hover:opacity-100"
             )}
           >
-            <span className="text-sm font-medium tracking-wide uppercase">Scroll to see wishes</span>
-            <div className="relative">
-              <ChevronDown className="w-8 h-8 animate-bounce" />
-              <ChevronDown className="w-8 h-8 animate-bounce absolute top-2 left-0 opacity-50" />
-            </div>
+            <span className="text-xs font-medium tracking-wide uppercase">or scroll down</span>
+            <ChevronDown className="w-6 h-6 animate-bounce" />
           </button>
         )}
       </section>
@@ -522,17 +531,16 @@ const BirthdayPage = () => {
         onOpenChange={setShowShareCard}
       />
 
-      {/* Floating Share Button */}
+      {/* Floating Share Button - Icon only */}
       {showMessages && (
         <div className="fixed bottom-6 right-6 z-40">
           <Button 
             variant="hero" 
-            size="lg"
-            className="rounded-full shadow-xl gap-2"
+            size="icon"
+            className="rounded-full shadow-xl w-14 h-14"
             onClick={() => setShowShareCard(true)}
           >
-            <Share2 className="w-5 h-5" />
-            Share
+            <Share2 className="w-6 h-6" />
           </Button>
         </div>
       )}
