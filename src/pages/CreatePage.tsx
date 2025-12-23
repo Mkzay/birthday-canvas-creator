@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
-type Theme = 'elegant' | 'playful' | 'minimalist' | 'retro';
+type Theme = 'elegant' | 'playful' | 'minimalist' | 'retro' | 'tropical' | 'cosmic' | 'sunset' | 'ocean' | 'candyland' | 'midnight';
 type Step = 1 | 2 | 3;
 
 const themeConfig = {
@@ -24,6 +24,12 @@ const themeConfig = {
   playful: { name: 'Playful', emoji: '🎈', primary: 'from-pink-500 to-purple-500' },
   minimalist: { name: 'Minimalist', emoji: '🎯', primary: 'from-slate-600 to-slate-800' },
   retro: { name: 'Retro', emoji: '🌈', primary: 'from-cyan-400 to-purple-500' },
+  tropical: { name: 'Tropical', emoji: '🌴', primary: 'from-green-400 to-emerald-500' },
+  cosmic: { name: 'Cosmic', emoji: '🚀', primary: 'from-violet-500 to-indigo-600' },
+  sunset: { name: 'Sunset', emoji: '🌅', primary: 'from-orange-400 to-rose-500' },
+  ocean: { name: 'Ocean', emoji: '🌊', primary: 'from-sky-400 to-cyan-500' },
+  candyland: { name: 'Candyland', emoji: '🍭', primary: 'from-pink-400 to-purple-500' },
+  midnight: { name: 'Midnight', emoji: '🌙', primary: 'from-indigo-500 to-violet-600' },
 };
 
 const CreatePage = () => {
@@ -343,7 +349,7 @@ const CreatePage = () => {
             <h2 className="text-2xl font-bold text-foreground mb-2">Choose a vibe</h2>
             <p className="text-muted-foreground mb-8">Select a theme that matches their personality</p>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {(Object.keys(themeConfig) as Theme[]).map((themeKey) => {
                 const theme = themeConfig[themeKey];
                 const isSelected = selectedTheme === themeKey;
@@ -352,18 +358,18 @@ const CreatePage = () => {
                     key={themeKey}
                     onClick={() => setSelectedTheme(themeKey)}
                     className={cn(
-                      "aspect-square rounded-2xl p-6 flex flex-col items-center justify-center gap-3 transition-all duration-300 border-2 relative",
+                      "aspect-square rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 border-2 relative",
                       `bg-gradient-to-br ${theme.primary}`,
                       isSelected 
                         ? "ring-4 ring-foreground/20 scale-105 border-primary-foreground" 
                         : "border-transparent hover:scale-102 opacity-80 hover:opacity-100"
                     )}
                   >
-                    <span className="text-5xl">{theme.emoji}</span>
-                    <span className="text-lg font-bold text-primary-foreground">{theme.name}</span>
+                    <span className="text-3xl sm:text-4xl">{theme.emoji}</span>
+                    <span className="text-xs sm:text-sm font-bold text-primary-foreground">{theme.name}</span>
                     {isSelected && (
-                      <div className="absolute top-3 right-3 w-6 h-6 bg-primary-foreground rounded-full flex items-center justify-center">
-                        <Check className="w-4 h-4 text-primary" />
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-primary-foreground rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary" />
                       </div>
                     )}
                   </button>
