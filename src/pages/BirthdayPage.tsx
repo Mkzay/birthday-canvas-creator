@@ -394,11 +394,21 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
     : {};
 
   // Check if it's before the birthday
-  const birthdayDate = startOfDay(new Date(page.birthday_date));
-  const today = startOfDay(new Date());
-  const isBeforeBirthday = isBefore(today, birthdayDate);
+  // Parse the birthday date correctly - add time component to ensure proper comparison
+  const birthdayDateParts = page.birthday_date.split('-');
+  const birthdayDate = new Date(
+    parseInt(birthdayDateParts[0]), 
+    parseInt(birthdayDateParts[1]) - 1, 
+    parseInt(birthdayDateParts[2])
+  );
+  birthdayDate.setHours(0, 0, 0, 0);
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const isBeforeBirthday = today < birthdayDate;
 
-  // Show countdown if before birthday (but not in preview mode)
+  // Show countdown if before birthday (but not in preview mode - so creator can see the page)
   if (isBeforeBirthday && !isPreview) {
     return (
       <div 
@@ -519,11 +529,26 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
       {showMessages && (
         <section className="px-6 pb-24 animate-section-reveal">
           <div className="max-w-4xl mx-auto">
+            {/* Cover photo from organizer */}
+            {page.cover_photo_url && (
+              <div className="mb-8 rounded-3xl overflow-hidden shadow-lg animate-slide-up">
+                <img 
+                  src={page.cover_photo_url} 
+                  alt="Birthday cover" 
+                  className="w-full h-auto max-h-96 object-contain bg-black/5"
+                  onClick={() => setExpandedPhoto(page.cover_photo_url)}
+                  style={{ cursor: 'pointer' }}
+                />
+              </div>
+            )}
+
             {page.creator_message && (
               <div className={cn(
                 "rounded-3xl p-8 mb-12 text-center animate-slide-up transform hover:scale-[1.01] transition-transform duration-300",
                 `bg-gradient-to-br ${theme.primary}`
-              )}>
+              )}
+              style={{ animationDelay: '0.1s' }}
+              >
                 <Heart className="w-10 h-10 text-primary-foreground mx-auto mb-4 animate-heartbeat" />
                 <p className="text-xl text-primary-foreground italic font-medium">"{page.creator_message}"</p>
                 <p className="text-sm text-primary-foreground/80 mt-4 font-medium">— From the organizer</p>
@@ -545,13 +570,13 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
                 >
                   {msg.photo_url && (
                     <div 
-                      className="mb-5 -mx-2 -mt-2 cursor-pointer overflow-hidden rounded-2xl group"
+                      className="mb-5 -mx-2 -mt-2 cursor-pointer overflow-hidden rounded-2xl group relative aspect-[4/3]"
                       onClick={() => setExpandedPhoto(msg.photo_url)}
                     >
                       <img 
                         src={msg.photo_url} 
                         alt={`Photo from ${msg.sender_name}`}
-                        className="w-full h-52 object-cover group-hover:scale-110 transition-transform duration-500"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                     </div>
