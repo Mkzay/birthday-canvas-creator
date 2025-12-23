@@ -173,17 +173,6 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
 
   return (
     <section className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-0 relative overflow-hidden">
-      {/* Cover photo background */}
-      {coverPhotoUrl && (
-        <div className="absolute inset-0 z-0">
-          <img 
-            src={coverPhotoUrl} 
-            alt="Cover" 
-            className="w-full h-full object-cover opacity-20 scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-current/20" />
-        </div>
-      )}
 
       <div className="text-center relative z-10 animate-fade-in w-full max-w-lg mx-auto">
         {/* Animated emoji */}
