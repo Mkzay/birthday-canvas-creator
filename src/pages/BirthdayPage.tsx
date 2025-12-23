@@ -584,19 +584,9 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
                   <p className={cn("text-lg mb-5 leading-relaxed", theme.text)}>
                     "{msg.message}"
                   </p>
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-12 h-12 rounded-full flex items-center justify-center text-primary-foreground font-bold text-lg shadow-md animate-avatar-pop",
-                      `bg-gradient-to-br ${theme.primary}`
-                    )}
-                    style={{ animationDelay: `${index * 0.15 + 0.3}s` }}
-                    >
-                      {msg.sender_name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className={cn("font-semibold text-lg", theme.text)}>
-                      {msg.sender_name}
-                    </span>
-                  </div>
+                  <span className={cn("font-semibold text-lg", theme.text)}>
+                    — {msg.sender_name}
+                  </span>
                 </div>
               ))}
             </div>
