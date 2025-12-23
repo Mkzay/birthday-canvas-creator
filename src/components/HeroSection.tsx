@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 
@@ -21,10 +22,12 @@ const HeroSection = () => {
         </div>
         
         <div className="animate-fade-in-up" style={{ animationDelay: '0.3s', opacity: 0 }}>
-          <Button variant="light" size="xl" className="group">
-            Create Your First Page
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </Button>
+          <Link to="/dashboard">
+            <Button variant="light" size="xl" className="group">
+              Create Your First Page
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </Link>
         </div>
         
         {/* Demo Preview Card */}
