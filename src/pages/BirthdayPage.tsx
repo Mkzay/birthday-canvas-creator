@@ -11,6 +11,7 @@ interface BirthdayPageData {
   birthday_date: string;
   theme: string;
   creator_message: string | null;
+  cover_photo_url: string | null;
 }
 
 interface Message {
@@ -108,6 +109,7 @@ const BirthdayPage = () => {
   const [loading, setLoading] = useState(true);
   const [showMessages, setShowMessages] = useState(false);
   const [entranceComplete, setEntranceComplete] = useState(false);
+  const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (pageId) {
@@ -174,10 +176,36 @@ const BirthdayPage = () => {
     <div className={`min-h-screen ${theme.heroClass}`}>
       <ThemeConfetti theme={page.theme as keyof typeof themeConfig} />
       
+      {/* Photo lightbox */}
+      {expandedPhoto && (
+        <div 
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setExpandedPhoto(null)}
+        >
+          <img 
+            src={expandedPhoto} 
+            alt="Expanded photo" 
+            className="max-w-full max-h-full object-contain rounded-lg"
+          />
+        </div>
+      )}
+      
       {/* Hero Section - Full screen entrance */}
       <section className="min-h-screen flex flex-col items-center justify-center px-6 relative">
+        {/* Cover photo background */}
+        {page.cover_photo_url && (
+          <div className="absolute inset-0 z-0">
+            <img 
+              src={page.cover_photo_url} 
+              alt="Cover" 
+              className="w-full h-full object-cover opacity-20"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/50" />
+          </div>
+        )}
+        
         <div className={cn(
-          "text-center transition-all duration-1000",
+          "text-center transition-all duration-1000 relative z-10",
           entranceComplete ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
         )}>
           <div className="text-8xl mb-6 animate-float">{theme.emoji}</div>
@@ -209,7 +237,7 @@ const BirthdayPage = () => {
           <button 
             onClick={() => setShowMessages(true)}
             className={cn(
-              "absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 transition-opacity",
+              "absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 transition-opacity z-10",
               theme.text, "opacity-50 hover:opacity-100"
             )}
           >
@@ -244,6 +272,18 @@ const BirthdayPage = () => {
                   )}
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
+                  {msg.photo_url && (
+                    <div 
+                      className="mb-4 -mx-2 -mt-2 cursor-pointer overflow-hidden rounded-xl"
+                      onClick={() => setExpandedPhoto(msg.photo_url)}
+                    >
+                      <img 
+                        src={msg.photo_url} 
+                        alt={`Photo from ${msg.sender_name}`}
+                        className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                  )}
                   <p className={cn("text-lg mb-4", theme.text)}>
                     "{msg.message}"
                   </p>
