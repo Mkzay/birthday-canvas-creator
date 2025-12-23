@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { differenceInDays, differenceInHours, differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Eye } from 'lucide-react';
 
 interface CountdownProps {
   targetDate: Date;
@@ -25,6 +26,8 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
     minutes: 0,
     seconds: 0,
   });
+  const [showGotcha, setShowGotcha] = useState(false);
+  const [gotchaPhase, setGotchaPhase] = useState<'loading' | 'gotcha' | null>(null);
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -56,6 +59,22 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
     return () => clearInterval(timer);
   }, [targetDate]);
 
+  const handleEarlyReveal = () => {
+    setShowGotcha(true);
+    setGotchaPhase('loading');
+    
+    // Fake loading for suspense
+    setTimeout(() => {
+      setGotchaPhase('gotcha');
+    }, 2000);
+    
+    // Reset after animation
+    setTimeout(() => {
+      setShowGotcha(false);
+      setGotchaPhase(null);
+    }, 6000);
+  };
+
   const TimeBlock = ({ value, label }: { value: number; label: string }) => (
     <div className="flex flex-col items-center">
       <div 
@@ -80,6 +99,77 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
       </span>
     </div>
   );
+
+  // Gotcha overlay
+  if (showGotcha) {
+    return (
+      <section className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
+        {gotchaPhase === 'loading' && (
+          <div className="text-center animate-fade-in">
+            <div className="text-6xl mb-6 animate-bounce">🎁</div>
+            <h2 className={cn(
+              "text-2xl sm:text-3xl font-bold mb-4",
+              theme.titleClass,
+              theme.font,
+              theme.isCustom && "text-white"
+            )}>
+              Revealing wishes early...
+            </h2>
+            <div className="flex justify-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-3 h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-3 h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        )}
+        
+        {gotchaPhase === 'gotcha' && (
+          <div className="text-center animate-scale-in">
+            <div className="text-8xl sm:text-9xl mb-6 animate-wiggle">😜</div>
+            <h2 className={cn(
+              "text-3xl sm:text-5xl font-bold mb-4",
+              theme.titleClass,
+              theme.font,
+              theme.isCustom && "text-white"
+            )}>
+              GOTCHA!
+            </h2>
+            <p className={cn(
+              "text-xl sm:text-2xl mb-6 opacity-90",
+              theme.text,
+              theme.isCustom && "text-white"
+            )}>
+              Nice try! 🎉
+            </p>
+            <p className={cn(
+              "text-base sm:text-lg opacity-70",
+              theme.text,
+              theme.isCustom && "text-white/80"
+            )}>
+              You'll have to wait for your birthday like everyone else! 😄
+            </p>
+            
+            {/* Floating teasing emojis */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              {[...Array(12)].map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute text-4xl animate-float-away"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animationDelay: `${i * 0.2}s`,
+                  }}
+                >
+                  {['😝', '🤭', '😏', '🙈', '🎊', '🎈'][i % 6]}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
@@ -131,7 +221,7 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
 
         {/* Message */}
         <div className={cn(
-          "max-w-md mx-auto p-6 rounded-2xl backdrop-blur-sm",
+          "max-w-md mx-auto p-6 rounded-2xl backdrop-blur-sm mb-8",
           theme.isCustom 
             ? "bg-white/10 border border-white/20" 
             : "bg-white/50 border border-white/50"
@@ -144,6 +234,21 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
             ✨ Your friends are preparing something special for you. Come back on your birthday to see all the wishes! ✨
           </p>
         </div>
+
+        {/* Early reveal button */}
+        <Button
+          onClick={handleEarlyReveal}
+          variant="outline"
+          className={cn(
+            "gap-2 backdrop-blur-sm transition-all hover:scale-105",
+            theme.isCustom 
+              ? "bg-white/10 border-white/30 text-white hover:bg-white/20" 
+              : "bg-white/50 border-white/50"
+          )}
+        >
+          <Eye className="w-4 h-4" />
+          Reveal early? 👀
+        </Button>
 
         {/* Floating decorations */}
         <div className="absolute top-1/4 left-10 text-4xl animate-float-slow opacity-60">🎈</div>
