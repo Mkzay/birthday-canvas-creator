@@ -529,18 +529,6 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
               </div>
             )}
 
-            {/* Cover photo from organizer - displayed after message */}
-            {page.cover_photo_url && (
-              <div className="mb-12 rounded-3xl overflow-hidden shadow-2xl animate-message-flip cursor-pointer hover:scale-[1.01] transition-transform duration-300"
-                   style={{ animationDelay: '0.2s', animationFillMode: 'backwards' }}>
-                <img 
-                  src={page.cover_photo_url} 
-                  alt="Birthday cover" 
-                  className="w-full h-auto max-h-[500px] object-contain bg-black/5"
-                  onClick={() => setExpandedPhoto(page.cover_photo_url)}
-                />
-              </div>
-            )}
 
             <div className="grid gap-8 md:grid-cols-2">
               {messages.map((msg, index) => {
