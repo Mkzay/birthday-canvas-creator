@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Image, X, Loader2 } from 'lucide-react';
 import SocialShareButtons from '@/components/SocialShareButtons';
+import QRCodeModal from '@/components/QRCodeModal';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -46,6 +47,10 @@ const CreatePage = () => {
   const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  
+  // QR code modal state
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -391,7 +396,7 @@ const CreatePage = () => {
                   <Copy className="w-4 h-4" />
                   Copy Link
                 </Button>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" onClick={() => { setQrType('contribute'); setQrModalOpen(true); }}>
                   <QrCode className="w-4 h-4" />
                 </Button>
               </div>
@@ -420,11 +425,20 @@ const CreatePage = () => {
                   <Copy className="w-4 h-4" />
                   Copy Link
                 </Button>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" onClick={() => { setQrType('birthday'); setQrModalOpen(true); }}>
                   <QrCode className="w-4 h-4" />
                 </Button>
               </div>
             </div>
+
+            {/* QR Code Modal */}
+            <QRCodeModal
+              open={qrModalOpen}
+              onOpenChange={setQrModalOpen}
+              url={`${window.location.origin}/${qrType === 'contribute' ? 'contribute' : 'birthday'}/${createdPageId}`}
+              title={qrType === 'contribute' ? 'Contribution QR Code' : 'Birthday QR Code'}
+              recipientName={recipientName}
+            />
 
             {/* Settings */}
             <div className="bg-muted/30 rounded-2xl p-6 space-y-4">

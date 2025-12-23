@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Loader2, Image, X } from 'lucide-react';
 import SocialShareButtons from '@/components/SocialShareButtons';
+import QRCodeModal from '@/components/QRCodeModal';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -45,6 +46,10 @@ const EditPage = () => {
   const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  
+  // QR code modal state
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -359,14 +364,24 @@ const EditPage = () => {
         <div className="bg-card rounded-2xl p-6 border border-border mb-6">
           <h2 className="font-bold text-foreground mb-4">Share Links</h2>
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <Button variant="outline" className="gap-2" onClick={() => copyLink('contribute')}>
-              <Copy className="w-4 h-4" />
-              Contribution Link
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={() => copyLink('birthday')}>
-              <Copy className="w-4 h-4" />
-              Birthday Link
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 gap-2" onClick={() => copyLink('contribute')}>
+                <Copy className="w-4 h-4" />
+                Contribution
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => { setQrType('contribute'); setQrModalOpen(true); }}>
+                <QrCode className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 gap-2" onClick={() => copyLink('birthday')}>
+                <Copy className="w-4 h-4" />
+                Birthday
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => { setQrType('birthday'); setQrModalOpen(true); }}>
+                <QrCode className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <div className="pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground mb-3">Share contribution link on social media</p>
@@ -377,6 +392,15 @@ const EditPage = () => {
             />
           </div>
         </div>
+
+        {/* QR Code Modal */}
+        <QRCodeModal
+          open={qrModalOpen}
+          onOpenChange={setQrModalOpen}
+          url={`${window.location.origin}/${qrType === 'contribute' ? 'contribute' : 'birthday'}/${pageId}`}
+          title={qrType === 'contribute' ? 'Contribution QR Code' : 'Birthday QR Code'}
+          recipientName={recipientName}
+        />
 
         {/* Actions */}
         <div className="flex gap-4">
