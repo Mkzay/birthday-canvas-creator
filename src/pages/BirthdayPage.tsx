@@ -272,7 +272,11 @@ const SparkleEffect = ({ theme }: { theme: keyof typeof themeConfig }) => {
   );
 };
 
-const BirthdayPage = () => {
+interface BirthdayPageProps {
+  isPreview?: boolean;
+}
+
+const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
   const { pageId } = useParams();
   const [page, setPage] = useState<BirthdayPageData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -394,8 +398,8 @@ const BirthdayPage = () => {
   const today = startOfDay(new Date());
   const isBeforeBirthday = isBefore(today, birthdayDate);
 
-  // Show countdown if before birthday
-  if (isBeforeBirthday) {
+  // Show countdown if before birthday (but not in preview mode)
+  if (isBeforeBirthday && !isPreview) {
     return (
       <div 
         className={`min-h-screen ${!theme.isCustom ? theme.heroClass : ''} transition-colors duration-500`}
