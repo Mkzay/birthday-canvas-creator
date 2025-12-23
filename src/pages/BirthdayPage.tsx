@@ -279,6 +279,7 @@ const BirthdayPage = () => {
   const [entranceComplete, setEntranceComplete] = useState(false);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [showShareCard, setShowShareCard] = useState(false);
+  const [customTheme, setCustomTheme] = useState<{ emoji: string; gradient_from: string; gradient_to: string; font: string } | null>(null);
 
   // Handle scroll to show messages
   useEffect(() => {
@@ -318,6 +319,19 @@ const BirthdayPage = () => {
 
     setPage(pageData);
 
+    // Check if it's a custom theme
+    if (pageData.theme.startsWith('custom_')) {
+      const customId = pageData.theme.replace('custom_', '');
+      const { data: themeData } = await supabase
+        .from('custom_themes')
+        .select('emoji, gradient_from, gradient_to, font')
+        .eq('id', customId)
+        .maybeSingle();
+      if (themeData) {
+        setCustomTheme(themeData);
+      }
+    }
+
     const { data: messagesData } = await supabase
       .from('birthday_messages')
       .select('*')
@@ -351,10 +365,33 @@ const BirthdayPage = () => {
     );
   }
 
-  const theme = themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant;
+  // Get theme config - support custom themes
+  const theme = customTheme 
+    ? {
+        name: 'Custom',
+        emoji: customTheme.emoji,
+        colors: [customTheme.gradient_from, customTheme.gradient_to, customTheme.gradient_from],
+        font: customTheme.font === 'serif' ? 'font-serif' : 'font-sans',
+        heroClass: '',
+        titleClass: customTheme.font === 'serif' ? 'font-serif text-white' : 'text-white',
+        cardClass: 'bg-white/90 border-2 border-white/30 shadow-lg',
+        primary: '',
+        text: 'text-white',
+        isCustom: true,
+        gradientFrom: customTheme.gradient_from,
+        gradientTo: customTheme.gradient_to,
+      }
+    : { ...themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant, isCustom: false };
+
+  const heroStyle = theme.isCustom 
+    ? { background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }
+    : {};
 
   return (
-    <div className={`min-h-screen ${theme.heroClass} transition-colors duration-500`}>
+    <div 
+      className={`min-h-screen ${!theme.isCustom ? theme.heroClass : ''} transition-colors duration-500`}
+      style={heroStyle}
+    >
       <FloatingShapes theme={page.theme as keyof typeof themeConfig} />
       <ThemeConfetti theme={page.theme as keyof typeof themeConfig} />
       <SparkleEffect theme={page.theme as keyof typeof themeConfig} />

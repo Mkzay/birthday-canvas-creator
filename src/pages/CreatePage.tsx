@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Image, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Image, X, Loader2, Palette } from 'lucide-react';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import QRCodeModal from '@/components/QRCodeModal';
 import { format } from 'date-fns';
@@ -16,8 +16,16 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
-type Theme = 'elegant' | 'playful' | 'minimalist' | 'retro' | 'tropical' | 'cosmic' | 'sunset' | 'ocean' | 'candyland' | 'midnight';
+type Theme = string;
 type Step = 1 | 2 | 3;
+
+interface CustomTheme {
+  id: string;
+  name: string;
+  emoji: string;
+  gradient_from: string;
+  gradient_to: string;
+}
 
 const themeConfig = {
   elegant: { name: 'Elegant', emoji: '✨', primary: 'from-amber-400 to-orange-500' },
@@ -38,6 +46,7 @@ const CreatePage = () => {
   const [step, setStep] = useState<Step>(1);
   const [createdPageId, setCreatedPageId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   
   // Form state
   const [recipientName, setRecipientName] = useState('');
@@ -63,6 +72,20 @@ const CreatePage = () => {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchCustomThemes();
+    }
+  }, [user]);
+
+  const fetchCustomThemes = async () => {
+    const { data } = await supabase
+      .from('custom_themes')
+      .select('id, name, emoji, gradient_from, gradient_to')
+      .eq('user_id', user!.id);
+    setCustomThemes(data || []);
+  };
 
   const steps = [
     { number: 1, label: 'Details' },
@@ -349,8 +372,9 @@ const CreatePage = () => {
             <h2 className="text-2xl font-bold text-foreground mb-2">Choose a vibe</h2>
             <p className="text-muted-foreground mb-8">Select a theme that matches their personality</p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {(Object.keys(themeConfig) as Theme[]).map((themeKey) => {
+            {/* Predefined Themes */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
+              {(Object.keys(themeConfig) as string[]).map((themeKey) => {
                 const theme = themeConfig[themeKey];
                 const isSelected = selectedTheme === themeKey;
                 return (
@@ -375,6 +399,56 @@ const CreatePage = () => {
                   </button>
                 );
               })}
+            </div>
+
+            {/* Custom Themes Section */}
+            {customThemes.length > 0 && (
+              <>
+                <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                  <Palette className="w-5 h-5" />
+                  Your Custom Themes
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+                  {customThemes.map((theme) => {
+                    const themeKey = `custom_${theme.id}`;
+                    const isSelected = selectedTheme === themeKey;
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => setSelectedTheme(themeKey)}
+                        className={cn(
+                          "aspect-square rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 border-2 relative",
+                          isSelected 
+                            ? "ring-4 ring-foreground/20 scale-105 border-white" 
+                            : "border-transparent hover:scale-102 opacity-80 hover:opacity-100"
+                        )}
+                        style={{
+                          background: `linear-gradient(135deg, ${theme.gradient_from}, ${theme.gradient_to})`
+                        }}
+                      >
+                        <span className="text-3xl sm:text-4xl">{theme.emoji}</span>
+                        <span className="text-xs sm:text-sm font-bold text-white drop-shadow">{theme.name}</span>
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-primary" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Link to create custom themes */}
+            <div className="text-center pt-4">
+              <Link 
+                to="/themes" 
+                className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <Palette className="w-4 h-4" />
+                Create your own custom theme
+              </Link>
             </div>
           </div>
         )}

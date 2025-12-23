@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Loader2, Image, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Loader2, Image, X, Palette } from 'lucide-react';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import QRCodeModal from '@/components/QRCodeModal';
 import { format } from 'date-fns';
@@ -16,7 +16,15 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
-type Theme = 'elegant' | 'playful' | 'minimalist' | 'retro' | 'tropical' | 'cosmic' | 'sunset' | 'ocean' | 'candyland' | 'midnight';
+type Theme = string;
+
+interface CustomTheme {
+  id: string;
+  name: string;
+  emoji: string;
+  gradient_from: string;
+  gradient_to: string;
+}
 
 const themeConfig = {
   elegant: { name: 'Elegant', emoji: '✨', primary: 'from-amber-400 to-orange-500' },
@@ -37,6 +45,7 @@ const EditPage = () => {
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   
   // Form state
   const [recipientName, setRecipientName] = useState('');
@@ -66,8 +75,17 @@ const EditPage = () => {
   useEffect(() => {
     if (pageId && user) {
       fetchPage();
+      fetchCustomThemes();
     }
   }, [pageId, user]);
+
+  const fetchCustomThemes = async () => {
+    const { data } = await supabase
+      .from('custom_themes')
+      .select('id, name, emoji, gradient_from, gradient_to')
+      .eq('user_id', user!.id);
+    setCustomThemes(data || []);
+  };
 
   const fetchPage = async () => {
     const { data, error } = await supabase
@@ -328,8 +346,10 @@ const EditPage = () => {
         {/* Theme */}
         <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border mb-6">
           <h2 className="font-bold text-foreground mb-4">Theme</h2>
-          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-            {(Object.keys(themeConfig) as Theme[]).map((themeKey) => {
+          
+          {/* Predefined Themes */}
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-4">
+            {(Object.keys(themeConfig) as string[]).map((themeKey) => {
               const theme = themeConfig[themeKey];
               const isSelected = selectedTheme === themeKey;
               return (
@@ -350,6 +370,49 @@ const EditPage = () => {
               );
             })}
           </div>
+
+          {/* Custom Themes */}
+          {customThemes.length > 0 && (
+            <>
+              <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1">
+                <Palette className="w-4 h-4" />
+                Your Custom Themes
+              </h3>
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-4">
+                {customThemes.map((theme) => {
+                  const themeKey = `custom_${theme.id}`;
+                  const isSelected = selectedTheme === themeKey;
+                  return (
+                    <button
+                      key={theme.id}
+                      onClick={() => setSelectedTheme(themeKey)}
+                      className={cn(
+                        "aspect-square rounded-lg sm:rounded-xl p-1 sm:p-2 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all duration-300 border-2",
+                        isSelected 
+                          ? "ring-2 ring-foreground/20 scale-105 border-white" 
+                          : "border-transparent opacity-70 hover:opacity-100"
+                      )}
+                      style={{
+                        background: `linear-gradient(135deg, ${theme.gradient_from}, ${theme.gradient_to})`
+                      }}
+                    >
+                      <span className="text-base sm:text-xl">{theme.emoji}</span>
+                      <span className="text-[8px] sm:text-[10px] font-medium text-white drop-shadow leading-tight">{theme.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Link to theme builder */}
+          <Link 
+            to="/themes" 
+            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+          >
+            <Palette className="w-3 h-3" />
+            Create custom themes
+          </Link>
         </div>
 
         {/* Settings */}
