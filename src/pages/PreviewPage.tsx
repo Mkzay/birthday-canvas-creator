@@ -79,7 +79,7 @@ const PreviewPage = () => {
 
       {/* Add padding for the banner */}
       <div className={isOwner ? "pt-14" : ""}>
-        <BirthdayPage />
+        <BirthdayPage isPreview={isOwner} />
       </div>
     </div>
   );
