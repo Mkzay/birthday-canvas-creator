@@ -223,37 +223,38 @@ const CreatePage = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-cta flex items-center justify-center text-xl">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-cta flex items-center justify-center text-lg sm:text-xl">
               🎨
             </div>
-            <span className="text-xl font-bold text-foreground">WishCanvas</span>
+            <span className="text-lg sm:text-xl font-bold text-foreground hidden sm:block">WishCanvas</span>
           </Link>
           
-          <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+          <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 sm:gap-2">
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </Link>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-12">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
         {/* Progress Indicator */}
-        <div className="flex items-center justify-center mb-12">
+        <div className="flex items-center justify-center mb-8 sm:mb-12">
           {steps.map((s, i) => (
             <React.Fragment key={s.number}>
               <div className="flex flex-col items-center">
                 <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300",
+                  "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300",
                   step >= s.number 
                     ? "gradient-cta text-primary-foreground" 
                     : "bg-muted text-muted-foreground"
                 )}>
-                  {step > s.number ? <Check className="w-5 h-5" /> : s.number}
+                  {step > s.number ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : s.number}
                 </div>
                 <span className={cn(
-                  "text-xs mt-2 font-medium transition-colors",
+                  "text-[10px] sm:text-xs mt-1.5 sm:mt-2 font-medium transition-colors",
                   step >= s.number ? "text-foreground" : "text-muted-foreground"
                 )}>
                   {s.label}
@@ -261,7 +262,7 @@ const CreatePage = () => {
               </div>
               {i < steps.length - 1 && (
                 <div className={cn(
-                  "w-16 sm:w-24 h-1 mx-2 rounded-full transition-all duration-300",
+                  "w-10 sm:w-16 md:w-24 h-0.5 sm:h-1 mx-1.5 sm:mx-2 rounded-full transition-all duration-300",
                   step > s.number ? "gradient-cta" : "bg-muted"
                 )} />
               )}
@@ -272,8 +273,8 @@ const CreatePage = () => {
         {/* Step 1: Basic Details */}
         {step === 1 && (
           <div className="animate-fade-in-up">
-            <h2 className="text-2xl font-bold text-foreground mb-2">Who's the lucky one?</h2>
-            <p className="text-muted-foreground mb-8">Tell us about the birthday person</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-1 sm:mb-2">Who's the lucky one?</h2>
+            <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">Tell us about the birthday person</p>
 
             <div className="space-y-6">
               <div>
@@ -369,11 +370,11 @@ const CreatePage = () => {
         {/* Step 2: Choose Theme */}
         {step === 2 && (
           <div className="animate-fade-in-up">
-            <h2 className="text-2xl font-bold text-foreground mb-2">Choose a vibe</h2>
-            <p className="text-muted-foreground mb-8">Select a theme that matches their personality</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-1 sm:mb-2">Choose a vibe</h2>
+            <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">Select a theme that matches their personality</p>
 
             {/* Predefined Themes */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mb-6 sm:mb-8">
               {(Object.keys(themeConfig) as string[]).map((themeKey) => {
                 const theme = themeConfig[themeKey];
                 const isSelected = selectedTheme === themeKey;
@@ -382,18 +383,18 @@ const CreatePage = () => {
                     key={themeKey}
                     onClick={() => setSelectedTheme(themeKey)}
                     className={cn(
-                      "aspect-square rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 border-2 relative",
+                      "aspect-square rounded-xl sm:rounded-2xl p-2 sm:p-4 flex flex-col items-center justify-center gap-1 sm:gap-2 transition-all duration-300 border-2 relative",
                       `bg-gradient-to-br ${theme.primary}`,
                       isSelected 
-                        ? "ring-4 ring-foreground/20 scale-105 border-primary-foreground" 
+                        ? "ring-2 sm:ring-4 ring-foreground/20 scale-105 border-primary-foreground" 
                         : "border-transparent hover:scale-102 opacity-80 hover:opacity-100"
                     )}
                   >
-                    <span className="text-3xl sm:text-4xl">{theme.emoji}</span>
-                    <span className="text-xs sm:text-sm font-bold text-primary-foreground">{theme.name}</span>
+                    <span className="text-2xl sm:text-3xl md:text-4xl">{theme.emoji}</span>
+                    <span className="text-[10px] sm:text-xs md:text-sm font-bold text-primary-foreground">{theme.name}</span>
                     {isSelected && (
-                      <div className="absolute top-2 right-2 w-5 h-5 bg-primary-foreground rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary" />
+                      <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-4 h-4 sm:w-5 sm:h-5 bg-primary-foreground rounded-full flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-primary" />
                       </div>
                     )}
                   </button>
@@ -404,11 +405,11 @@ const CreatePage = () => {
             {/* Custom Themes Section */}
             {customThemes.length > 0 && (
               <>
-                <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                  <Palette className="w-5 h-5" />
+                <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                  <Palette className="w-4 h-4 sm:w-5 sm:h-5" />
                   Your Custom Themes
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mb-4">
                   {customThemes.map((theme) => {
                     const themeKey = `custom_${theme.id}`;
                     const isSelected = selectedTheme === themeKey;
@@ -417,20 +418,20 @@ const CreatePage = () => {
                         key={theme.id}
                         onClick={() => setSelectedTheme(themeKey)}
                         className={cn(
-                          "aspect-square rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 border-2 relative",
+                          "aspect-square rounded-xl sm:rounded-2xl p-2 sm:p-4 flex flex-col items-center justify-center gap-1 sm:gap-2 transition-all duration-300 border-2 relative",
                           isSelected 
-                            ? "ring-4 ring-foreground/20 scale-105 border-white" 
+                            ? "ring-2 sm:ring-4 ring-foreground/20 scale-105 border-white" 
                             : "border-transparent hover:scale-102 opacity-80 hover:opacity-100"
                         )}
                         style={{
                           background: `linear-gradient(135deg, ${theme.gradient_from}, ${theme.gradient_to})`
                         }}
                       >
-                        <span className="text-3xl sm:text-4xl">{theme.emoji}</span>
-                        <span className="text-xs sm:text-sm font-bold text-white drop-shadow">{theme.name}</span>
+                        <span className="text-2xl sm:text-3xl md:text-4xl">{theme.emoji}</span>
+                        <span className="text-[10px] sm:text-xs md:text-sm font-bold text-white drop-shadow">{theme.name}</span>
                         {isSelected && (
-                          <div className="absolute top-2 right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center">
-                            <Check className="w-3 h-3 text-primary" />
+                          <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-primary" />
                           </div>
                         )}
                       </button>
@@ -456,32 +457,32 @@ const CreatePage = () => {
         {/* Step 3: Share & Configure */}
         {step === 3 && (
           <div className="animate-fade-in-up">
-            <div className="text-center mb-8">
-              <div className="text-5xl mb-4">🎉</div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Your page is ready!</h2>
-              <p className="text-muted-foreground">Share these links to start collecting wishes</p>
+            <div className="text-center mb-6 sm:mb-8">
+              <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🎉</div>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-1 sm:mb-2">Your page is ready!</h2>
+              <p className="text-sm sm:text-base text-muted-foreground">Share these links to start collecting wishes</p>
             </div>
 
             {/* Contribution Link */}
-            <div className="bg-card border border-border rounded-2xl p-6 mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <span className="text-lg">✉️</span>
+            <div className="bg-card border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-3 sm:mb-4">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <span className="text-base sm:text-lg">✉️</span>
                 </div>
-                <h3 className="font-bold text-foreground">Contribution Link</h3>
+                <h3 className="font-bold text-foreground text-sm sm:text-base">Contribution Link</h3>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">Share this with friends to add messages</p>
-              <div className="flex gap-2 mb-4">
-                <Button variant="outline" className="flex-1 gap-2" onClick={() => copyLink('contribute')}>
-                  <Copy className="w-4 h-4" />
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">Share this with friends to add messages</p>
+              <div className="flex gap-2 mb-3 sm:mb-4">
+                <Button variant="outline" size="sm" className="flex-1 gap-2 text-sm" onClick={() => copyLink('contribute')}>
+                  <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Copy Link
                 </Button>
-                <Button variant="outline" size="icon" onClick={() => { setQrType('contribute'); setQrModalOpen(true); }}>
-                  <QrCode className="w-4 h-4" />
+                <Button variant="outline" size="sm" className="px-3" onClick={() => { setQrType('contribute'); setQrModalOpen(true); }}>
+                  <QrCode className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </Button>
               </div>
-              <div className="pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-3">Share directly on social media</p>
+              <div className="pt-3 sm:pt-4 border-t border-border">
+                <p className="text-xs text-muted-foreground mb-2 sm:mb-3">Share directly on social media</p>
                 <SocialShareButtons 
                   url={`${window.location.origin}/contribute/${createdPageId}`}
                   message={`🎂 Help me celebrate ${recipientName}'s birthday! Add your wishes here:`}
@@ -491,22 +492,22 @@ const CreatePage = () => {
             </div>
 
             {/* Birthday Link */}
-            <div className="bg-card border border-border rounded-2xl p-6 mb-8">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <span className="text-lg">🎂</span>
+            <div className="bg-card border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <span className="text-base sm:text-lg">🎂</span>
                 </div>
-                <h3 className="font-bold text-foreground">Birthday Link</h3>
+                <h3 className="font-bold text-foreground text-sm sm:text-base">Birthday Link</h3>
               </div>
-              <p className="text-sm text-muted-foreground mb-2">Send this to {recipientName} on their birthday</p>
-              <p className="text-xs text-amber-600 font-medium mb-4">⚠️ Don't share this yet!</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Send this to {recipientName} on their birthday</p>
+              <p className="text-xs text-amber-600 font-medium mb-3 sm:mb-4">⚠️ Don't share this yet!</p>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1 gap-2" onClick={() => copyLink('birthday')}>
-                  <Copy className="w-4 h-4" />
+                <Button variant="outline" size="sm" className="flex-1 gap-2 text-sm" onClick={() => copyLink('birthday')}>
+                  <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Copy Link
                 </Button>
-                <Button variant="outline" size="icon" onClick={() => { setQrType('birthday'); setQrModalOpen(true); }}>
-                  <QrCode className="w-4 h-4" />
+                <Button variant="outline" size="sm" className="px-3" onClick={() => { setQrType('birthday'); setQrModalOpen(true); }}>
+                  <QrCode className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </Button>
               </div>
             </div>
@@ -521,16 +522,16 @@ const CreatePage = () => {
             />
 
             {/* Settings */}
-            <div className="bg-muted/30 rounded-2xl p-6 space-y-4">
-              <h3 className="font-bold text-foreground">Page Settings</h3>
+            <div className="bg-muted/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+              <h3 className="font-bold text-foreground text-sm sm:text-base">Page Settings</h3>
               
               <div className="flex items-center justify-between">
-                <Label htmlFor="photos" className="text-sm text-foreground">Allow photo uploads</Label>
+                <Label htmlFor="photos" className="text-xs sm:text-sm text-foreground">Allow photo uploads</Label>
                 <Switch id="photos" checked={allowPhotos} onCheckedChange={setAllowPhotos} />
               </div>
               
               <div className="flex items-center justify-between">
-                <Label htmlFor="names" className="text-sm text-foreground">Require names on messages</Label>
+                <Label htmlFor="names" className="text-xs sm:text-sm text-foreground">Require names on messages</Label>
                 <Switch id="names" checked={requireNames} onCheckedChange={setRequireNames} />
               </div>
             </div>
@@ -538,32 +539,32 @@ const CreatePage = () => {
         )}
 
         {/* Navigation Buttons */}
-        <div className="flex gap-4 mt-8">
+        <div className="flex gap-3 sm:gap-4 mt-6 sm:mt-8">
           {step > 1 && step < 3 && (
-            <Button variant="outline" onClick={handleBack} className="flex-1">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+            <Button variant="outline" size="default" onClick={handleBack} className="flex-1 text-sm">
+              <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
               Back
             </Button>
           )}
           
           {step < 3 ? (
-            <Button variant="hero" onClick={handleNext} className="flex-1" disabled={saving || uploadingCover}>
+            <Button variant="hero" size="default" onClick={handleNext} className="flex-1 text-sm" disabled={saving || uploadingCover}>
               {(saving || uploadingCover) ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" />
                   {uploadingCover ? 'Uploading...' : 'Creating...'}
                 </>
               ) : (
                 <>
                   {step === 2 ? 'Create Page' : 'Next'}
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  <ArrowRight className="w-4 h-4 ml-1 sm:ml-2" />
                 </>
               )}
             </Button>
           ) : (
-            <Button variant="hero" onClick={() => navigate('/dashboard')} className="flex-1">
+            <Button variant="hero" size="default" onClick={() => navigate('/dashboard')} className="flex-1 text-sm">
               Go to Dashboard
-              <ArrowRight className="w-4 h-4 ml-2" />
+              <ArrowRight className="w-4 h-4 ml-1 sm:ml-2" />
             </Button>
           )}
         </div>
