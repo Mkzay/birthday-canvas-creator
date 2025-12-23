@@ -1,6 +1,7 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useApp } from '@/context/AppContext';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { 
   Plus, 
@@ -14,7 +15,8 @@ import {
   Trash2,
   LogOut,
   Settings,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -23,21 +25,79 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { themeConfig } from '@/types/birthday';
 import { format, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 
+interface BirthdayPage {
+  id: string;
+  recipient_name: string;
+  birthday_date: string;
+  theme: string;
+  status: string;
+  created_at: string;
+  message_count?: number;
+}
+
+const themeConfig = {
+  elegant: { name: 'Elegant', emoji: '✨', primary: 'from-amber-400 to-orange-500', accent: '#fbbf24' },
+  playful: { name: 'Playful', emoji: '🎈', primary: 'from-pink-500 to-purple-500', accent: '#ec4899' },
+  minimalist: { name: 'Minimalist', emoji: '🎯', primary: 'from-slate-600 to-slate-800', accent: '#64748b' },
+  retro: { name: 'Retro', emoji: '🌈', primary: 'from-cyan-400 to-purple-500', accent: '#06b6d4' },
+};
+
 const Dashboard = () => {
-  const { user, pages, deletePage } = useApp();
+  const navigate = useNavigate();
+  const { user, profile, signOut, loading: authLoading } = useAuth();
+  const [pages, setPages] = useState<BirthdayPage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchPages();
+    }
+  }, [user]);
+
+  const fetchPages = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('birthday_pages')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast.error('Failed to load pages');
+      console.error(error);
+    } else {
+      // Fetch message counts for each page
+      const pagesWithCounts = await Promise.all((data || []).map(async (page) => {
+        const { count } = await supabase
+          .from('birthday_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('page_id', page.id);
+        return { ...page, message_count: count || 0 };
+      }));
+      setPages(pagesWithCounts);
+    }
+    setLoading(false);
+  };
 
   const stats = {
     totalPages: pages.length,
     activePages: pages.filter(p => p.status === 'active').length,
-    totalMessages: pages.reduce((acc, p) => acc + p.messages.length, 0),
+    totalMessages: pages.reduce((acc, p) => acc + (p.message_count || 0), 0),
   };
 
-  const getStatusBadge = (page: typeof pages[0]) => {
-    const daysUntil = differenceInDays(new Date(page.birthdayDate), new Date());
+  const getStatusBadge = (page: BirthdayPage) => {
+    const daysUntil = differenceInDays(new Date(page.birthday_date), new Date());
     
     if (page.status === 'delivered') {
       return <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">Delivered</span>;
@@ -51,9 +111,14 @@ const Dashboard = () => {
     return <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">Active</span>;
   };
 
-  const handleDelete = (id: string, name: string) => {
-    deletePage(id);
-    toast.success(`"${name}'s" birthday page deleted`);
+  const handleDelete = async (id: string, name: string) => {
+    const { error } = await supabase.from('birthday_pages').delete().eq('id', id);
+    if (error) {
+      toast.error('Failed to delete page');
+    } else {
+      setPages(pages.filter(p => p.id !== id));
+      toast.success(`"${name}'s" birthday page deleted`);
+    }
   };
 
   const copyLink = (pageId: string, type: 'contribute' | 'birthday') => {
@@ -64,6 +129,21 @@ const Dashboard = () => {
     navigator.clipboard.writeText(link);
     toast.success('Link copied to clipboard!');
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,9 +160,9 @@ const Dashboard = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                <span className="text-sm font-medium text-foreground hidden sm:block">{user?.name}</span>
+                <span className="text-sm font-medium text-foreground hidden sm:block">{displayName}</span>
                 <div className="w-10 h-10 rounded-full gradient-cta flex items-center justify-center text-primary-foreground font-bold">
-                  {user?.name?.charAt(0)}
+                  {displayName.charAt(0).toUpperCase()}
                 </div>
               </button>
             </DropdownMenuTrigger>
@@ -96,7 +176,7 @@ const Dashboard = () => {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </DropdownMenuItem>
@@ -109,7 +189,7 @@ const Dashboard = () => {
         {/* Hero/Welcome */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, {user?.name}! 👋
+            Welcome back, {displayName}! 👋
           </h1>
           <p className="text-muted-foreground">Manage your birthday pages and spread the joy.</p>
         </div>
@@ -174,22 +254,22 @@ const Dashboard = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {pages.map((page) => {
-              const theme = themeConfig[page.theme];
+              const theme = themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant;
               return (
                 <div 
                   key={page.id}
                   className="bg-card rounded-2xl border-2 border-border hover:shadow-soft-lg transition-all duration-300 overflow-hidden group"
-                  style={{ borderColor: theme.colors.accent + '40' }}
+                  style={{ borderColor: theme.accent + '40' }}
                 >
                   {/* Theme Header */}
-                  <div className={`h-2 bg-gradient-to-r ${theme.colors.primary}`} />
+                  <div className={`h-2 bg-gradient-to-r ${theme.primary}`} />
                   
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-lg font-bold text-foreground">{page.recipientName}'s Birthday</h3>
+                        <h3 className="text-lg font-bold text-foreground">{page.recipient_name}'s Birthday</h3>
                         <p className="text-sm text-muted-foreground">
-                          {format(new Date(page.birthdayDate), 'MMMM d, yyyy')}
+                          {format(new Date(page.birthday_date), 'MMMM d, yyyy')}
                         </p>
                       </div>
                       <DropdownMenu>
@@ -210,7 +290,7 @@ const Dashboard = () => {
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             className="text-destructive"
-                            onClick={() => handleDelete(page.id, page.recipientName)}
+                            onClick={() => handleDelete(page.id, page.recipient_name)}
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete
@@ -220,16 +300,14 @@ const Dashboard = () => {
                     </div>
 
                     {/* Theme Badge */}
-                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r ${theme.colors.primary} text-primary-foreground text-xs font-medium mb-4`}>
+                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r ${theme.primary} text-primary-foreground text-xs font-medium mb-4`}>
                       <span>{theme.emoji}</span>
                       <span>{theme.name}</span>
                     </div>
 
                     {/* Stats */}
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                      <span>{page.messages.length} messages</span>
-                      <span>•</span>
-                      <span>{page.messages.filter(m => m.photo).length} photos</span>
+                      <span>{page.message_count || 0} messages</span>
                     </div>
 
                     {/* Status */}

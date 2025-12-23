@@ -1,25 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useApp } from '@/context/AppContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { themeConfig } from '@/types/birthday';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Upload, Send, Plus, Sparkles } from 'lucide-react';
+import { Upload, Send, Plus, Sparkles, Loader2 } from 'lucide-react';
 import Confetti from '@/components/Confetti';
+
+interface BirthdayPageData {
+  id: string;
+  recipient_name: string;
+  birthday_date: string;
+  theme: string;
+  allow_photos: boolean;
+  require_names: boolean;
+}
+
+const themeConfig = {
+  elegant: { name: 'Elegant', emoji: '✨', text: 'text-amber-900', bg: 'bg-gradient-to-br from-amber-50 to-orange-50' },
+  playful: { name: 'Playful', emoji: '🎈', text: 'text-pink-900', bg: 'bg-gradient-to-br from-pink-50 to-purple-50' },
+  minimalist: { name: 'Minimalist', emoji: '🎯', text: 'text-slate-900', bg: 'bg-gradient-to-br from-slate-50 to-gray-100' },
+  retro: { name: 'Retro', emoji: '🌈', text: 'text-purple-900', bg: 'bg-gradient-to-br from-cyan-50 to-purple-50' },
+};
 
 const ContributePage = () => {
   const { pageId } = useParams();
-  const { getPageById, addMessage } = useApp();
+  const [page, setPage] = useState<BirthdayPageData | null>(null);
+  const [messageCount, setMessageCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [senderName, setSenderName] = useState('');
   const [message, setMessage] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  
-  const page = pageId ? getPageById(pageId) : undefined;
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (pageId) {
+      fetchPage();
+    }
+  }, [pageId]);
+
+  const fetchPage = async () => {
+    const { data, error } = await supabase
+      .from('birthday_pages')
+      .select('*')
+      .eq('id', pageId)
+      .maybeSingle();
+
+    if (error || !data) {
+      setPage(null);
+    } else {
+      setPage(data);
+      // Get message count
+      const { count } = await supabase
+        .from('birthday_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('page_id', pageId);
+      setMessageCount(count || 0);
+    }
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
   
   if (!page) {
     return (
@@ -36,12 +87,12 @@ const ContributePage = () => {
     );
   }
 
-  const theme = themeConfig[page.theme];
+  const theme = themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (page.settings.requireNames && !senderName.trim()) {
+    if (page.require_names && !senderName.trim()) {
       toast.error('Please enter your name');
       return;
     }
@@ -51,13 +102,27 @@ const ContributePage = () => {
       return;
     }
 
-    addMessage(page.id, {
-      senderName: senderName.trim() || 'Anonymous',
-      message: message.trim(),
-    });
+    setSubmitting(true);
+
+    const { error } = await supabase
+      .from('birthday_messages')
+      .insert({
+        page_id: page.id,
+        sender_name: senderName.trim() || 'Anonymous',
+        message: message.trim(),
+      });
+
+    setSubmitting(false);
+
+    if (error) {
+      toast.error('Failed to add message');
+      console.error(error);
+      return;
+    }
 
     setShowConfetti(true);
     setIsSubmitted(true);
+    setMessageCount(prev => prev + 1);
     
     setTimeout(() => setShowConfetti(false), 5000);
   };
@@ -69,7 +134,7 @@ const ContributePage = () => {
   };
 
   return (
-    <div className={`min-h-screen ${theme.colors.bg}`}>
+    <div className={`min-h-screen ${theme.bg}`}>
       {showConfetti && <Confetti />}
       
       {/* Header */}
@@ -81,8 +146,8 @@ const ContributePage = () => {
             </div>
             <span className="text-xl font-bold text-foreground">WishCanvas</span>
           </Link>
-          <p className={`text-sm ${theme.colors.text} opacity-70`}>
-            It's {page.recipientName}'s birthday on {format(new Date(page.birthdayDate), 'MMMM d')}!
+          <p className={`text-sm ${theme.text} opacity-70`}>
+            It's {page.recipient_name}'s birthday on {format(new Date(page.birthday_date), 'MMMM d')}!
           </p>
         </div>
       </header>
@@ -93,17 +158,17 @@ const ContributePage = () => {
             {/* Hero */}
             <div className="text-center mb-8 animate-fade-in-up">
               <div className="text-6xl mb-4">{theme.emoji}</div>
-              <h1 className={`text-3xl font-bold ${theme.colors.text} mb-3 ${theme.font}`}>
-                Add Your Birthday Wish for {page.recipientName}
+              <h1 className={`text-3xl font-bold ${theme.text} mb-3`}>
+                Add Your Birthday Wish for {page.recipient_name}
               </h1>
               <div className="flex items-center justify-center gap-2">
                 <div className="flex -space-x-2">
-                  {[...Array(Math.min(page.messages.length, 3))].map((_, i) => (
-                    <div key={i} className={`w-8 h-8 rounded-full bg-gradient-to-br ${theme.colors.primary} border-2 border-card`} />
+                  {[...Array(Math.min(messageCount, 3))].map((_, i) => (
+                    <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary border-2 border-card" />
                   ))}
                 </div>
-                <span className={`text-sm ${theme.colors.text} opacity-70`}>
-                  {page.messages.length} {page.messages.length === 1 ? 'person has' : 'people have'} already contributed
+                <span className={`text-sm ${theme.text} opacity-70`}>
+                  {messageCount} {messageCount === 1 ? 'person has' : 'people have'} already contributed
                 </span>
               </div>
             </div>
@@ -111,7 +176,7 @@ const ContributePage = () => {
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
               <div className="bg-card rounded-2xl p-6 shadow-soft border border-border">
-                {page.settings.requireNames && (
+                {page.require_names && (
                   <div className="mb-6">
                     <Label htmlFor="name" className="text-foreground">Your Name</Label>
                     <Input
@@ -133,21 +198,21 @@ const ContributePage = () => {
                     id="message"
                     value={message}
                     onChange={(e) => setMessage(e.target.value.slice(0, 500))}
-                    placeholder={`Write your birthday wish for ${page.recipientName}...`}
+                    placeholder={`Write your birthday wish for ${page.recipient_name}...`}
                     className="min-h-[120px]"
                   />
                 </div>
 
-                {page.settings.allowPhotos && (
+                {page.allow_photos && (
                   <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer mb-6">
                     <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">Upload a photo (optional)</p>
                   </div>
                 )}
 
-                <Button type="submit" variant="hero" size="lg" className="w-full gap-2">
-                  <Send className="w-5 h-5" />
-                  Add My Wish
+                <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting}>
+                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {submitting ? 'Adding...' : 'Add My Wish'}
                 </Button>
               </div>
             </form>
@@ -156,11 +221,11 @@ const ContributePage = () => {
           /* Success State */
           <div className="text-center animate-scale-in">
             <div className="text-8xl mb-6">🎉</div>
-            <h2 className={`text-3xl font-bold ${theme.colors.text} mb-3`}>
+            <h2 className={`text-3xl font-bold ${theme.text} mb-3`}>
               Your wish has been added!
             </h2>
             <p className="text-muted-foreground mb-8">
-              {page.recipientName} will see it on their special day
+              {page.recipient_name} will see it on their special day
             </p>
             
             <div className="flex flex-col gap-4">
