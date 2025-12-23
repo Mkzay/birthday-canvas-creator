@@ -16,10 +16,9 @@ interface CountdownProps {
     gradientFrom?: string;
     gradientTo?: string;
   };
-  coverPhotoUrl?: string | null;
 }
 
-const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: CountdownProps) => {
+const BirthdayCountdown = ({ targetDate, recipientName, theme }: CountdownProps) => {
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
