@@ -421,7 +421,6 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
           targetDate={birthdayDate}
           recipientName={page.recipient_name}
           theme={theme}
-          coverPhotoUrl={page.cover_photo_url}
         />
       </div>
     );
