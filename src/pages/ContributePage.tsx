@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Upload, Send, Plus, Sparkles, Loader2 } from 'lucide-react';
+import { Upload, Send, Plus, Sparkles, Loader2, X, Image } from 'lucide-react';
 import Confetti from '@/components/Confetti';
 
 interface BirthdayPageData {
@@ -36,6 +36,10 @@ const ContributePage = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (pageId) {
@@ -62,6 +66,63 @@ const ContributePage = () => {
       setMessageCount(count || 0);
     }
     setLoading(false);
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setSelectedPhoto(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const removePhoto = () => {
+    setSelectedPhoto(null);
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+      setPhotoPreview(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadPhoto = async (): Promise<string | null> => {
+    if (!selectedPhoto || !pageId) return null;
+
+    setUploading(true);
+    const fileExt = selectedPhoto.name.split('.').pop();
+    const fileName = `${pageId}/${crypto.randomUUID()}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('birthday-photos')
+      .upload(fileName, selectedPhoto);
+
+    setUploading(false);
+
+    if (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload photo');
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('birthday-photos')
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
   };
 
   if (loading) {
@@ -104,12 +165,23 @@ const ContributePage = () => {
 
     setSubmitting(true);
 
+    // Upload photo if selected
+    let photoUrl: string | null = null;
+    if (selectedPhoto) {
+      photoUrl = await uploadPhoto();
+      if (!photoUrl && selectedPhoto) {
+        setSubmitting(false);
+        return; // Upload failed, don't continue
+      }
+    }
+
     const { error } = await supabase
       .from('birthday_messages')
       .insert({
         page_id: page.id,
         sender_name: senderName.trim() || 'Anonymous',
         message: message.trim(),
+        photo_url: photoUrl,
       });
 
     setSubmitting(false);
@@ -130,6 +202,8 @@ const ContributePage = () => {
   const handleAddAnother = () => {
     setSenderName('');
     setMessage('');
+    setSelectedPhoto(null);
+    setPhotoPreview(null);
     setIsSubmitted(false);
   };
 
@@ -204,15 +278,46 @@ const ContributePage = () => {
                 </div>
 
                 {page.allow_photos && (
-                  <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer mb-6">
-                    <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Upload a photo (optional)</p>
+                  <div className="mb-6">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoSelect}
+                      className="hidden"
+                    />
+                    
+                    {photoPreview ? (
+                      <div className="relative rounded-xl overflow-hidden border border-border">
+                        <img 
+                          src={photoPreview} 
+                          alt="Preview" 
+                          className="w-full h-48 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={removePhoto}
+                          className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background transition-colors"
+                        >
+                          <X className="w-4 h-4 text-foreground" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                      >
+                        <Image className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Click to upload a photo (optional)</p>
+                        <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting}>
-                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  {submitting ? 'Adding...' : 'Add My Wish'}
+                <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading}>
+                  {(submitting || uploading) ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {uploading ? 'Uploading...' : submitting ? 'Adding...' : 'Add My Wish'}
                 </Button>
               </div>
             </form>
