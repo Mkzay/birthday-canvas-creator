@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Loader2, Image, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -37,6 +37,13 @@ const EditPage = () => {
   const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
   const [allowPhotos, setAllowPhotos] = useState(true);
   const [requireNames, setRequireNames] = useState(true);
+  
+  // Cover photo state
+  const [currentCoverUrl, setCurrentCoverUrl] = useState<string | null>(null);
+  const [coverPhoto, setCoverPhoto] = useState<File | null>(null);
+  const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -70,7 +77,64 @@ const EditPage = () => {
     setSelectedTheme(data.theme as Theme);
     setAllowPhotos(data.allow_photos);
     setRequireNames(data.require_names);
+    setCurrentCoverUrl(data.cover_photo_url);
     setLoading(false);
+  };
+
+  const handleCoverPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setCoverPhoto(file);
+    setCoverPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const removeCoverPhoto = () => {
+    setCoverPhoto(null);
+    if (coverPhotoPreview) {
+      URL.revokeObjectURL(coverPhotoPreview);
+      setCoverPhotoPreview(null);
+    }
+    setCurrentCoverUrl(null);
+    if (coverInputRef.current) {
+      coverInputRef.current.value = '';
+    }
+  };
+
+  const uploadCoverPhoto = async (): Promise<string | null> => {
+    if (!coverPhoto || !pageId) return currentCoverUrl;
+
+    setUploadingCover(true);
+    const fileExt = coverPhoto.name.split('.').pop();
+    const fileName = `covers/${pageId}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('birthday-photos')
+      .upload(fileName, coverPhoto, { upsert: true });
+
+    setUploadingCover(false);
+
+    if (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload cover photo');
+      return currentCoverUrl;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('birthday-photos')
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
   };
 
   const handleSave = async () => {
@@ -85,6 +149,12 @@ const EditPage = () => {
 
     setSaving(true);
 
+    // Upload cover photo if new one selected
+    let coverUrl = currentCoverUrl;
+    if (coverPhoto) {
+      coverUrl = await uploadCoverPhoto();
+    }
+
     const { error } = await supabase
       .from('birthday_pages')
       .update({
@@ -94,6 +164,7 @@ const EditPage = () => {
         creator_message: creatorMessage || null,
         allow_photos: allowPhotos,
         require_names: requireNames,
+        cover_photo_url: coverUrl,
       })
       .eq('id', pageId);
 
@@ -125,6 +196,8 @@ const EditPage = () => {
       </div>
     );
   }
+
+  const displayCoverUrl = coverPhotoPreview || currentCoverUrl;
 
   return (
     <div className="min-h-screen bg-background">
@@ -198,6 +271,44 @@ const EditPage = () => {
                 className="mt-2 min-h-[100px]"
               />
             </div>
+
+            {/* Cover Photo */}
+            <div>
+              <Label className="text-foreground">Cover Photo</Label>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleCoverPhotoSelect}
+                className="hidden"
+              />
+              
+              {displayCoverUrl ? (
+                <div className="relative mt-2 rounded-xl overflow-hidden border border-border">
+                  <img 
+                    src={displayCoverUrl} 
+                    alt="Cover preview" 
+                    className="w-full h-40 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeCoverPhoto}
+                    className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background transition-colors"
+                  >
+                    <X className="w-4 h-4 text-foreground" />
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => coverInputRef.current?.click()}
+                  className="mt-2 border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                >
+                  <Image className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Click to upload a cover photo</p>
+                  <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -263,8 +374,15 @@ const EditPage = () => {
           <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1">
             Cancel
           </Button>
-          <Button variant="hero" onClick={handleSave} className="flex-1" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
+          <Button variant="hero" onClick={handleSave} className="flex-1" disabled={saving || uploadingCover}>
+            {(saving || uploadingCover) ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {uploadingCover ? 'Uploading...' : 'Saving...'}
+              </>
+            ) : (
+              'Save Changes'
+            )}
           </Button>
         </div>
       </main>

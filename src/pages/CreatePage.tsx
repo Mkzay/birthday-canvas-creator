@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Image, X, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -39,6 +39,12 @@ const CreatePage = () => {
   const [allowPhotos, setAllowPhotos] = useState(true);
   const [requireNames, setRequireNames] = useState(true);
   const [closeDate, setCloseDate] = useState<Date>();
+  
+  // Cover photo state
+  const [coverPhoto, setCoverPhoto] = useState<File | null>(null);
+  const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -51,6 +57,61 @@ const CreatePage = () => {
     { number: 2, label: 'Theme' },
     { number: 3, label: 'Share' },
   ];
+
+  const handleCoverPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setCoverPhoto(file);
+    setCoverPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const removeCoverPhoto = () => {
+    setCoverPhoto(null);
+    if (coverPhotoPreview) {
+      URL.revokeObjectURL(coverPhotoPreview);
+      setCoverPhotoPreview(null);
+    }
+    if (coverInputRef.current) {
+      coverInputRef.current.value = '';
+    }
+  };
+
+  const uploadCoverPhoto = async (pageId: string): Promise<string | null> => {
+    if (!coverPhoto) return null;
+
+    setUploadingCover(true);
+    const fileExt = coverPhoto.name.split('.').pop();
+    const fileName = `covers/${pageId}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('birthday-photos')
+      .upload(fileName, coverPhoto, { upsert: true });
+
+    setUploadingCover(false);
+
+    if (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload cover photo');
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('birthday-photos')
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
+  };
 
   const handleNext = async () => {
     if (step === 1) {
@@ -83,14 +144,25 @@ const CreatePage = () => {
         .select()
         .single();
 
-      setSaving(false);
-
       if (error) {
+        setSaving(false);
         toast.error('Failed to create page');
         console.error(error);
         return;
       }
 
+      // Upload cover photo if selected
+      if (coverPhoto && data) {
+        const coverUrl = await uploadCoverPhoto(data.id);
+        if (coverUrl) {
+          await supabase
+            .from('birthday_pages')
+            .update({ cover_photo_url: coverUrl })
+            .eq('id', data.id);
+        }
+      }
+
+      setSaving(false);
       setCreatedPageId(data.id);
       toast.success('Birthday page created!');
     }
@@ -217,6 +289,44 @@ const CreatePage = () => {
                   className="mt-2 min-h-[100px]"
                 />
               </div>
+
+              {/* Cover Photo Upload */}
+              <div>
+                <Label className="text-foreground">Cover Photo (optional)</Label>
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverPhotoSelect}
+                  className="hidden"
+                />
+                
+                {coverPhotoPreview ? (
+                  <div className="relative mt-2 rounded-xl overflow-hidden border border-border">
+                    <img 
+                      src={coverPhotoPreview} 
+                      alt="Cover preview" 
+                      className="w-full h-40 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeCoverPhoto}
+                      className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background transition-colors"
+                    >
+                      <X className="w-4 h-4 text-foreground" />
+                    </button>
+                  </div>
+                ) : (
+                  <div 
+                    onClick={() => coverInputRef.current?.click()}
+                    className="mt-2 border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                  >
+                    <Image className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Click to upload a cover photo</p>
+                    <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -334,9 +444,18 @@ const CreatePage = () => {
           )}
           
           {step < 3 ? (
-            <Button variant="hero" onClick={handleNext} className="flex-1" disabled={saving}>
-              {saving ? 'Creating...' : (step === 2 ? 'Create Page' : 'Next')}
-              <ArrowRight className="w-4 h-4 ml-2" />
+            <Button variant="hero" onClick={handleNext} className="flex-1" disabled={saving || uploadingCover}>
+              {(saving || uploadingCover) ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {uploadingCover ? 'Uploading...' : 'Creating...'}
+                </>
+              ) : (
+                <>
+                  {step === 2 ? 'Create Page' : 'Next'}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </>
+              )}
             </Button>
           ) : (
             <Button variant="hero" onClick={() => navigate('/dashboard')} className="flex-1">
