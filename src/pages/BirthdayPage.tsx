@@ -455,18 +455,6 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
         {/* Animated gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-current opacity-10 animate-pulse-slow z-0" />
         
-        {/* Cover photo background with parallax effect */}
-        {page.cover_photo_url && (
-          <div className="absolute inset-0 z-0">
-            <img 
-              src={page.cover_photo_url} 
-              alt="Cover" 
-              className="w-full h-full object-cover opacity-20 scale-110 animate-slow-zoom"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-current/20" />
-          </div>
-        )}
-        
         <div className={cn(
           "text-center relative z-10",
           entranceComplete ? "animate-hero-entrance" : "opacity-0"
@@ -529,25 +517,11 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
       {showMessages && (
         <section className="px-6 pt-12 pb-24 animate-section-reveal">
           <div className="max-w-4xl mx-auto">
-            {/* Cover photo from organizer */}
-            {page.cover_photo_url && (
-              <div className="mb-8 rounded-3xl overflow-hidden shadow-lg animate-slide-up">
-                <img 
-                  src={page.cover_photo_url} 
-                  alt="Birthday cover" 
-                  className="w-full h-auto max-h-96 object-contain bg-black/5"
-                  onClick={() => setExpandedPhoto(page.cover_photo_url)}
-                  style={{ cursor: 'pointer' }}
-                />
-              </div>
-            )}
-
             {page.creator_message && (
               <div className={cn(
-                "rounded-3xl p-8 mb-12 text-center animate-slide-up transform hover:scale-[1.01] transition-transform duration-300",
+                "rounded-3xl p-8 mb-12 text-center animate-message-pop transform hover:scale-[1.02] transition-all duration-300 shadow-xl",
                 `bg-gradient-to-br ${theme.primary}`
               )}
-              style={{ animationDelay: '0.1s' }}
               >
                 <Heart className="w-10 h-10 text-primary-foreground mx-auto mb-4 animate-heartbeat" />
                 <p className="text-xl text-primary-foreground italic font-medium">"{page.creator_message}"</p>
@@ -555,40 +529,65 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
               </div>
             )}
 
+            {/* Cover photo from organizer - displayed after message */}
+            {page.cover_photo_url && (
+              <div className="mb-12 rounded-3xl overflow-hidden shadow-2xl animate-message-flip cursor-pointer hover:scale-[1.01] transition-transform duration-300"
+                   style={{ animationDelay: '0.2s', animationFillMode: 'backwards' }}>
+                <img 
+                  src={page.cover_photo_url} 
+                  alt="Birthday cover" 
+                  className="w-full h-auto max-h-[500px] object-contain bg-black/5"
+                  onClick={() => setExpandedPhoto(page.cover_photo_url)}
+                />
+              </div>
+            )}
+
             <div className="grid gap-8 md:grid-cols-2">
-              {messages.map((msg, index) => (
-                <div 
-                  key={msg.id}
-                  className={cn(
-                    "rounded-3xl p-6 transition-all duration-500 animate-card-entrance hover:scale-[1.03] hover:-translate-y-1",
-                    theme.cardClass
-                  )}
-                  style={{ 
-                    animationDelay: `${index * 0.15}s`,
-                    animationFillMode: 'backwards'
-                  }}
-                >
-                  {msg.photo_url && (
-                    <div 
-                      className="mb-5 -mx-2 -mt-2 cursor-pointer overflow-hidden rounded-2xl group relative aspect-[4/3]"
-                      onClick={() => setExpandedPhoto(msg.photo_url)}
-                    >
-                      <img 
-                        src={msg.photo_url} 
-                        alt={`Photo from ${msg.sender_name}`}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                    </div>
-                  )}
-                  <p className={cn("text-lg mb-5 leading-relaxed", theme.text)}>
-                    "{msg.message}"
-                  </p>
-                  <span className={cn("font-semibold text-lg", theme.text)}>
-                    — {msg.sender_name}
-                  </span>
-                </div>
-              ))}
+              {messages.map((msg, index) => {
+                // Alternate between different fun animations
+                const animations = [
+                  'animate-message-pop',
+                  'animate-message-slide-bounce', 
+                  'animate-card-entrance',
+                  'animate-message-flip'
+                ];
+                const animationClass = animations[index % animations.length];
+                
+                return (
+                  <div 
+                    key={msg.id}
+                    className={cn(
+                      "rounded-3xl p-6 transition-all duration-500 hover:scale-[1.04] hover:-translate-y-2 hover:shadow-2xl",
+                      theme.cardClass,
+                      animationClass
+                    )}
+                    style={{ 
+                      animationDelay: `${0.3 + index * 0.2}s`,
+                      animationFillMode: 'backwards'
+                    }}
+                  >
+                    {msg.photo_url && (
+                      <div 
+                        className="mb-5 -mx-2 -mt-2 cursor-pointer overflow-hidden rounded-2xl group relative aspect-[4/3]"
+                        onClick={() => setExpandedPhoto(msg.photo_url)}
+                      >
+                        <img 
+                          src={msg.photo_url} 
+                          alt={`Photo from ${msg.sender_name}`}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                      </div>
+                    )}
+                    <p className={cn("text-lg mb-5 leading-relaxed", theme.text)}>
+                      "{msg.message}"
+                    </p>
+                    <span className={cn("font-semibold text-lg", theme.text)}>
+                      — {msg.sender_name}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             {messages.length === 0 && (
