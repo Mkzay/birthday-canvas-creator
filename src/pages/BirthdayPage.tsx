@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { ChevronDown, Sparkles, Heart, Loader2, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import BirthdayShareCard from '@/components/BirthdayShareCard';
+import BirthdayCountdown from '@/components/BirthdayCountdown';
+import { isBefore, startOfDay } from 'date-fns';
 
 interface BirthdayPageData {
   id: string;
@@ -386,6 +388,30 @@ const BirthdayPage = () => {
   const heroStyle = theme.isCustom 
     ? { background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }
     : {};
+
+  // Check if it's before the birthday
+  const birthdayDate = startOfDay(new Date(page.birthday_date));
+  const today = startOfDay(new Date());
+  const isBeforeBirthday = isBefore(today, birthdayDate);
+
+  // Show countdown if before birthday
+  if (isBeforeBirthday) {
+    return (
+      <div 
+        className={`min-h-screen ${!theme.isCustom ? theme.heroClass : ''} transition-colors duration-500`}
+        style={heroStyle}
+      >
+        <FloatingShapes theme={page.theme as keyof typeof themeConfig} />
+        <SparkleEffect theme={page.theme as keyof typeof themeConfig} />
+        <BirthdayCountdown 
+          targetDate={birthdayDate}
+          recipientName={page.recipient_name}
+          theme={theme}
+          coverPhotoUrl={page.cover_photo_url}
+        />
+      </div>
+    );
+  }
 
   return (
     <div 
