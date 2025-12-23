@@ -13,6 +13,7 @@ import ContributePage from "./pages/ContributePage";
 import BirthdayPage from "./pages/BirthdayPage";
 import PreviewPage from "./pages/PreviewPage";
 import ThemeBuilderPage from "./pages/ThemeBuilderPage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/birthday/:pageId" element={<BirthdayPage />} />
             <Route path="/preview/:pageId" element={<PreviewPage />} />
             <Route path="/themes" element={<ThemeBuilderPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

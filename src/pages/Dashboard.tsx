@@ -220,7 +220,7 @@ const Dashboard = () => {
                 <User className="w-4 h-4 mr-2" />
                 My Pages
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </DropdownMenuItem>
