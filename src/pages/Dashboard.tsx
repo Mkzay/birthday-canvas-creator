@@ -198,19 +198,19 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-cta flex items-center justify-center text-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-cta flex items-center justify-center text-lg sm:text-xl">
               🎨
             </div>
-            <span className="text-xl font-bold text-foreground">WishCanvas</span>
+            <span className="text-lg sm:text-xl font-bold text-foreground">WishCanvas</span>
           </Link>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <button className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity">
                 <span className="text-sm font-medium text-foreground hidden sm:block">{displayName}</span>
-                <div className="w-10 h-10 rounded-full gradient-cta flex items-center justify-center text-primary-foreground font-bold">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full gradient-cta flex items-center justify-center text-primary-foreground font-bold text-sm sm:text-base">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               </button>
@@ -234,65 +234,67 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Hero/Welcome */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
             Welcome back, {displayName}! 👋
           </h1>
-          <p className="text-muted-foreground">Manage your birthday pages and spread the joy.</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your birthday pages and spread the joy.</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-soft">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <FileText className="w-6 h-6 text-primary" />
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8">
+          <div className="bg-card rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-border shadow-soft">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-primary/10 flex items-center justify-center">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.totalPages}</p>
-                <p className="text-sm text-muted-foreground">Total Pages</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-soft">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                <Activity className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.activePages}</p>
-                <p className="text-sm text-muted-foreground">Active Pages</p>
+              <div className="text-center sm:text-left">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.totalPages}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Total</p>
               </div>
             </div>
           </div>
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-soft">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-secondary/50 flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-secondary" />
+          <div className="bg-card rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-border shadow-soft">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-green-100 flex items-center justify-center">
+                <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.totalMessages}</p>
-                <p className="text-sm text-muted-foreground">Messages Received</p>
+              <div className="text-center sm:text-left">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.activePages}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Active</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-border shadow-soft">
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-secondary/50 flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-secondary" />
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.totalMessages}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Messages</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Action Bar */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-8">
-          <div className="flex gap-3 flex-wrap">
-            <Link to="/create">
-              <Button variant="hero" size="lg" className="gap-2">
-                <Plus className="w-5 h-5" />
-                Create New Birthday Page
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between mb-6 sm:mb-8">
+          <div className="flex gap-2 sm:gap-3 flex-col sm:flex-row">
+            <Link to="/create" className="flex-1 sm:flex-none">
+              <Button variant="hero" size="default" className="gap-2 w-full sm:w-auto">
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="sm:hidden">New Page</span>
+                <span className="hidden sm:inline">Create New Birthday Page</span>
               </Button>
             </Link>
-            <Link to="/themes">
-              <Button variant="outline" size="lg" className="gap-2">
-                <Palette className="w-5 h-5" />
-                Theme Builder
+            <Link to="/themes" className="flex-1 sm:flex-none">
+              <Button variant="outline" size="default" className="gap-2 w-full sm:w-auto">
+                <Palette className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="sm:hidden">Themes</span>
+                <span className="hidden sm:inline">Theme Builder</span>
               </Button>
             </Link>
           </div>
@@ -300,45 +302,45 @@ const Dashboard = () => {
 
         {/* Pages Grid */}
         {pages.length === 0 ? (
-          <div className="text-center py-20 bg-muted/30 rounded-3xl">
-            <div className="text-6xl mb-4">🎂</div>
-            <h3 className="text-xl font-bold text-foreground mb-2">No birthday pages yet</h3>
-            <p className="text-muted-foreground mb-6">Create your first birthday page and start collecting wishes!</p>
+          <div className="text-center py-12 sm:py-20 px-4 bg-muted/30 rounded-2xl sm:rounded-3xl">
+            <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">🎂</div>
+            <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2">No birthday pages yet</h3>
+            <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">Create your first birthday page and start collecting wishes!</p>
             <Link to="/create">
-              <Button variant="hero">Create Your First Page</Button>
+              <Button variant="hero" size="default">Create Your First Page</Button>
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {pages.map((page) => {
               const theme = getThemeDisplay(page.theme);
               return (
                 <div 
                   key={page.id}
-                  className="bg-card rounded-2xl border-2 border-border hover:shadow-soft-lg transition-all duration-300 overflow-hidden group"
+                  className="bg-card rounded-xl sm:rounded-2xl border-2 border-border hover:shadow-soft-lg transition-all duration-300 overflow-hidden group"
                   style={{ borderColor: theme.accent + '40' }}
                 >
                   {/* Theme Header */}
                   {theme.isCustom ? (
                     <div 
-                      className="h-2" 
+                      className="h-1.5 sm:h-2" 
                       style={{ background: `linear-gradient(to right, ${theme.gradientFrom}, ${theme.gradientTo})` }}
                     />
                   ) : (
-                    <div className={`h-2 bg-gradient-to-r ${theme.primary}`} />
+                    <div className={`h-1.5 sm:h-2 bg-gradient-to-r ${theme.primary}`} />
                   )}
                   
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-bold text-foreground">{page.recipient_name}'s Birthday</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(page.birthday_date), 'MMMM d, yyyy')}
+                  <div className="p-4 sm:p-6">
+                    <div className="flex items-start justify-between mb-3 sm:mb-4">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <h3 className="text-base sm:text-lg font-bold text-foreground truncate">{page.recipient_name}'s Birthday</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {format(new Date(page.birthday_date), 'MMM d, yyyy')}
                         </p>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+                          <button className="p-1.5 sm:p-2 hover:bg-muted rounded-lg transition-colors flex-shrink-0">
                             <MoreVertical className="w-4 h-4 text-muted-foreground" />
                           </button>
                         </DropdownMenuTrigger>
@@ -366,40 +368,40 @@ const Dashboard = () => {
                     {/* Theme Badge */}
                     {theme.isCustom ? (
                       <div 
-                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-white text-xs font-medium mb-4"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-white text-xs font-medium mb-3 sm:mb-4"
                         style={{ background: `linear-gradient(to right, ${theme.gradientFrom}, ${theme.gradientTo})` }}
                       >
                         <span>{theme.emoji}</span>
                         <span>{theme.name}</span>
                       </div>
                     ) : (
-                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r ${theme.primary} text-primary-foreground text-xs font-medium mb-4`}>
+                      <div className={`inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-gradient-to-r ${theme.primary} text-primary-foreground text-xs font-medium mb-3 sm:mb-4`}>
                         <span>{theme.emoji}</span>
                         <span>{theme.name}</span>
                       </div>
                     )}
 
                     {/* Stats */}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                    <div className="flex items-center gap-4 text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
                       <span>{page.message_count || 0} messages</span>
                     </div>
 
                     {/* Status */}
-                    <div className="mb-4">
+                    <div className="mb-3 sm:mb-4">
                       {getStatusBadge(page)}
                     </div>
 
                     {/* Actions */}
                     <div className="flex gap-2">
                       <Link to={`/preview/${page.id}`} className="flex-1">
-                        <Button variant="outline" size="sm" className="w-full gap-1">
-                          <Eye className="w-4 h-4" />
+                        <Button variant="outline" size="sm" className="w-full gap-1 text-xs sm:text-sm">
+                          <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           View
                         </Button>
                       </Link>
                       <Link to={`/edit/${page.id}`} className="flex-1">
-                        <Button variant="outline" size="sm" className="w-full gap-1">
-                          <Edit className="w-4 h-4" />
+                        <Button variant="outline" size="sm" className="w-full gap-1 text-xs sm:text-sm">
+                          <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           Edit
                         </Button>
                       </Link>

@@ -212,44 +212,44 @@ const ContributePage = () => {
       {showConfetti && <Confetti />}
       
       {/* Header */}
-      <header className="px-6 py-4">
+      <header className="px-4 sm:px-6 py-3 sm:py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-center flex-col">
-          <Link to="/" className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl gradient-cta flex items-center justify-center text-xl">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-4">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-cta flex items-center justify-center text-lg sm:text-xl">
               🎨
             </div>
-            <span className="text-xl font-bold text-foreground">WishCanvas</span>
+            <span className="text-lg sm:text-xl font-bold text-foreground">WishCanvas</span>
           </Link>
-          <p className={`text-sm ${theme.text} opacity-70`}>
+          <p className={`text-xs sm:text-sm ${theme.text} opacity-70 text-center`}>
             It's {page.recipient_name}'s birthday on {format(new Date(page.birthday_date), 'MMMM d')}!
           </p>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-6 py-8">
+      <main className="max-w-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {!isSubmitted ? (
           <>
             {/* Hero */}
-            <div className="text-center mb-8 animate-fade-in-up">
-              <div className="text-6xl mb-4">{theme.emoji}</div>
-              <h1 className={`text-3xl font-bold ${theme.text} mb-3`}>
+            <div className="text-center mb-6 sm:mb-8 animate-fade-in-up">
+              <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">{theme.emoji}</div>
+              <h1 className={`text-2xl sm:text-3xl font-bold ${theme.text} mb-2 sm:mb-3 px-2`}>
                 Add Your Birthday Wish for {page.recipient_name}
               </h1>
               <div className="flex items-center justify-center gap-2">
                 <div className="flex -space-x-2">
                   {[...Array(Math.min(messageCount, 3))].map((_, i) => (
-                    <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary border-2 border-card" />
+                    <div key={i} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-primary to-secondary border-2 border-card" />
                   ))}
                 </div>
-                <span className={`text-sm ${theme.text} opacity-70`}>
-                  {messageCount} {messageCount === 1 ? 'person has' : 'people have'} already contributed
+                <span className={`text-xs sm:text-sm ${theme.text} opacity-70`}>
+                  {messageCount} {messageCount === 1 ? 'person has' : 'people have'} contributed
                 </span>
               </div>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              <div className="bg-card rounded-2xl p-6 shadow-soft border border-border">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+              <div className="bg-card rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-soft border border-border">
                 {page.require_names && (
                   <div className="mb-6">
                     <Label htmlFor="name" className="text-foreground">Your Name</Label>
@@ -324,17 +324,17 @@ const ContributePage = () => {
           </>
         ) : (
           /* Success State */
-          <div className="text-center animate-scale-in">
-            <div className="text-8xl mb-6">🎉</div>
-            <h2 className={`text-3xl font-bold ${theme.text} mb-3`}>
+          <div className="text-center animate-scale-in px-2">
+            <div className="text-6xl sm:text-8xl mb-4 sm:mb-6">🎉</div>
+            <h2 className={`text-2xl sm:text-3xl font-bold ${theme.text} mb-2 sm:mb-3`}>
               Your wish has been added!
             </h2>
-            <p className="text-muted-foreground mb-8">
+            <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
               {page.recipient_name} will see it on their special day
             </p>
             
-            <div className="flex flex-col gap-4">
-              <Button variant="outline" onClick={handleAddAnother} className="gap-2">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <Button variant="outline" size="default" onClick={handleAddAnother} className="gap-2">
                 <Plus className="w-4 h-4" />
                 Add Another Message
               </Button>
@@ -344,12 +344,12 @@ const ContributePage = () => {
                   <div className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="bg-background px-4 text-sm text-muted-foreground">or</span>
+                  <span className="bg-background px-4 text-xs sm:text-sm text-muted-foreground">or</span>
                 </div>
               </div>
               
               <Link to="/create">
-                <Button variant="hero" className="w-full gap-2">
+                <Button variant="hero" size="default" className="w-full gap-2">
                   <Sparkles className="w-4 h-4" />
                   Create Your Own Birthday Page
                 </Button>

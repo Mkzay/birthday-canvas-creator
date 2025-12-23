@@ -79,7 +79,7 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
     <div className="flex flex-col items-center">
       <div 
         className={cn(
-          "w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl flex items-center justify-center text-3xl sm:text-5xl md:text-6xl font-bold shadow-xl backdrop-blur-sm",
+          "w-16 h-16 sm:w-20 sm:h-20 md:w-28 md:h-28 rounded-xl sm:rounded-2xl flex items-center justify-center text-2xl sm:text-4xl md:text-5xl font-bold shadow-lg sm:shadow-xl backdrop-blur-sm",
           theme.isCustom 
             ? "bg-white/20 text-white border border-white/30" 
             : `bg-gradient-to-br ${theme.primary} text-white`
@@ -91,7 +91,7 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
         {String(value).padStart(2, '0')}
       </div>
       <span className={cn(
-        "mt-3 text-sm sm:text-base font-medium uppercase tracking-wider",
+        "mt-2 sm:mt-3 text-xs sm:text-sm font-medium uppercase tracking-wider",
         theme.text,
         theme.isCustom && "text-white/80"
       )}>
@@ -103,12 +103,12 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
   // Gotcha overlay
   if (showGotcha) {
     return (
-      <section className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
+      <section className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 relative overflow-hidden">
         {gotchaPhase === 'loading' && (
           <div className="text-center animate-fade-in">
-            <div className="text-6xl mb-6 animate-bounce">🎁</div>
+            <div className="text-5xl sm:text-6xl mb-4 sm:mb-6 animate-bounce">🎁</div>
             <h2 className={cn(
-              "text-2xl sm:text-3xl font-bold mb-4",
+              "text-xl sm:text-2xl md:text-3xl font-bold mb-3 sm:mb-4",
               theme.titleClass,
               theme.font,
               theme.isCustom && "text-white"
@@ -116,18 +116,18 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
               Revealing wishes early...
             </h2>
             <div className="flex justify-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-3 h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-3 h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </div>
         )}
         
         {gotchaPhase === 'gotcha' && (
-          <div className="text-center animate-scale-in">
-            <div className="text-8xl sm:text-9xl mb-6 animate-wiggle">😜</div>
+          <div className="text-center animate-scale-in px-4">
+            <div className="text-6xl sm:text-7xl md:text-8xl mb-4 sm:mb-6 animate-wiggle">😜</div>
             <h2 className={cn(
-              "text-3xl sm:text-5xl font-bold mb-4",
+              "text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4",
               theme.titleClass,
               theme.font,
               theme.isCustom && "text-white"
@@ -135,26 +135,26 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
               GOTCHA!
             </h2>
             <p className={cn(
-              "text-xl sm:text-2xl mb-6 opacity-90",
+              "text-lg sm:text-xl md:text-2xl mb-4 sm:mb-6 opacity-90",
               theme.text,
               theme.isCustom && "text-white"
             )}>
               Nice try! 🎉
             </p>
             <p className={cn(
-              "text-base sm:text-lg opacity-70",
+              "text-sm sm:text-base md:text-lg opacity-70 max-w-xs sm:max-w-none mx-auto",
               theme.text,
               theme.isCustom && "text-white/80"
             )}>
               You'll have to wait for your birthday like everyone else! 😄
             </p>
             
-            {/* Floating teasing emojis */}
+            {/* Floating teasing emojis - reduced for mobile */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              {[...Array(12)].map((_, i) => (
+              {[...Array(8)].map((_, i) => (
                 <div
                   key={i}
-                  className="absolute text-4xl animate-float-away"
+                  className="absolute text-2xl sm:text-3xl md:text-4xl animate-float-away"
                   style={{
                     left: `${Math.random() * 100}%`,
                     top: `${Math.random() * 100}%`,
@@ -172,7 +172,7 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
   }
 
   return (
-    <section className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden">
+    <section className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-0 relative overflow-hidden">
       {/* Cover photo background */}
       {coverPhotoUrl && (
         <div className="absolute inset-0 z-0">
@@ -185,17 +185,17 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
         </div>
       )}
 
-      <div className="text-center relative z-10 animate-fade-in">
+      <div className="text-center relative z-10 animate-fade-in w-full max-w-lg mx-auto">
         {/* Animated emoji */}
-        <div className="relative inline-block mb-8">
-          <div className="text-7xl sm:text-8xl animate-bounce-slow filter drop-shadow-lg">
+        <div className="relative inline-block mb-4 sm:mb-8">
+          <div className="text-5xl sm:text-6xl md:text-7xl animate-bounce-slow filter drop-shadow-lg">
             {theme.emoji}
           </div>
         </div>
 
         {/* Title */}
         <h1 className={cn(
-          "text-3xl sm:text-4xl md:text-5xl font-bold mb-4",
+          "text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-4 px-2",
           theme.titleClass,
           theme.font,
           theme.isCustom && "text-white drop-shadow-lg"
@@ -204,7 +204,7 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
         </h1>
 
         <p className={cn(
-          "text-lg sm:text-xl mb-12 opacity-80",
+          "text-base sm:text-lg md:text-xl mb-8 sm:mb-12 opacity-80",
           theme.text,
           theme.isCustom && "text-white/90"
         )}>
@@ -212,26 +212,26 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
         </p>
 
         {/* Countdown */}
-        <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-12">
+        <div className="flex flex-wrap justify-center gap-2 sm:gap-4 md:gap-6 mb-8 sm:mb-12">
           <TimeBlock value={timeLeft.days} label="Days" />
           <TimeBlock value={timeLeft.hours} label="Hours" />
-          <TimeBlock value={timeLeft.minutes} label="Minutes" />
-          <TimeBlock value={timeLeft.seconds} label="Seconds" />
+          <TimeBlock value={timeLeft.minutes} label="Mins" />
+          <TimeBlock value={timeLeft.seconds} label="Secs" />
         </div>
 
         {/* Message */}
         <div className={cn(
-          "max-w-md mx-auto p-6 rounded-2xl backdrop-blur-sm mb-8",
+          "max-w-sm sm:max-w-md mx-auto p-4 sm:p-6 rounded-xl sm:rounded-2xl backdrop-blur-sm mb-6 sm:mb-8",
           theme.isCustom 
             ? "bg-white/10 border border-white/20" 
             : "bg-white/50 border border-white/50"
         )}>
           <p className={cn(
-            "text-base sm:text-lg",
+            "text-sm sm:text-base md:text-lg",
             theme.text,
             theme.isCustom && "text-white"
           )}>
-            ✨ Your friends are preparing something special for you. Come back on your birthday to see all the wishes! ✨
+            ✨ Your friends are preparing something special. Come back on your birthday! ✨
           </p>
         </div>
 
@@ -239,22 +239,23 @@ const BirthdayCountdown = ({ targetDate, recipientName, theme, coverPhotoUrl }: 
         <Button
           onClick={handleEarlyReveal}
           variant="outline"
+          size="sm"
           className={cn(
-            "gap-2 backdrop-blur-sm transition-all hover:scale-105",
+            "gap-2 backdrop-blur-sm transition-all hover:scale-105 text-sm",
             theme.isCustom 
               ? "bg-white/10 border-white/30 text-white hover:bg-white/20" 
               : "bg-white/50 border-white/50"
           )}
         >
-          <Eye className="w-4 h-4" />
+          <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           Reveal early? 👀
         </Button>
 
-        {/* Floating decorations */}
-        <div className="absolute top-1/4 left-10 text-4xl animate-float-slow opacity-60">🎈</div>
-        <div className="absolute top-1/3 right-10 text-4xl animate-float-slow opacity-60" style={{ animationDelay: '1s' }}>🎁</div>
-        <div className="absolute bottom-1/4 left-1/4 text-4xl animate-float-slow opacity-60" style={{ animationDelay: '2s' }}>🎉</div>
-        <div className="absolute bottom-1/3 right-1/4 text-4xl animate-float-slow opacity-60" style={{ animationDelay: '0.5s' }}>⭐</div>
+        {/* Floating decorations - hidden on very small screens, reduced on mobile */}
+        <div className="hidden sm:block absolute top-1/4 left-4 sm:left-10 text-2xl sm:text-3xl md:text-4xl animate-float-slow opacity-60">🎈</div>
+        <div className="hidden sm:block absolute top-1/3 right-4 sm:right-10 text-2xl sm:text-3xl md:text-4xl animate-float-slow opacity-60" style={{ animationDelay: '1s' }}>🎁</div>
+        <div className="hidden md:block absolute bottom-1/4 left-1/4 text-3xl md:text-4xl animate-float-slow opacity-60" style={{ animationDelay: '2s' }}>🎉</div>
+        <div className="hidden md:block absolute bottom-1/3 right-1/4 text-3xl md:text-4xl animate-float-slow opacity-60" style={{ animationDelay: '0.5s' }}>⭐</div>
       </div>
     </section>
   );
