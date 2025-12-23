@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Sparkles, Heart, Loader2 } from 'lucide-react';
+import { ChevronDown, Sparkles, Heart, Loader2, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import BirthdayShareCard from '@/components/BirthdayShareCard';
 
 interface BirthdayPageData {
   id: string;
@@ -277,6 +278,7 @@ const BirthdayPage = () => {
   const [showMessages, setShowMessages] = useState(false);
   const [entranceComplete, setEntranceComplete] = useState(false);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
+  const [showShareCard, setShowShareCard] = useState(false);
 
   useEffect(() => {
     if (pageId) {
@@ -508,6 +510,31 @@ const BirthdayPage = () => {
             )}
           </div>
         </section>
+      )}
+
+      {/* Share Card Modal */}
+      <BirthdayShareCard
+        recipientName={page.recipient_name}
+        messageCount={messages.length}
+        themeEmoji={theme.emoji}
+        themeColors={theme.colors}
+        open={showShareCard}
+        onOpenChange={setShowShareCard}
+      />
+
+      {/* Floating Share Button */}
+      {showMessages && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <Button 
+            variant="hero" 
+            size="lg"
+            className="rounded-full shadow-xl gap-2"
+            onClick={() => setShowShareCard(true)}
+          >
+            <Share2 className="w-5 h-5" />
+            Share
+          </Button>
+        </div>
       )}
 
       {/* Footer */}

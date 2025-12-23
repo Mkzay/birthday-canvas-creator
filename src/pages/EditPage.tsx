@@ -215,23 +215,24 @@ const EditPage = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-cta flex items-center justify-center text-xl">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-cta flex items-center justify-center text-lg sm:text-xl">
               🎨
             </div>
-            <span className="text-xl font-bold text-foreground">WishCanvas</span>
+            <span className="text-lg sm:text-xl font-bold text-foreground hidden sm:block">WishCanvas</span>
           </Link>
           
-          <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+          <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 sm:gap-2">
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Dashboard</span>
           </Link>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-12">
-        <h1 className="text-2xl font-bold text-foreground mb-8">Edit Birthday Page</h1>
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-6 sm:mb-8">Edit Birthday Page</h1>
 
         {/* Details */}
         <div className="bg-card rounded-2xl p-6 border border-border mb-6">
@@ -325,9 +326,9 @@ const EditPage = () => {
         </div>
 
         {/* Theme */}
-        <div className="bg-card rounded-2xl p-6 border border-border mb-6">
+        <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border mb-6">
           <h2 className="font-bold text-foreground mb-4">Theme</h2>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
             {(Object.keys(themeConfig) as Theme[]).map((themeKey) => {
               const theme = themeConfig[themeKey];
               const isSelected = selectedTheme === themeKey;
@@ -336,15 +337,15 @@ const EditPage = () => {
                   key={themeKey}
                   onClick={() => setSelectedTheme(themeKey)}
                   className={cn(
-                    "aspect-square rounded-xl p-2 flex flex-col items-center justify-center gap-1 transition-all duration-300 border-2",
+                    "aspect-square rounded-lg sm:rounded-xl p-1 sm:p-2 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all duration-300 border-2",
                     `bg-gradient-to-br ${theme.primary}`,
                     isSelected 
                       ? "ring-2 ring-foreground/20 scale-105 border-primary-foreground" 
                       : "border-transparent opacity-70 hover:opacity-100"
                   )}
                 >
-                  <span className="text-xl">{theme.emoji}</span>
-                  <span className="text-[10px] font-medium text-primary-foreground">{theme.name}</span>
+                  <span className="text-base sm:text-xl">{theme.emoji}</span>
+                  <span className="text-[8px] sm:text-[10px] font-medium text-primary-foreground leading-tight">{theme.name}</span>
                 </button>
               );
             })}
@@ -367,30 +368,30 @@ const EditPage = () => {
         </div>
 
         {/* Share Links */}
-        <div className="bg-card rounded-2xl p-6 border border-border mb-6">
+        <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border mb-6">
           <h2 className="font-bold text-foreground mb-4">Share Links</h2>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="space-y-3 mb-4">
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 gap-2" onClick={() => copyLink('contribute')}>
-                <Copy className="w-4 h-4" />
-                Contribution
+              <Button variant="outline" className="flex-1 gap-2 text-sm" onClick={() => copyLink('contribute')}>
+                <Copy className="w-4 h-4 shrink-0" />
+                <span>Contribution Link</span>
               </Button>
-              <Button variant="outline" size="icon" onClick={() => { setQrType('contribute'); setQrModalOpen(true); }}>
+              <Button variant="outline" className="px-3" onClick={() => { setQrType('contribute'); setQrModalOpen(true); }}>
                 <QrCode className="w-4 h-4" />
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 gap-2" onClick={() => copyLink('birthday')}>
-                <Copy className="w-4 h-4" />
-                Birthday
+              <Button variant="outline" className="flex-1 gap-2 text-sm" onClick={() => copyLink('birthday')}>
+                <Copy className="w-4 h-4 shrink-0" />
+                <span>Birthday Link</span>
               </Button>
-              <Button variant="outline" size="icon" onClick={() => { setQrType('birthday'); setQrModalOpen(true); }}>
+              <Button variant="outline" className="px-3" onClick={() => { setQrType('birthday'); setQrModalOpen(true); }}>
                 <QrCode className="w-4 h-4" />
               </Button>
             </div>
           </div>
           <div className="pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-3">Share contribution link on social media</p>
+            <p className="text-xs text-muted-foreground mb-3 text-center">Share contribution link on social media</p>
             <SocialShareButtons 
               url={`${window.location.origin}/contribute/${pageId}`}
               message={`🎂 Help me celebrate ${recipientName}'s birthday! Add your wishes here:`}
