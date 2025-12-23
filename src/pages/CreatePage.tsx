@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar } from 'lucide-react';
-import { themeConfig, Theme } from '@/types/birthday';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -14,13 +14,22 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
+type Theme = 'elegant' | 'playful' | 'minimalist' | 'retro';
 type Step = 1 | 2 | 3;
+
+const themeConfig = {
+  elegant: { name: 'Elegant', emoji: '✨', primary: 'from-amber-400 to-orange-500' },
+  playful: { name: 'Playful', emoji: '🎈', primary: 'from-pink-500 to-purple-500' },
+  minimalist: { name: 'Minimalist', emoji: '🎯', primary: 'from-slate-600 to-slate-800' },
+  retro: { name: 'Retro', emoji: '🌈', primary: 'from-cyan-400 to-purple-500' },
+};
 
 const CreatePage = () => {
   const navigate = useNavigate();
-  const { createPage } = useApp();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState<Step>(1);
   const [createdPageId, setCreatedPageId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   
   // Form state
   const [recipientName, setRecipientName] = useState('');
@@ -31,13 +40,19 @@ const CreatePage = () => {
   const [requireNames, setRequireNames] = useState(true);
   const [closeDate, setCloseDate] = useState<Date>();
 
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
   const steps = [
     { number: 1, label: 'Details' },
     { number: 2, label: 'Theme' },
     { number: 3, label: 'Share' },
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1) {
       if (!recipientName.trim()) {
         toast.error('Please enter the recipient\'s name');
@@ -50,19 +65,33 @@ const CreatePage = () => {
     }
     
     if (step === 2) {
-      // Create the page
-      const newPage = createPage({
-        recipientName,
-        birthdayDate: birthdayDate!,
-        theme: selectedTheme,
-        creatorMessage,
-        settings: {
-          allowPhotos,
-          requireNames,
-          closeDate: closeDate || birthdayDate!,
-        },
-      });
-      setCreatedPageId(newPage.id);
+      // Create the page in database
+      setSaving(true);
+      const { data, error } = await supabase
+        .from('birthday_pages')
+        .insert({
+          user_id: user!.id,
+          recipient_name: recipientName,
+          birthday_date: format(birthdayDate!, 'yyyy-MM-dd'),
+          theme: selectedTheme,
+          creator_message: creatorMessage || null,
+          allow_photos: allowPhotos,
+          require_names: requireNames,
+          close_date: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate!, 'yyyy-MM-dd'),
+          status: 'active',
+        })
+        .select()
+        .single();
+
+      setSaving(false);
+
+      if (error) {
+        toast.error('Failed to create page');
+        console.error(error);
+        return;
+      }
+
+      setCreatedPageId(data.id);
       toast.success('Birthday page created!');
     }
     
@@ -207,8 +236,8 @@ const CreatePage = () => {
                     key={themeKey}
                     onClick={() => setSelectedTheme(themeKey)}
                     className={cn(
-                      "aspect-square rounded-2xl p-6 flex flex-col items-center justify-center gap-3 transition-all duration-300 border-2",
-                      `bg-gradient-to-br ${theme.colors.primary}`,
+                      "aspect-square rounded-2xl p-6 flex flex-col items-center justify-center gap-3 transition-all duration-300 border-2 relative",
+                      `bg-gradient-to-br ${theme.primary}`,
                       isSelected 
                         ? "ring-4 ring-foreground/20 scale-105 border-primary-foreground" 
                         : "border-transparent hover:scale-102 opacity-80 hover:opacity-100"
@@ -305,8 +334,8 @@ const CreatePage = () => {
           )}
           
           {step < 3 ? (
-            <Button variant="hero" onClick={handleNext} className="flex-1">
-              {step === 2 ? 'Create Page' : 'Next'}
+            <Button variant="hero" onClick={handleNext} className="flex-1" disabled={saving}>
+              {saving ? 'Creating...' : (step === 2 ? 'Create Page' : 'Next')}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
