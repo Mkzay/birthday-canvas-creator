@@ -527,7 +527,7 @@ const BirthdayPage = ({ isPreview = false }: BirthdayPageProps) => {
 
       {/* Messages Section with staggered animations */}
       {showMessages && (
-        <section className="px-6 pb-24 animate-section-reveal">
+        <section className="px-6 pt-12 pb-24 animate-section-reveal">
           <div className="max-w-4xl mx-auto">
             {/* Cover photo from organizer */}
             {page.cover_photo_url && (
