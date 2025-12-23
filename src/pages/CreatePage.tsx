@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Image, X, Loader2 } from 'lucide-react';
+import SocialShareButtons from '@/components/SocialShareButtons';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -385,7 +386,7 @@ const CreatePage = () => {
                 <h3 className="font-bold text-foreground">Contribution Link</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-4">Share this with friends to add messages</p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-4">
                 <Button variant="outline" className="flex-1 gap-2" onClick={() => copyLink('contribute')}>
                   <Copy className="w-4 h-4" />
                   Copy Link
@@ -393,6 +394,14 @@ const CreatePage = () => {
                 <Button variant="outline" size="icon">
                   <QrCode className="w-4 h-4" />
                 </Button>
+              </div>
+              <div className="pt-4 border-t border-border">
+                <p className="text-xs text-muted-foreground mb-3">Share directly on social media</p>
+                <SocialShareButtons 
+                  url={`${window.location.origin}/contribute/${createdPageId}`}
+                  message={`🎂 Help me celebrate ${recipientName}'s birthday! Add your wishes here:`}
+                  recipientName={recipientName}
+                />
               </div>
             </div>
 
