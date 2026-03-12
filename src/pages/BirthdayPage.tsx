@@ -151,6 +151,93 @@ function getMobileSectionCaption(slide: RevealSlide) {
   }
 }
 
+function getMobileSectionMarker(slide: RevealSlide) {
+  switch (slide.kind) {
+    case 'cover':
+      return '✦';
+    case 'stats':
+      return '◌';
+    case 'organizer':
+      return '♥';
+    case 'wish':
+      return '✉';
+    case 'closing':
+      return '✺';
+    default:
+      return '•';
+  }
+}
+
+function getMobileSectionTone(slide: RevealSlide, isDarkExperience: boolean) {
+  if (isDarkExperience) {
+    switch (slide.kind) {
+      case 'cover':
+        return {
+          lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(255,214,153,0.55),transparent)]',
+          badgeClass: 'border-white/16 bg-white/10 text-white/88',
+        };
+      case 'stats':
+        return {
+          lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(196,181,253,0.55),transparent)]',
+          badgeClass: 'border-white/16 bg-white/10 text-white/88',
+        };
+      case 'organizer':
+        return {
+          lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(251,113,133,0.5),transparent)]',
+          badgeClass: 'border-white/16 bg-white/10 text-white/88',
+        };
+      case 'wish':
+        return {
+          lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(147,197,253,0.5),transparent)]',
+          badgeClass: 'border-white/16 bg-white/10 text-white/88',
+        };
+      case 'closing':
+        return {
+          lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(253,224,71,0.55),transparent)]',
+          badgeClass: 'border-white/16 bg-white/10 text-white/88',
+        };
+      default:
+        return {
+          lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent)]',
+          badgeClass: 'border-white/16 bg-white/10 text-white/88',
+        };
+    }
+  }
+
+  switch (slide.kind) {
+    case 'cover':
+      return {
+        lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(245,158,11,0.4),transparent)]',
+        badgeClass: 'border-amber-200/80 bg-amber-50/90 text-amber-900',
+      };
+    case 'stats':
+      return {
+        lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(96,165,250,0.32),transparent)]',
+        badgeClass: 'border-sky-200/80 bg-sky-50/92 text-sky-900',
+      };
+    case 'organizer':
+      return {
+        lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(251,113,133,0.32),transparent)]',
+        badgeClass: 'border-rose-200/80 bg-rose-50/92 text-rose-900',
+      };
+    case 'wish':
+      return {
+        lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(192,132,252,0.32),transparent)]',
+        badgeClass: 'border-fuchsia-200/80 bg-fuchsia-50/92 text-fuchsia-900',
+      };
+    case 'closing':
+      return {
+        lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(34,197,94,0.28),transparent)]',
+        badgeClass: 'border-emerald-200/80 bg-emerald-50/92 text-emerald-900',
+      };
+    default:
+      return {
+        lineClass: 'bg-[linear-gradient(90deg,transparent,rgba(15,23,42,0.14),transparent)]',
+        badgeClass: 'border-white/70 bg-white/84 text-foreground',
+      };
+  }
+}
+
 const themeConfig = {
   elegant: {
     emoji: '✨',
@@ -472,6 +559,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const burstMessages = useMemo(() => messages.slice(0, 4), [messages]);
   const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
+  const coverPhotoSrc = useMemo(() => {
+    if (!resolvedCoverPhotoUrl) return null;
+    return resolvedCoverPhotoUrl.includes('?')
+      ? `${resolvedCoverPhotoUrl}&render=cover-v2`
+      : `${resolvedCoverPhotoUrl}?render=cover-v2`;
+  }, [resolvedCoverPhotoUrl]);
 
   const beginReveal = async () => {
     setHasTriggeredIntro(true);
@@ -627,6 +720,24 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       '--story-delay': `${delay}ms`,
       ...(duration ? { '--story-duration': `${duration}ms` } : {}),
     }) as React.CSSProperties;
+  const renderStoryImage = (
+    src: string,
+    alt: string,
+    options?: { objectPosition?: string; className?: string; eager?: boolean; disableParallax?: boolean },
+  ) => (
+    <img
+      src={src}
+      alt={alt}
+      draggable={false}
+      decoding="async"
+      loading={options?.eager ? 'eager' : 'lazy'}
+      className={cn(
+        options?.disableParallax ? 'absolute inset-0 block h-full w-full object-cover' : 'story-photo-layer absolute inset-0 h-full w-full object-cover',
+        options?.className,
+      )}
+      style={options?.objectPosition ? { objectPosition: options.objectPosition } : undefined}
+    />
+  );
   const handleBoardParallaxMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
     if (typeof window === 'undefined' || !window.matchMedia('(pointer: fine)').matches) return;
 
@@ -912,14 +1023,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   data-scroll-reveal="true"
                   style={getStoryDelayStyle(Math.min(90 + index * 60, 300), 620)}
                 >
-                  <div className={cn('h-px flex-1', isDarkExperience ? 'bg-white/14' : 'bg-foreground/10')} />
+                  <div className={cn('h-px flex-1', getMobileSectionTone(slide, isDarkExperience).lineClass)} />
                   <div className="shrink-0 text-center">
-                    <p className={cn('text-[10px] font-semibold uppercase tracking-[0.26em] opacity-65', theme.text)}>
-                      {getMobileSectionLabel(slide)}
-                    </p>
-                    <p className={cn('mt-1 text-[11px] opacity-55', theme.text)}>{getMobileSectionCaption(slide)}</p>
+                    <div className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]', getMobileSectionTone(slide, isDarkExperience).badgeClass)}>
+                      <span className="text-sm leading-none">{getMobileSectionMarker(slide)}</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.24em]">{getMobileSectionLabel(slide)}</span>
+                    </div>
+                    <p className={cn('mt-1.5 text-[11px] opacity-55', theme.text)}>{getMobileSectionCaption(slide)}</p>
                   </div>
-                  <div className={cn('h-px flex-1', isDarkExperience ? 'bg-white/14' : 'bg-foreground/10')} />
+                  <div className={cn('h-px flex-1', getMobileSectionTone(slide, isDarkExperience).lineClass)} />
                 </div>
               )}
 
@@ -965,13 +1077,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       onMouseLeave={handleBoardParallaxLeave}
                     >
                       <div className="relative isolate aspect-[4/5] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc]">
-                        {resolvedCoverPhotoUrl ? (
-                          <div
-                            role="img"
-                            aria-label={`${page.recipient_name}'s birthday cover`}
-                            className="story-photo-layer absolute inset-0"
-                            style={{ background: `center 28% / cover no-repeat url("${resolvedCoverPhotoUrl}")` }}
-                          />
+                        {coverPhotoSrc ? (
+                          renderStoryImage(coverPhotoSrc, `${page.recipient_name}'s birthday cover`, {
+                            objectPosition: 'center 28%',
+                            eager: true,
+                            disableParallax: true,
+                          })
                         ) : (
                           <div className="flex h-full items-center justify-center text-[5rem]">{theme.emoji}</div>
                         )}
@@ -1086,12 +1197,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 }
                               >
                                 <div className="relative isolate aspect-[4/5] overflow-hidden rounded-[1.1rem] bg-[#dfe7dc]">
-                                  <div
-                                    role="img"
-                                    aria-label={`Photo from ${slide.message.sender_name}`}
-                                    className="story-photo-layer absolute inset-0"
-                                    style={{ background: `center / cover no-repeat url("${resolveAssetUrl(photo.photo_url)}")` }}
-                                  />
+                                  {renderStoryImage(resolveAssetUrl(photo.photo_url) || photo.photo_url, `Photo from ${slide.message.sender_name}`)}
                                   <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/56 via-black/10 to-transparent" />
                                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
                                     <div className="min-w-0">
@@ -1123,14 +1229,34 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       {theme.emoji}
                     </div>
                     <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(130, getStoryMotionDuration(slide))}>
-                      <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>One more thing</p>
+                      <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>Final page</p>
                       <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[1]', theme.titleClass, theme.font)}>
-                        You are deeply loved,
+                        Keep this close,
                         <br />
                         {page.recipient_name}.
                       </h2>
                       <p className={cn('mt-4 text-base leading-relaxed opacity-80', theme.text)}>
-                        Every photo, every message, and every voice note here was written to make this day feel bigger.
+                        This is the part worth replaying: every photo, every message, and every voice note gathered into one last birthday page.
+                      </p>
+                      <div className="mt-5 grid grid-cols-3 gap-2 text-left">
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes</p>
+                          <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{messages.length}</p>
+                        </div>
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Photos</p>
+                          <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{totalPhotos}</p>
+                        </div>
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Voices</p>
+                          <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{totalAudioWishes}</p>
+                        </div>
+                      </div>
+                    </article>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4 text-left', keepsakeSoftClass)} style={getStoryDelayStyle(220, 760)}>
+                      <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>From everyone who wrote tonight</p>
+                      <p className={cn('mt-3 text-lg leading-relaxed', theme.text)}>
+                        Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                       </p>
                     </article>
                   </div>
@@ -1274,33 +1400,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                         <div className="order-1 lg:order-2">
                           <div
-                            className={cn('story-stage-reveal story-photo-board relative flex h-full flex-col rounded-[1.95rem] border p-3 sm:rounded-[2.2rem] sm:p-4 lg:p-5', keepsakePhotoBoardClass)}
+                            className={cn('story-stage-reveal story-photo-board relative rounded-[1.95rem] border p-3 sm:rounded-[2.2rem] sm:p-4 lg:p-5', keepsakePhotoBoardClass)}
                             style={getStoryDelayStyle(130, getStoryMotionDuration(activeSlide))}
                             onMouseMove={handleBoardParallaxMove}
                             onMouseLeave={handleBoardParallaxLeave}
                           >
                             <span className={cn('absolute left-6 top-4 h-6 w-16 rounded-full opacity-80 sm:left-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
                             <span className={cn('absolute right-6 top-4 h-6 w-16 rounded-full opacity-80 sm:right-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
-                            <div className="relative flex-1 overflow-hidden rounded-[1.55rem] sm:rounded-[1.85rem]">
-                              <div className="relative isolate h-full min-h-[13rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:min-h-[20rem] sm:rounded-[1.7rem] lg:min-h-[48dvh]">
-                                {resolvedCoverPhotoUrl ? (
-                                  <div
-                                    role="img"
-                                    aria-label={`${page.recipient_name}'s birthday cover`}
-                                    className="story-photo-layer absolute inset-0 z-0"
-                                    style={{
-                                      background: `center 28% / cover no-repeat url("${resolvedCoverPhotoUrl}")`,
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="flex h-full items-center justify-center text-[6rem] sm:text-[8rem]">
-                                    {theme.emoji}
-                                  </div>
-                                )}
-                                <div className="absolute inset-x-0 bottom-0 z-10 h-[42%] bg-gradient-to-t from-black/42 via-black/12 to-transparent" />
-                                <div className="absolute left-4 top-4 z-20 rounded-full bg-black/24 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/76 backdrop-blur-md">
-                                  Birthday keepsake
+                            <div className="relative isolate h-[20rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:h-[24rem] sm:rounded-[1.7rem] lg:h-[48dvh]">
+                              {coverPhotoSrc ? (
+                                renderStoryImage(coverPhotoSrc, `${page.recipient_name}'s birthday cover`, {
+                                  objectPosition: 'center 28%',
+                                  eager: true,
+                                  disableParallax: true,
+                                })
+                              ) : (
+                                <div className="flex h-full items-center justify-center text-[6rem] sm:text-[8rem]">
+                                  {theme.emoji}
                                 </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 z-10 h-[42%] bg-gradient-to-t from-black/42 via-black/12 to-transparent" />
+                              <div className="absolute left-4 top-4 z-20 rounded-full bg-black/24 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/76 backdrop-blur-md">
+                                Birthday keepsake
                               </div>
                             </div>
 
@@ -1402,13 +1523,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           aria-label={`Expand photo from ${activeSlide.message.sender_name}`}
                         >
                           <div className="relative isolate h-full min-h-[8.8rem] overflow-hidden rounded-[1.2rem] bg-[#dfe7dc] sm:rounded-[1.35rem]">
-                            <div
-                              role="img"
-                              aria-label={`Photo from ${activeSlide.message.sender_name}`}
-                              className={cn('story-photo-layer absolute inset-0 z-0', imageClassName)}
-                              style={{
-                                background: `center / cover no-repeat url("${resolveAssetUrl(photo.photo_url)}")`,
-                              }}
+                            <img
+                              className={cn('story-photo-layer absolute inset-0 z-0 h-full w-full object-cover', imageClassName)}
+                              src={resolveAssetUrl(photo.photo_url) || photo.photo_url}
+                              alt={`Photo from ${activeSlide.message.sender_name}`}
+                              decoding="async"
+                              loading="lazy"
+                              draggable={false}
                             />
                             <div className="absolute inset-x-0 bottom-0 z-10 h-[46%] bg-gradient-to-t from-black/56 via-black/10 to-transparent" />
                             <div className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-3 p-4">
@@ -1540,30 +1661,61 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   {activeSlide.kind === 'closing' && (
                     <div className="flex h-full flex-col items-center justify-center text-center">
-                      <div className={cn('story-stage-reveal flex h-24 w-24 items-center justify-center rounded-[2rem] border text-5xl', experienceInsetClass)} style={getStoryDelayStyle(60)}>
+                      <div className={cn('story-stage-reveal flex h-24 w-24 items-center justify-center rounded-[2rem] border text-5xl', experienceInsetClass)} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
                         {theme.emoji}
                       </div>
-                      <p className={cn('story-stage-reveal-soft mt-8 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)} style={getStoryDelayStyle(120)}>
-                        One more thing
-                      </p>
-                      <h2 className={cn('story-stage-reveal mt-4 text-4xl font-bold sm:text-6xl', theme.titleClass, theme.font)} style={getStoryDelayStyle(180)}>
-                        You are deeply loved,
-                        <br />
-                        {page.recipient_name}.
-                      </h2>
-                      <p className={cn('story-stage-reveal-soft mt-5 max-w-2xl text-base leading-relaxed opacity-80 sm:text-xl', theme.text)} style={getStoryDelayStyle(250)}>
-                        Every photo, every message, and every voice note here was written to make this day feel bigger.
-                      </p>
+                      <div className="grid w-full max-w-5xl gap-6 lg:grid-cols-[1.06fr_0.94fr] lg:items-center">
+                        <article className={cn('story-stage-reveal relative overflow-hidden rounded-[2rem] border p-6 text-left sm:p-8', keepsakePaperClass)} style={getStoryDelayStyle(110, getStoryMotionDuration(activeSlide))}>
+                          <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>
+                            Final page
+                          </p>
+                          <h2 className={cn('mt-4 text-4xl font-bold leading-[0.96] sm:text-[3.9rem]', theme.titleClass, theme.font)}>
+                            Keep this close,
+                            <br />
+                            {page.recipient_name}.
+                          </h2>
+                          <p className={cn('mt-5 max-w-2xl text-base leading-relaxed opacity-80 sm:text-xl', theme.text)}>
+                            Every photo, every message, and every voice note here was gathered to make one thing clear: you are deeply loved.
+                          </p>
 
-                      <div className="story-stage-reveal-soft mt-8 flex flex-wrap justify-center gap-3" data-no-nav="true" style={getStoryDelayStyle(320)}>
-                        <Button variant="hero" size="lg" className="gap-2" onClick={() => setShowShareCard(true)}>
-                          <Share2 className="h-4 w-4" />
-                          Share this moment
-                        </Button>
-                        <Button variant="outline" size="lg" className="gap-2" onClick={() => setCurrentSlide(0)}>
-                          <ChevronLeft className="h-4 w-4" />
-                          Replay from the start
-                        </Button>
+                          <div className="story-stage-reveal-soft mt-8 flex flex-wrap gap-3" data-no-nav="true" style={getStoryDelayStyle(260, 760)}>
+                            <Button variant="hero" size="lg" className="gap-2" onClick={() => setShowShareCard(true)}>
+                              <Share2 className="h-4 w-4" />
+                              Share this moment
+                            </Button>
+                            <Button variant="outline" size="lg" className="gap-2" onClick={() => setCurrentSlide(0)}>
+                              <ChevronLeft className="h-4 w-4" />
+                              Replay from the start
+                            </Button>
+                          </div>
+                        </article>
+
+                        <div className="flex flex-col gap-4">
+                          <article className={cn('story-stage-reveal-soft rounded-[1.75rem] border p-5 text-left sm:p-6', keepsakeSoftClass)} style={getStoryDelayStyle(180, 760)}>
+                            <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>What stays with this page</p>
+                            <div className="mt-4 grid grid-cols-3 gap-3">
+                              <div>
+                                <p className={cn('text-3xl font-semibold leading-none sm:text-4xl', theme.titleClass, theme.font)}>{messages.length}</p>
+                                <p className={cn('mt-2 text-xs uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes</p>
+                              </div>
+                              <div>
+                                <p className={cn('text-3xl font-semibold leading-none sm:text-4xl', theme.titleClass, theme.font)}>{totalPhotos}</p>
+                                <p className={cn('mt-2 text-xs uppercase tracking-[0.18em] opacity-60', theme.text)}>Photos</p>
+                              </div>
+                              <div>
+                                <p className={cn('text-3xl font-semibold leading-none sm:text-4xl', theme.titleClass, theme.font)}>{totalAudioWishes}</p>
+                                <p className={cn('mt-2 text-xs uppercase tracking-[0.18em] opacity-60', theme.text)}>Voices</p>
+                              </div>
+                            </div>
+                          </article>
+
+                          <article className={cn('story-stage-reveal-soft rounded-[1.75rem] border p-5 text-left sm:p-6', keepsakeSoftClass)} style={getStoryDelayStyle(240, 800)}>
+                            <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Signed by the people who showed up</p>
+                            <p className={cn('mt-4 text-lg leading-relaxed sm:text-[1.15rem]', theme.text)}>
+                              Happy birthday, {page.recipient_name}. This story was worth making because you were worth gathering for.
+                            </p>
+                          </article>
+                        </div>
                       </div>
                     </div>
                   )}

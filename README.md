@@ -1,6 +1,6 @@
 # WishCanvas
 
-WishCanvas is a Vite + React app with a local Express API backed by Neon Postgres.
+WishCanvas is a Vite + React app with an Express API backed by Neon Postgres.
 
 ## Stack
 
@@ -26,6 +26,7 @@ DATABASE_URL=...
 JWT_SECRET=...
 API_PORT=3001
 CLIENT_URL=http://localhost:8080
+VITE_API_ORIGIN=http://localhost:3001
 ```
 
 3. Start the client and API together:
@@ -36,11 +37,62 @@ npm run dev
 
 The frontend runs on `http://localhost:8080` and proxies `/api` and `/uploads` to the Express server on `http://localhost:3001`.
 
+## Deploying with Vercel + Railway
+
+Use Vercel for the frontend and Railway for the Express API.
+
+### Railway
+
+1. Create a Railway service from this repo.
+2. Set the start command to:
+
+```sh
+npm run start
+```
+
+3. Configure these environment variables in Railway:
+
+```sh
+DATABASE_URL=...
+JWT_SECRET=...
+CLIENT_URLS=https://your-production-domain.com,https://your-vercel-preview.vercel.app
+ALLOW_VERCEL_PREVIEWS=true
+COOKIE_SAME_SITE=none
+COOKIE_SECURE=true
+UPLOADS_ROOT=/data/uploads
+```
+
+Notes:
+
+- Railway provides `PORT` automatically.
+- If you use file uploads in production, mount a Railway volume and point `UPLOADS_ROOT` at that mounted path. Without persistent storage, uploaded photos and audio will be lost on redeploy or restart.
+- `CLIENT_URLS` accepts a comma-separated list of allowed frontend origins.
+
+### Vercel
+
+1. Create a Vercel project from this repo.
+2. Set this frontend environment variable:
+
+```sh
+VITE_API_ORIGIN=https://your-railway-service.up.railway.app
+```
+
+3. Keep the existing `vercel.json` rewrite so React Router routes resolve to `index.html`.
+
+### Cross-domain auth
+
+Authentication uses cookies. For Vercel and Railway to work together:
+
+- the frontend must call the Railway API using `VITE_API_ORIGIN`
+- the backend must allow the frontend origin in `CLIENT_URLS`
+- production cookies must use `COOKIE_SAME_SITE=none` and `COOKIE_SECURE=true`
+
 ## Scripts
 
 - `npm run dev` starts the Vite client and the Express API together
 - `npm run dev:client` starts only the frontend
 - `npm run dev:server` starts only the API
+- `npm run start` starts only the API in a deployment environment
 - `npm run lint` runs ESLint
 - `npm run typecheck` runs TypeScript checks for client, Vite config, and server
 - `npm run build` builds the frontend

@@ -2,7 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
 
-export const uploadsRoot = path.resolve(process.cwd(), "uploads");
+const configuredUploadsRoot = process.env.UPLOADS_ROOT?.trim();
+
+export const uploadsRoot = configuredUploadsRoot
+  ? path.resolve(configuredUploadsRoot)
+  : path.resolve(process.cwd(), "uploads");
 export const coversRoot = path.join(uploadsRoot, "covers");
 export const messagesRoot = path.join(uploadsRoot, "messages");
 export const pageAudioRoot = path.join(uploadsRoot, "page-audio");
@@ -96,7 +100,13 @@ export function fileUrl(relativePath: string) {
 export function removeFileByUrl(url?: string | null) {
   if (!url || !url.startsWith("/uploads/")) return;
 
-  const filePath = path.resolve(process.cwd(), url.replace("/uploads/", "uploads/"));
+  const relativePath = url.slice("/uploads/".length);
+  const filePath = path.resolve(uploadsRoot, relativePath);
+
+  if (!filePath.startsWith(uploadsRoot)) {
+    return;
+  }
+
   if (fs.existsSync(filePath)) {
     fs.rmSync(filePath, { force: true });
   }

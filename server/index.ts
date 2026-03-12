@@ -10,11 +10,39 @@ import type { AuthedRequest, SessionUser } from "./types";
 import { coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload } from "./uploads";
 
 const app = express();
-const port = Number(process.env.API_PORT || 3001);
-const clientOrigin = process.env.CLIENT_URL || "http://localhost:8080";
+const port = Number(process.env.PORT || process.env.API_PORT || 3001);
+
+function getAllowedOrigins() {
+  const rawOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:8080";
+  return rawOrigins
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  if (process.env.ALLOW_VERCEL_PREVIEWS === "true" && /^https:\/\/.*\.vercel\.app$/i.test(origin)) {
+    return true;
+  }
+
+  return false;
+}
+
+const allowedOrigins = getAllowedOrigins();
 
 app.use(cors({
-  origin: clientOrigin,
+  origin(origin, callback) {
+    if (!origin || isAllowedOrigin(origin, allowedOrigins)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin ${origin} is not allowed by CORS`));
+  },
   credentials: true,
 }));
 app.use(cookieParser());
@@ -886,7 +914,7 @@ app.use((error: Error, _request: express.Request, response: express.Response, _n
 initializeDatabase()
   .then(() => {
     app.listen(port, () => {
-      console.log(`WishCanvas API listening on http://localhost:${port}`);
+      console.log(`WishCanvas API listening on port ${port}`);
     });
   })
   .catch((error) => {

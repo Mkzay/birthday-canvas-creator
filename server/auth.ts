@@ -5,6 +5,31 @@ import type { AuthedRequest, SessionUser } from "./types";
 
 const sessionCookieName = "wishcanvas_session";
 
+function readBooleanEnv(value: string | undefined, fallback: boolean) {
+  if (value == null) return fallback;
+  return value.toLowerCase() === "true";
+}
+
+function getCookieOptions() {
+  const inProduction = process.env.NODE_ENV === "production";
+  const configuredSameSite = process.env.COOKIE_SAME_SITE?.toLowerCase();
+  const sameSite = configuredSameSite === "strict" || configuredSameSite === "lax" || configuredSameSite === "none"
+    ? configuredSameSite
+    : inProduction
+      ? "none"
+      : "lax";
+  const secure = readBooleanEnv(process.env.COOKIE_SECURE, sameSite === "none" || inProduction);
+  const domain = process.env.COOKIE_DOMAIN?.trim() || undefined;
+
+  return {
+    httpOnly: true,
+    sameSite,
+    secure,
+    domain,
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  } as const;
+}
+
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -29,20 +54,12 @@ export function signSession(user: SessionUser) {
 }
 
 export function setSessionCookie(response: Response, token: string) {
-  response.cookie(sessionCookieName, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-  });
+  response.cookie(sessionCookieName, token, getCookieOptions());
 }
 
 export function clearSessionCookie(response: Response) {
-  response.clearCookie(sessionCookieName, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-  });
+  const { maxAge: _maxAge, ...cookieOptions } = getCookieOptions();
+  response.clearCookie(sessionCookieName, cookieOptions);
 }
 
 export function readSession(request: AuthedRequest) {

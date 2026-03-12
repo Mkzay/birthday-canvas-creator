@@ -48,8 +48,13 @@ export function resolveAssetUrl(url?: string | null) {
   return url;
 }
 
+function buildApiUrl(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${getApiOrigin()}/api${normalizedPath}`;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit) {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(buildApiUrl(path), {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
@@ -62,7 +67,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit) {
 }
 
 export async function apiForm<T>(path: string, body: FormData, init?: RequestInit) {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(buildApiUrl(path), {
     credentials: "include",
     method: "POST",
     body,
