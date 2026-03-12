@@ -16,7 +16,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import BirthdayCountdown from '@/components/BirthdayCountdown';
 import BirthdayShareCard from '@/components/BirthdayShareCard';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { playPresetSoundtrack, soundtrackMap, type SoundtrackController } from '@/lib/soundtracks';
 import { cn } from '@/lib/utils';
@@ -77,23 +77,77 @@ function getSlideDuration(slide: RevealSlide | undefined) {
 
   switch (slide.kind) {
     case 'cover':
-      return 5200;
+      return 5800;
     case 'stats':
-      return 4400;
+      return 5000;
     case 'organizer':
-      return 5600;
+      return 6200;
     case 'wish': {
       const photoCount = getMessagePhotos(slide.message).length;
       const hasAudio = Boolean(slide.message.audio_url);
-      if (hasAudio) return 7600;
-      if (photoCount >= 3) return 6200;
-      if (photoCount >= 1) return 5600;
-      return 5000;
+      if (hasAudio && photoCount >= 1) return 8600;
+      if (hasAudio) return 8000;
+      if (photoCount >= 3) return 7000;
+      if (photoCount >= 1) return 6200;
+      return 5400;
     }
     case 'closing':
-      return 6400;
+      return 7200;
     default:
       return 4800;
+  }
+}
+
+function getStoryMotionDuration(slide: RevealSlide | undefined) {
+  if (!slide) return 720;
+
+  switch (slide.kind) {
+    case 'cover':
+      return 820;
+    case 'stats':
+      return 700;
+    case 'organizer':
+      return 760;
+    case 'wish':
+      return slide.message.audio_url ? 860 : 780;
+    case 'closing':
+      return 840;
+    default:
+      return 720;
+  }
+}
+
+function getMobileSectionLabel(slide: RevealSlide) {
+  switch (slide.kind) {
+    case 'cover':
+      return 'Opening page';
+    case 'stats':
+      return 'Collected pieces';
+    case 'organizer':
+      return 'Organizer note';
+    case 'wish':
+      return `Letter ${slide.index + 1}`;
+    case 'closing':
+      return 'Final note';
+    default:
+      return 'Keepsake';
+  }
+}
+
+function getMobileSectionCaption(slide: RevealSlide) {
+  switch (slide.kind) {
+    case 'cover':
+      return 'The first keepsake out of the envelope';
+    case 'stats':
+      return 'What made it into the birthday bundle';
+    case 'organizer':
+      return 'A note waiting between the pages';
+    case 'wish':
+      return 'One more piece of the story';
+    case 'closing':
+      return 'The last page of the reveal';
+    default:
+      return 'Another page in the story';
   }
 }
 
@@ -260,6 +314,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const presetControllerRef = useRef<SoundtrackController | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const ignoreTouchNavigationRef = useRef(false);
+  const mobileRevealRef = useRef<HTMLDivElement | null>(null);
+  const [isDesktopReveal, setIsDesktopReveal] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 640));
 
   const stopSoundtrack = useCallback(() => {
     presetControllerRef.current?.stop();
@@ -278,9 +334,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       presetControllerRef.current?.stop();
       presetControllerRef.current = null;
 
-      if (page.custom_audio_url) {
-        if (!soundtrackAudioRef.current || soundtrackAudioRef.current.src !== `${window.location.origin}${page.custom_audio_url}`) {
-          soundtrackAudioRef.current = new Audio(page.custom_audio_url);
+      const resolvedCustomAudioUrl = resolveAssetUrl(page.custom_audio_url);
+
+      if (resolvedCustomAudioUrl) {
+        if (!soundtrackAudioRef.current || soundtrackAudioRef.current.src !== resolvedCustomAudioUrl) {
+          soundtrackAudioRef.current = new Audio(resolvedCustomAudioUrl);
         }
 
         soundtrackAudioRef.current.loop = withLoop;
@@ -364,6 +422,46 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     };
   }, [stopSoundtrack]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(min-width: 640px)');
+    const syncRevealMode = () => setIsDesktopReveal(mediaQuery.matches);
+
+    syncRevealMode();
+    mediaQuery.addEventListener('change', syncRevealMode);
+
+    return () => {
+      mediaQuery.removeEventListener('change', syncRevealMode);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || isDesktopReveal || !mobileRevealRef.current) return;
+
+    const revealNodes = Array.from(mobileRevealRef.current.querySelectorAll<HTMLElement>('[data-scroll-reveal]'));
+    if (!revealNodes.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        threshold: 0.16,
+        rootMargin: '0px 0px -8% 0px',
+      },
+    );
+
+    revealNodes.forEach((node) => observer.observe(node));
+
+    return () => observer.disconnect();
+  }, [isDesktopReveal, messages.length, page?.creator_message, showRevealIntro]);
+
   const totalPhotos = useMemo(() => {
     return messages.reduce((total, message) => total + getMessagePhotos(message).length, 0);
   }, [messages]);
@@ -373,6 +471,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }, [messages]);
 
   const burstMessages = useMemo(() => messages.slice(0, 4), [messages]);
+  const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
 
   const beginReveal = async () => {
     setHasTriggeredIntro(true);
@@ -523,9 +622,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const activeSlide = revealSlides[currentSlide];
   const currentSlideDuration = useMemo(() => getSlideDuration(activeSlide), [activeSlide]);
+  const getStoryDelayStyle = (delay: number, duration?: number) =>
+    ({
+      '--story-delay': `${delay}ms`,
+      ...(duration ? { '--story-duration': `${duration}ms` } : {}),
+    }) as React.CSSProperties;
+  const handleBoardParallaxMove = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    if (typeof window === 'undefined' || !window.matchMedia('(pointer: fine)').matches) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 18;
+    const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 18;
+
+    event.currentTarget.style.setProperty('--parallax-x', `${offsetX}px`);
+    event.currentTarget.style.setProperty('--parallax-y', `${offsetY}px`);
+  }, []);
+  const handleBoardParallaxLeave = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    event.currentTarget.style.setProperty('--parallax-x', '0px');
+    event.currentTarget.style.setProperty('--parallax-y', '0px');
+  }, []);
 
   useEffect(() => {
-    if (loading || !page || showRevealIntro || expandedPhoto || showShareCard) return;
+    if (!isDesktopReveal || loading || !page || showRevealIntro || expandedPhoto || showShareCard) return;
     if (!activeSlide || currentSlide >= revealSlides.length - 1) return;
 
     const timeoutId = window.setTimeout(() => {
@@ -538,6 +656,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     currentSlide,
     currentSlideDuration,
     expandedPhoto,
+    isDesktopReveal,
     loading,
     page,
     revealSlides.length,
@@ -591,7 +710,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }
 
   return (
-    <div className={`relative h-[100dvh] min-h-[100dvh] overflow-hidden transition-colors duration-500 ${theme.heroClass}`} style={theme.style}>
+    <div
+      className={cn(
+        'relative transition-colors duration-500',
+        isDesktopReveal ? 'h-[100dvh] min-h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto',
+        theme.heroClass,
+      )}
+      style={theme.style}
+    >
       <DecorativeLayer colors={theme.colors} />
 
       {expandedPhoto && (
@@ -603,7 +729,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         >
           <div className="max-w-5xl">
             <img
-              src={expandedPhoto.url}
+              src={resolveAssetUrl(expandedPhoto.url) || expandedPhoto.url}
               alt={`Expanded photo from ${expandedPhoto.senderName}`}
               className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl"
             />
@@ -721,7 +847,306 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </div>
       )}
 
-      <section className="relative h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5">
+      <section className="relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden">
+        <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-10">
+          <div className="story-scroll-reveal flex items-start justify-between gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
+            <div>
+              <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
+                Birthday playback
+              </p>
+              <h1 className={cn('mt-2 max-w-[14rem] text-[2.05rem] font-bold leading-[0.94]', theme.titleClass, theme.font)}>
+                {page.recipient_name}&apos;s birthday story
+              </h1>
+            </div>
+            <div className={cn('rounded-full px-3 py-1.5 text-xs font-medium', isDarkExperience ? 'bg-white/10 text-white' : 'bg-white/72 text-foreground')}>
+              Scroll through
+            </div>
+          </div>
+
+          <div
+            className="story-scroll-reveal flex flex-wrap gap-2"
+            data-no-nav="true"
+            data-scroll-reveal="true"
+            style={getStoryDelayStyle(80)}
+          >
+            <button
+              type="button"
+              onClick={() => setShowShareCard(true)}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
+              )}
+            >
+              <Share2 className="h-4 w-4" />
+              Share
+            </button>
+            <button
+              type="button"
+              onClick={() => void startSoundtrack(true)}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
+              )}
+            >
+              <Music4 className="h-4 w-4" />
+              Play
+            </button>
+            <button
+              type="button"
+              onClick={stopSoundtrack}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
+              )}
+            >
+              <Volume2 className="h-4 w-4" />
+              Stop
+            </button>
+          </div>
+
+          {revealSlides.map((slide, index) => (
+            <React.Fragment key={slide.id}>
+              {index > 0 && (
+                <div
+                  className="story-scroll-reveal relative flex items-center gap-3 px-2 py-1"
+                  data-scroll-reveal="true"
+                  style={getStoryDelayStyle(Math.min(90 + index * 60, 300), 620)}
+                >
+                  <div className={cn('h-px flex-1', isDarkExperience ? 'bg-white/14' : 'bg-foreground/10')} />
+                  <div className="shrink-0 text-center">
+                    <p className={cn('text-[10px] font-semibold uppercase tracking-[0.26em] opacity-65', theme.text)}>
+                      {getMobileSectionLabel(slide)}
+                    </p>
+                    <p className={cn('mt-1 text-[11px] opacity-55', theme.text)}>{getMobileSectionCaption(slide)}</p>
+                  </div>
+                  <div className={cn('h-px flex-1', isDarkExperience ? 'bg-white/14' : 'bg-foreground/10')} />
+                </div>
+              )}
+
+            <article
+              className={cn('story-scroll-reveal relative overflow-hidden rounded-[2rem] border p-4 shadow-[0_24px_80px_rgba(18,18,23,0.12)]', experiencePanelClass)}
+              data-scroll-reveal="true"
+              style={getStoryDelayStyle(Math.min(120 + index * 70, 420), getStoryMotionDuration(slide))}
+            >
+              <div className="pointer-events-none absolute inset-0">
+                <div className={cn('absolute -left-[8%] top-[8%] h-28 w-28 rounded-full blur-3xl', isDarkExperience ? 'bg-white/8' : 'bg-white/55')} />
+                <div className={cn('absolute bottom-[-8%] right-[-6%] h-32 w-32 rounded-full blur-3xl', isDarkExperience ? 'bg-primary/20' : 'bg-amber-200/55')} />
+              </div>
+
+              <div className="relative z-10">
+                {slide.kind === 'cover' && (
+                  <div className="space-y-4">
+                    <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(30, getStoryMotionDuration(slide))}>
+                      <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>First page out of the envelope</p>
+                      <h2 className={cn('mt-3 text-[2.55rem] font-bold leading-[0.94]', theme.titleClass, theme.font)}>
+                        Happy Birthday,
+                        <br />
+                        {page.recipient_name}.
+                      </h2>
+                      <p className={cn('mt-4 text-base leading-relaxed opacity-80', theme.text)}>
+                        Every note, photo, and voice clip inside was chosen to make this feel less like a page and more like a gift being opened.
+                      </p>
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)}>
+                          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes</p>
+                          <p className={cn('mt-2 text-xl font-semibold', theme.text)}>{messages.length}</p>
+                        </div>
+                        <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)}>
+                          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Reveal date</p>
+                          <p className={cn('mt-2 text-base font-semibold', theme.text)}>{format(birthdayDate, 'MMMM d, yyyy')}</p>
+                        </div>
+                      </div>
+                    </article>
+
+                    <div
+                      className={cn('story-stage-reveal-soft story-photo-board relative overflow-hidden rounded-[1.8rem] border p-3', keepsakePhotoBoardClass)}
+                      style={getStoryDelayStyle(120, getStoryMotionDuration(slide))}
+                      onMouseMove={handleBoardParallaxMove}
+                      onMouseLeave={handleBoardParallaxLeave}
+                    >
+                      <div className="relative isolate aspect-[4/5] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc]">
+                        {resolvedCoverPhotoUrl ? (
+                          <div
+                            role="img"
+                            aria-label={`${page.recipient_name}'s birthday cover`}
+                            className="story-photo-layer absolute inset-0"
+                            style={{ background: `center 28% / cover no-repeat url("${resolvedCoverPhotoUrl}")` }}
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[5rem]">{theme.emoji}</div>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-t from-black/42 via-black/12 to-transparent" />
+                        <div className="absolute left-4 top-4 rounded-full bg-black/24 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/76 backdrop-blur-md">
+                          Birthday keepsake
+                        </div>
+                      </div>
+                    </div>
+
+                    {page.creator_message && (
+                      <article className={cn('story-stage-reveal-soft rounded-[1.4rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(180, 700)}>
+                        <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Packed with a note from the organizer</p>
+                        <p className={cn('mt-3 text-sm leading-relaxed opacity-80', theme.text)}>&quot;{page.creator_message}&quot;</p>
+                      </article>
+                    )}
+                  </div>
+                )}
+
+                {slide.kind === 'stats' && (
+                  <div className="space-y-4">
+                    <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(30, getStoryMotionDuration(slide))}>
+                      <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>The shape of the celebration</p>
+                      <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[0.98]', theme.titleClass, theme.font)}>Collected with love.</h2>
+                      <p className={cn('mt-3 text-sm leading-relaxed opacity-80', theme.text)}>
+                        Before the story started, people left little pieces of themselves here. This is what made it into the envelope.
+                      </p>
+                    </article>
+                    <div className="grid grid-cols-2 gap-3">
+                      <article className={cn('story-stage-reveal-soft col-span-2 rounded-[1.45rem] border p-4', keepsakePaperClass)} style={getStoryDelayStyle(110)}>
+                        <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes written</p>
+                        <p className={cn('mt-3 text-5xl font-bold leading-none', theme.titleClass, theme.font)}>{messages.length}</p>
+                      </article>
+                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(170)}>
+                        <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Photos added</p>
+                        <p className={cn('mt-3 text-3xl font-semibold', theme.text)}>{totalPhotos}</p>
+                      </article>
+                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(220)}>
+                        <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Voice notes</p>
+                        <p className={cn('mt-3 text-3xl font-semibold', theme.text)}>{totalAudioWishes}</p>
+                      </article>
+                    </div>
+                  </div>
+                )}
+
+                {slide.kind === 'organizer' && page.creator_message && (
+                  <div className="space-y-4 text-center">
+                    <div className={cn('story-stage-reveal mx-auto flex h-16 w-16 items-center justify-center rounded-[1.5rem] border', experienceInsetClass)} style={getStoryDelayStyle(40)}>
+                      <Heart className={cn('h-8 w-8', theme.text)} />
+                    </div>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(130)}>
+                      <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>A note from the organizer</p>
+                      <p className={cn('mt-4 text-xl italic leading-[1.45]', theme.text)}>&quot;{page.creator_message}&quot;</p>
+                    </article>
+                  </div>
+                )}
+
+                {slide.kind === 'wish' && (() => {
+                  const wishPhotos = getMessagePhotos(slide.message);
+                  const photoCount = wishPhotos.length;
+
+                  return (
+                    <div className="space-y-4">
+                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(40, getStoryMotionDuration(slide))}>
+                        <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
+                          Letter {slide.index + 1} of {messages.length}
+                        </p>
+                        <h2 className={cn('mt-3 text-3xl font-bold leading-[0.98]', theme.titleClass, theme.font)}>{slide.message.sender_name}</h2>
+                        <p className={cn('mt-4 text-lg leading-relaxed', theme.text)}>&quot;{slide.message.message}&quot;</p>
+                        <div className="mt-5 flex flex-wrap gap-2">
+                          {photoCount > 0 && (
+                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
+                              {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
+                            </span>
+                          )}
+                          {slide.message.audio_url && (
+                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
+                              Voice note inside
+                            </span>
+                          )}
+                        </div>
+                      </article>
+
+                      {slide.message.audio_url && (
+                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(130, 760)}>
+                          <p className={cn('text-sm font-semibold', theme.text)}>Voice note</p>
+                          <audio controls className="mt-3 w-full" src={resolveAssetUrl(slide.message.audio_url) || undefined} preload="none">
+                            Your browser does not support audio playback.
+                          </audio>
+                        </article>
+                      )}
+
+                      {photoCount > 0 && (
+                        <section
+                          className={cn('story-stage-reveal-soft story-photo-board rounded-[1.7rem] border p-3', keepsakePhotoBoardClass)}
+                          style={getStoryDelayStyle(slide.message.audio_url ? 190 : 130, getStoryMotionDuration(slide))}
+                          onMouseMove={handleBoardParallaxMove}
+                          onMouseLeave={handleBoardParallaxLeave}
+                        >
+                          <div className="space-y-3">
+                            {wishPhotos.map((photo) => (
+                              <button
+                                key={photo.id}
+                                type="button"
+                                className="group block w-full rounded-[1.35rem] border border-white/45 bg-white/55 p-2 text-left shadow-[0_18px_50px_rgba(18,18,23,0.16)]"
+                                onClick={() =>
+                                  setExpandedPhoto({
+                                    url: resolveAssetUrl(photo.photo_url) || photo.photo_url,
+                                    caption: photo.caption,
+                                    senderName: slide.message.sender_name,
+                                  })
+                                }
+                              >
+                                <div className="relative isolate aspect-[4/5] overflow-hidden rounded-[1.1rem] bg-[#dfe7dc]">
+                                  <div
+                                    role="img"
+                                    aria-label={`Photo from ${slide.message.sender_name}`}
+                                    className="story-photo-layer absolute inset-0"
+                                    style={{ background: `center / cover no-repeat url("${resolveAssetUrl(photo.photo_url)}")` }}
+                                  />
+                                  <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/56 via-black/10 to-transparent" />
+                                  <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
+                                    <div className="min-w-0">
+                                      <p className="line-clamp-2 text-sm font-medium text-white">{photo.caption || 'Photo memory'}</p>
+                                    </div>
+                                    <span className="shrink-0 rounded-full bg-white/16 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-md">Open</span>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+
+                      {photoCount === 0 && (
+                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(slide.message.audio_url ? 190 : 130)}>
+                          <p className={cn('text-sm leading-relaxed opacity-82', theme.text)}>
+                            This one lands through words{slide.message.audio_url ? ' and voice' : ''} alone.
+                          </p>
+                        </article>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {slide.kind === 'closing' && (
+                  <div className="space-y-4 text-center">
+                    <div className={cn('story-stage-reveal mx-auto flex h-18 w-18 items-center justify-center rounded-[1.5rem] border text-4xl', experienceInsetClass)} style={getStoryDelayStyle(40, getStoryMotionDuration(slide))}>
+                      {theme.emoji}
+                    </div>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(130, getStoryMotionDuration(slide))}>
+                      <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>One more thing</p>
+                      <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[1]', theme.titleClass, theme.font)}>
+                        You are deeply loved,
+                        <br />
+                        {page.recipient_name}.
+                      </h2>
+                      <p className={cn('mt-4 text-base leading-relaxed opacity-80', theme.text)}>
+                        Every photo, every message, and every voice note here was written to make this day feel bigger.
+                      </p>
+                    </article>
+                  </div>
+                )}
+              </div>
+            </article>
+            </React.Fragment>
+          ))}
+
+          <Link to="/create" className={cn('mx-auto pt-2 text-sm font-medium opacity-70 transition-opacity hover:opacity-100', theme.text)}>
+            Create your own
+          </Link>
+        </div>
+      </section>
+
+      <section className="relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block">
         <div className="mx-auto flex h-full max-w-6xl flex-col">
           <div className="flex items-start gap-4">
             <div className="flex flex-1 gap-2">
@@ -811,7 +1236,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     {activeSlide.kind === 'cover' && (
                       <div className="grid h-full gap-4 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
                         <div className="order-2 flex flex-col gap-4 lg:order-1 lg:justify-center">
-                          <article className={cn('relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2.1rem] sm:p-7 lg:p-8', keepsakePaperClass)}>
+                          <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2.1rem] sm:p-7 lg:p-8', keepsakePaperClass)} style={getStoryDelayStyle(50, getStoryMotionDuration(activeSlide))}>
                             <div className={cn('absolute right-5 top-5 h-16 w-16 rounded-full blur-2xl', isDarkExperience ? 'bg-white/10' : 'bg-amber-100/85')} />
                             <p className={cn('relative text-xs font-semibold uppercase tracking-[0.28em] opacity-70', theme.text)}>
                               First page out of the envelope
@@ -826,11 +1251,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             </p>
 
                             <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                              <div className={cn('rounded-[1.35rem] border p-3 sm:rounded-[1.45rem] sm:p-4', keepsakeSoftClass)}>
+                              <div className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-3 sm:rounded-[1.45rem] sm:p-4', keepsakeSoftClass)} style={getStoryDelayStyle(160)}>
                                 <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Wishes gathered</p>
                                 <p className={cn('mt-2 text-xl font-semibold sm:text-2xl', theme.text)}>{messages.length}</p>
                               </div>
-                              <div className={cn('rounded-[1.35rem] border p-3 sm:rounded-[1.45rem] sm:p-4', keepsakeSoftClass)}>
+                              <div className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-3 sm:rounded-[1.45rem] sm:p-4', keepsakeSoftClass)} style={getStoryDelayStyle(220)}>
                                 <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Reveal date</p>
                                 <p className={cn('mt-2 text-base font-semibold sm:text-lg', theme.text)}>{format(birthdayDate, 'MMMM d, yyyy')}</p>
                               </div>
@@ -838,7 +1263,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           </article>
 
                           {page.creator_message && (
-                            <article className={cn('relative ml-2 max-w-xl rotate-[-1deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)}>
+                            <article className={cn('story-stage-reveal-soft relative ml-2 max-w-xl rotate-[-1deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(280)}>
                               <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Packed with a note from the organizer</p>
                               <p className={cn('mt-3 line-clamp-3 text-sm leading-relaxed opacity-80 sm:text-base', theme.text)}>
                                 &quot;{page.creator_message}&quot;
@@ -848,16 +1273,24 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         </div>
 
                         <div className="order-1 lg:order-2">
-                          <div className={cn('relative rounded-[1.95rem] border p-3 sm:rounded-[2.2rem] sm:p-4 lg:p-5', keepsakePhotoBoardClass)}>
+                          <div
+                            className={cn('story-stage-reveal story-photo-board relative flex h-full flex-col rounded-[1.95rem] border p-3 sm:rounded-[2.2rem] sm:p-4 lg:p-5', keepsakePhotoBoardClass)}
+                            style={getStoryDelayStyle(130, getStoryMotionDuration(activeSlide))}
+                            onMouseMove={handleBoardParallaxMove}
+                            onMouseLeave={handleBoardParallaxLeave}
+                          >
                             <span className={cn('absolute left-6 top-4 h-6 w-16 rounded-full opacity-80 sm:left-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
                             <span className={cn('absolute right-6 top-4 h-6 w-16 rounded-full opacity-80 sm:right-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
-                            <div className="relative overflow-hidden rounded-[1.55rem] sm:rounded-[1.85rem]">
-                              <div className="relative isolate h-[28dvh] min-h-[13rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:h-[40dvh] sm:min-h-[20rem] sm:rounded-[1.7rem] lg:h-[48dvh]">
-                                {page.cover_photo_url ? (
-                                  <img
-                                    src={page.cover_photo_url}
-                                    alt={`${page.recipient_name}'s birthday cover`}
-                                    className="absolute inset-0 z-0 h-full w-full scale-[1.04] object-cover object-[center_28%] sm:scale-[1.06] sm:object-center"
+                            <div className="relative flex-1 overflow-hidden rounded-[1.55rem] sm:rounded-[1.85rem]">
+                              <div className="relative isolate h-full min-h-[13rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:min-h-[20rem] sm:rounded-[1.7rem] lg:min-h-[48dvh]">
+                                {resolvedCoverPhotoUrl ? (
+                                  <div
+                                    role="img"
+                                    aria-label={`${page.recipient_name}'s birthday cover`}
+                                    className="story-photo-layer absolute inset-0 z-0"
+                                    style={{
+                                      background: `center 28% / cover no-repeat url("${resolvedCoverPhotoUrl}")`,
+                                    }}
                                   />
                                 ) : (
                                   <div className="flex h-full items-center justify-center text-[6rem] sm:text-[8rem]">
@@ -871,7 +1304,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                               </div>
                             </div>
 
-                            <div className={cn('absolute -bottom-3 right-4 max-w-[12rem] rotate-[1.6deg] rounded-[1.2rem] border px-4 py-3 sm:right-8 sm:max-w-[14rem]', keepsakePaperClass)}>
+                            <div
+                              className={cn('story-stage-reveal-soft story-photo-float absolute -bottom-3 right-4 max-w-[12rem] rounded-[1.2rem] border px-4 py-3 sm:right-8 sm:max-w-[14rem]', keepsakePaperClass)}
+                              style={{ ...getStoryDelayStyle(260, 720), '--float-rotate': '1.6deg' } as React.CSSProperties}
+                            >
                               <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Ready to open</p>
                               <p className={cn('mt-1 text-sm font-semibold leading-snug sm:text-base', theme.text)}>
                                 {messages.length} wishes, {totalPhotos} photo memories, and {totalAudioWishes} voice notes.
@@ -885,7 +1321,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     {activeSlide.kind === 'stats' && (
                       <div className="grid h-full gap-4 lg:grid-cols-[0.94fr_1.06fr] lg:items-center">
                         <div className="flex flex-col gap-4 lg:justify-center">
-                          <article className={cn('relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-7 lg:p-8', keepsakePaperClass)}>
+                          <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-7 lg:p-8', keepsakePaperClass)} style={getStoryDelayStyle(50, getStoryMotionDuration(activeSlide))}>
                             <p className={cn('text-xs font-semibold uppercase tracking-[0.28em] opacity-70', theme.text)}>
                               The shape of the celebration
                             </p>
@@ -897,7 +1333,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             </p>
                           </article>
 
-                          <article className={cn('relative max-w-xl rounded-[1.55rem] border p-4 sm:rounded-[1.8rem] sm:p-5', keepsakeSoftClass)}>
+                          <article className={cn('story-stage-reveal-soft relative max-w-xl rounded-[1.55rem] border p-4 sm:rounded-[1.8rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(150)}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>What tonight feels like</p>
                             <p className={cn('mt-3 text-base leading-relaxed sm:text-lg', theme.text)}>
                               Not a comment feed. A replayable set of moments gathered into one birthday delivery.
@@ -906,7 +1342,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         </div>
 
                         <div className="grid gap-3 sm:grid-cols-2 sm:grid-rows-2">
-                          <article className={cn('sm:row-span-2 rounded-[1.75rem] border p-5 sm:rounded-[2rem] sm:p-7', keepsakePaperClass)}>
+                          <article className={cn('story-stage-reveal sm:row-span-2 rounded-[1.75rem] border p-5 sm:rounded-[2rem] sm:p-7', keepsakePaperClass)} style={getStoryDelayStyle(110)}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Wishes written</p>
                             <p className={cn('mt-4 text-6xl font-bold leading-none sm:mt-6 sm:text-[5.5rem]', theme.titleClass, theme.font)}>{messages.length}</p>
                             <p className={cn('mt-4 max-w-[16rem] text-sm leading-relaxed opacity-80 sm:mt-6 sm:text-base', theme.text)}>
@@ -914,13 +1350,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             </p>
                           </article>
 
-                          <article className={cn('rotate-[-1.2deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)}>
+                          <article className={cn('story-stage-reveal-soft rotate-[-1.2deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(210)}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Photos added</p>
                             <p className={cn('mt-3 text-3xl font-semibold sm:text-4xl', theme.text)}>{totalPhotos}</p>
                             <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>Snapshots that make the story feel grounded and real.</p>
                           </article>
 
-                          <article className={cn('rotate-[1.2deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)}>
+                          <article className={cn('story-stage-reveal-soft rotate-[1.2deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(260)}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Voice notes</p>
                             <p className={cn('mt-3 text-3xl font-semibold sm:text-4xl', theme.text)}>{totalAudioWishes}</p>
                             <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>Voices that make the reveal feel present, not distant.</p>
@@ -931,29 +1367,29 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   {activeSlide.kind === 'organizer' && page.creator_message && (
                     <div className="flex h-full flex-col items-center justify-center text-center">
-                      <div className={cn('flex h-20 w-20 items-center justify-center rounded-[2rem] border', experienceInsetClass)}>
+                      <div className={cn('story-stage-reveal flex h-20 w-20 items-center justify-center rounded-[2rem] border', experienceInsetClass)} style={getStoryDelayStyle(60)}>
                         <Heart className={cn('h-10 w-10', theme.text)} />
                       </div>
-                      <p className={cn('mt-8 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>
+                      <p className={cn('story-stage-reveal-soft mt-8 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)} style={getStoryDelayStyle(120)}>
                         A note from the organizer
                       </p>
-                      <p className={cn('mt-6 max-w-4xl text-3xl italic leading-[1.3] sm:text-5xl', theme.text)}>
+                      <p className={cn('story-stage-reveal mt-6 max-w-4xl text-3xl italic leading-[1.3] sm:text-5xl', theme.text)} style={getStoryDelayStyle(180)}>
                         &quot;{page.creator_message}&quot;
                       </p>
-                      <p className={cn('mt-6 text-sm opacity-70', theme.text)}>Written before the reveal began.</p>
+                      <p className={cn('story-stage-reveal-soft mt-6 text-sm opacity-70', theme.text)} style={getStoryDelayStyle(250)}>Written before the reveal began.</p>
                     </div>
                   )}
 
                     {activeSlide.kind === 'wish' && (() => {
                       const wishPhotos = getMessagePhotos(activeSlide.message).slice(0, 4);
                       const photoCount = wishPhotos.length;
-                      const openPhoto = (photo: MessagePhoto) => {
-                        setExpandedPhoto({
-                          url: photo.photo_url,
-                          caption: photo.caption,
-                          senderName: activeSlide.message.sender_name,
-                        });
-                      };
+      const openPhoto = (photo: MessagePhoto) => {
+        setExpandedPhoto({
+          url: resolveAssetUrl(photo.photo_url) || photo.photo_url,
+          caption: photo.caption,
+          senderName: activeSlide.message.sender_name,
+        });
+      };
                       const photoFrameClass =
                         'group relative min-h-0 overflow-hidden rounded-[1.4rem] border border-white/45 bg-white/55 p-2 text-left shadow-[0_18px_50px_rgba(18,18,23,0.16)] transition-transform duration-500 hover:-translate-y-1 sm:rounded-[1.65rem] sm:p-2.5';
 
@@ -966,10 +1402,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           aria-label={`Expand photo from ${activeSlide.message.sender_name}`}
                         >
                           <div className="relative isolate h-full min-h-[8.8rem] overflow-hidden rounded-[1.2rem] bg-[#dfe7dc] sm:rounded-[1.35rem]">
-                            <img
-                              src={photo.photo_url}
-                              alt={`Photo from ${activeSlide.message.sender_name}`}
-                              className={cn('relative z-0 block h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.04]', imageClassName)}
+                            <div
+                              role="img"
+                              aria-label={`Photo from ${activeSlide.message.sender_name}`}
+                              className={cn('story-photo-layer absolute inset-0 z-0', imageClassName)}
+                              style={{
+                                background: `center / cover no-repeat url("${resolveAssetUrl(photo.photo_url)}")`,
+                              }}
                             />
                             <div className="absolute inset-x-0 bottom-0 z-10 h-[46%] bg-gradient-to-t from-black/56 via-black/10 to-transparent" />
                             <div className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-3 p-4">
@@ -1018,7 +1457,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       return (
                         <div className="grid h-full gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                           <div className="flex flex-col gap-4 lg:justify-center">
-                            <article className={cn('relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass)}>
+                            <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass)} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
                               <div className="flex items-start justify-between gap-4">
                                 <div>
                                   <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
@@ -1053,7 +1492,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             </article>
 
                             {activeSlide.message.audio_url && (
-                              <article className={cn('rounded-[1.5rem] border p-4 sm:rounded-[1.75rem] sm:p-5', keepsakeSoftClass)} data-no-nav="true">
+                              <article className={cn('story-stage-reveal-soft rounded-[1.5rem] border p-4 sm:rounded-[1.75rem] sm:p-5', keepsakeSoftClass)} data-no-nav="true" style={getStoryDelayStyle(170, 760)}>
                                 <div className="flex items-center gap-2">
                                   <div className={cn('flex h-9 w-9 items-center justify-center rounded-full', isDarkExperience ? 'bg-white/10' : 'bg-white/80')}>
                                     <Music4 className={cn('h-4 w-4', theme.text)} />
@@ -1063,14 +1502,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     <p className={cn('text-xs opacity-65', theme.text)}>A voice to go with the words.</p>
                                   </div>
                                 </div>
-                                <audio controls className="mt-3 w-full" src={activeSlide.message.audio_url} preload="none">
+                                <audio controls className="mt-3 w-full" src={resolveAssetUrl(activeSlide.message.audio_url) || undefined} preload="none">
                                   Your browser does not support audio playback.
                                 </audio>
                               </article>
                             )}
 
                             {photoCount === 0 && (
-                              <article className={cn('flex items-center gap-3 rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)}>
+                              <article className={cn('story-stage-reveal-soft flex items-center gap-3 rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(activeSlide.message.audio_url ? 240 : 170, 740)}>
                                 <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', isDarkExperience ? 'bg-white/10' : 'bg-white/78')}>
                                   <Sparkles className={cn('h-5 w-5', theme.text)} />
                                 </div>
@@ -1082,7 +1521,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           </div>
 
                           {photoCount > 0 && (
-                            <section className={cn('relative overflow-hidden rounded-[1.95rem] border p-3 sm:rounded-[2.15rem] sm:p-4 lg:h-full lg:p-5', keepsakePhotoBoardClass)}>
+                            <section
+                              className={cn('story-stage-reveal story-photo-board relative overflow-hidden rounded-[1.95rem] border p-3 sm:rounded-[2.15rem] sm:p-4 lg:h-full lg:p-5', keepsakePhotoBoardClass)}
+                              style={getStoryDelayStyle(activeSlide.message.audio_url ? 210 : 140, getStoryMotionDuration(activeSlide))}
+                              onMouseMove={handleBoardParallaxMove}
+                              onMouseLeave={handleBoardParallaxLeave}
+                            >
                               <div className="absolute inset-x-5 top-3 flex items-center justify-between sm:inset-x-6 sm:top-4">
                                 <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Photo keepsakes</p>
                                 <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-55', theme.text)}>Tap to open</p>
@@ -1096,22 +1540,22 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   {activeSlide.kind === 'closing' && (
                     <div className="flex h-full flex-col items-center justify-center text-center">
-                      <div className={cn('flex h-24 w-24 items-center justify-center rounded-[2rem] border text-5xl', experienceInsetClass)}>
+                      <div className={cn('story-stage-reveal flex h-24 w-24 items-center justify-center rounded-[2rem] border text-5xl', experienceInsetClass)} style={getStoryDelayStyle(60)}>
                         {theme.emoji}
                       </div>
-                      <p className={cn('mt-8 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>
+                      <p className={cn('story-stage-reveal-soft mt-8 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)} style={getStoryDelayStyle(120)}>
                         One more thing
                       </p>
-                      <h2 className={cn('mt-4 text-4xl font-bold sm:text-6xl', theme.titleClass, theme.font)}>
+                      <h2 className={cn('story-stage-reveal mt-4 text-4xl font-bold sm:text-6xl', theme.titleClass, theme.font)} style={getStoryDelayStyle(180)}>
                         You are deeply loved,
                         <br />
                         {page.recipient_name}.
                       </h2>
-                      <p className={cn('mt-5 max-w-2xl text-base leading-relaxed opacity-80 sm:text-xl', theme.text)}>
+                      <p className={cn('story-stage-reveal-soft mt-5 max-w-2xl text-base leading-relaxed opacity-80 sm:text-xl', theme.text)} style={getStoryDelayStyle(250)}>
                         Every photo, every message, and every voice note here was written to make this day feel bigger.
                       </p>
 
-                      <div className="mt-8 flex flex-wrap justify-center gap-3" data-no-nav="true">
+                      <div className="story-stage-reveal-soft mt-8 flex flex-wrap justify-center gap-3" data-no-nav="true" style={getStoryDelayStyle(320)}>
                         <Button variant="hero" size="lg" className="gap-2" onClick={() => setShowShareCard(true)}>
                           <Share2 className="h-4 w-4" />
                           Share this moment

@@ -21,6 +21,33 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return data as T;
 }
 
+export function getApiOrigin() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  if (import.meta.env.VITE_API_ORIGIN) {
+    return import.meta.env.VITE_API_ORIGIN as string;
+  }
+
+  if (import.meta.env.DEV) {
+    return "http://localhost:3001";
+  }
+
+  return window.location.origin;
+}
+
+export function resolveAssetUrl(url?: string | null) {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+
+  if (url.startsWith("/")) {
+    return `${getApiOrigin()}${url}`;
+  }
+
+  return url;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit) {
   const response = await fetch(`/api${path}`, {
     credentials: "include",
