@@ -1,13 +1,13 @@
 import React from 'react';
 
 const Confetti = () => {
-  const particles = Array.from({ length: 20 }, (_, i) => ({
+  const [particles] = React.useState(() => Array.from({ length: 20 }, (_, i) => ({
     id: i,
     left: Math.random() * 100,
     delay: Math.random() * 10,
     duration: 8 + Math.random() * 8,
     size: 4 + Math.random() * 6,
-  }));
+  })));
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">

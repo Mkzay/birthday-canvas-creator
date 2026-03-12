@@ -1,145 +1,290 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { format } from 'date-fns';
+import { GripVertical, ImagePlus, Loader2, Lock, Mic2, Plus, Send, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Upload, Send, Plus, Sparkles, Loader2, X, Image } from 'lucide-react';
 import Confetti from '@/components/Confetti';
+import { parseLocalDate } from '@/lib/date';
+import { apiFetch, apiForm } from '@/lib/api';
 
-interface BirthdayPageData {
+interface PublicBirthdayPageData {
   id: string;
   recipient_name: string;
   birthday_date: string;
   theme: string;
+  theme_emoji: string | null;
+  theme_gradient_from: string | null;
+  theme_gradient_to: string | null;
   allow_photos: boolean;
   require_names: boolean;
+  can_contribute: boolean;
+  message_count: number;
 }
+
+interface PendingPhoto {
+  id: string;
+  file: File;
+  previewUrl: string;
+  caption: string;
+}
+
+const MAX_PHOTOS = 6;
 
 const themeConfig = {
   elegant: { name: 'Elegant', emoji: '✨', text: 'text-amber-900', bg: 'bg-gradient-to-br from-amber-50 to-orange-50' },
   playful: { name: 'Playful', emoji: '🎈', text: 'text-pink-900', bg: 'bg-gradient-to-br from-pink-50 to-purple-50' },
   minimalist: { name: 'Minimalist', emoji: '🎯', text: 'text-slate-900', bg: 'bg-gradient-to-br from-slate-50 to-gray-100' },
   retro: { name: 'Retro', emoji: '🌈', text: 'text-purple-900', bg: 'bg-gradient-to-br from-cyan-50 to-purple-50' },
-};
+  tropical: { name: 'Tropical', emoji: '🌴', text: 'text-emerald-900', bg: 'bg-gradient-to-br from-green-50 to-yellow-50' },
+  cosmic: { name: 'Cosmic', emoji: '🚀', text: 'text-violet-100', bg: 'bg-gradient-to-br from-violet-900 via-indigo-900 to-purple-900' },
+  sunset: { name: 'Sunset', emoji: '🌅', text: 'text-rose-900', bg: 'bg-gradient-to-br from-orange-100 to-rose-100' },
+  ocean: { name: 'Ocean', emoji: '🌊', text: 'text-sky-900', bg: 'bg-gradient-to-br from-sky-50 to-cyan-50' },
+  candyland: { name: 'Candyland', emoji: '🍭', text: 'text-fuchsia-900', bg: 'bg-gradient-to-br from-pink-100 to-lime-50' },
+  midnight: { name: 'Midnight', emoji: '🌙', text: 'text-indigo-100', bg: 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900' },
+} as const;
 
 const ContributePage = () => {
   const { pageId } = useParams();
-  const [page, setPage] = useState<BirthdayPageData | null>(null);
-  const [messageCount, setMessageCount] = useState(0);
+  const [page, setPage] = useState<PublicBirthdayPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [senderName, setSenderName] = useState('');
   const [message, setMessage] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [selectedPhotos, setSelectedPhotos] = useState<PendingPhoto[]>([]);
+  const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
+  const [wishAudio, setWishAudio] = useState<File | null>(null);
+  const [wishAudioPreviewUrl, setWishAudioPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const selectedPhotosRef = useRef<PendingPhoto[]>([]);
 
   useEffect(() => {
-    if (pageId) {
-      fetchPage();
+    selectedPhotosRef.current = selectedPhotos;
+  }, [selectedPhotos]);
+
+  useEffect(() => {
+    return () => {
+      selectedPhotosRef.current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+      if (wishAudioPreviewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(wishAudioPreviewUrl);
+      }
+    };
+  }, [wishAudioPreviewUrl]);
+
+  const fetchPage = useCallback(async () => {
+    if (!pageId) return;
+
+    try {
+      const data = await apiFetch<PublicBirthdayPageData>(`/public/pages/${pageId}`);
+      setPage(data);
+    } catch (error) {
+      console.error(error);
+      setPage(null);
+    } finally {
+      setLoading(false);
     }
   }, [pageId]);
 
-  const fetchPage = async () => {
-    const { data, error } = await supabase
-      .from('birthday_pages')
-      .select('*')
-      .eq('id', pageId)
-      .maybeSingle();
-
-    if (error || !data) {
-      setPage(null);
-    } else {
-      setPage(data);
-      // Get message count
-      const { count } = await supabase
-        .from('birthday_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('page_id', pageId);
-      setMessageCount(count || 0);
+  useEffect(() => {
+    if (pageId) {
+      void fetchPage();
     }
-    setLoading(false);
-  };
+  }, [fetchPage, pageId]);
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const clearSelectedPhotos = useCallback(() => {
+    setSelectedPhotos((currentPhotos) => {
+      currentPhotos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+      return [];
+    });
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be less than 5MB');
-      return;
-    }
-
-    setSelectedPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
-  };
-
-  const removePhoto = () => {
-    setSelectedPhoto(null);
-    if (photoPreview) {
-      URL.revokeObjectURL(photoPreview);
-      setPhotoPreview(null);
-    }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }, []);
 
-  const uploadPhoto = async (): Promise<string | null> => {
-    if (!selectedPhoto || !pageId) return null;
+  const handleWishAudioSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    setUploading(true);
-    const fileExt = selectedPhoto.name.split('.').pop();
-    const fileName = `${pageId}/${crypto.randomUUID()}.${fileExt}`;
-
-    const { error } = await supabase.storage
-      .from('birthday-photos')
-      .upload(fileName, selectedPhoto);
-
-    setUploading(false);
-
-    if (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload photo');
-      return null;
+    if (!file.type.startsWith('audio/')) {
+      toast.error('Please select an audio file');
+      event.target.value = '';
+      return;
     }
 
-    const { data: urlData } = supabase.storage
-      .from('birthday-photos')
-      .getPublicUrl(fileName);
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Audio must be less than 8MB');
+      event.target.value = '';
+      return;
+    }
 
-    return urlData.publicUrl;
+    if (wishAudioPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(wishAudioPreviewUrl);
+    }
+
+    setWishAudio(file);
+    setWishAudioPreviewUrl(URL.createObjectURL(file));
+    event.target.value = '';
+  };
+
+  const removeWishAudio = () => {
+    setWishAudio(null);
+    if (wishAudioPreviewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(wishAudioPreviewUrl);
+    }
+    setWishAudioPreviewUrl(null);
+  };
+
+  const reorderPhotos = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+
+    setSelectedPhotos((currentPhotos) => {
+      const sourceIndex = currentPhotos.findIndex((photo) => photo.id === sourceId);
+      const targetIndex = currentPhotos.findIndex((photo) => photo.id === targetId);
+
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return currentPhotos;
+      }
+
+      const nextPhotos = [...currentPhotos];
+      const [movedPhoto] = nextPhotos.splice(sourceIndex, 1);
+      nextPhotos.splice(targetIndex, 0, movedPhoto);
+      return nextPhotos;
+    });
+  };
+
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const availableSlots = MAX_PHOTOS - selectedPhotos.length;
+    if (availableSlots <= 0) {
+      toast.error(`You can attach up to ${MAX_PHOTOS} photos`);
+      event.target.value = '';
+      return;
+    }
+
+    const acceptedFiles: PendingPhoto[] = [];
+    const incomingFiles = files.slice(0, availableSlots);
+
+    incomingFiles.forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image`);
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} is larger than 5MB`);
+        return;
+      }
+
+      acceptedFiles.push({
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        caption: '',
+      });
+    });
+
+    if (files.length > availableSlots) {
+      toast.error(`Only ${availableSlots} more photo${availableSlots === 1 ? '' : 's'} can be added`);
+    }
+
+    if (acceptedFiles.length) {
+      setSelectedPhotos((currentPhotos) => [...currentPhotos, ...acceptedFiles]);
+    }
+
+    event.target.value = '';
+  };
+
+  const handlePhotoCaptionChange = (photoId: string, caption: string) => {
+    setSelectedPhotos((currentPhotos) =>
+      currentPhotos.map((photo) => (photo.id === photoId ? { ...photo, caption: caption.slice(0, 140) } : photo)),
+    );
+  };
+
+  const removePhoto = (photoId: string) => {
+    setSelectedPhotos((currentPhotos) => {
+      const photoToRemove = currentPhotos.find((photo) => photo.id === photoId);
+      if (photoToRemove) {
+        URL.revokeObjectURL(photoToRemove.previewUrl);
+      }
+
+      return currentPhotos.filter((photo) => photo.id !== photoId);
+    });
+  };
+
+  const uploadWishAudio = async () => {
+    if (!wishAudio || !pageId) return null;
+
+    setUploadingAudio(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', wishAudio);
+      const data = await apiForm<{ url: string }>(`/public/pages/${pageId}/message-audio`, formData);
+      return data.url;
+    } catch (error) {
+      console.error('Audio upload error:', error);
+      toast.error('Failed to upload audio message');
+      return null;
+    } finally {
+      setUploadingAudio(false);
+    }
+  };
+
+  const uploadPhotos = async () => {
+    if (!pageId || !selectedPhotos.length) return [];
+
+    setUploading(true);
+
+    try {
+      const uploads = await Promise.all(
+        selectedPhotos.map(async (photo) => {
+          const formData = new FormData();
+          formData.append('file', photo.file);
+
+          const data = await apiForm<{ url: string }>(`/public/pages/${pageId}/message-photo`, formData);
+          return {
+            url: data.url,
+            caption: photo.caption.trim() || null,
+          };
+        }),
+      );
+
+      return uploads;
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload one or more photos');
+      return null;
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-  
+
   if (!page) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <div className="text-6xl mb-4">🔍</div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Page not found</h1>
-          <p className="text-muted-foreground mb-6">This birthday page doesn't exist or has been removed.</p>
+          <div className="mb-4 text-6xl">🔍</div>
+          <h1 className="mb-2 text-2xl font-bold text-foreground">Page not found</h1>
+          <p className="mb-6 text-muted-foreground">This birthday page doesn&apos;t exist or has been removed.</p>
           <Link to="/">
             <Button variant="hero">Go Home</Button>
           </Link>
@@ -148,210 +293,375 @@ const ContributePage = () => {
     );
   }
 
-  const theme = themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant;
+  const isCustomTheme = page.theme.startsWith('custom_');
+  const builtInTheme = themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant;
+  const theme = isCustomTheme
+    ? {
+        emoji: page.theme_emoji || '🎨',
+        text: 'text-white',
+        bg: '',
+        style: {
+          background: `linear-gradient(135deg, ${page.theme_gradient_from || '#8b5cf6'}, ${page.theme_gradient_to || '#ec4899'})`,
+        },
+      }
+    : {
+        emoji: builtInTheme.emoji,
+        text: builtInTheme.text,
+        bg: builtInTheme.bg,
+        style: undefined,
+      };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
     if (page.require_names && !senderName.trim()) {
       toast.error('Please enter your name');
       return;
     }
-    
+
     if (!message.trim()) {
       toast.error('Please write a message');
       return;
     }
 
-    setSubmitting(true);
-
-    // Upload photo if selected
-    let photoUrl: string | null = null;
-    if (selectedPhoto) {
-      photoUrl = await uploadPhoto();
-      if (!photoUrl && selectedPhoto) {
-        setSubmitting(false);
-        return; // Upload failed, don't continue
-      }
-    }
-
-    const { error } = await supabase
-      .from('birthday_messages')
-      .insert({
-        page_id: page.id,
-        sender_name: senderName.trim() || 'Anonymous',
-        message: message.trim(),
-        photo_url: photoUrl,
-      });
-
-    setSubmitting(false);
-
-    if (error) {
-      toast.error('Failed to add message');
-      console.error(error);
+    if (!page.can_contribute) {
+      toast.error('This page is no longer accepting new wishes');
       return;
     }
 
-    setShowConfetti(true);
-    setIsSubmitted(true);
-    setMessageCount(prev => prev + 1);
-    
-    setTimeout(() => setShowConfetti(false), 5000);
+    setSubmitting(true);
+
+    const uploadedPhotos = selectedPhotos.length ? await uploadPhotos() : [];
+    if (uploadedPhotos === null) {
+      setSubmitting(false);
+      return;
+    }
+
+    const uploadedAudioUrl = wishAudio ? await uploadWishAudio() : null;
+    if (wishAudio && !uploadedAudioUrl) {
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      await apiFetch(`/public/pages/${page.id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({
+          senderName,
+          message,
+          photos: uploadedPhotos,
+          audioUrl: uploadedAudioUrl,
+        }),
+      });
+
+      setShowConfetti(true);
+      setIsSubmitted(true);
+      setPage((currentPage) =>
+        currentPage
+          ? {
+              ...currentPage,
+              message_count: currentPage.message_count + 1,
+            }
+          : currentPage,
+      );
+
+      setTimeout(() => setShowConfetti(false), 5000);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : 'Failed to add message';
+      toast.error(messageText);
+      console.error(error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAddAnother = () => {
     setSenderName('');
     setMessage('');
-    setSelectedPhoto(null);
-    setPhotoPreview(null);
+    clearSelectedPhotos();
+    removeWishAudio();
     setIsSubmitted(false);
   };
 
   return (
-    <div className={`min-h-screen ${theme.bg}`}>
+    <div className={`min-h-screen ${theme.bg}`} style={theme.style}>
       {showConfetti && <Confetti />}
-      
-      {/* Header */}
-      <header className="px-4 sm:px-6 py-3 sm:py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-center flex-col">
-          <Link to="/" className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-4">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-cta flex items-center justify-center text-lg sm:text-xl">
+
+      <header className="px-4 py-3 sm:px-6 sm:py-4">
+        <div className="mx-auto flex max-w-3xl flex-col items-center justify-center">
+          <Link to="/" className="mb-2 flex items-center gap-2 sm:mb-4 sm:gap-3">
+            <div className="gradient-cta flex h-8 w-8 items-center justify-center rounded-xl text-lg sm:h-10 sm:w-10 sm:text-xl">
               🎨
             </div>
-            <span className="text-lg sm:text-xl font-bold text-foreground">WishCanvas</span>
+            <span className="text-lg font-bold text-foreground sm:text-xl">WishCanvas</span>
           </Link>
-          <p className={`text-xs sm:text-sm ${theme.text} opacity-70 text-center`}>
-            It's {page.recipient_name}'s birthday on {format(new Date(page.birthday_date), 'MMMM d')}!
+          <p className={`text-center text-xs opacity-80 sm:text-sm ${theme.text}`}>
+            It&apos;s {page.recipient_name}&apos;s birthday on {format(parseLocalDate(page.birthday_date), 'MMMM d')}!
           </p>
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         {!isSubmitted ? (
           <>
-            {/* Hero */}
-            <div className="text-center mb-6 sm:mb-8 animate-fade-in-up">
-              <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">{theme.emoji}</div>
-              <h1 className={`text-2xl sm:text-3xl font-bold ${theme.text} mb-2 sm:mb-3 px-2`}>
-                Add Your Birthday Wish for {page.recipient_name}
+            <div className="mb-6 text-center animate-fade-in-up sm:mb-8">
+              <div className="mb-3 text-5xl sm:mb-4 sm:text-6xl">{theme.emoji}</div>
+              <h1 className={`px-2 text-2xl font-bold sm:text-3xl ${theme.text}`}>
+                Add your birthday wish for {page.recipient_name}
               </h1>
-              <div className="flex items-center justify-center gap-2">
+              <p className={`mx-auto mt-3 max-w-2xl text-sm leading-relaxed opacity-80 sm:text-base ${theme.text}`}>
+                Leave a message, add a few photos if you want, and attach a short note to each memory so the page feels more personal.
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-2">
                 <div className="flex -space-x-2">
-                  {[...Array(Math.min(messageCount, 3))].map((_, i) => (
-                    <div key={i} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-primary to-secondary border-2 border-card" />
+                  {[...Array(Math.min(page.message_count, 3))].map((_, index) => (
+                    <div key={index} className="h-7 w-7 rounded-full border-2 border-card bg-gradient-to-br from-primary to-secondary sm:h-8 sm:w-8" />
                   ))}
                 </div>
-                <span className={`text-xs sm:text-sm ${theme.text} opacity-70`}>
-                  {messageCount} {messageCount === 1 ? 'person has' : 'people have'} contributed
+                <span className={`text-xs opacity-80 sm:text-sm ${theme.text}`}>
+                  {page.message_count} {page.message_count === 1 ? 'person has' : 'people have'} contributed
                 </span>
               </div>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              <div className="bg-card rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-soft border border-border">
+            {!page.can_contribute && (
+              <div className="mb-4 rounded-2xl border border-border bg-card/90 p-4 text-center shadow-soft">
+                <div className="mb-2 flex items-center justify-center gap-2 text-foreground">
+                  <Lock className="h-4 w-4" />
+                  <span className="font-semibold">Wish collection is closed</span>
+                </div>
+                <p className="text-sm text-muted-foreground">This page is no longer accepting new messages or photos.</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="animate-fade-in-up space-y-5" style={{ animationDelay: '0.2s' }}>
+              <div className="rounded-[1.9rem] border border-border bg-card/96 p-4 shadow-soft sm:p-6">
                 {page.require_names && (
                   <div className="mb-6">
-                    <Label htmlFor="name" className="text-foreground">Your Name</Label>
+                    <Label htmlFor="name" className="text-foreground">
+                      Your Name
+                    </Label>
                     <Input
                       id="name"
                       value={senderName}
-                      onChange={(e) => setSenderName(e.target.value)}
+                      onChange={(event) => setSenderName(event.target.value)}
                       placeholder="Enter your name"
-                      className="mt-2"
+                      className="mt-2 h-12 rounded-xl"
+                      disabled={!page.can_contribute}
                     />
                   </div>
                 )}
 
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label htmlFor="message" className="text-foreground">Your Message</Label>
+                  <div className="mb-2 flex items-center justify-between">
+                    <Label htmlFor="message" className="text-foreground">
+                      Your Message
+                    </Label>
                     <span className="text-xs text-muted-foreground">{message.length}/500</span>
                   </div>
                   <Textarea
                     id="message"
                     value={message}
-                    onChange={(e) => setMessage(e.target.value.slice(0, 500))}
+                    onChange={(event) => setMessage(event.target.value.slice(0, 500))}
                     placeholder={`Write your birthday wish for ${page.recipient_name}...`}
-                    className="min-h-[120px]"
+                    className="min-h-[140px] rounded-xl"
+                    disabled={!page.can_contribute}
                   />
                 </div>
 
                 {page.allow_photos && (
                   <div className="mb-6">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <Label className="text-foreground">Photos and memory notes</Label>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Add up to {MAX_PHOTOS} photos. Each one can include a short note.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={!page.can_contribute || selectedPhotos.length >= MAX_PHOTOS}
+                      >
+                        <ImagePlus className="h-4 w-4" />
+                        Add photos
+                      </Button>
+                    </div>
+
                     <input
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
+                      multiple
                       onChange={handlePhotoSelect}
                       className="hidden"
+                      disabled={!page.can_contribute}
                     />
-                    
-                    {photoPreview ? (
-                      <div className="relative rounded-xl overflow-hidden border border-border">
-                        <img 
-                          src={photoPreview} 
-                          alt="Preview" 
-                          className="w-full h-48 object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={removePhoto}
-                          className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background transition-colors"
-                        >
-                          <X className="w-4 h-4 text-foreground" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div 
+
+                    {selectedPhotos.length === 0 ? (
+                      <button
+                        type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                        className="w-full rounded-[1.4rem] border-2 border-dashed border-border bg-background/60 p-8 text-center transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={!page.can_contribute}
                       >
-                        <Image className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">Click to upload a photo (optional)</p>
-                        <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <ImagePlus className="h-6 w-6" />
+                        </div>
+                        <p className="mt-4 text-sm font-medium text-foreground">Add photos that make the message feel lived-in</p>
+                        <p className="mt-1 text-xs text-muted-foreground">JPG or PNG, up to 5MB each</p>
+                      </button>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {selectedPhotos.map((photo) => (
+                          <div
+                            key={photo.id}
+                            draggable={page.can_contribute}
+                            onDragStart={() => setDraggedPhotoId(photo.id)}
+                            onDragEnd={() => setDraggedPhotoId(null)}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                            }}
+                            onDrop={() => {
+                              if (draggedPhotoId) {
+                                reorderPhotos(draggedPhotoId, photo.id);
+                              }
+                              setDraggedPhotoId(null);
+                            }}
+                            className={[
+                              'overflow-hidden rounded-[1.5rem] border border-border bg-background/70 transition-shadow',
+                              draggedPhotoId === photo.id ? 'shadow-[0_0_0_2px_rgba(139,92,246,0.24)]' : '',
+                            ].join(' ')}
+                          >
+                            <div className="relative">
+                              <img src={photo.previewUrl} alt="Selected memory preview" className="h-52 w-full object-cover" />
+                              <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-background/85 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
+                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                                Drag to reorder
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(photo.id)}
+                                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/85 text-foreground shadow-sm transition-colors hover:bg-background"
+                                aria-label="Remove selected photo"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div className="p-4">
+                              <div className="mb-2 flex items-center justify-between gap-3">
+                                <p className="text-sm font-semibold text-foreground">{photo.file.name}</p>
+                                <span className="text-xs text-muted-foreground">{photo.caption.length}/140</span>
+                              </div>
+                              <Input
+                                value={photo.caption}
+                                onChange={(event) => handlePhotoCaptionChange(photo.id, event.target.value)}
+                                placeholder="Add a short memory note for this photo"
+                                className="h-11 rounded-xl"
+                                disabled={!page.can_contribute}
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 )}
 
-                <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading}>
-                  {(submitting || uploading) ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  {uploading ? 'Uploading...' : submitting ? 'Adding...' : 'Add My Wish'}
+                <div className="mb-6">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <Label className="text-foreground">Voice note (optional)</Label>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Add a short audio wish so they can hear your voice on the birthday page.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => audioInputRef.current?.click()}
+                      disabled={!page.can_contribute}
+                    >
+                      <Mic2 className="h-4 w-4" />
+                      Add audio
+                    </Button>
+                  </div>
+
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleWishAudioSelect}
+                    className="hidden"
+                    disabled={!page.can_contribute}
+                  />
+
+                  {wishAudioPreviewUrl ? (
+                    <div className="rounded-[1.4rem] border border-border bg-background/70 p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{wishAudio?.name || 'Voice note'}</p>
+                          <p className="text-xs text-muted-foreground">One audio clip per wish</p>
+                        </div>
+                        <Button type="button" variant="ghost" className="gap-2" onClick={removeWishAudio}>
+                          <X className="h-4 w-4" />
+                          Remove
+                        </Button>
+                      </div>
+                      <audio controls className="w-full" src={wishAudioPreviewUrl}>
+                        Your browser does not support audio playback.
+                      </audio>
+                    </div>
+                  ) : (
+                    <div className="rounded-[1.4rem] border border-dashed border-border bg-background/60 p-4 text-sm text-muted-foreground">
+                      Upload a short audio clip if you want the person to hear your voice.
+                    </div>
+                  )}
+                </div>
+
+                <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading || uploadingAudio || !page.can_contribute}>
+                  {submitting || uploading || uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                  {uploading
+                    ? 'Uploading photos...'
+                    : uploadingAudio
+                      ? 'Uploading audio...'
+                      : submitting
+                        ? 'Adding your wish...'
+                        : 'Add my wish'}
                 </Button>
               </div>
             </form>
           </>
         ) : (
-          /* Success State */
-          <div className="text-center animate-scale-in px-2">
-            <div className="text-6xl sm:text-8xl mb-4 sm:mb-6">🎉</div>
-            <h2 className={`text-2xl sm:text-3xl font-bold ${theme.text} mb-2 sm:mb-3`}>
-              Your wish has been added!
-            </h2>
-            <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
-              {page.recipient_name} will see it on their special day
+          <div className="animate-scale-in px-2 text-center">
+            <div className="mb-4 text-6xl sm:mb-6 sm:text-8xl">🎉</div>
+            <h2 className={`mb-2 text-2xl font-bold sm:mb-3 sm:text-3xl ${theme.text}`}>Your wish has been added!</h2>
+            <p className="mb-6 text-sm text-muted-foreground sm:mb-8 sm:text-base">
+              {page.recipient_name} will see it on their special day.
             </p>
-            
+
             <div className="flex flex-col gap-3 sm:gap-4">
               <Button variant="outline" size="default" onClick={handleAddAnother} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Another Message
+                <Plus className="h-4 w-4" />
+                Add another message
               </Button>
-              
+
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="bg-background px-4 text-xs sm:text-sm text-muted-foreground">or</span>
+                  <span className="bg-background px-4 text-xs text-muted-foreground sm:text-sm">or</span>
                 </div>
               </div>
-              
+
               <Link to="/create">
                 <Button variant="hero" size="default" className="w-full gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Create Your Own Birthday Page
+                  <Sparkles className="h-4 w-4" />
+                  Create your own birthday page
                 </Button>
               </Link>
             </div>

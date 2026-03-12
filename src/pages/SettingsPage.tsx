@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,6 +36,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api';
 
 const themeOptions = [
   { value: 'elegant', label: 'Elegant ✨' },
@@ -53,7 +53,7 @@ const themeOptions = [
 
 const SettingsPage = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut, loading: authLoading } = useAuth();
+  const { user, profile, signOut, refreshSession, loading: authLoading } = useAuth();
   
   // Profile settings
   const [displayName, setDisplayName] = useState('');
@@ -70,7 +70,6 @@ const SettingsPage = () => {
   const [defaultRequireNames, setDefaultRequireNames] = useState(true);
   
   // Password change
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
@@ -94,19 +93,19 @@ const SettingsPage = () => {
     if (!user) return;
     
     setSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        display_name: displayName,
-        avatar_url: avatarUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id);
-
-    if (error) {
-      toast.error('Failed to update profile');
-    } else {
+    try {
+      await apiFetch('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          displayName,
+          avatarUrl,
+        }),
+      });
+      await refreshSession();
       toast.success('Profile updated successfully');
+    } catch (error) {
+      toast.error('Failed to update profile');
+      console.error(error);
     }
     setSaving(false);
   };
@@ -123,48 +122,41 @@ const SettingsPage = () => {
     }
 
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-
-    if (error) {
-      toast.error(error.message || 'Failed to change password');
-    } else {
+    try {
+      await apiFetch<void>('/auth/password', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          password: newPassword,
+        }),
+      });
       toast.success('Password changed successfully');
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to change password';
+      toast.error(message);
+      console.error(error);
     }
     setSaving(false);
   };
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteWorkspaceData = async () => {
     if (!user) return;
     
     setDeleting(true);
-    
-    // Delete user's pages first
-    const { error: pagesError } = await supabase
-      .from('birthday_pages')
-      .delete()
-      .eq('user_id', user.id);
-    
-    if (pagesError) {
+    try {
+      await apiFetch<void>('/auth/me/data', {
+        method: 'DELETE',
+      });
+      await signOut();
+      toast.success('Your account and workspace data were deleted');
+      navigate('/');
+    } catch (error) {
       toast.error('Failed to delete account data');
+      console.error(error);
+    } finally {
       setDeleting(false);
-      return;
     }
-
-    // Delete profile
-    await supabase
-      .from('profiles')
-      .delete()
-      .eq('user_id', user.id);
-
-    // Sign out
-    await signOut();
-    toast.success('Account deleted successfully');
-    navigate('/');
   };
 
   if (authLoading) {
@@ -176,10 +168,10 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen app-shell">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-4">
+      <header className="border-b border-border/60 bg-white/80 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-4">
           <Link to="/dashboard" className="p-2 hover:bg-muted rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </Link>
@@ -192,9 +184,18 @@ const SettingsPage = () => {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+        <section className="panel-card p-6 sm:p-8">
+          <span className="eyebrow-chip">Workspace settings</span>
+          <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-4xl">Tune the account behind the surprises</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Profile details are live. Notification and default-page preferences are intentionally visible but read-only
+            until those systems are wired through end to end.
+          </p>
+        </section>
+
         {/* Profile Settings */}
-        <section className="bg-card rounded-2xl border border-border p-6">
+        <section className="panel-card p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
               <User className="w-5 h-5 text-primary" />
@@ -257,7 +258,7 @@ const SettingsPage = () => {
         </section>
 
         {/* Notification Preferences */}
-        <section className="bg-card rounded-2xl border border-border p-6">
+        <section className="panel-card p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
               <Bell className="w-5 h-5 text-amber-600" />
@@ -277,6 +278,7 @@ const SettingsPage = () => {
               <Switch 
                 checked={emailNotifications} 
                 onCheckedChange={setEmailNotifications}
+                disabled
               />
             </div>
 
@@ -290,7 +292,7 @@ const SettingsPage = () => {
               <Switch 
                 checked={newMessageNotifications} 
                 onCheckedChange={setNewMessageNotifications}
-                disabled={!emailNotifications}
+                disabled
               />
             </div>
 
@@ -304,18 +306,18 @@ const SettingsPage = () => {
               <Switch 
                 checked={birthdayReminders} 
                 onCheckedChange={setBirthdayReminders}
-                disabled={!emailNotifications}
+                disabled
               />
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground mt-4 italic">
-            * Notification features coming soon
+          <p className="rounded-2xl bg-amber-50 px-4 py-3 text-xs text-amber-700 mt-4 italic">
+            Notification preferences are not live yet, so these controls are intentionally read-only.
           </p>
         </section>
 
         {/* Default Page Settings */}
-        <section className="bg-card rounded-2xl border border-border p-6">
+        <section className="panel-card p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
               <Settings className="w-5 h-5 text-purple-600" />
@@ -329,8 +331,8 @@ const SettingsPage = () => {
           <div className="space-y-4">
             <div className="grid gap-2">
               <Label>Default Theme</Label>
-              <Select value={defaultTheme} onValueChange={setDefaultTheme}>
-                <SelectTrigger>
+              <Select value={defaultTheme} onValueChange={setDefaultTheme} disabled>
+                <SelectTrigger aria-disabled="true">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -353,6 +355,7 @@ const SettingsPage = () => {
               <Switch 
                 checked={defaultAllowPhotos} 
                 onCheckedChange={setDefaultAllowPhotos}
+                disabled
               />
             </div>
 
@@ -366,17 +369,18 @@ const SettingsPage = () => {
               <Switch 
                 checked={defaultRequireNames} 
                 onCheckedChange={setDefaultRequireNames}
+                disabled
               />
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground mt-4 italic">
-            * Default settings feature coming soon
+          <p className="rounded-2xl bg-violet-50 px-4 py-3 text-xs text-violet-700 mt-4 italic">
+            Default page presets are not saved yet, so this section is read-only for now.
           </p>
         </section>
 
         {/* Account Management */}
-        <section className="bg-card rounded-2xl border border-border p-6">
+        <section className="panel-card p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
               <Shield className="w-5 h-5 text-red-600" />
@@ -414,6 +418,9 @@ const SettingsPage = () => {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Update Password
               </Button>
+              <p className="text-xs text-muted-foreground">
+                Password updates take effect immediately for this account.
+              </p>
             </div>
           </div>
 
@@ -425,33 +432,33 @@ const SettingsPage = () => {
               <Trash2 className="w-4 h-4" />
               Danger Zone
             </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Once you delete your account, there is no going back. All your birthday pages and data will be permanently removed.
-            </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                This permanently removes your account, birthday pages, custom themes, messages, and stored photos from WishCanvas.
+              </p>
             
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="gap-2">
                   <Trash2 className="w-4 h-4" />
-                  Delete Account
+                  Delete My Data
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogTitle>Delete your workspace data?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your account and remove all your data including birthday pages, messages, and custom themes.
+                    This action cannot be undone. It will permanently remove your WishCanvas data, including birthday pages, messages, custom themes, and stored photos.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction 
-                    onClick={handleDeleteAccount}
+                    onClick={handleDeleteWorkspaceData}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     disabled={deleting}
                   >
                     {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Yes, delete my account
+                    Yes, delete my data
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

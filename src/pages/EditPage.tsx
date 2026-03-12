@@ -1,22 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { format } from 'date-fns';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  Check,
+  Copy,
+  Image,
+  Loader2,
+  QrCode,
+  X,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Loader2, Image, X, Palette } from 'lucide-react';
-import SocialShareButtons from '@/components/SocialShareButtons';
-import QRCodeModal from '@/components/QRCodeModal';
-import { format } from 'date-fns';
-import { toast } from 'sonner';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import QRCodeModal from '@/components/QRCodeModal';
+import SocialShareButtons from '@/components/SocialShareButtons';
+import SoundtrackSelector from '@/components/SoundtrackSelector';
+import ThemeSelector from '@/components/ThemeSelector';
+import { apiFetch, apiForm } from '@/lib/api';
+import { parseLocalDate } from '@/lib/date';
+import { cn } from '@/lib/utils';
 
 type Theme = string;
+type Step = 1 | 2 | 3;
 
 interface CustomTheme {
   id: string;
@@ -26,43 +40,38 @@ interface CustomTheme {
   gradient_to: string;
 }
 
-const themeConfig = {
-  elegant: { name: 'Elegant', emoji: '✨', primary: 'from-amber-400 to-orange-500' },
-  playful: { name: 'Playful', emoji: '🎈', primary: 'from-pink-500 to-purple-500' },
-  minimalist: { name: 'Minimalist', emoji: '🎯', primary: 'from-slate-600 to-slate-800' },
-  retro: { name: 'Retro', emoji: '🌈', primary: 'from-cyan-400 to-purple-500' },
-  tropical: { name: 'Tropical', emoji: '🌴', primary: 'from-green-400 to-emerald-500' },
-  cosmic: { name: 'Cosmic', emoji: '🚀', primary: 'from-violet-500 to-indigo-600' },
-  sunset: { name: 'Sunset', emoji: '🌅', primary: 'from-orange-400 to-rose-500' },
-  ocean: { name: 'Ocean', emoji: '🌊', primary: 'from-sky-400 to-cyan-500' },
-  candyland: { name: 'Candyland', emoji: '🍭', primary: 'from-pink-400 to-purple-500' },
-  midnight: { name: 'Midnight', emoji: '🌙', primary: 'from-indigo-500 to-violet-600' },
-};
+const steps = [
+  { number: 1, label: 'Details' },
+  { number: 2, label: 'Theme' },
+  { number: 3, label: 'Share' },
+] as const;
 
 const EditPage = () => {
   const { pageId } = useParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
-  
-  // Form state
+
   const [recipientName, setRecipientName] = useState('');
   const [birthdayDate, setBirthdayDate] = useState<Date>();
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
   const [allowPhotos, setAllowPhotos] = useState(true);
   const [requireNames, setRequireNames] = useState(true);
-  
-  // Cover photo state
+  const [closeDate, setCloseDate] = useState<Date>();
+  const [selectedSoundtrackId, setSelectedSoundtrackId] = useState('golden-hour');
+  const [pageCustomAudio, setPageCustomAudio] = useState<File | null>(null);
+  const [pageCustomAudioUrl, setPageCustomAudioUrl] = useState<string | null>(null);
+
   const [currentCoverUrl, setCurrentCoverUrl] = useState<string | null>(null);
   const [coverPhoto, setCoverPhoto] = useState<File | null>(null);
   const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
-  
-  // QR code modal state
+
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
 
@@ -70,49 +79,75 @@ const EditPage = () => {
     if (!authLoading && !user) {
       navigate('/auth');
     }
-  }, [user, authLoading, navigate]);
+  }, [authLoading, navigate, user]);
+
+  const fetchCustomThemes = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const data = await apiFetch<CustomTheme[]>('/themes');
+      setCustomThemes(data || []);
+    } catch (error) {
+      toast.error('Failed to load custom themes');
+      console.error(error);
+    }
+  }, [user]);
+
+  const fetchPage = useCallback(async () => {
+    if (!user || !pageId) return;
+
+    try {
+      const data = await apiFetch<{
+        recipient_name: string;
+        birthday_date: string;
+        creator_message: string | null;
+        theme: string;
+        soundtrack_id: string | null;
+        custom_audio_url: string | null;
+        allow_photos: boolean;
+        require_names: boolean;
+        close_date: string | null;
+        cover_photo_url: string | null;
+      }>(`/pages/${pageId}`);
+
+      setRecipientName(data.recipient_name);
+      setBirthdayDate(parseLocalDate(data.birthday_date));
+      setCreatorMessage(data.creator_message || '');
+      setSelectedTheme(data.theme as Theme);
+      setSelectedSoundtrackId(data.soundtrack_id || 'golden-hour');
+      setAllowPhotos(data.allow_photos);
+      setRequireNames(data.require_names);
+      setCloseDate(data.close_date ? parseLocalDate(data.close_date) : undefined);
+      setCurrentCoverUrl(data.cover_photo_url);
+      setPageCustomAudioUrl(data.custom_audio_url);
+      setLoading(false);
+    } catch (error) {
+      toast.error('Page not found');
+      console.error(error);
+      navigate('/dashboard');
+    }
+  }, [navigate, pageId, user]);
 
   useEffect(() => {
     if (pageId && user) {
-      fetchPage();
-      fetchCustomThemes();
+      void fetchPage();
+      void fetchCustomThemes();
     }
-  }, [pageId, user]);
+  }, [fetchCustomThemes, fetchPage, pageId, user]);
 
-  const fetchCustomThemes = async () => {
-    const { data } = await supabase
-      .from('custom_themes')
-      .select('id, name, emoji, gradient_from, gradient_to')
-      .eq('user_id', user!.id);
-    setCustomThemes(data || []);
-  };
+  useEffect(() => {
+    return () => {
+      if (coverPhotoPreview) {
+        URL.revokeObjectURL(coverPhotoPreview);
+      }
+      if (pageCustomAudioUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(pageCustomAudioUrl);
+      }
+    };
+  }, [coverPhotoPreview, pageCustomAudioUrl]);
 
-  const fetchPage = async () => {
-    const { data, error } = await supabase
-      .from('birthday_pages')
-      .select('*')
-      .eq('id', pageId)
-      .eq('user_id', user!.id)
-      .maybeSingle();
-
-    if (error || !data) {
-      toast.error('Page not found');
-      navigate('/dashboard');
-      return;
-    }
-
-    setRecipientName(data.recipient_name);
-    setBirthdayDate(new Date(data.birthday_date));
-    setCreatorMessage(data.creator_message || '');
-    setSelectedTheme(data.theme as Theme);
-    setAllowPhotos(data.allow_photos);
-    setRequireNames(data.require_names);
-    setCurrentCoverUrl(data.cover_photo_url);
-    setLoading(false);
-  };
-
-  const handleCoverPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleCoverPhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
@@ -145,31 +180,93 @@ const EditPage = () => {
     if (!coverPhoto || !pageId) return currentCoverUrl;
 
     setUploadingCover(true);
-    const fileExt = coverPhoto.name.split('.').pop();
-    const fileName = `covers/${pageId}.${fileExt}`;
+    const formData = new FormData();
+    formData.append('file', coverPhoto);
+    formData.append('pageId', pageId);
 
-    const { error } = await supabase.storage
-      .from('birthday-photos')
-      .upload(fileName, coverPhoto, { upsert: true });
-
-    setUploadingCover(false);
-
-    if (error) {
-      console.error('Upload error:', error);
+    try {
+      const data = await apiForm<{ url: string }>('/uploads/cover', formData);
+      return data.url;
+    } catch (error) {
+      console.error(error);
       toast.error('Failed to upload cover photo');
       return currentCoverUrl;
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+  const handleCustomAudioSelect = (file: File) => {
+    if (!file.type.startsWith('audio/')) {
+      toast.error('Please select an audio file');
+      return;
     }
 
-    const { data: urlData } = supabase.storage
-      .from('birthday-photos')
-      .getPublicUrl(fileName);
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Audio must be less than 8MB');
+      return;
+    }
 
-    return urlData.publicUrl;
+    if (pageCustomAudioUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(pageCustomAudioUrl);
+    }
+
+    setPageCustomAudio(file);
+    setPageCustomAudioUrl(URL.createObjectURL(file));
+  };
+
+  const removeCustomAudio = () => {
+    setPageCustomAudio(null);
+    if (pageCustomAudioUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(pageCustomAudioUrl);
+    }
+    setPageCustomAudioUrl(null);
+  };
+
+  const uploadPageSoundtrack = async (): Promise<string | null> => {
+    if (!pageCustomAudio || !pageId) return pageCustomAudioUrl;
+
+    const formData = new FormData();
+    formData.append('file', pageCustomAudio);
+    formData.append('pageId', pageId);
+
+    try {
+      const data = await apiForm<{ url: string }>('/uploads/page-soundtrack', formData);
+      if (pageCustomAudioUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(pageCustomAudioUrl);
+      }
+      setPageCustomAudio(null);
+      setPageCustomAudioUrl(data.url);
+      return data.url;
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to upload opening audio');
+      return pageCustomAudioUrl;
+    }
+  };
+
+  const handleNext = () => {
+    if (step === 1) {
+      if (!recipientName.trim()) {
+        toast.error("Please enter the recipient's name");
+        return;
+      }
+      if (!birthdayDate) {
+        toast.error('Please select a birthday date');
+        return;
+      }
+    }
+
+    setStep((currentStep) => Math.min(currentStep + 1, 3) as Step);
+  };
+
+  const handleBack = () => {
+    setStep((currentStep) => Math.max(currentStep - 1, 1) as Step);
   };
 
   const handleSave = async () => {
     if (!recipientName.trim()) {
-      toast.error('Please enter the recipient\'s name');
+      toast.error("Please enter the recipient's name");
       return;
     }
     if (!birthdayDate) {
@@ -179,50 +276,60 @@ const EditPage = () => {
 
     setSaving(true);
 
-    // Upload cover photo if new one selected
     let coverUrl = currentCoverUrl;
     if (coverPhoto) {
       coverUrl = await uploadCoverPhoto();
     }
 
-    const { error } = await supabase
-      .from('birthday_pages')
-      .update({
-        recipient_name: recipientName,
-        birthday_date: format(birthdayDate, 'yyyy-MM-dd'),
-        theme: selectedTheme,
-        creator_message: creatorMessage || null,
-        allow_photos: allowPhotos,
-        require_names: requireNames,
-        cover_photo_url: coverUrl,
-      })
-      .eq('id', pageId);
+    let customAudioUrl = pageCustomAudioUrl;
+    if (pageCustomAudio) {
+      customAudioUrl = await uploadPageSoundtrack();
+    }
 
-    setSaving(false);
-
-    if (error) {
+    try {
+      await apiFetch(`/pages/${pageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          recipientName,
+          birthdayDate: format(birthdayDate, 'yyyy-MM-dd'),
+          theme: selectedTheme,
+          creatorMessage: creatorMessage || null,
+          soundtrackId: selectedSoundtrackId,
+          allowPhotos,
+          requireNames,
+          closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate, 'yyyy-MM-dd'),
+          coverPhotoUrl: coverUrl,
+          pageCustomAudioUrl: customAudioUrl,
+        }),
+      });
+    } catch (error) {
+      setSaving(false);
       toast.error('Failed to save changes');
       console.error(error);
       return;
     }
 
-    toast.success('Changes saved!');
+    setSaving(false);
+    toast.success('Changes saved');
     navigate('/dashboard');
   };
 
-  const copyLink = (type: 'contribute' | 'birthday') => {
+  const copyLink = async (type: 'contribute' | 'birthday') => {
     const baseUrl = window.location.origin;
-    const link = type === 'contribute' 
-      ? `${baseUrl}/contribute/${pageId}`
-      : `${baseUrl}/birthday/${pageId}`;
-    navigator.clipboard.writeText(link);
-    toast.success('Link copied!');
+    const link = type === 'contribute' ? `${baseUrl}/contribute/${pageId}` : `${baseUrl}/birthday/${pageId}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Link copied');
+    } catch {
+      window.prompt('Copy this link:', link);
+    }
   };
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -230,240 +337,265 @@ const EditPage = () => {
   const displayCoverUrl = coverPhotoPreview || currentCoverUrl;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen app-shell">
+      <header className="border-b border-border/60 bg-white/80 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-cta flex items-center justify-center text-lg sm:text-xl">
-              🎨
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-cta text-lg sm:h-10 sm:w-10 sm:text-xl">
+              W
             </div>
-            <span className="text-lg sm:text-xl font-bold text-foreground hidden sm:block">WishCanvas</span>
+            <span className="hidden text-lg font-bold text-foreground sm:block sm:text-xl">WishCanvas</span>
           </Link>
-          
-          <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 sm:gap-2">
-            <ArrowLeft className="w-4 h-4" />
+
+          <Link to="/dashboard" className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground sm:gap-2">
+            <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Back to Dashboard</span>
             <span className="sm:hidden">Dashboard</span>
           </Link>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-6 sm:mb-8">Edit Birthday Page</h1>
+      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+        <div className="panel-card mb-6 overflow-hidden p-6 sm:p-8">
+          <span className="eyebrow-chip">Editor</span>
+          <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-4xl">Edit the birthday page</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Update the details, refresh the look, and adjust sharing settings without digging through one long form.
+          </p>
 
-        {/* Details */}
-        <div className="bg-card rounded-2xl p-6 border border-border mb-6">
-          <h2 className="font-bold text-foreground mb-4">Details</h2>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name" className="text-foreground">Recipient's Name</Label>
-              <Input
-                id="name"
-                value={recipientName}
-                onChange={(e) => setRecipientName(e.target.value)}
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label className="text-foreground">Birthday Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
+          <div className="mt-8 flex items-center justify-center">
+            {steps.map((currentStep, index) => (
+              <React.Fragment key={currentStep.number}>
+                <div className="flex flex-col items-center">
+                  <div
                     className={cn(
-                      "w-full mt-2 justify-start text-left font-normal",
-                      !birthdayDate && "text-muted-foreground"
+                      'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 sm:h-10 sm:w-10 sm:text-sm',
+                      step >= currentStep.number ? 'gradient-cta text-primary-foreground' : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {birthdayDate ? format(birthdayDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={birthdayDate}
-                    onSelect={setBirthdayDate}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Label htmlFor="message" className="text-foreground">Your Personal Message</Label>
-              <Textarea
-                id="message"
-                value={creatorMessage}
-                onChange={(e) => setCreatorMessage(e.target.value)}
-                className="mt-2 min-h-[100px]"
-              />
-            </div>
-
-            {/* Cover Photo */}
-            <div>
-              <Label className="text-foreground">Cover Photo</Label>
-              <input
-                ref={coverInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleCoverPhotoSelect}
-                className="hidden"
-              />
-              
-              {displayCoverUrl ? (
-                <div className="relative mt-2 rounded-xl overflow-hidden border border-border">
-                  <img 
-                    src={displayCoverUrl} 
-                    alt="Cover preview" 
-                    className="w-full h-40 object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={removeCoverPhoto}
-                    className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background transition-colors"
+                    {step > currentStep.number ? <Check className="h-4 w-4 sm:h-5 sm:w-5" /> : currentStep.number}
+                  </div>
+                  <span
+                    className={cn(
+                      'mt-1.5 text-[10px] font-medium transition-colors sm:mt-2 sm:text-xs',
+                      step >= currentStep.number ? 'text-foreground' : 'text-muted-foreground',
+                    )}
                   >
-                    <X className="w-4 h-4 text-foreground" />
-                  </button>
+                    {currentStep.label}
+                  </span>
                 </div>
-              ) : (
-                <div 
-                  onClick={() => coverInputRef.current?.click()}
-                  className="mt-2 border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                >
-                  <Image className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Click to upload a cover photo</p>
-                  <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
-                </div>
-              )}
-            </div>
+                {index < steps.length - 1 && (
+                  <div
+                    className={cn(
+                      'mx-1.5 h-0.5 w-10 rounded-full transition-all duration-300 sm:mx-2 sm:h-1 sm:w-16 md:w-24',
+                      step > currentStep.number ? 'gradient-cta' : 'bg-muted',
+                    )}
+                  />
+                )}
+              </React.Fragment>
+            ))}
           </div>
         </div>
 
-        {/* Theme */}
-        <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border mb-6">
-          <h2 className="font-bold text-foreground mb-4">Theme</h2>
-          
-          {/* Predefined Themes */}
-          <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-4">
-            {(Object.keys(themeConfig) as string[]).map((themeKey) => {
-              const theme = themeConfig[themeKey];
-              const isSelected = selectedTheme === themeKey;
-              return (
-                <button
-                  key={themeKey}
-                  onClick={() => setSelectedTheme(themeKey)}
-                  className={cn(
-                    "aspect-square rounded-lg sm:rounded-xl p-1 sm:p-2 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all duration-300 border-2",
-                    `bg-gradient-to-br ${theme.primary}`,
-                    isSelected 
-                      ? "ring-2 ring-foreground/20 scale-105 border-primary-foreground" 
-                      : "border-transparent opacity-70 hover:opacity-100"
-                  )}
-                >
-                  <span className="text-base sm:text-xl">{theme.emoji}</span>
-                  <span className="text-[8px] sm:text-[10px] font-medium text-primary-foreground leading-tight">{theme.name}</span>
-                </button>
-              );
-            })}
-          </div>
+        {step === 1 && (
+          <div className="panel-card animate-fade-in-up p-6 sm:p-8">
+            <h2 className="mb-1 text-xl font-bold text-foreground sm:text-2xl">Update the essentials</h2>
+            <p className="mb-6 text-sm text-muted-foreground sm:mb-8 sm:text-base">
+              Tidy the page details first, then move on to styling and sharing.
+            </p>
 
-          {/* Custom Themes */}
-          {customThemes.length > 0 && (
-            <>
-              <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1">
-                <Palette className="w-4 h-4" />
-                Your Custom Themes
-              </h3>
-              <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-4">
-                {customThemes.map((theme) => {
-                  const themeKey = `custom_${theme.id}`;
-                  const isSelected = selectedTheme === themeKey;
-                  return (
-                    <button
-                      key={theme.id}
-                      onClick={() => setSelectedTheme(themeKey)}
-                      className={cn(
-                        "aspect-square rounded-lg sm:rounded-xl p-1 sm:p-2 flex flex-col items-center justify-center gap-0.5 sm:gap-1 transition-all duration-300 border-2",
-                        isSelected 
-                          ? "ring-2 ring-foreground/20 scale-105 border-white" 
-                          : "border-transparent opacity-70 hover:opacity-100"
-                      )}
-                      style={{
-                        background: `linear-gradient(135deg, ${theme.gradient_from}, ${theme.gradient_to})`
-                      }}
-                    >
-                      <span className="text-base sm:text-xl">{theme.emoji}</span>
-                      <span className="text-[8px] sm:text-[10px] font-medium text-white drop-shadow leading-tight">{theme.name}</span>
-                    </button>
-                  );
-                })}
+            <div className="space-y-6">
+              <div>
+                <Label htmlFor="name" className="text-foreground">Recipient&apos;s Name</Label>
+                <Input id="name" value={recipientName} onChange={(event) => setRecipientName(event.target.value)} className="mt-2" />
               </div>
-            </>
-          )}
 
-          {/* Link to theme builder */}
-          <Link 
-            to="/themes" 
-            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-          >
-            <Palette className="w-3 h-3" />
-            Create custom themes
-          </Link>
-        </div>
+              <div>
+                <Label className="text-foreground">Birthday Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn('mt-2 w-full justify-start text-left font-normal', !birthdayDate && 'text-muted-foreground')}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {birthdayDate ? format(birthdayDate, 'PPP') : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={birthdayDate}
+                      onSelect={setBirthdayDate}
+                      initialFocus
+                      className="pointer-events-auto p-3"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
 
-        {/* Settings */}
-        <div className="bg-card rounded-2xl p-6 border border-border mb-6">
-          <h2 className="font-bold text-foreground mb-4">Settings</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="photos" className="text-foreground">Allow photo uploads</Label>
-              <Switch id="photos" checked={allowPhotos} onCheckedChange={setAllowPhotos} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="names" className="text-foreground">Require names on messages</Label>
-              <Switch id="names" checked={requireNames} onCheckedChange={setRequireNames} />
+              <div>
+                <Label className="text-foreground">Stop collecting wishes</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn('mt-2 w-full justify-start text-left font-normal', !closeDate && 'text-muted-foreground')}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {closeDate ? format(closeDate, 'PPP') : 'Defaults to the birthday date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={closeDate}
+                      onSelect={setCloseDate}
+                      initialFocus
+                      className="pointer-events-auto p-3"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  New wishes and photo uploads will stop after this date.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="message" className="text-foreground">Your Personal Message</Label>
+                <Textarea
+                  id="message"
+                  value={creatorMessage}
+                  onChange={(event) => setCreatorMessage(event.target.value)}
+                  className="mt-2 min-h-[100px]"
+                />
+              </div>
+
+              <div>
+                <Label className="text-foreground">Cover Photo</Label>
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverPhotoSelect}
+                  className="hidden"
+                />
+
+                {displayCoverUrl ? (
+                  <div className="relative mt-2 overflow-hidden rounded-2xl border border-border bg-muted/20">
+                    <img src={displayCoverUrl} alt="Cover preview" className="aspect-[16/10] max-h-[28rem] w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={removeCoverPhoto}
+                      className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 backdrop-blur-sm transition-colors hover:bg-background"
+                      aria-label="Remove selected cover photo"
+                    >
+                      <X className="h-4 w-4 text-foreground" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => coverInputRef.current?.click()}
+                    className="mt-2 cursor-pointer rounded-xl border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary/50"
+                  >
+                    <Image className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Click to upload a cover photo</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Shown as a wide hero image on the final page</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Share Links */}
-        <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border mb-6">
-          <h2 className="font-bold text-foreground mb-4">Share Links</h2>
-          <div className="space-y-3 mb-4">
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 gap-2 text-sm" onClick={() => copyLink('contribute')}>
-                <Copy className="w-4 h-4 shrink-0" />
-                <span>Contribution Link</span>
-              </Button>
-              <Button variant="outline" className="px-3" onClick={() => { setQrType('contribute'); setQrModalOpen(true); }}>
-                <QrCode className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 gap-2 text-sm" onClick={() => copyLink('birthday')}>
-                <Copy className="w-4 h-4 shrink-0" />
-                <span>Birthday Link</span>
-              </Button>
-              <Button variant="outline" className="px-3" onClick={() => { setQrType('birthday'); setQrModalOpen(true); }}>
-                <QrCode className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground mb-3 text-center">Share contribution link on social media</p>
-            <SocialShareButtons 
-              url={`${window.location.origin}/contribute/${pageId}`}
-              message={`🎂 Help me celebrate ${recipientName}'s birthday! Add your wishes here:`}
-              recipientName={recipientName}
+        {step === 2 && (
+          <div className="panel-card animate-fade-in-up p-6 sm:p-8">
+            <h2 className="mb-1 text-xl font-bold text-foreground sm:text-2xl">Adjust the visual direction</h2>
+            <p className="mb-6 text-sm text-muted-foreground sm:mb-8 sm:text-base">
+              Change the page mood and soundtrack without scrolling through unrelated fields.
+            </p>
+
+            <ThemeSelector
+              selectedTheme={selectedTheme}
+              onSelect={setSelectedTheme}
+              customThemes={customThemes}
             />
-          </div>
-        </div>
 
-        {/* QR Code Modal */}
+            <div className="panel-inset mt-8 p-4 sm:p-6">
+              <h3 className="text-lg font-bold text-foreground">Opening soundtrack</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Choose one of the in-app tracks or upload a custom opening audio for the reveal.
+              </p>
+              <div className="mt-5">
+                <SoundtrackSelector
+                  selectedSoundtrackId={selectedSoundtrackId}
+                  onSelectSoundtrackId={setSelectedSoundtrackId}
+                  customAudioUrl={pageCustomAudioUrl}
+                  onSelectCustomAudio={handleCustomAudioSelect}
+                  onRemoveCustomAudio={removeCustomAudio}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="panel-card animate-fade-in-up p-6 sm:p-8">
+            <h2 className="mb-1 text-xl font-bold text-foreground sm:text-2xl">Share and finalize</h2>
+            <p className="mb-6 text-sm text-muted-foreground sm:mb-8 sm:text-base">
+              Copy the links you need, update contribution rules, then save everything at once.
+            </p>
+
+            <div className="panel-inset mb-4 p-4 sm:p-6">
+              <h3 className="font-bold text-foreground">Share links</h3>
+              <div className="mt-4 space-y-3">
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1 gap-2 text-sm" onClick={() => copyLink('contribute')}>
+                    <Copy className="h-4 w-4 shrink-0" />
+                    <span>Contribution Link</span>
+                  </Button>
+                  <Button variant="outline" className="px-3" onClick={() => { setQrType('contribute'); setQrModalOpen(true); }}>
+                    <span className="sr-only">Show contribution QR code</span>
+                    <QrCode className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1 gap-2 text-sm" onClick={() => copyLink('birthday')}>
+                    <Copy className="h-4 w-4 shrink-0" />
+                    <span>Birthday Link</span>
+                  </Button>
+                  <Button variant="outline" className="px-3" onClick={() => { setQrType('birthday'); setQrModalOpen(true); }}>
+                    <span className="sr-only">Show birthday QR code</span>
+                    <QrCode className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="mb-3 text-center text-xs text-muted-foreground">Share contribution link on social media</p>
+                <SocialShareButtons
+                  url={`${window.location.origin}/contribute/${pageId}`}
+                  message={`Help me celebrate ${recipientName}'s birthday. Add your wishes here:`}
+                  recipientName={recipientName}
+                />
+              </div>
+            </div>
+
+            <div className="panel-inset p-4 sm:p-6">
+              <h3 className="font-bold text-foreground">Contribution settings</h3>
+              <div className="mt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="photos" className="text-foreground">Allow photo uploads</Label>
+                  <Switch id="photos" checked={allowPhotos} onCheckedChange={setAllowPhotos} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="names" className="text-foreground">Require names on messages</Label>
+                  <Switch id="names" checked={requireNames} onCheckedChange={setRequireNames} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <QRCodeModal
           open={qrModalOpen}
           onOpenChange={setQrModalOpen}
@@ -472,21 +604,35 @@ const EditPage = () => {
           recipientName={recipientName}
         />
 
-        {/* Actions */}
-        <div className="flex gap-4">
-          <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1">
-            Cancel
-          </Button>
-          <Button variant="hero" onClick={handleSave} className="flex-1" disabled={saving || uploadingCover}>
-            {(saving || uploadingCover) ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {uploadingCover ? 'Uploading...' : 'Saving...'}
-              </>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
+        <div className="panel-card mt-6 flex gap-3 p-4 sm:gap-4 sm:p-5">
+          {step > 1 ? (
+            <Button variant="outline" onClick={handleBack} className="flex-1">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1">
+              Cancel
+            </Button>
+          )}
+
+          {step < 3 ? (
+            <Button variant="hero" onClick={handleNext} className="flex-1">
+              Next
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button variant="hero" onClick={handleSave} className="flex-1" disabled={saving || uploadingCover}>
+              {saving || uploadingCover ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {uploadingCover ? 'Uploading...' : 'Saving...'}
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          )}
         </div>
       </main>
     </div>

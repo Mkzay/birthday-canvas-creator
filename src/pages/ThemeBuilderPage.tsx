@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Plus, Trash2, Loader2, Palette, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api';
 
 interface CustomTheme {
   id: string;
@@ -47,27 +47,25 @@ const ThemeBuilderPage = () => {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchThemes();
+  const fetchThemes = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const data = await apiFetch<CustomTheme[]>('/themes');
+      setThemes(data || []);
+    } catch (error) {
+      toast.error('Failed to load themes');
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
-  const fetchThemes = async () => {
-    const { data, error } = await supabase
-      .from('custom_themes')
-      .select('*')
-      .eq('user_id', user!.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast.error('Failed to load themes');
-      console.error(error);
-    } else {
-      setThemes(data || []);
+  useEffect(() => {
+    if (user) {
+      void fetchThemes();
     }
-    setLoading(false);
-  };
+  }, [fetchThemes, user]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -99,45 +97,42 @@ const ThemeBuilderPage = () => {
 
     if (editingId) {
       // Update existing theme
-      const { error } = await supabase
-        .from('custom_themes')
-        .update({
-          name: name.trim(),
-          emoji,
-          gradient_from: gradientFrom,
-          gradient_to: gradientTo,
-          font,
-        })
-        .eq('id', editingId);
-
-      if (error) {
+      try {
+        await apiFetch(`/themes/${editingId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name,
+            emoji,
+            gradientFrom,
+            gradientTo,
+            font,
+          }),
+        });
+        toast.success('Theme updated!');
+        void fetchThemes();
+        resetForm();
+      } catch (error) {
         toast.error('Failed to update theme');
         console.error(error);
-      } else {
-        toast.success('Theme updated!');
-        fetchThemes();
-        resetForm();
       }
     } else {
-      // Create new theme
-      const { error } = await supabase
-        .from('custom_themes')
-        .insert({
-          user_id: user!.id,
-          name: name.trim(),
-          emoji,
-          gradient_from: gradientFrom,
-          gradient_to: gradientTo,
-          font,
+      try {
+        await apiFetch('/themes', {
+          method: 'POST',
+          body: JSON.stringify({
+            name,
+            emoji,
+            gradientFrom,
+            gradientTo,
+            font,
+          }),
         });
-
-      if (error) {
+        toast.success('Theme created!');
+        void fetchThemes();
+        resetForm();
+      } catch (error) {
         toast.error('Failed to create theme');
         console.error(error);
-      } else {
-        toast.success('Theme created!');
-        fetchThemes();
-        resetForm();
       }
     }
 
@@ -145,17 +140,15 @@ const ThemeBuilderPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase
-      .from('custom_themes')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast.error('Failed to delete theme');
-      console.error(error);
-    } else {
+    try {
+      await apiFetch<void>(`/themes/${id}`, {
+        method: 'DELETE',
+      });
       toast.success('Theme deleted');
       setThemes(themes.filter(t => t.id !== id));
+    } catch (error) {
+      toast.error('Failed to delete theme');
+      console.error(error);
     }
   };
 

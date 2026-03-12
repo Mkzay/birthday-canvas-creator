@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Edit, Share2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BirthdayPage from './BirthdayPage';
+import { apiFetch } from '@/lib/api';
 
 const PreviewPage = () => {
   const { pageId } = useParams();
@@ -14,30 +14,40 @@ const PreviewPage = () => {
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
 
-  useEffect(() => {
-    if (pageId && user) {
-      checkOwnership();
-    } else if (!authLoading && !user) {
+  const checkOwnership = useCallback(async () => {
+    if (!pageId) return;
+
+    try {
+      const data = await apiFetch<{ isOwner: boolean }>(`/pages/${pageId}/ownership`);
+      setIsOwner(data.isOwner);
+      if (!data.isOwner) {
+        navigate(`/birthday/${pageId}`, { replace: true });
+      }
+    } catch {
+      navigate(`/birthday/${pageId}`, { replace: true });
+    } finally {
       setLoading(false);
     }
-  }, [pageId, user, authLoading]);
+  }, [navigate, pageId]);
 
-  const checkOwnership = async () => {
-    const { data } = await supabase
-      .from('birthday_pages')
-      .select('user_id')
-      .eq('id', pageId)
-      .maybeSingle();
+  useEffect(() => {
+    if (pageId && user) {
+      void checkOwnership();
+    } else if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [authLoading, checkOwnership, navigate, pageId, user]);
 
-    setIsOwner(data?.user_id === user?.id);
-    setLoading(false);
-  };
-
-  const copyLink = () => {
+  const copyLink = async () => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}/birthday/${pageId}`;
-    navigator.clipboard.writeText(link);
-    toast.success('Birthday link copied!');
+
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Birthday link copied');
+    } catch {
+      window.prompt('Copy this link:', link);
+    }
   };
 
   if (loading || authLoading) {
@@ -79,7 +89,7 @@ const PreviewPage = () => {
 
       {/* Add padding for the banner */}
       <div className={isOwner ? "pt-14" : ""}>
-        <BirthdayPage isPreview={isOwner} />
+        <BirthdayPage isPreview={isOwner} showRevealIntroInPreview={isOwner} />
       </div>
     </div>
   );
