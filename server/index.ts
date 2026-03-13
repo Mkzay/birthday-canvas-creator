@@ -202,7 +202,15 @@ async function resolvePageId(identifier: string) {
   }
 
   if (/^[0-9a-f-]{36}$/i.test(identifier)) {
-    return null;
+    const uuidRows = await sql`
+      SELECT id
+      FROM birthday_pages
+      WHERE id = ${identifier}
+      LIMIT 1
+    `;
+    if (uuidRows[0]) {
+      return String(uuidRows[0].id);
+    }
   }
 
   return null;
@@ -321,7 +329,7 @@ function privatePageQuery(pageId: string, userId: string) {
     FROM birthday_pages bp
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
     LEFT JOIN custom_themes ct ON bp.theme = CONCAT('custom_', ct.id::text)
-    WHERE bp.id = ${pageId}
+    WHERE (bp.id::text = ${pageId} OR bp.public_code = ${pageId})
       AND bp.user_id = ${userId}
     GROUP BY bp.id, ct.id
   `;
@@ -675,7 +683,7 @@ app.get("/api/pages/:id/messages", requireAuth, async (request: AuthedRequest, r
     return;
   }
 
-  const messages = await fetchMessagesForPage(String(request.params.id));
+  const messages = await fetchMessagesForPage(String(pageRows[0].id));
   response.json(messages);
 });
 
@@ -683,7 +691,7 @@ app.get("/api/pages/:id/ownership", requireAuth, async (request: AuthedRequest, 
   const rows = await sql`
     SELECT id, public_code
     FROM birthday_pages
-    WHERE id = ${request.params.id}
+    WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
       AND user_id = ${request.user!.id}
     LIMIT 1
   `;
@@ -699,7 +707,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
     const existingRows = await sql`
       SELECT custom_audio_url
       FROM birthday_pages
-      WHERE id = ${request.params.id}
+      WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
         AND user_id = ${request.user!.id}
       LIMIT 1
     `;
@@ -730,7 +738,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
           cover_photo_url = ${request.body.coverPhotoUrl || null},
           custom_audio_url = ${request.body.pageCustomAudioUrl || null},
           updated_at = NOW()
-        WHERE id = ${request.params.id}
+        WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
           AND user_id = ${request.user!.id}
         RETURNING *
       `
@@ -746,7 +754,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
           require_names = ${Boolean(request.body.requireNames ?? true)},
           close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
           updated_at = NOW()
-        WHERE id = ${request.params.id}
+        WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
           AND user_id = ${request.user!.id}
         RETURNING *
       `;
@@ -761,9 +769,9 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
 
 app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, response) => {
   const rows = await sql`
-    SELECT cover_photo_url, custom_audio_url
+    SELECT id, cover_photo_url, custom_audio_url
     FROM birthday_pages
-    WHERE id = ${request.params.id}
+    WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
       AND user_id = ${request.user!.id}
     LIMIT 1
   `;
@@ -773,18 +781,20 @@ app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, respons
     return;
   }
 
+  const resolvedPageId = rows[0].id;
+
   const messagePhotos = await sql`
     SELECT bm.photo_url
     FROM birthday_messages bm
     INNER JOIN birthday_pages bp ON bp.id = bm.page_id
-    WHERE bp.id = ${request.params.id}
+    WHERE bp.id = ${resolvedPageId}
       AND bp.user_id = ${request.user!.id}
       AND bm.photo_url IS NOT NULL
     UNION ALL
     SELECT bm.audio_url AS photo_url
     FROM birthday_messages bm
     INNER JOIN birthday_pages bp ON bp.id = bm.page_id
-    WHERE bp.id = ${request.params.id}
+    WHERE bp.id = ${resolvedPageId}
       AND bp.user_id = ${request.user!.id}
       AND bm.audio_url IS NOT NULL
     UNION ALL
@@ -792,7 +802,7 @@ app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, respons
     FROM birthday_message_photos bmp
     INNER JOIN birthday_messages bm ON bm.id = bmp.message_id
     INNER JOIN birthday_pages bp ON bp.id = bm.page_id
-    WHERE bp.id = ${request.params.id}
+    WHERE bp.id = ${resolvedPageId}
       AND bp.user_id = ${request.user!.id}
   `;
 
@@ -802,7 +812,7 @@ app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, respons
 
   await sql`
     DELETE FROM birthday_pages
-    WHERE id = ${request.params.id}
+    WHERE id = ${resolvedPageId}
       AND user_id = ${request.user!.id}
   `;
 

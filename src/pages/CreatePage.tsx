@@ -480,7 +480,7 @@ const CreatePage = () => {
                 <input
                   ref={coverInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.gif"
                   onChange={handleCoverPhotoSelect}
                   className="hidden"
                 />
@@ -594,7 +594,7 @@ const CreatePage = () => {
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Send this to {recipientName} on their birthday</p>
               <p className="text-xs text-amber-600 font-medium mb-3 sm:mb-4">⚠️ Don't share this yet!</p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-3 sm:mb-4">
                 <Button variant="outline" size="sm" className="flex-1 gap-2 text-sm" onClick={() => copyLink('birthday')}>
                   <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Copy Link
@@ -604,6 +604,12 @@ const CreatePage = () => {
                   <QrCode className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </Button>
               </div>
+              <Link to={`/preview/${createdPublicCode || createdPageId}`} className="block">
+                <Button variant="hero" size="sm" className="w-full gap-2 text-xs sm:text-sm">
+                  <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  View Preview
+                </Button>
+              </Link>
             </div>
 
             {/* QR Code Modal */}

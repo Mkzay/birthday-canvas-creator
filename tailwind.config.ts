@@ -112,6 +112,14 @@ export default {
           "0%": { transform: "translateY(0) scale(1)", opacity: "1" },
           "100%": { transform: "translateY(-100vh) scale(0.5)", opacity: "0" },
         },
+        "falling-star": {
+          "0%": { transform: "translateY(-10px) translateX(0) scale(1)", opacity: "1" },
+          "100%": { transform: "translateY(110vh) translateX(-100px) scale(0.2)", opacity: "0" },
+        },
+        "wave": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -119,6 +127,9 @@ export default {
         "wiggle": "wiggle 0.5s ease-in-out infinite",
         "scale-in": "scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
         "float-away": "float-away 3s ease-out forwards",
+        "falling-star": "falling-star 3s linear infinite",
+        "wave": "wave 10s linear infinite",
+        "wave-slow": "wave 15s linear infinite",
       },
       boxShadow: {
         glow: "0 0 40px hsla(270, 80%, 60%, 0.3)",

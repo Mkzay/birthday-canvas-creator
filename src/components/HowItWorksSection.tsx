@@ -87,7 +87,7 @@ const HowItWorksSection = () => {
                   index === 1 ? 'lg:ml-8' : '',
                 ].join(' ')}
               >
-                <div className="absolute right-5 top-5 text-[1.7rem] font-semibold tracking-tight text-foreground/7 sm:text-[2.15rem] lg:text-[2.35rem]">
+                <div className="absolute right-5 top-5 text-[1.7rem] font-medium tracking-tight text-foreground/5 sm:text-[2.15rem] lg:text-[2.35rem]">
                   {item.step}
                 </div>
                 <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start">

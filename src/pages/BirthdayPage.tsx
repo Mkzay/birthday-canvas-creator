@@ -12,7 +12,7 @@ import {
   Sparkles,
   Volume2,
 } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import BirthdayCountdown from '@/components/BirthdayCountdown';
 import BirthdayShareCard from '@/components/BirthdayShareCard';
@@ -20,6 +20,7 @@ import { apiFetch, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { playPresetSoundtrack, soundtrackMap, type SoundtrackController } from '@/lib/soundtracks';
 import { cn } from '@/lib/utils';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 interface BirthdayPageData {
   id: string;
@@ -388,6 +389,7 @@ function getMessagePhotos(message: Message) {
 
 const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: BirthdayPageProps) => {
   const { pageId } = useParams();
+  const navigate = useNavigate();
   const [page, setPage] = useState<BirthdayPageData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -498,6 +500,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
       const publicPage = await apiFetch<BirthdayPageData>(`/public/pages/${pageId}`);
       setPage(publicPage);
+      
+      // If we are using a UUID but the page has a public code, redirect to use the public code in the URL
+      if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && publicPage.public_code) {
+        navigate(`/birthday/${publicPage.public_code}`, { replace: true });
+      }
 
       if (publicPage.is_revealed) {
         const messagesData = await apiFetch<Message[]>(`/public/pages/${pageId}/messages`);
@@ -588,12 +595,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const burstMessages = useMemo(() => messages.slice(0, 4), [messages]);
   const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
-  const coverPhotoSrc = useMemo(() => {
-    if (!resolvedCoverPhotoUrl) return null;
-    return resolvedCoverPhotoUrl.includes('?')
-      ? `${resolvedCoverPhotoUrl}&render=cover-v2`
-      : `${resolvedCoverPhotoUrl}?render=cover-v2`;
-  }, [resolvedCoverPhotoUrl]);
+  const coverPhotoSrc = resolvedCoverPhotoUrl;
 
   const beginReveal = async () => {
     setHasTriggeredIntro(true);
@@ -885,6 +887,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     return (
       <div className={`relative min-h-screen overflow-hidden ${theme.heroClass}`} style={theme.style}>
         <DecorativeLayer colors={theme.colors} />
+        <AnimatedBackground />
         <BirthdayCountdown
           targetDate={birthdayDate}
           recipientName={page.recipient_name}
@@ -1442,8 +1445,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   <div className="relative z-10 h-full">
                     {activeSlide.kind === 'cover' && (
-                      <div className="grid h-full gap-4 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-                        <div className="order-2 flex flex-col gap-4 lg:order-1 lg:justify-center">
+                      <div className="grid h-full gap-4 lg:grid-cols-[0.92fr_1.08fr] lg:grid-rows-[1fr] lg:items-stretch">
+                        <div className="order-2 flex flex-col gap-4 lg:order-1 lg:h-full lg:justify-center">
                           <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2.1rem] sm:p-7 lg:p-8', keepsakePaperClass)} style={getStoryDelayStyle(50, getStoryMotionDuration(activeSlide))}>
                             <div className={cn('absolute right-5 top-5 h-16 w-16 rounded-full blur-2xl', isDarkExperience ? 'bg-white/10' : 'bg-amber-100/85')} />
                             <p className={cn('relative text-xs font-semibold uppercase tracking-[0.28em] opacity-70', theme.text)}>
@@ -1480,16 +1483,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           )}
                         </div>
 
-                        <div className="order-1 lg:order-2">
+                        <div className="order-1 lg:order-2 lg:h-full lg:min-h-0">
                           <div
-                            className={cn('story-stage-reveal story-photo-board relative rounded-[1.95rem] border p-3 sm:rounded-[2.2rem] sm:p-4 lg:p-5', keepsakePhotoBoardClass)}
+                            className={cn('story-stage-reveal story-photo-board relative rounded-[1.95rem] border p-3 sm:rounded-[2.2rem] sm:p-4 lg:p-5 h-full lg:flex lg:flex-col', keepsakePhotoBoardClass)}
                             style={getStoryDelayStyle(130, getStoryMotionDuration(activeSlide))}
                             onMouseMove={handleBoardParallaxMove}
                             onMouseLeave={handleBoardParallaxLeave}
                           >
                             <span className={cn('absolute left-6 top-4 h-6 w-16 rounded-full opacity-80 sm:left-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
                             <span className={cn('absolute right-6 top-4 h-6 w-16 rounded-full opacity-80 sm:right-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
-                            <div className="relative isolate h-[20rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:h-[24rem] sm:rounded-[1.7rem] lg:h-[48dvh]">
+                            <div className="relative isolate h-[20rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:h-[24rem] sm:rounded-[1.7rem] lg:flex-1 lg:h-auto lg:min-h-0 lg:w-full">
                               {coverPhotoSrc ? (
                                 renderStoryImage(coverPhotoSrc, `${page.recipient_name}'s birthday cover`, {
                                   objectPosition: 'center 28%',
@@ -1585,7 +1588,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   )}
 
                     {activeSlide.kind === 'wish' && (() => {
-                      const wishPhotos = getMessagePhotos(activeSlide.message).slice(0, 4);
+                      const wishPhotos = getMessagePhotos(activeSlide.message);
                       const photoCount = wishPhotos.length;
       const openPhoto = (photo: MessagePhoto) => {
         setExpandedPhoto({
@@ -1642,16 +1645,19 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         );
                       } else if (photoCount >= 3) {
                         photoLayout = (
-                          <div className="grid min-h-[18rem] grid-cols-2 gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0">
+                          <div className={cn(
+                            "grid min-h-[18rem] gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0 overflow-y-auto pr-2 pb-2 custom-scrollbar",
+                            photoCount >= 5 ? "grid-cols-2 lg:grid-cols-2 xl:grid-cols-3" : "grid-cols-2"
+                          )}>
                             {wishPhotos.map((photo, photoIndex) =>
                               renderPhotoCard(
                                 photo,
-                                photoIndex === 0
+                                photoIndex === 0 && photoCount < 5
                                   ? 'col-span-2 rotate-[-1deg] lg:col-span-1 lg:row-span-2'
                                   : photoIndex % 2 === 0
                                     ? 'rotate-[1deg]'
                                     : 'rotate-[-1deg]',
-                                photoIndex === 0 ? 'aspect-[16/10] lg:aspect-auto' : 'aspect-[4/5]',
+                                photoIndex === 0 && photoCount < 5 ? 'aspect-[16/10] lg:aspect-auto lg:h-full' : 'aspect-[4/5]',
                               ),
                             )}
                           </div>

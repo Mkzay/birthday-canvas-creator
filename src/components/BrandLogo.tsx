@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 interface BrandLogoProps {
-  to: string;
+  to?: string;
   compact?: boolean;
   className?: string;
   textClassName?: string;
@@ -11,8 +12,11 @@ interface BrandLogoProps {
 }
 
 const BrandLogo = ({ to, compact = false, className, textClassName, markClassName }: BrandLogoProps) => {
+  const { user } = useAuth();
+  const target = to || (user ? '/dashboard' : '/');
+
   return (
-    <Link to={to} className={cn('inline-flex items-center gap-3', className)}>
+    <Link to={target} className={cn('inline-flex items-center gap-3', className)}>
       <img
         src="/brand-mark.svg"
         alt="WishCanvas"

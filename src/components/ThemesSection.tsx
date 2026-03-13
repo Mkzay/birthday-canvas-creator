@@ -27,18 +27,17 @@ const ThemesSection = () => {
         </div>
 
         <div className="mt-14 grid gap-7 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_19rem] xl:gap-9">
-          <div className="grid gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-[repeat(5,minmax(11.5rem,1fr))] xl:gap-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-[repeat(5,minmax(0,1fr))] xl:gap-5">
             {showcasedThemes.map((theme) => (
               <article
                 key={theme.key}
-                className="rounded-[1.75rem] border border-border/60 bg-white/82 p-5 shadow-[0_18px_55px_rgba(18,18,23,0.05)] transition-transform duration-300 hover:-translate-y-1 xl:p-6"
+                className="aspect-square flex flex-col items-center justify-center text-center rounded-[1.75rem] border border-border/60 bg-white/82 p-5 shadow-[0_18px_55px_rgba(18,18,23,0.05)] transition-transform duration-300 hover:-translate-y-1 xl:p-6"
               >
                 <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${theme.primary} text-xl shadow-lg`}>
                   <span>{theme.emoji}</span>
                 </div>
                 <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-primary/65">{theme.mood}</p>
                 <h3 className="mt-2 text-lg font-bold text-foreground">{theme.name}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{theme.description}</p>
               </article>
             ))}
           </div>

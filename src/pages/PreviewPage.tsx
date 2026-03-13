@@ -22,8 +22,15 @@ const PreviewPage = () => {
       const data = await apiFetch<{ isOwner: boolean; publicCode: string | null }>(`/pages/${pageId}/ownership`);
       setIsOwner(data.isOwner);
       setPublicCode(data.publicCode);
+      
       if (!data.isOwner) {
         navigate(`/birthday/${pageId}`, { replace: true });
+        return;
+      }
+
+      // If we are using a UUID but have a public code, redirect to use the public code in the URL
+      if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && data.publicCode) {
+        navigate(`/preview/${data.publicCode}`, { replace: true });
       }
     } catch {
       navigate(`/birthday/${pageId}`, { replace: true });

@@ -56,6 +56,20 @@ const SeoController = () => {
       return;
     }
 
+    if (pathname.startsWith("/contribute/")) {
+      setTitle("Add your birthday wish");
+      robots.setAttribute("content", "noindex,nofollow");
+      canonical.setAttribute("href", `${origin}${pathname}`);
+      return;
+    }
+
+    if (pathname.startsWith("/birthday/")) {
+      setTitle("Happy Birthday!");
+      robots.setAttribute("content", "noindex,nofollow");
+      canonical.setAttribute("href", `${origin}${pathname}`);
+      return;
+    }
+
     if (pathname === "/auth") {
       setTitle("Sign in");
       robots.setAttribute("content", "noindex,nofollow");

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { GripVertical, ImagePlus, Loader2, Lock, Mic2, Plus, Send, Sparkles, X } from 'lucide-react';
+import { GripVertical, ImagePlus, Loader2, Lock, Mic2, Plus, Send, Sparkles, X, Square, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import Confetti from '@/components/Confetti';
 import { parseLocalDate } from '@/lib/date';
 import { apiFetch, apiForm } from '@/lib/api';
+import BrandLogo from '@/components/BrandLogo';
 
 interface PublicBirthdayPageData {
   id: string;
@@ -60,11 +61,16 @@ const ContributePage = () => {
   const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
   const [wishAudio, setWishAudio] = useState<File | null>(null);
   const [wishAudioPreviewUrl, setWishAudioPreviewUrl] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const selectedPhotosRef = useRef<PendingPhoto[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     selectedPhotosRef.current = selectedPhotos;
@@ -141,6 +147,65 @@ const ContributePage = () => {
       URL.revokeObjectURL(wishAudioPreviewUrl);
     }
     setWishAudioPreviewUrl(null);
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], 'voice-note.webm', { type: 'audio/webm' });
+        
+        if (wishAudioPreviewUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(wishAudioPreviewUrl);
+        }
+        
+        setWishAudio(audioFile);
+        setWishAudioPreviewUrl(URL.createObjectURL(audioBlob));
+        
+        stream.getTracks().forEach((track) => track.stop());
+        
+        if (recordingTimerRef.current !== null) {
+          window.clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+        setRecordingDuration(0);
+        setIsRecording(false);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      toast.error('Could not access microphone. Please check your permissions.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const reorderPhotos = (sourceId: string, targetId: string) => {
@@ -389,12 +454,7 @@ const ContributePage = () => {
 
       <header className="px-4 py-3 sm:px-6 sm:py-4">
         <div className="mx-auto flex max-w-3xl flex-col items-center justify-center">
-          <Link to="/" className="mb-2 flex items-center gap-2 sm:mb-4 sm:gap-3">
-            <div className="gradient-cta flex h-8 w-8 items-center justify-center rounded-xl text-lg sm:h-10 sm:w-10 sm:text-xl">
-              🎨
-            </div>
-            <span className="text-lg font-bold text-foreground sm:text-xl">WishCanvas</span>
-          </Link>
+          <BrandLogo compact className="mb-2 sm:mb-4 sm:gap-3" />
           <p className={`text-center text-xs opacity-80 sm:text-sm ${theme.text}`}>
             It&apos;s {page.recipient_name}&apos;s birthday on {format(parseLocalDate(page.birthday_date), 'MMMM d')}!
           </p>
@@ -493,7 +553,7 @@ const ContributePage = () => {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.gif"
                       multiple
                       onChange={handlePhotoSelect}
                       className="hidden"
@@ -578,16 +638,30 @@ const ContributePage = () => {
                         Add a short audio wish so they can hear your voice on the birthday page.
                       </p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="gap-2"
-                      onClick={() => audioInputRef.current?.click()}
-                      disabled={!page.can_contribute}
-                    >
-                      <Mic2 className="h-4 w-4" />
-                      Add audio
-                    </Button>
+                    {!wishAudioPreviewUrl && !isRecording && (
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="gap-2 text-primary border-primary/20 hover:bg-primary/5"
+                          onClick={startRecording}
+                          disabled={!page.can_contribute}
+                        >
+                          <Mic className="h-4 w-4" />
+                          Record
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => audioInputRef.current?.click()}
+                          disabled={!page.can_contribute}
+                        >
+                          <Mic2 className="h-4 w-4" />
+                          Upload
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   <input
@@ -599,7 +673,24 @@ const ContributePage = () => {
                     disabled={!page.can_contribute}
                   />
 
-                  {wishAudioPreviewUrl ? (
+                  {isRecording ? (
+                    <div className="flex items-center justify-between rounded-[1.4rem] border border-primary/30 bg-primary/5 p-4 shadow-inner">
+                      <div className="flex items-center gap-3">
+                        <div className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
+                        <span className="font-mono text-lg font-medium text-foreground">{formatDuration(recordingDuration)}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="gap-2 rounded-full"
+                        onClick={stopRecording}
+                      >
+                        <Square className="h-4 w-4 fill-current" />
+                        Stop Recording
+                      </Button>
+                    </div>
+                  ) : wishAudioPreviewUrl ? (
                     <div className="rounded-[1.4rem] border border-border bg-background/70 p-4">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
@@ -617,7 +708,7 @@ const ContributePage = () => {
                     </div>
                   ) : (
                     <div className="rounded-[1.4rem] border border-dashed border-border bg-background/60 p-4 text-sm text-muted-foreground">
-                      Upload a short audio clip if you want the person to hear your voice.
+                      Upload a short audio clip or record one directly here if you want the person to hear your voice.
                     </div>
                   )}
                 </div>

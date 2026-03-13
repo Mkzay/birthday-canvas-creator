@@ -8,21 +8,28 @@ import {
   Eye,
   FileText,
   Loader2,
-  LogOut,
   MessageSquare,
   MoreVertical,
   Palette,
   Plus,
-  Settings,
   Share2,
   Sparkles,
   Trash2,
-  User,
+  Search,
 } from 'lucide-react';
 import { differenceInDays, format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import Header from '@/components/Header';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +50,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 interface BirthdayPage {
   id: string;
@@ -97,6 +105,9 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [pagePendingDelete, setPagePendingDelete] = useState<BirthdayPage | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState('all');
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
@@ -135,6 +146,36 @@ const Dashboard = () => {
       void Promise.all([fetchPages(), fetchCustomThemes()]);
     }
   }, [fetchCustomThemes, fetchPages, user]);
+
+  const filteredPages = useMemo(() => {
+    try {
+      return pages.filter((page) => {
+        const name = page.recipient_name || '';
+        const matchesSearch = name.toLowerCase().includes((searchQuery || '').toLowerCase());
+        
+        const birthdayDate = parseLocalDate(page.birthday_date);
+        let daysUntilBirthday = 0;
+        
+        if (!isNaN(birthdayDate.getTime())) {
+          daysUntilBirthday = differenceInDays(birthdayDate, new Date());
+        }
+        
+        let matchesDate = true;
+        if (dateFilter === 'upcoming') {
+          matchesDate = daysUntilBirthday >= 0;
+        } else if (dateFilter === 'past') {
+          matchesDate = daysUntilBirthday < 0;
+        } else if (dateFilter === 'delivered') {
+          matchesDate = page.status === 'delivered';
+        }
+
+        return matchesSearch && matchesDate;
+      });
+    } catch (e) {
+      console.error("Filter error:", e);
+      return pages;
+    }
+  }, [pages, searchQuery, dateFilter]);
 
   const getThemeDisplay = useCallback(
     (themeKey: string): ThemeDisplay => {
@@ -241,55 +282,11 @@ const Dashboard = () => {
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.10),transparent_28%),radial-gradient(circle_at_top_right,rgba(236,72,153,0.10),transparent_24%),linear-gradient(180deg,#fffefe_0%,#fffaf5_48%,#ffffff_100%)]">
-      <header className="border-b border-border/60 bg-white/85 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="gradient-cta flex h-10 w-10 items-center justify-center rounded-xl text-xl text-white shadow-[0_12px_32px_rgba(194,58,196,0.22)]">
-              🎨
-            </div>
-            <div>
-              <p className="text-lg font-bold text-foreground">WishCanvas</p>
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Dashboard</p>
-            </div>
-          </Link>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.10),transparent_28%),radial-gradient(circle_at_top_right,rgba(236,72,153,0.10),transparent_24%),linear-gradient(180deg,#fffefe_0%,#fffaf5_48%,#ffffff_100%)] relative">
+      <AnimatedBackground showStars={false} showWaves={true} className="opacity-40" />
+      <Header showDashboardLabel />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="flex items-center gap-3 rounded-full border border-border/60 bg-card/90 px-2 py-2 shadow-sm transition-colors hover:border-primary/20"
-                aria-label="Open account menu"
-                type="button"
-              >
-                <div className="hidden text-right sm:block">
-                  <p className="text-sm font-semibold text-foreground">{displayName}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
-                </div>
-                <div className="gradient-cta flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-primary-foreground">
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                My Pages
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-7xl px-4 pb-6 pt-24 sm:px-6 sm:pb-8 sm:pt-28">
         <section className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(255,246,241,0.98))] p-6 shadow-[0_24px_80px_rgba(18,18,23,0.08)] sm:p-8">
             <div className="absolute -right-10 top-8 h-32 w-32 rounded-full bg-secondary/14 blur-3xl" />
@@ -366,14 +363,33 @@ const Dashboard = () => {
         </section>
 
         <section className="mt-8">
-          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Your pages</p>
               <h2 className="mt-2 text-2xl font-bold text-foreground">Birthday pages in progress</h2>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {pages.length} {pages.length === 1 ? 'page' : 'pages'} total
-            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 sm:w-64"
+                />
+              </div>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Pages</SelectItem>
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="past">Past</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {pages.length === 0 ? (
@@ -389,9 +405,20 @@ const Dashboard = () => {
                 </Button>
               </Link>
             </div>
+          ) : filteredPages.length === 0 ? (
+            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-[0_18px_55px_rgba(18,18,23,0.04)]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-muted text-3xl">🔍</div>
+              <h3 className="mt-5 text-xl font-bold text-foreground">No matching pages</h3>
+              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
+                We couldn&apos;t find any pages matching your search and filter criteria.
+              </p>
+              <Button variant="outline" className="mt-6" onClick={() => { setSearchQuery(''); setDateFilter('all'); }}>
+                Clear filters
+              </Button>
+            </div>
           ) : (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {pages.map((page) => {
+              {filteredPages.map((page) => {
                 const theme = getThemeDisplay(page.theme);
                 const status = getStatusBadge(page);
                 const collectionCloses = page.close_date ? format(parseLocalDate(page.close_date), 'MMM d') : 'Birthday date';
@@ -501,13 +528,13 @@ const Dashboard = () => {
                       </div>
 
                       <div className="mt-5 flex gap-2">
-                        <Link to={`/preview/${page.id}`} className="flex-1">
+                        <Link to={`/preview/${page.public_code}`} className="flex-1">
                           <Button variant="outline" size="sm" className="w-full gap-2">
                             <Eye className="h-4 w-4" />
                             Preview
                           </Button>
                         </Link>
-                        <Link to={`/edit/${page.id}`} className="flex-1">
+                        <Link to={`/edit/${page.public_code}`} className="flex-1">
                           <Button variant="hero" size="sm" className="w-full gap-2">
                             <Edit className="h-4 w-4" />
                             Edit

@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 const HeroSection = () => {
   const { user } = useAuth();
 
   return (
     <section className="gradient-hero relative flex min-h-[100svh] items-center justify-center overflow-hidden px-4 pb-8 pt-16 sm:px-6 sm:pb-16 sm:pt-20">
+      <AnimatedBackground showWaves={true} showStars={true} />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute left-10 top-20 h-32 w-32 rounded-full bg-white/5 blur-3xl sm:h-64 sm:w-64" />
         <div className="absolute bottom-20 right-10 h-40 w-40 rounded-full bg-white/5 blur-3xl sm:h-80 sm:w-80" />

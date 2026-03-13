@@ -41,6 +41,41 @@ export const soundtrackOptions: SoundtrackOption[] = [
     ],
   },
   {
+    id: 'starlight-chimes',
+    name: 'Starlight Chimes',
+    description: 'Dreamy, high-pitched bell-like tones.',
+    accent: 'from-cyan-300 to-blue-500',
+    notes: [
+      { frequency: 1046.50, duration: 0.15, type: 'sine', gain: 0.06 },
+      { frequency: 1318.51, duration: 0.20, type: 'sine', gain: 0.05 },
+      { frequency: 1567.98, duration: 0.25, type: 'triangle', gain: 0.04 },
+      { frequency: 1046.50, duration: 0.40, type: 'sine', gain: 0.06 },
+    ],
+  },
+  {
+    id: 'sunrise-acoustic',
+    name: 'Sunrise Acoustic',
+    description: 'A gentle, steady and uplifting rhythm.',
+    accent: 'from-emerald-400 to-teal-500',
+    notes: [
+      { frequency: 261.63, duration: 0.35, type: 'triangle', gain: 0.07 },
+      { frequency: 329.63, duration: 0.35, type: 'triangle', gain: 0.07 },
+      { frequency: 392.00, duration: 0.35, type: 'triangle', gain: 0.07 },
+      { frequency: 523.25, duration: 0.60, type: 'triangle', gain: 0.08 },
+    ],
+  },
+  {
+    id: 'ambient-waves',
+    name: 'Ambient Waves',
+    description: 'Slow, deep frequencies for a relaxed mood.',
+    accent: 'from-slate-500 to-zinc-700',
+    notes: [
+      { frequency: 196.00, duration: 0.8, type: 'sine', gain: 0.08 },
+      { frequency: 246.94, duration: 0.7, type: 'sine', gain: 0.07 },
+      { frequency: 293.66, duration: 0.9, type: 'sine', gain: 0.08 },
+    ],
+  },
+  {
     id: 'midnight-drift',
     name: 'Midnight Drift',
     description: 'A slower, cinematic sequence with more depth.',

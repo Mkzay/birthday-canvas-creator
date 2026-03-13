@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
+import Header from '@/components/Header';
 
 const themeOptions = [
   { value: 'elegant', label: 'Elegant ✨' },
@@ -237,22 +238,9 @@ const SettingsPage = () => {
 
   return (
     <div className="min-h-screen app-shell">
-      {/* Header */}
-      <header className="border-b border-border/60 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-4">
-          <Link to="/dashboard" className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <ArrowLeft className="w-5 h-5 text-muted-foreground" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-cta flex items-center justify-center text-lg sm:text-xl">
-              ⚙️
-            </div>
-            <span className="text-lg sm:text-xl font-bold text-foreground">Settings</span>
-          </div>
-        </div>
-      </header>
+      <Header />
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <main className="max-w-5xl mx-auto px-4 pb-6 pt-24 sm:px-6 sm:pb-8 sm:pt-28 space-y-8">
         <section className="panel-card p-6 sm:p-8">
           <span className="eyebrow-chip">Workspace settings</span>
           <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-4xl">Tune the account behind the surprises</h1>
@@ -312,7 +300,7 @@ const SettingsPage = () => {
                   {uploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   {uploadingAvatar ? 'Uploading...' : 'Upload'}
                 </Button>
-                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} />
+                <input ref={avatarInputRef} type="file" accept="image/*,.gif" className="hidden" onChange={handleAvatarSelect} />
               </div>
             </div>
 

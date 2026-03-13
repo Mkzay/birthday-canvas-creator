@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
 const emailSchema = z.string().email('Please enter a valid email');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -143,6 +144,7 @@ const AuthPage = () => {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden gradient-hero px-6 py-10">
+      <AnimatedBackground showWaves={true} showStars={true} className="opacity-80" />
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[10%] top-16 h-52 w-52 rounded-full bg-white/8 blur-3xl" />
         <div className="absolute right-[8%] top-1/3 h-72 w-72 rounded-full bg-white/6 blur-3xl" />

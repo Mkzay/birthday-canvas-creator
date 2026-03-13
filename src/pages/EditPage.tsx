@@ -124,6 +124,11 @@ const EditPage = () => {
       setPageCustomAudioUrl(data.custom_audio_url);
       setPublicCode(data.public_code);
       setLoading(false);
+
+      // If we are using a UUID but have a public code, redirect to use the public code in the URL
+      if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && data.public_code) {
+        navigate(`/edit/${data.public_code}`, { replace: true });
+      }
     } catch (error) {
       toast.error('Page not found');
       console.error(error);
@@ -480,7 +485,7 @@ const EditPage = () => {
                 <input
                   ref={coverInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.gif"
                   onChange={handleCoverPhotoSelect}
                   className="hidden"
                 />
