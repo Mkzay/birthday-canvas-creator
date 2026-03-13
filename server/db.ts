@@ -20,6 +20,9 @@ export async function initializeDatabase() {
       password_hash TEXT NOT NULL,
       display_name TEXT,
       avatar_url TEXT,
+      default_theme TEXT NOT NULL DEFAULT 'elegant',
+      default_allow_photos BOOLEAN NOT NULL DEFAULT TRUE,
+      default_require_names BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -43,6 +46,7 @@ export async function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS birthday_pages (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      public_code TEXT UNIQUE,
       recipient_name TEXT NOT NULL,
       birthday_date DATE NOT NULL,
       theme TEXT NOT NULL DEFAULT 'elegant',
@@ -58,6 +62,26 @@ export async function initializeDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       CONSTRAINT birthday_pages_status_check CHECK (status IN ('active', 'delivered', 'draft'))
     );
+  `;
+
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS default_theme TEXT NOT NULL DEFAULT 'elegant';
+  `;
+
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS default_allow_photos BOOLEAN NOT NULL DEFAULT TRUE;
+  `;
+
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS default_require_names BOOLEAN NOT NULL DEFAULT TRUE;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS public_code TEXT;
   `;
 
   await sql`
@@ -88,6 +112,23 @@ export async function initializeDatabase() {
   `;
 
   await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_birthday_pages_public_code_unique
+    ON birthday_pages(public_code)
+    WHERE public_code IS NOT NULL;
+  `;
+
+  await sql`
+    UPDATE birthday_pages
+    SET public_code = LOWER(SUBSTRING(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 10))
+    WHERE public_code IS NULL;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ALTER COLUMN public_code SET NOT NULL;
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS birthday_message_photos (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       message_id UUID NOT NULL REFERENCES birthday_messages(id) ON DELETE CASCADE,
@@ -103,6 +144,9 @@ export async function initializeDatabase() {
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_birthday_pages_user_id ON birthday_pages(user_id);
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_birthday_pages_public_code ON birthday_pages(public_code);
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_birthday_messages_page_id ON birthday_messages(page_id);

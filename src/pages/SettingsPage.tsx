@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
 
 const themeOptions = [
   { value: 'elegant', label: 'Elegant ✨' },
@@ -58,6 +58,8 @@ const SettingsPage = () => {
   // Profile settings
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   
   // Notification settings
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -86,6 +88,9 @@ const SettingsPage = () => {
     if (profile) {
       setDisplayName(profile.display_name || '');
       setAvatarUrl(profile.avatar_url || '');
+      setDefaultTheme(profile.default_theme || 'elegant');
+      setDefaultAllowPhotos(profile.default_allow_photos ?? true);
+      setDefaultRequireNames(profile.default_require_names ?? true);
     }
   }, [profile]);
 
@@ -108,6 +113,69 @@ const SettingsPage = () => {
       console.error(error);
     }
     setSaving(false);
+  };
+
+  const handleSavePreferences = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      await apiFetch('/auth/preferences', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          defaultTheme,
+          defaultAllowPhotos,
+          defaultRequireNames,
+        }),
+      });
+      await refreshSession();
+      toast.success('Default page settings saved');
+    } catch (error) {
+      toast.error('Failed to update default settings');
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error('Avatar must be less than 3MB');
+      event.target.value = '';
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const data = await apiForm<{ url: string }>('/uploads/avatar', formData);
+      setAvatarUrl(data.url);
+      await apiFetch('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          displayName,
+          avatarUrl: data.url,
+        }),
+      });
+      await refreshSession();
+      toast.success('Avatar updated');
+    } catch (error) {
+      toast.error('Failed to upload avatar');
+      console.error(error);
+    } finally {
+      setUploadingAvatar(false);
+      event.target.value = '';
+    }
   };
 
   const handleChangePassword = async () => {
@@ -228,26 +296,24 @@ const SettingsPage = () => {
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="avatarUrl">Avatar URL</Label>
-              <Input 
-                id="avatarUrl" 
-                value={avatarUrl} 
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://example.com/avatar.jpg"
-              />
-              {avatarUrl && (
-                <div className="mt-2">
-                  <img 
-                    src={avatarUrl} 
-                    alt="Avatar preview" 
-                    className="w-16 h-16 rounded-full object-cover border-2 border-border"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
+            <div className="grid gap-3">
+              <Label>Avatar</Label>
+              <div className="flex items-center gap-4 rounded-2xl border border-border/70 bg-background/70 p-4">
+                <img
+                  src={resolveAssetUrl(avatarUrl) || '/brand-mark.svg'}
+                  alt="Avatar preview"
+                  className="h-16 w-16 rounded-full border-2 border-border object-cover"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">Upload a profile image</p>
+                  <p className="mt-1 text-xs text-muted-foreground">PNG or JPG, up to 3MB.</p>
                 </div>
-              )}
+                <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}>
+                  {uploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {uploadingAvatar ? 'Uploading...' : 'Upload'}
+                </Button>
+                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} />
+              </div>
             </div>
 
             <Button onClick={handleSaveProfile} disabled={saving} className="gap-2">
@@ -331,8 +397,8 @@ const SettingsPage = () => {
           <div className="space-y-4">
             <div className="grid gap-2">
               <Label>Default Theme</Label>
-              <Select value={defaultTheme} onValueChange={setDefaultTheme} disabled>
-                <SelectTrigger aria-disabled="true">
+              <Select value={defaultTheme} onValueChange={setDefaultTheme}>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -355,7 +421,6 @@ const SettingsPage = () => {
               <Switch 
                 checked={defaultAllowPhotos} 
                 onCheckedChange={setDefaultAllowPhotos}
-                disabled
               />
             </div>
 
@@ -369,14 +434,14 @@ const SettingsPage = () => {
               <Switch 
                 checked={defaultRequireNames} 
                 onCheckedChange={setDefaultRequireNames}
-                disabled
               />
             </div>
           </div>
 
-          <p className="rounded-2xl bg-violet-50 px-4 py-3 text-xs text-violet-700 mt-4 italic">
-            Default page presets are not saved yet, so this section is read-only for now.
-          </p>
+          <Button onClick={handleSavePreferences} disabled={saving} className="mt-4 gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save default settings
+          </Button>
         </section>
 
         {/* Account Management */}

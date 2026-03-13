@@ -11,8 +11,9 @@ export const coversRoot = path.join(uploadsRoot, "covers");
 export const messagesRoot = path.join(uploadsRoot, "messages");
 export const pageAudioRoot = path.join(uploadsRoot, "page-audio");
 export const wishAudioRoot = path.join(uploadsRoot, "wish-audio");
+export const avatarsRoot = path.join(uploadsRoot, "avatars");
 
-for (const dir of [uploadsRoot, coversRoot, messagesRoot, pageAudioRoot, wishAudioRoot]) {
+for (const dir of [uploadsRoot, coversRoot, messagesRoot, pageAudioRoot, wishAudioRoot, avatarsRoot]) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -67,6 +68,17 @@ export const messageUpload = multer({
   }),
   limits: {
     fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: imageFileFilter,
+});
+
+export const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_request, _file, callback) => callback(null, avatarsRoot),
+    filename: (_request, file, callback) => callback(null, buildFilename(file.originalname)),
+  }),
+  limits: {
+    fileSize: 3 * 1024 * 1024,
   },
   fileFilter: imageFileFilter,
 });

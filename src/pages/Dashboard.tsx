@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Activity,
+  AlertTriangle,
   CalendarDays,
   Edit,
   Eye,
@@ -29,12 +30,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { builtInThemeMap } from '@/lib/themes';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface BirthdayPage {
   id: string;
+  public_code: string;
   recipient_name: string;
   birthday_date: string;
   close_date: string | null;
@@ -83,6 +95,7 @@ const Dashboard = () => {
   const [pages, setPages] = useState<BirthdayPage[]>([]);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pagePendingDelete, setPagePendingDelete] = useState<BirthdayPage | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -201,9 +214,9 @@ const Dashboard = () => {
     }
   };
 
-  const copyLink = async (pageId: string, type: 'contribute' | 'birthday') => {
+  const copyLink = async (pageCode: string, type: 'contribute' | 'birthday') => {
     const baseUrl = window.location.origin;
-    const link = type === 'contribute' ? `${baseUrl}/contribute/${pageId}` : `${baseUrl}/birthday/${pageId}`;
+    const link = type === 'contribute' ? `${baseUrl}/contribute/${pageCode}` : `${baseUrl}/birthday/${pageCode}`;
 
     try {
       await navigator.clipboard.writeText(link);
@@ -401,9 +414,10 @@ const Dashboard = () => {
                           <div className="absolute inset-0 bg-gradient-to-br from-slate-950/30 via-slate-950/10 to-black/30" />
                           <div className="absolute inset-x-4 bottom-4 top-4 overflow-hidden rounded-[1.35rem] border border-white/18 bg-black/18 shadow-[0_20px_55px_rgba(15,23,42,0.28)] backdrop-blur-[2px]">
                             <img
-                              src={page.cover_photo_url}
+                              src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
                               alt={`${page.recipient_name}'s cover`}
-                              className="h-full w-full object-contain object-center transition-transform duration-500 group-hover:scale-[1.02]"
+                              className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
+                              loading="lazy"
                             />
                           </div>
                           <div className="absolute inset-0 bg-gradient-to-t from-black/58 via-black/12 to-transparent" />
@@ -441,16 +455,16 @@ const Dashboard = () => {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => copyLink(page.id, 'contribute')}>
+                            <DropdownMenuItem onClick={() => copyLink(page.public_code, 'contribute')}>
                               <Share2 className="mr-2 h-4 w-4" />
                               Copy contribution link
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => copyLink(page.id, 'birthday')}>
+                            <DropdownMenuItem onClick={() => copyLink(page.public_code, 'birthday')}>
                               <Share2 className="mr-2 h-4 w-4" />
                               Copy birthday link
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(page.id, page.recipient_name)}>
+                            <DropdownMenuItem className="text-destructive" onClick={() => setPagePendingDelete(page)}>
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete page
                             </DropdownMenuItem>
@@ -508,6 +522,35 @@ const Dashboard = () => {
           )}
         </section>
       </main>
+
+      <AlertDialog open={Boolean(pagePendingDelete)} onOpenChange={(open) => { if (!open) setPagePendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this birthday page?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the page, wishes, photos, and voice notes attached to it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
+            <span>{pagePendingDelete?.recipient_name}&apos;s celebration will be removed for good.</span>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPagePendingDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pagePendingDelete) {
+                  void handleDelete(pagePendingDelete.id, pagePendingDelete.recipient_name);
+                }
+                setPagePendingDelete(null);
+              }}
+            >
+              Delete page
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

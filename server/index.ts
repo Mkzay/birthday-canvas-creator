@@ -7,7 +7,7 @@ import type { Response } from "express";
 import { clearSessionCookie, hashPassword, readSession, requireAuth, setSessionCookie, signSession, verifyPassword } from "./auth";
 import { initializeDatabase, sql } from "./db";
 import type { AuthedRequest, SessionUser } from "./types";
-import { coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload } from "./uploads";
+import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload } from "./uploads";
 
 const app = express();
 const port = Number(process.env.PORT || process.env.API_PORT || 3001);
@@ -33,6 +33,43 @@ function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
 }
 
 const allowedOrigins = getAllowedOrigins();
+const rateLimitStore = new Map<string, { count: number; expiresAt: number }>();
+
+function logRequestFailure(scope: string, details: Record<string, unknown>) {
+  console.warn(`[${scope}]`, JSON.stringify(details));
+}
+
+function getRequestIp(request: express.Request) {
+  const forwarded = request.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+
+  return request.ip || "unknown";
+}
+
+function rateLimit(scope: string, limit: number, windowMs: number) {
+  return (request: express.Request, response: express.Response, next: express.NextFunction) => {
+    const key = `${scope}:${getRequestIp(request)}`;
+    const now = Date.now();
+    const existing = rateLimitStore.get(key);
+
+    if (!existing || existing.expiresAt <= now) {
+      rateLimitStore.set(key, { count: 1, expiresAt: now + windowMs });
+      next();
+      return;
+    }
+
+    if (existing.count >= limit) {
+      logRequestFailure("rate-limit", { scope, ip: getRequestIp(request), path: request.path });
+      response.status(429).json({ error: "Too many requests. Please try again shortly." });
+      return;
+    }
+
+    existing.count += 1;
+    next();
+  };
+}
 
 app.use(cors({
   origin(origin, callback) {
@@ -67,6 +104,9 @@ function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
     email: String(row.email),
     displayName: typeof row.display_name === "string" ? row.display_name : null,
     avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
+    defaultTheme: typeof row.default_theme === "string" ? row.default_theme : "elegant",
+    defaultAllowPhotos: Boolean(row.default_allow_photos ?? true),
+    defaultRequireNames: Boolean(row.default_require_names ?? true),
   };
 }
 
@@ -125,6 +165,47 @@ function serializePageDates<T extends Record<string, unknown>>(row: T) {
     birthday_date: formatDateOnly(row.birthday_date),
     close_date: formatDateOnly(row.close_date),
   };
+}
+
+function buildPublicCode() {
+  return Math.random().toString(36).slice(2, 12);
+}
+
+async function createUniquePublicCode() {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const candidate = buildPublicCode();
+    const rows = await sql`
+      SELECT id
+      FROM birthday_pages
+      WHERE public_code = ${candidate}
+      LIMIT 1
+    `;
+
+    if (!rows[0]) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Failed to generate a unique public code");
+}
+
+async function resolvePageId(identifier: string) {
+  const publicCodeRows = await sql`
+    SELECT id
+    FROM birthday_pages
+    WHERE public_code = ${identifier}
+    LIMIT 1
+  `;
+
+  if (publicCodeRows[0]) {
+    return String(publicCodeRows[0].id);
+  }
+
+  if (/^[0-9a-f-]{36}$/i.test(identifier)) {
+    return null;
+  }
+
+  return null;
 }
 
 async function fetchMessagesForPage(pageId: string) {
@@ -258,7 +339,7 @@ app.get("/api/auth/session", async (request, response) => {
   }
 
   const rows = await sql`
-    SELECT id, email, display_name, avatar_url
+    SELECT id, email, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
     FROM users
     WHERE id = ${session.id}
     LIMIT 1
@@ -273,7 +354,7 @@ app.get("/api/auth/session", async (request, response) => {
   response.json({ user: sessionUserFromRow(rows[0]) });
 });
 
-app.post("/api/auth/signup", async (request, response) => {
+app.post("/api/auth/signup", rateLimit("auth-signup", 6, 15 * 60 * 1000), async (request, response) => {
   const email = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
   const password = typeof request.body.password === "string" ? request.body.password : "";
   const displayName = sanitizeDisplayName(request.body.displayName);
@@ -304,18 +385,18 @@ app.post("/api/auth/signup", async (request, response) => {
   const rows = await sql`
     INSERT INTO users (email, password_hash, display_name)
     VALUES (${email}, ${passwordHash}, ${displayName})
-    RETURNING id, email, display_name, avatar_url
+    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
   `;
 
   sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
-app.post("/api/auth/login", async (request, response) => {
+app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (request, response) => {
   const email = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
   const password = typeof request.body.password === "string" ? request.body.password : "";
 
   const rows = await sql`
-    SELECT id, email, password_hash, display_name, avatar_url
+    SELECT id, email, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
     FROM users
     WHERE email = ${email}
     LIMIT 1
@@ -352,10 +433,56 @@ app.patch("/api/auth/profile", requireAuth, async (request: AuthedRequest, respo
       avatar_url = ${avatarUrl || null},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, display_name, avatar_url
+    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
   `;
 
   sendAuth(response, sessionUserFromRow(rows[0]));
+});
+
+app.patch("/api/auth/preferences", requireAuth, async (request: AuthedRequest, response) => {
+  const defaultTheme = typeof request.body.defaultTheme === "string" ? request.body.defaultTheme.trim() : "elegant";
+  const defaultAllowPhotos = Boolean(request.body.defaultAllowPhotos ?? true);
+  const defaultRequireNames = Boolean(request.body.defaultRequireNames ?? true);
+
+  const rows = await sql`
+    UPDATE users
+    SET
+      default_theme = ${defaultTheme},
+      default_allow_photos = ${defaultAllowPhotos},
+      default_require_names = ${defaultRequireNames},
+      updated_at = NOW()
+    WHERE id = ${request.user!.id}
+    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
+  `;
+
+  sendAuth(response, sessionUserFromRow(rows[0]));
+});
+
+app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async (request: AuthedRequest, response) => {
+  const file = request.file;
+
+  if (!file) {
+    response.status(400).json({ error: "Missing avatar upload" });
+    return;
+  }
+
+  const existingRows = await sql`
+    SELECT avatar_url
+    FROM users
+    WHERE id = ${request.user!.id}
+    LIMIT 1
+  `;
+
+  removeFileByUrl(existingRows[0]?.avatar_url);
+  const url = fileUrl(path.join("avatars", file.filename));
+
+  await sql`
+    UPDATE users
+    SET avatar_url = ${url}, updated_at = NOW()
+    WHERE id = ${request.user!.id}
+  `;
+
+  response.json({ url });
 });
 
 app.patch("/api/auth/password", requireAuth, async (request: AuthedRequest, response) => {
@@ -496,9 +623,11 @@ app.get("/api/pages/dashboard", requireAuth, async (request: AuthedRequest, resp
 });
 
 app.post("/api/pages", requireAuth, async (request: AuthedRequest, response) => {
+  const publicCode = await createUniquePublicCode();
   const rows = await sql`
     INSERT INTO birthday_pages (
       user_id,
+      public_code,
       recipient_name,
       birthday_date,
       theme,
@@ -511,6 +640,7 @@ app.post("/api/pages", requireAuth, async (request: AuthedRequest, response) => 
     )
     VALUES (
       ${request.user!.id},
+      ${publicCode},
       ${String(request.body.recipientName || "").trim()},
       ${String(request.body.birthdayDate)},
       ${String(request.body.theme || "elegant")},
@@ -551,14 +681,14 @@ app.get("/api/pages/:id/messages", requireAuth, async (request: AuthedRequest, r
 
 app.get("/api/pages/:id/ownership", requireAuth, async (request: AuthedRequest, response) => {
   const rows = await sql`
-    SELECT id
+    SELECT id, public_code
     FROM birthday_pages
     WHERE id = ${request.params.id}
       AND user_id = ${request.user!.id}
     LIMIT 1
   `;
 
-  response.json({ isOwner: Boolean(rows[0]) });
+  response.json({ isOwner: Boolean(rows[0]), publicCode: rows[0] ? String(rows[0].public_code) : null });
 });
 
 app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response) => {
@@ -685,6 +815,7 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), async (r
 
   if (!file || !pageId) {
     response.status(400).json({ error: "Missing file upload or page id" });
+    logRequestFailure("upload-cover", { userId: request.user?.id, pageId, reason: "missing-file-or-page" });
     return;
   }
 
@@ -750,7 +881,13 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
 });
 
 app.get("/api/public/pages/:id", async (request, response) => {
-  const rows = await publicPageQuery(request.params.id);
+  const resolvedPageId = await resolvePageId(request.params.id);
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const rows = await publicPageQuery(resolvedPageId);
   if (!rows[0]) {
     response.status(404).json({ error: "Page not found" });
     return;
@@ -760,7 +897,13 @@ app.get("/api/public/pages/:id", async (request, response) => {
 });
 
 app.get("/api/public/pages/:id/messages", async (request, response) => {
-  const pageRows = await publicPageQuery(request.params.id);
+  const resolvedPageId = await resolvePageId(request.params.id);
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageRows = await publicPageQuery(resolvedPageId);
   const page = pageRows[0];
 
   if (!page) {
@@ -773,13 +916,19 @@ app.get("/api/public/pages/:id/messages", async (request, response) => {
     return;
   }
 
-  const messages = await fetchMessagesForPage(String(request.params.id));
+  const messages = await fetchMessagesForPage(resolvedPageId);
   response.json(messages);
 });
 
-app.post("/api/public/pages/:id/message-photo", messageUpload.single("file"), async (request, response) => {
+app.post("/api/public/pages/:id/message-photo", rateLimit("public-photo", 18, 10 * 60 * 1000), messageUpload.single("file"), async (request, response) => {
   const file = request.file;
-  const pageRows = await publicPageQuery(String(request.params.id));
+  const resolvedPageId = await resolvePageId(String(request.params.id));
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageRows = await publicPageQuery(resolvedPageId);
   const page = pageRows[0];
 
   if (!page) {
@@ -794,15 +943,22 @@ app.post("/api/public/pages/:id/message-photo", messageUpload.single("file"), as
 
   if (!file) {
     response.status(400).json({ error: "Missing photo upload" });
+    logRequestFailure("upload-message-photo", { pageId: resolvedPageId, reason: "missing-file" });
     return;
   }
 
   response.json({ url: fileUrl(path.join("messages", file.filename)) });
 });
 
-app.post("/api/public/pages/:id/message-audio", wishAudioUpload.single("file"), async (request, response) => {
+app.post("/api/public/pages/:id/message-audio", rateLimit("public-audio", 12, 10 * 60 * 1000), wishAudioUpload.single("file"), async (request, response) => {
   const file = request.file;
-  const pageRows = await publicPageQuery(String(request.params.id));
+  const resolvedPageId = await resolvePageId(String(request.params.id));
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageRows = await publicPageQuery(resolvedPageId);
   const page = pageRows[0];
 
   if (!page) {
@@ -817,14 +973,21 @@ app.post("/api/public/pages/:id/message-audio", wishAudioUpload.single("file"), 
 
   if (!file) {
     response.status(400).json({ error: "Missing audio upload" });
+    logRequestFailure("upload-message-audio", { pageId: resolvedPageId, reason: "missing-file" });
     return;
   }
 
   response.json({ url: fileUrl(path.join("wish-audio", file.filename)) });
 });
 
-app.post("/api/public/pages/:id/messages", async (request, response) => {
-  const pageRows = await publicPageQuery(request.params.id);
+app.post("/api/public/pages/:id/messages", rateLimit("public-message", 24, 10 * 60 * 1000), async (request, response) => {
+  const resolvedPageId = await resolvePageId(String(request.params.id));
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageRows = await publicPageQuery(resolvedPageId);
   const page = pageRows[0];
 
   if (!page) {
@@ -849,8 +1012,9 @@ app.post("/api/public/pages/:id/messages", async (request, response) => {
       : [];
 
   if (!message) {
-    response.status(400).json({ error: "Please write a message" });
-    return;
+      response.status(400).json({ error: "Please write a message" });
+      logRequestFailure("create-message", { pageId: resolvedPageId, reason: "empty-message" });
+      return;
   }
 
   if (message.length > 500) {
@@ -860,6 +1024,7 @@ app.post("/api/public/pages/:id/messages", async (request, response) => {
 
   if (page.require_names && !senderName) {
     response.status(400).json({ error: "Please enter your name" });
+    logRequestFailure("create-message", { pageId: resolvedPageId, reason: "missing-name" });
     return;
   }
 
@@ -881,7 +1046,7 @@ app.post("/api/public/pages/:id/messages", async (request, response) => {
   const rows = await sql`
     INSERT INTO birthday_messages (page_id, sender_name, message, photo_url, audio_url)
     VALUES (
-      ${request.params.id},
+      ${resolvedPageId},
       ${senderName || "Anonymous"},
       ${message},
       ${photos[0]?.url || null},

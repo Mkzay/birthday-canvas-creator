@@ -5,6 +5,9 @@ export interface SessionUser {
   email: string;
   displayName: string | null;
   avatarUrl: string | null;
+  defaultTheme: string;
+  defaultAllowPhotos: boolean;
+  defaultRequireNames: boolean;
 }
 
 export interface AuthedRequest extends Request {

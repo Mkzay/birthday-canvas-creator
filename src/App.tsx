@@ -3,9 +3,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { AuthProvider } from "@/context/AuthContext";
+import { useEffect } from "react";
 
 const Index = lazy(() => import("./pages/Index"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
@@ -27,6 +28,49 @@ const RouteLoader = () => (
   </div>
 );
 
+const APP_NAME = "WishCanvas";
+
+const SeoController = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const robots = document.querySelector('meta[name="robots"]') || document.createElement("meta");
+    robots.setAttribute("name", "robots");
+    document.head.appendChild(robots);
+
+    const canonical = document.querySelector('link[rel="canonical"]') || document.createElement("link");
+    canonical.setAttribute("rel", "canonical");
+    document.head.appendChild(canonical);
+
+    const setTitle = (title: string) => {
+      document.title = `${title} | ${APP_NAME}`;
+    };
+
+    const origin = window.location.origin;
+    const pathname = location.pathname;
+
+    if (pathname === "/") {
+      setTitle("Create collaborative birthday surprises");
+      robots.setAttribute("content", "index,follow");
+      canonical.setAttribute("href", `${origin}/`);
+      return;
+    }
+
+    if (pathname === "/auth") {
+      setTitle("Sign in");
+      robots.setAttribute("content", "noindex,nofollow");
+      canonical.setAttribute("href", `${origin}/auth`);
+      return;
+    }
+
+    setTitle("WishCanvas");
+    robots.setAttribute("content", "noindex,nofollow");
+    canonical.setAttribute("href", `${origin}${pathname}`);
+  }, [location.pathname]);
+
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -34,6 +78,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <SeoController />
           <Suspense fallback={<RouteLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />

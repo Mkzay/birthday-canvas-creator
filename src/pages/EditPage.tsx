@@ -74,6 +74,7 @@ const EditPage = () => {
 
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
+  const [publicCode, setPublicCode] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -108,6 +109,7 @@ const EditPage = () => {
         require_names: boolean;
         close_date: string | null;
         cover_photo_url: string | null;
+        public_code: string;
       }>(`/pages/${pageId}`);
 
       setRecipientName(data.recipient_name);
@@ -120,6 +122,7 @@ const EditPage = () => {
       setCloseDate(data.close_date ? parseLocalDate(data.close_date) : undefined);
       setCurrentCoverUrl(data.cover_photo_url);
       setPageCustomAudioUrl(data.custom_audio_url);
+      setPublicCode(data.public_code);
       setLoading(false);
     } catch (error) {
       toast.error('Page not found');
@@ -316,7 +319,8 @@ const EditPage = () => {
 
   const copyLink = async (type: 'contribute' | 'birthday') => {
     const baseUrl = window.location.origin;
-    const link = type === 'contribute' ? `${baseUrl}/contribute/${pageId}` : `${baseUrl}/birthday/${pageId}`;
+    const shareTarget = publicCode || pageId;
+    const link = type === 'contribute' ? `${baseUrl}/contribute/${shareTarget}` : `${baseUrl}/birthday/${shareTarget}`;
 
     try {
       await navigator.clipboard.writeText(link);
@@ -573,7 +577,7 @@ const EditPage = () => {
               <div className="mt-4 border-t border-border pt-4">
                 <p className="mb-3 text-center text-xs text-muted-foreground">Share contribution link on social media</p>
                 <SocialShareButtons
-                  url={`${window.location.origin}/contribute/${pageId}`}
+                  url={`${window.location.origin}/contribute/${publicCode || pageId}`}
                   message={`Help me celebrate ${recipientName}'s birthday. Add your wishes here:`}
                   recipientName={recipientName}
                 />
@@ -599,7 +603,7 @@ const EditPage = () => {
         <QRCodeModal
           open={qrModalOpen}
           onOpenChange={setQrModalOpen}
-          url={`${window.location.origin}/${qrType === 'contribute' ? 'contribute' : 'birthday'}/${pageId}`}
+          url={`${window.location.origin}/${qrType === 'contribute' ? 'contribute' : 'birthday'}/${publicCode || pageId}`}
           title={qrType === 'contribute' ? 'Contribution QR Code' : 'Birthday QR Code'}
           recipientName={recipientName}
         />

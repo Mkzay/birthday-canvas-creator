@@ -6,6 +6,9 @@ interface AuthUser {
   email: string;
   displayName: string | null;
   avatarUrl: string | null;
+  defaultTheme: string;
+  defaultAllowPhotos: boolean;
+  defaultRequireNames: boolean;
 }
 
 interface Profile {
@@ -13,6 +16,9 @@ interface Profile {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  default_theme: string;
+  default_allow_photos: boolean;
+  default_require_names: boolean;
 }
 
 interface AuthContextType {
@@ -36,6 +42,9 @@ function mapProfile(user: AuthUser | null): Profile | null {
     user_id: user.id,
     display_name: user.displayName,
     avatar_url: user.avatarUrl,
+    default_theme: user.defaultTheme,
+    default_allow_photos: user.defaultAllowPhotos,
+    default_require_names: user.defaultRequireNames,
   };
 }
 

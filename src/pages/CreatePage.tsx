@@ -54,9 +54,9 @@ const CreatePage = () => {
   const [recipientName, setRecipientName] = useState('');
   const [birthdayDate, setBirthdayDate] = useState<Date>();
   const [creatorMessage, setCreatorMessage] = useState('');
-  const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
-  const [allowPhotos, setAllowPhotos] = useState(true);
-  const [requireNames, setRequireNames] = useState(true);
+  const [selectedTheme, setSelectedTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
+  const [allowPhotos, setAllowPhotos] = useState(user?.defaultAllowPhotos ?? true);
+  const [requireNames, setRequireNames] = useState(user?.defaultRequireNames ?? true);
   const [closeDate, setCloseDate] = useState<Date>();
   const [selectedSoundtrackId, setSelectedSoundtrackId] = useState('golden-hour');
   const [pageCustomAudio, setPageCustomAudio] = useState<File | null>(null);
@@ -71,6 +71,7 @@ const CreatePage = () => {
   // QR code modal state
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
+  const [createdPublicCode, setCreatedPublicCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -92,6 +93,9 @@ const CreatePage = () => {
 
   useEffect(() => {
     if (user) {
+      setSelectedTheme(user.defaultTheme || 'elegant');
+      setAllowPhotos(user.defaultAllowPhotos ?? true);
+      setRequireNames(user.defaultRequireNames ?? true);
       void fetchCustomThemes();
     }
   }, [fetchCustomThemes, user]);
@@ -226,7 +230,7 @@ const CreatePage = () => {
     if (step === 2) {
       setSaving(true);
       try {
-        const data = await apiFetch<{ id: string }>('/pages', {
+        const data = await apiFetch<{ id: string; public_code: string }>('/pages', {
           method: 'POST',
           body: JSON.stringify({
             recipientName,
@@ -257,6 +261,7 @@ const CreatePage = () => {
         }
 
         setCreatedPageId(data.id);
+        setCreatedPublicCode(data.public_code);
         toast.success('Birthday page created!');
       } catch (error) {
         setSaving(false);
@@ -311,9 +316,10 @@ const CreatePage = () => {
   const copyLink = async (type: 'contribute' | 'birthday') => {
     if (!createdPageId) return;
     const baseUrl = window.location.origin;
+    const shareId = createdPublicCode || createdPageId;
     const link = type === 'contribute' 
-      ? `${baseUrl}/contribute/${createdPageId}`
-      : `${baseUrl}/birthday/${createdPageId}`;
+      ? `${baseUrl}/contribute/${shareId}`
+      : `${baseUrl}/birthday/${shareId}`;
 
     try {
       await navigator.clipboard.writeText(link);
@@ -571,7 +577,7 @@ const CreatePage = () => {
               <div className="pt-3 sm:pt-4 border-t border-border">
                 <p className="text-xs text-muted-foreground mb-2 sm:mb-3">Share directly on social media</p>
                 <SocialShareButtons 
-                  url={`${window.location.origin}/contribute/${createdPageId}`}
+                  url={`${window.location.origin}/contribute/${createdPublicCode || createdPageId}`}
                   message={`🎂 Help me celebrate ${recipientName}'s birthday! Add your wishes here:`}
                   recipientName={recipientName}
                 />
@@ -604,7 +610,7 @@ const CreatePage = () => {
             <QRCodeModal
               open={qrModalOpen}
               onOpenChange={setQrModalOpen}
-              url={`${window.location.origin}/${qrType === 'contribute' ? 'contribute' : 'birthday'}/${createdPageId}`}
+              url={`${window.location.origin}/${qrType === 'contribute' ? 'contribute' : 'birthday'}/${createdPublicCode || createdPageId}`}
               title={qrType === 'contribute' ? 'Contribution QR Code' : 'Birthday QR Code'}
               recipientName={recipientName}
             />

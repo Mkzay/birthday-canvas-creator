@@ -34,7 +34,7 @@ const ThemeSelector = ({
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {builtInThemeOptions.map((theme) => {
             const isSelected = selectedTheme === theme.key;
 
@@ -44,14 +44,14 @@ const ThemeSelector = ({
                 type="button"
                 onClick={() => onSelect(theme.key)}
                 className={cn(
-                  'group relative overflow-hidden rounded-[1.5rem] border bg-card text-left transition-all duration-300',
+                  'group relative overflow-hidden rounded-[1.6rem] border bg-card text-left transition-all duration-300',
                   'hover:-translate-y-1 hover:border-primary/30 hover:shadow-[0_18px_45px_rgba(118,62,186,0.12)]',
                   isSelected
                     ? 'border-primary/40 shadow-[0_20px_55px_rgba(118,62,186,0.18)] ring-2 ring-primary/15'
                     : 'border-border/60',
                 )}
               >
-                <div className={cn('h-28 bg-gradient-to-br', theme.primary)}>
+                <div className={cn('aspect-square min-h-[10.5rem] bg-gradient-to-br', theme.primary)}>
                   <div className="flex h-full items-start justify-between p-4">
                     <div className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90 backdrop-blur-sm">
                       {theme.mood}
@@ -123,7 +123,7 @@ const ThemeSelector = ({
                   type="button"
                   onClick={() => onSelect(themeKey)}
                   className={cn(
-                    'group relative overflow-hidden rounded-[1.5rem] border text-left transition-all duration-300',
+                    'group relative overflow-hidden rounded-[1.6rem] border text-left transition-all duration-300',
                     'hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(18,18,23,0.12)]',
                     isSelected ? 'border-white/50 ring-2 ring-primary/15' : 'border-transparent',
                   )}
@@ -131,20 +131,20 @@ const ThemeSelector = ({
                     background: `linear-gradient(135deg, ${theme.gradient_from}, ${theme.gradient_to})`,
                   }}
                 >
-                  <div className="flex items-start justify-between p-4 pb-0">
-                    <div className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90 backdrop-blur-sm">
-                      Custom
+                  <div className="flex aspect-square min-h-[10.5rem] flex-col justify-between p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90 backdrop-blur-sm">
+                        Custom
+                      </div>
+                      <div
+                        className={cn(
+                          'flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/12 text-white backdrop-blur-sm transition-all duration-300',
+                          isSelected ? 'scale-100 opacity-100' : 'scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100',
+                        )}
+                      >
+                        <Check className="h-4 w-4" />
+                      </div>
                     </div>
-                    <div
-                      className={cn(
-                        'flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/12 text-white backdrop-blur-sm transition-all duration-300',
-                        isSelected ? 'scale-100 opacity-100' : 'scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100',
-                      )}
-                    >
-                      <Check className="h-4 w-4" />
-                    </div>
-                  </div>
-                  <div className="p-4 pt-8">
                     <div className="flex items-start gap-3">
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-xl text-white shadow-md backdrop-blur-sm">
                         <span>{theme.emoji}</span>

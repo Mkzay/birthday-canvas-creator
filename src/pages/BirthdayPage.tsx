@@ -397,14 +397,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [hasTriggeredIntro, setHasTriggeredIntro] = useState(false);
   const [revealPhase, setRevealPhase] = useState<RevealPhase>('idle');
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [activeWishAudioId, setActiveWishAudioId] = useState<string | null>(null);
   const soundtrackAudioRef = useRef<HTMLAudioElement | null>(null);
   const presetControllerRef = useRef<SoundtrackController | null>(null);
+  const shouldResumeSoundtrackRef = useRef(false);
   const touchStartXRef = useRef<number | null>(null);
   const ignoreTouchNavigationRef = useRef(false);
   const mobileRevealRef = useRef<HTMLDivElement | null>(null);
   const [isDesktopReveal, setIsDesktopReveal] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 640));
 
   const stopSoundtrack = useCallback(() => {
+    shouldResumeSoundtrackRef.current = false;
     presetControllerRef.current?.stop();
     presetControllerRef.current = null;
 
@@ -445,6 +448,32 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     },
     [page],
   );
+
+  const pauseSoundtrackForWishAudio = useCallback(() => {
+    let hadPlayingSoundtrack = false;
+
+    if (presetControllerRef.current) {
+      presetControllerRef.current.stop();
+      presetControllerRef.current = null;
+      hadPlayingSoundtrack = true;
+    }
+
+    if (soundtrackAudioRef.current && !soundtrackAudioRef.current.paused) {
+      soundtrackAudioRef.current.pause();
+      hadPlayingSoundtrack = true;
+    }
+
+    shouldResumeSoundtrackRef.current = hadPlayingSoundtrack;
+  }, []);
+
+  const resumeSoundtrackAfterWishAudio = useCallback(async () => {
+    if (!shouldResumeSoundtrackRef.current || showRevealIntro) {
+      return;
+    }
+
+    shouldResumeSoundtrackRef.current = false;
+    await startSoundtrack(true);
+  }, [showRevealIntro, startSoundtrack]);
 
   const fetchData = useCallback(async () => {
     if (!pageId) return;
@@ -753,8 +782,61 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     event.currentTarget.style.setProperty('--parallax-y', '0px');
   }, []);
 
+  const handleWishAudioPlay = useCallback((messageId: string) => {
+    setActiveWishAudioId(messageId);
+    pauseSoundtrackForWishAudio();
+  }, [pauseSoundtrackForWishAudio]);
+
+  const handleWishAudioStop = useCallback((messageId: string) => {
+    setActiveWishAudioId((currentId) => {
+      if (currentId !== messageId) {
+        return currentId;
+      }
+
+      void resumeSoundtrackAfterWishAudio();
+      return null;
+    });
+  }, [resumeSoundtrackAfterWishAudio]);
+
+  const renderWishAudioPlayer = useCallback((message: Message, className?: string) => {
+    const src = resolveAssetUrl(message.audio_url) || undefined;
+    if (!src) return null;
+
+    return (
+      <audio
+        controls
+        className={className}
+        src={src}
+        preload="none"
+        onPlay={() => handleWishAudioPlay(message.id)}
+        onPause={() => handleWishAudioStop(message.id)}
+        onEnded={() => handleWishAudioStop(message.id)}
+      >
+        Your browser does not support audio playback.
+      </audio>
+    );
+  }, [handleWishAudioPlay, handleWishAudioStop]);
+
   useEffect(() => {
-    if (!isDesktopReveal || loading || !page || showRevealIntro || expandedPhoto || showShareCard) return;
+    if (!isDesktopReveal || !activeSlide) return;
+
+    const nextSlide = revealSlides[currentSlide + 1];
+    if (!nextSlide) return;
+
+    const nextImageSrc = nextSlide.kind === 'cover'
+      ? coverPhotoSrc
+      : nextSlide.kind === 'wish'
+        ? resolveAssetUrl(getMessagePhotos(nextSlide.message)[0]?.photo_url)
+        : null;
+
+    if (!nextImageSrc) return;
+
+    const image = new Image();
+    image.src = nextImageSrc;
+  }, [activeSlide, coverPhotoSrc, currentSlide, isDesktopReveal, revealSlides]);
+
+  useEffect(() => {
+    if (!isDesktopReveal || loading || !page || showRevealIntro || expandedPhoto || showShareCard || activeWishAudioId) return;
     if (!activeSlide || currentSlide >= revealSlides.length - 1) return;
 
     const timeoutId = window.setTimeout(() => {
@@ -767,6 +849,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     currentSlide,
     currentSlideDuration,
     expandedPhoto,
+    activeWishAudioId,
     isDesktopReveal,
     loading,
     page,
@@ -1076,12 +1159,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       onMouseMove={handleBoardParallaxMove}
                       onMouseLeave={handleBoardParallaxLeave}
                     >
-                      <div className="relative isolate aspect-[4/5] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc]">
+                      <div className="relative isolate h-[20rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] sm:h-[24rem]">
                         {coverPhotoSrc ? (
                           renderStoryImage(coverPhotoSrc, `${page.recipient_name}'s birthday cover`, {
                             objectPosition: 'center 28%',
                             eager: true,
                             disableParallax: true,
+                            className: 'block',
                           })
                         ) : (
                           <div className="flex h-full items-center justify-center text-[5rem]">{theme.emoji}</div>
@@ -1169,9 +1253,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       {slide.message.audio_url && (
                         <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(130, 760)}>
                           <p className={cn('text-sm font-semibold', theme.text)}>Voice note</p>
-                          <audio controls className="mt-3 w-full" src={resolveAssetUrl(slide.message.audio_url) || undefined} preload="none">
-                            Your browser does not support audio playback.
-                          </audio>
+                          {renderWishAudioPlayer(slide.message, 'mt-3 w-full')}
                         </article>
                       )}
 
@@ -1413,6 +1495,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   objectPosition: 'center 28%',
                                   eager: true,
                                   disableParallax: true,
+                                  className: 'block',
                                 })
                               ) : (
                                 <div className="flex h-full items-center justify-center text-[6rem] sm:text-[8rem]">
@@ -1623,9 +1706,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     <p className={cn('text-xs opacity-65', theme.text)}>A voice to go with the words.</p>
                                   </div>
                                 </div>
-                                <audio controls className="mt-3 w-full" src={resolveAssetUrl(activeSlide.message.audio_url) || undefined} preload="none">
-                                  Your browser does not support audio playback.
-                                </audio>
+                                {renderWishAudioPlayer(activeSlide.message, 'mt-3 w-full')}
                               </article>
                             )}
 

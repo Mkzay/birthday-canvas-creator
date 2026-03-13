@@ -13,13 +13,15 @@ const PreviewPage = () => {
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [publicCode, setPublicCode] = useState<string | null>(null);
 
   const checkOwnership = useCallback(async () => {
     if (!pageId) return;
 
     try {
-      const data = await apiFetch<{ isOwner: boolean }>(`/pages/${pageId}/ownership`);
+      const data = await apiFetch<{ isOwner: boolean; publicCode: string | null }>(`/pages/${pageId}/ownership`);
       setIsOwner(data.isOwner);
+      setPublicCode(data.publicCode);
       if (!data.isOwner) {
         navigate(`/birthday/${pageId}`, { replace: true });
       }
@@ -40,7 +42,7 @@ const PreviewPage = () => {
 
   const copyLink = async () => {
     const baseUrl = window.location.origin;
-    const link = `${baseUrl}/birthday/${pageId}`;
+    const link = `${baseUrl}/birthday/${publicCode || pageId}`;
 
     try {
       await navigator.clipboard.writeText(link);

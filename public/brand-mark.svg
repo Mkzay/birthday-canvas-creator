@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="WishCanvas">
+  <defs>
+    <linearGradient id="wishcanvasGradient" x1="16" y1="16" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f6b56c" />
+      <stop offset="0.48" stop-color="#f48b82" />
+      <stop offset="1" stop-color="#d85fd2" />
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="72" height="72" rx="24" fill="#1f1630" />
+  <rect x="18" y="18" width="60" height="60" rx="20" fill="url(#wishcanvasGradient)" />
+  <path d="M34 58c5-12 11-19 20-19 4 0 7 2 7 6 0 3-2 6-5 8l10 12h-9l-6-7c-3 2-7 3-11 3-2 0-4-1-6-3Z" fill="#fffaf4" />
+  <circle cx="63" cy="32" r="4" fill="#fffaf4" />
+  <circle cx="35" cy="34" r="3" fill="#fffaf4" opacity=".92" />
+</svg>
