@@ -60,6 +60,7 @@ const EditPage = () => {
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
   const [allowPhotos, setAllowPhotos] = useState(true);
+  const [allowAudio, setAllowAudio] = useState(true);
   const [requireNames, setRequireNames] = useState(true);
   const [closeDate, setCloseDate] = useState<Date>();
   const [selectedSoundtrackId, setSelectedSoundtrackId] = useState('golden-hour');
@@ -106,6 +107,7 @@ const EditPage = () => {
         soundtrack_id: string | null;
         custom_audio_url: string | null;
         allow_photos: boolean;
+        allow_audio: boolean;
         require_names: boolean;
         close_date: string | null;
         cover_photo_url: string | null;
@@ -118,6 +120,7 @@ const EditPage = () => {
       setSelectedTheme(data.theme as Theme);
       setSelectedSoundtrackId(data.soundtrack_id || 'golden-hour');
       setAllowPhotos(data.allow_photos);
+      setAllowAudio(data.allow_audio);
       setRequireNames(data.require_names);
       setCloseDate(data.close_date ? parseLocalDate(data.close_date) : undefined);
       setCurrentCoverUrl(data.cover_photo_url);
@@ -300,10 +303,11 @@ const EditPage = () => {
         body: JSON.stringify({
           recipientName,
           birthdayDate: format(birthdayDate, 'yyyy-MM-dd'),
-          theme: selectedTheme,
           creatorMessage: creatorMessage || null,
+          theme: selectedTheme,
           soundtrackId: selectedSoundtrackId,
           allowPhotos,
+          allowAudio,
           requireNames,
           closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate, 'yyyy-MM-dd'),
           coverPhotoUrl: coverUrl,
@@ -593,8 +597,13 @@ const EditPage = () => {
               <h3 className="font-bold text-foreground">Contribution settings</h3>
               <div className="mt-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="photos" className="text-foreground">Allow photo uploads</Label>
+                  <Label htmlFor="photos" className="text-foreground">Allow Photo Uploads</Label>
                   <Switch id="photos" checked={allowPhotos} onCheckedChange={setAllowPhotos} />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="audio" className="text-foreground">Allow Audio Wishes</Label>
+                  <Switch id="audio" checked={allowAudio} onCheckedChange={setAllowAudio} />
                 </div>
                 <div className="flex items-center justify-between">
                   <Label htmlFor="names" className="text-foreground">Require names on messages</Label>

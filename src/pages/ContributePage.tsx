@@ -21,6 +21,7 @@ interface PublicBirthdayPageData {
   theme_gradient_from: string | null;
   theme_gradient_to: string | null;
   allow_photos: boolean;
+  allow_audio: boolean;
   require_names: boolean;
   can_contribute: boolean;
   message_count: number;
@@ -630,88 +631,90 @@ const ContributePage = () => {
                   </div>
                 )}
 
-                <div className="mb-6">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <Label className="text-foreground">Voice note (optional)</Label>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Add a short audio wish so they can hear your voice on the birthday page.
-                      </p>
+                {page.allow_audio && (
+                  <div className="mb-6">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <Label className="text-foreground">Voice note (optional)</Label>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Add a short audio wish so they can hear your voice on the birthday page.
+                        </p>
+                      </div>
+                      {!wishAudioPreviewUrl && !isRecording && (
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="gap-2 text-primary border-primary/20 hover:bg-primary/5"
+                            onClick={startRecording}
+                            disabled={!page.can_contribute}
+                          >
+                            <Mic className="h-4 w-4" />
+                            Record
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => audioInputRef.current?.click()}
+                            disabled={!page.can_contribute}
+                          >
+                            <Mic2 className="h-4 w-4" />
+                            Upload
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    {!wishAudioPreviewUrl && !isRecording && (
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+
+                    <input
+                      ref={audioInputRef}
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleWishAudioSelect}
+                      className="hidden"
+                      disabled={!page.can_contribute}
+                    />
+
+                    {isRecording ? (
+                      <div className="flex items-center justify-between rounded-[1.4rem] border border-primary/30 bg-primary/5 p-4 shadow-inner">
+                        <div className="flex items-center gap-3">
+                          <div className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
+                          <span className="font-mono text-lg font-medium text-foreground">{formatDuration(recordingDuration)}</span>
+                        </div>
                         <Button
                           type="button"
-                          variant="outline"
-                          className="gap-2 text-primary border-primary/20 hover:bg-primary/5"
-                          onClick={startRecording}
-                          disabled={!page.can_contribute}
+                          variant="destructive"
+                          size="sm"
+                          className="gap-2 rounded-full"
+                          onClick={stopRecording}
                         >
-                          <Mic className="h-4 w-4" />
-                          Record
+                          <Square className="h-4 w-4 fill-current" />
+                          Stop Recording
                         </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="gap-2"
-                          onClick={() => audioInputRef.current?.click()}
-                          disabled={!page.can_contribute}
-                        >
-                          <Mic2 className="h-4 w-4" />
-                          Upload
-                        </Button>
+                      </div>
+                    ) : wishAudioPreviewUrl ? (
+                      <div className="rounded-[1.4rem] border border-border bg-background/70 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{wishAudio?.name || 'Voice note'}</p>
+                            <p className="text-xs text-muted-foreground">One audio clip per wish</p>
+                          </div>
+                          <Button type="button" variant="ghost" className="gap-2" onClick={removeWishAudio}>
+                            <X className="h-4 w-4" />
+                            Remove
+                          </Button>
+                        </div>
+                        <audio controls className="w-full" src={wishAudioPreviewUrl}>
+                          Your browser does not support audio playback.
+                        </audio>
+                      </div>
+                    ) : (
+                      <div className="rounded-[1.4rem] border border-dashed border-border bg-background/60 p-4 text-sm text-muted-foreground">
+                        Upload a short audio clip or record one directly here if you want the person to hear your voice.
                       </div>
                     )}
                   </div>
-
-                  <input
-                    ref={audioInputRef}
-                    type="file"
-                    accept="audio/*"
-                    onChange={handleWishAudioSelect}
-                    className="hidden"
-                    disabled={!page.can_contribute}
-                  />
-
-                  {isRecording ? (
-                    <div className="flex items-center justify-between rounded-[1.4rem] border border-primary/30 bg-primary/5 p-4 shadow-inner">
-                      <div className="flex items-center gap-3">
-                        <div className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
-                        <span className="font-mono text-lg font-medium text-foreground">{formatDuration(recordingDuration)}</span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="gap-2 rounded-full"
-                        onClick={stopRecording}
-                      >
-                        <Square className="h-4 w-4 fill-current" />
-                        Stop Recording
-                      </Button>
-                    </div>
-                  ) : wishAudioPreviewUrl ? (
-                    <div className="rounded-[1.4rem] border border-border bg-background/70 p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">{wishAudio?.name || 'Voice note'}</p>
-                          <p className="text-xs text-muted-foreground">One audio clip per wish</p>
-                        </div>
-                        <Button type="button" variant="ghost" className="gap-2" onClick={removeWishAudio}>
-                          <X className="h-4 w-4" />
-                          Remove
-                        </Button>
-                      </div>
-                      <audio controls className="w-full" src={wishAudioPreviewUrl}>
-                        Your browser does not support audio playback.
-                      </audio>
-                    </div>
-                  ) : (
-                    <div className="rounded-[1.4rem] border border-dashed border-border bg-background/60 p-4 text-sm text-muted-foreground">
-                      Upload a short audio clip or record one directly here if you want the person to hear your voice.
-                    </div>
-                  )}
-                </div>
+                )}
 
                 <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading || uploadingAudio || !page.can_contribute}>
                   {submitting || uploading || uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}

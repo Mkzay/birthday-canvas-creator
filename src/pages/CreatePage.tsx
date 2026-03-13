@@ -56,6 +56,7 @@ const CreatePage = () => {
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
   const [allowPhotos, setAllowPhotos] = useState(user?.defaultAllowPhotos ?? true);
+  const [allowAudio, setAllowAudio] = useState(user?.defaultAllowAudio ?? true);
   const [requireNames, setRequireNames] = useState(user?.defaultRequireNames ?? true);
   const [closeDate, setCloseDate] = useState<Date>();
   const [selectedSoundtrackId, setSelectedSoundtrackId] = useState('golden-hour');
@@ -279,7 +280,7 @@ const CreatePage = () => {
     setStep(prev => Math.max(prev - 1, 1) as Step);
   };
 
-  const updateCreatedPageSettings = useCallback(async (nextAllowPhotos: boolean, nextRequireNames: boolean) => {
+  const updateCreatedPageSettings = useCallback(async (nextAllowPhotos: boolean, nextAllowAudio: boolean, nextRequireNames: boolean) => {
     if (!createdPageId) return;
 
     try {
@@ -292,6 +293,7 @@ const CreatePage = () => {
           creatorMessage: creatorMessage || null,
           soundtrackId: selectedSoundtrackId,
           allowPhotos: nextAllowPhotos,
+          allowAudio: nextAllowAudio,
           requireNames: nextRequireNames,
           closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate!, 'yyyy-MM-dd'),
           pageCustomAudioUrl,
@@ -305,12 +307,17 @@ const CreatePage = () => {
 
   const handleAllowPhotosChange = (checked: boolean) => {
     setAllowPhotos(checked);
-    void updateCreatedPageSettings(checked, requireNames);
+    void updateCreatedPageSettings(checked, allowAudio, requireNames);
+  };
+
+  const handleAllowAudioChange = (checked: boolean) => {
+    setAllowAudio(checked);
+    void updateCreatedPageSettings(allowPhotos, checked, requireNames);
   };
 
   const handleRequireNamesChange = (checked: boolean) => {
     setRequireNames(checked);
-    void updateCreatedPageSettings(allowPhotos, checked);
+    void updateCreatedPageSettings(allowPhotos, allowAudio, checked);
   };
 
   const copyLink = async (type: 'contribute' | 'birthday') => {
@@ -628,6 +635,11 @@ const CreatePage = () => {
               <div className="flex items-center justify-between">
                 <Label htmlFor="photos" className="text-xs sm:text-sm text-foreground">Allow photo uploads</Label>
                 <Switch id="photos" checked={allowPhotos} onCheckedChange={handleAllowPhotosChange} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="audio" className="text-xs sm:text-sm text-foreground">Allow audio wishes</Label>
+                <Switch id="audio" checked={allowAudio} onCheckedChange={handleAllowAudioChange} />
               </div>
               
               <div className="flex items-center justify-between">

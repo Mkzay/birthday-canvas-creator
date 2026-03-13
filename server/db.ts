@@ -22,6 +22,7 @@ export async function initializeDatabase() {
       avatar_url TEXT,
       default_theme TEXT NOT NULL DEFAULT 'elegant',
       default_allow_photos BOOLEAN NOT NULL DEFAULT TRUE,
+      default_allow_audio BOOLEAN NOT NULL DEFAULT TRUE,
       default_require_names BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -55,6 +56,7 @@ export async function initializeDatabase() {
       soundtrack_id TEXT NOT NULL DEFAULT 'golden-hour',
       custom_audio_url TEXT,
       allow_photos BOOLEAN NOT NULL DEFAULT TRUE,
+      allow_audio BOOLEAN NOT NULL DEFAULT TRUE,
       require_names BOOLEAN NOT NULL DEFAULT TRUE,
       close_date DATE,
       status TEXT NOT NULL DEFAULT 'active',
@@ -76,12 +78,22 @@ export async function initializeDatabase() {
 
   await sql`
     ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS default_allow_audio BOOLEAN NOT NULL DEFAULT TRUE;
+  `;
+
+  await sql`
+    ALTER TABLE users
     ADD COLUMN IF NOT EXISTS default_require_names BOOLEAN NOT NULL DEFAULT TRUE;
   `;
 
   await sql`
     ALTER TABLE birthday_pages
     ADD COLUMN IF NOT EXISTS public_code TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS allow_audio BOOLEAN NOT NULL DEFAULT TRUE;
   `;
 
   await sql`

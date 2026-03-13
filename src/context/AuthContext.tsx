@@ -8,6 +8,7 @@ interface AuthUser {
   avatarUrl: string | null;
   defaultTheme: string;
   defaultAllowPhotos: boolean;
+  defaultAllowAudio: boolean;
   defaultRequireNames: boolean;
 }
 
@@ -18,6 +19,7 @@ interface Profile {
   avatar_url: string | null;
   default_theme: string;
   default_allow_photos: boolean;
+  default_allow_audio: boolean;
   default_require_names: boolean;
 }
 
@@ -42,11 +44,12 @@ function mapProfile(user: AuthUser | null): Profile | null {
     user_id: user.id,
     display_name: user.displayName,
     avatar_url: user.avatarUrl,
-    default_theme: user.defaultTheme,
-    default_allow_photos: user.defaultAllowPhotos,
-    default_require_names: user.defaultRequireNames,
-  };
-}
+    defaultTheme: user.defaultTheme,
+    defaultAllowPhotos: user.defaultAllowPhotos,
+    defaultAllowAudio: user.defaultAllowAudio,
+    defaultRequireNames: user.defaultRequireNames,
+    };
+    }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);

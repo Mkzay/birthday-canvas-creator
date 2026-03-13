@@ -70,6 +70,7 @@ const SettingsPage = () => {
   // Default page settings
   const [defaultTheme, setDefaultTheme] = useState('elegant');
   const [defaultAllowPhotos, setDefaultAllowPhotos] = useState(true);
+  const [defaultAllowAudio, setDefaultAllowAudio] = useState(true);
   const [defaultRequireNames, setDefaultRequireNames] = useState(true);
   
   // Password change
@@ -126,6 +127,7 @@ const SettingsPage = () => {
         body: JSON.stringify({
           defaultTheme,
           defaultAllowPhotos,
+          defaultAllowAudio,
           defaultRequireNames,
         }),
       });
@@ -409,6 +411,19 @@ const SettingsPage = () => {
               <Switch 
                 checked={defaultAllowPhotos} 
                 onCheckedChange={setDefaultAllowPhotos}
+              />
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <p className="font-medium text-foreground">Allow Audio Wishes</p>
+                <p className="text-sm text-muted-foreground">Let contributors record or upload voice notes</p>
+              </div>
+              <Switch 
+                checked={defaultAllowAudio} 
+                onCheckedChange={setDefaultAllowAudio}
               />
             </div>
 

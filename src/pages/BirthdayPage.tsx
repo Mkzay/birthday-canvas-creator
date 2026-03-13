@@ -11,6 +11,9 @@ import {
   SkipForward,
   Sparkles,
   Volume2,
+  Trash2,
+  Music,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -696,6 +699,74 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const goToPreviousSlide = useCallback(() => {
     setCurrentSlide((previousSlide) => Math.max(previousSlide - 1, 0));
   }, []);
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!isPreview || !pageId || !window.confirm('Are you sure you want to delete this message? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await apiFetch(`/pages/${pageId}/messages/${messageId}`, {
+        method: 'DELETE',
+      });
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      toast.success('Message deleted');
+    } catch (error) {
+      console.error('Delete message error:', error);
+      toast.error('Failed to delete message');
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string, messageId: string) => {
+    if (!isPreview || !pageId || !window.confirm('Are you sure you want to delete this photo?')) {
+      return;
+    }
+
+    try {
+      await apiFetch(`/pages/${pageId}/messages/photos/${photoId}`, {
+        method: 'DELETE',
+      });
+      
+      setMessages((prev) => prev.map((msg) => {
+        if (msg.id !== messageId) return msg;
+        
+        // Remove from photos array
+        const newPhotos = msg.photos?.filter(p => p.id !== photoId);
+        
+        // Remove legacy photo_url if it matches this photoId
+        const newPhotoUrl = msg.photo_url && `legacy-${msg.id}` === photoId ? null : msg.photo_url;
+        
+        return { ...msg, photos: newPhotos, photo_url: newPhotoUrl };
+      }));
+      
+      toast.success('Photo removed');
+    } catch (error) {
+      console.error('Delete photo error:', error);
+      toast.error('Failed to remove photo');
+    }
+  };
+
+  const handleDeleteAudio = async (messageId: string) => {
+    if (!isPreview || !pageId || !window.confirm('Are you sure you want to delete this voice note?')) {
+      return;
+    }
+
+    try {
+      await apiFetch(`/pages/${pageId}/messages/${messageId}/audio`, {
+        method: 'DELETE',
+      });
+      
+      setMessages((prev) => prev.map((msg) => {
+        if (msg.id !== messageId) return msg;
+        return { ...msg, audio_url: null };
+      }));
+      
+      toast.success('Voice note removed');
+    } catch (error) {
+      console.error('Delete audio error:', error);
+      toast.error('Failed to remove voice note');
+    }
+  };
 
   const handleStageClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target;
@@ -1625,6 +1696,19 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                               </div>
                               <span className="shrink-0 rounded-full bg-white/16 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-md">Open</span>
                             </div>
+                            {isPreview && (
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute right-3 top-3 z-30 h-8 w-8 rounded-full opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDeletePhoto(photo.id, activeSlide.message.id);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </button>
                       );
@@ -1677,9 +1761,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     {activeSlide.message.sender_name}
                                   </h2>
                                 </div>
-                                <div className={cn('hidden rounded-[1.25rem] border px-4 py-3 sm:block', keepsakeSoftClass)}>
-                                  <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wish no.</p>
-                                  <p className={cn('mt-1 text-xl font-semibold', theme.text)}>{String(activeSlide.index + 1).padStart(2, '0')}</p>
+                                <div className="flex items-center gap-2">
+                                  <div className={cn('hidden rounded-[1.25rem] border px-4 py-3 sm:block', keepsakeSoftClass)}>
+                                    <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wish no.</p>
+                                    <p className={cn('mt-1 text-xl font-semibold', theme.text)}>{String(activeSlide.index + 1).padStart(2, '0')}</p>
+                                  </div>
+                                  {isPreview && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-2 h-12 rounded-2xl"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleDeleteMessage(activeSlide.message.id);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      Remove Wish
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
 
@@ -1712,6 +1812,19 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     <p className={cn('text-xs opacity-65', theme.text)}>A voice to go with the words.</p>
                                   </div>
                                 </div>
+                                {isPreview && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-4 top-4 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleDeleteAudio(activeSlide.message.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 {renderWishAudioPlayer(activeSlide.message, 'mt-3 w-full')}
                               </article>
                             )}

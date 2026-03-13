@@ -106,6 +106,7 @@ function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
     avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
     defaultTheme: typeof row.default_theme === "string" ? row.default_theme : "elegant",
     defaultAllowPhotos: Boolean(row.default_allow_photos ?? true),
+    defaultAllowAudio: Boolean(row.default_allow_audio ?? true),
     defaultRequireNames: Boolean(row.default_require_names ?? true),
   };
 }
@@ -303,6 +304,7 @@ function publicPageQuery(pageId: string) {
       bp.soundtrack_id,
       bp.custom_audio_url,
       bp.allow_photos,
+      bp.allow_audio,
       bp.require_names,
       bp.close_date,
       CURRENT_DATE >= bp.birthday_date AS is_revealed,
@@ -347,7 +349,7 @@ app.get("/api/auth/session", async (request, response) => {
   }
 
   const rows = await sql`
-    SELECT id, email, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
+    SELECT id, email, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
     FROM users
     WHERE id = ${session.id}
     LIMIT 1
@@ -393,7 +395,7 @@ app.post("/api/auth/signup", rateLimit("auth-signup", 6, 15 * 60 * 1000), async 
   const rows = await sql`
     INSERT INTO users (email, password_hash, display_name)
     VALUES (${email}, ${passwordHash}, ${displayName})
-    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
+    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
   `;
 
   sendAuth(response, sessionUserFromRow(rows[0]));
@@ -404,7 +406,7 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
   const password = typeof request.body.password === "string" ? request.body.password : "";
 
   const rows = await sql`
-    SELECT id, email, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
+    SELECT id, email, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
     FROM users
     WHERE email = ${email}
     LIMIT 1
@@ -441,15 +443,16 @@ app.patch("/api/auth/profile", requireAuth, async (request: AuthedRequest, respo
       avatar_url = ${avatarUrl || null},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
+    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
   `;
 
   sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
 app.patch("/api/auth/preferences", requireAuth, async (request: AuthedRequest, response) => {
-  const defaultTheme = typeof request.body.defaultTheme === "string" ? request.body.defaultTheme.trim() : "elegant";
+  const defaultTheme = typeof request.body.defaultTheme === "string" ? request.body.defaultTheme : "elegant";
   const defaultAllowPhotos = Boolean(request.body.defaultAllowPhotos ?? true);
+  const defaultAllowAudio = Boolean(request.body.defaultAllowAudio ?? true);
   const defaultRequireNames = Boolean(request.body.defaultRequireNames ?? true);
 
   const rows = await sql`
@@ -457,10 +460,11 @@ app.patch("/api/auth/preferences", requireAuth, async (request: AuthedRequest, r
     SET
       default_theme = ${defaultTheme},
       default_allow_photos = ${defaultAllowPhotos},
+      default_allow_audio = ${defaultAllowAudio},
       default_require_names = ${defaultRequireNames},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_require_names
+    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
   `;
 
   sendAuth(response, sessionUserFromRow(rows[0]));
@@ -642,6 +646,7 @@ app.post("/api/pages", requireAuth, async (request: AuthedRequest, response) => 
       creator_message,
       soundtrack_id,
       allow_photos,
+      allow_audio,
       require_names,
       close_date,
       status
@@ -655,6 +660,7 @@ app.post("/api/pages", requireAuth, async (request: AuthedRequest, response) => 
       ${sanitizeDisplayName(request.body.creatorMessage)},
       ${String(request.body.soundtrackId || "golden-hour")},
       ${Boolean(request.body.allowPhotos ?? true)},
+      ${Boolean(request.body.allowAudio ?? true)},
       ${Boolean(request.body.requireNames ?? true)},
       ${String(request.body.closeDate || request.body.birthdayDate)},
       'active'
@@ -699,6 +705,125 @@ app.get("/api/pages/:id/ownership", requireAuth, async (request: AuthedRequest, 
   response.json({ isOwner: Boolean(rows[0]), publicCode: rows[0] ? String(rows[0].public_code) : null });
 });
 
+app.delete("/api/pages/:id/messages/:messageId", requireAuth, async (request: AuthedRequest, response) => {
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const messageRows = await sql`
+    SELECT photo_url, audio_url
+    FROM birthday_messages
+    WHERE id = ${request.params.messageId}
+      AND page_id = ${pageRows[0].id}
+  `;
+
+  if (!messageRows[0]) {
+    response.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  const messagePhotos = await sql`
+    SELECT photo_url
+    FROM birthday_message_photos
+    WHERE message_id = ${request.params.messageId}
+  `;
+
+  removeFileByUrl(messageRows[0].photo_url);
+  removeFileByUrl(messageRows[0].audio_url);
+  messagePhotos.forEach((photo) => removeFileByUrl(photo.photo_url));
+
+  await sql`
+    DELETE FROM birthday_messages
+    WHERE id = ${request.params.messageId}
+      AND page_id = ${pageRows[0].id}
+  `;
+
+  response.status(204).end();
+});
+
+app.delete("/api/pages/:id/messages/:messageId/audio", requireAuth, async (request: AuthedRequest, response) => {
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const messageRows = await sql`
+    SELECT audio_url
+    FROM birthday_messages
+    WHERE id = ${request.params.messageId}
+      AND page_id = ${pageRows[0].id}
+  `;
+
+  if (!messageRows[0] || !messageRows[0].audio_url) {
+    response.status(404).json({ error: "Audio not found" });
+    return;
+  }
+
+  removeFileByUrl(messageRows[0].audio_url);
+
+  await sql`
+    UPDATE birthday_messages
+    SET audio_url = NULL
+    WHERE id = ${request.params.messageId}
+      AND page_id = ${pageRows[0].id}
+  `;
+
+  response.status(204).end();
+});
+
+app.delete("/api/pages/:id/messages/photos/:photoId", requireAuth, async (request: AuthedRequest, response) => {
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const photoRows = await sql`
+    SELECT bmp.photo_url
+    FROM birthday_message_photos bmp
+    INNER JOIN birthday_messages bm ON bm.id = bmp.message_id
+    WHERE bmp.id = ${request.params.photoId}
+      AND bm.page_id = ${pageRows[0].id}
+  `;
+
+  if (!photoRows[0]) {
+    // Check if it's the legacy main photo
+    const legacyPhotoRows = await sql`
+      SELECT photo_url
+      FROM birthday_messages
+      WHERE id::text = ${request.params.photoId}
+        AND page_id = ${pageRows[0].id}
+    `;
+
+    if (legacyPhotoRows[0] && legacyPhotoRows[0].photo_url) {
+      removeFileByUrl(legacyPhotoRows[0].photo_url);
+      await sql`
+        UPDATE birthday_messages
+        SET photo_url = NULL
+        WHERE id::text = ${request.params.photoId}
+          AND page_id = ${pageRows[0].id}
+      `;
+      response.status(204).end();
+      return;
+    }
+
+    response.status(404).json({ error: "Photo not found" });
+    return;
+  }
+
+  removeFileByUrl(photoRows[0].photo_url);
+
+  await sql`
+    DELETE FROM birthday_message_photos
+    WHERE id = ${request.params.photoId}
+  `;
+
+  response.status(204).end();
+});
+
 app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response) => {
   const hasCoverPhotoUrl = Object.prototype.hasOwnProperty.call(request.body, "coverPhotoUrl");
   const hasCustomAudioUrl = Object.prototype.hasOwnProperty.call(request.body, "pageCustomAudioUrl");
@@ -733,6 +858,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
           creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
           soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
           allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
+          allow_audio = ${Boolean(request.body.allowAudio ?? true)},
           require_names = ${Boolean(request.body.requireNames ?? true)},
           close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
           cover_photo_url = ${request.body.coverPhotoUrl || null},
@@ -751,6 +877,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
           creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
           soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
           allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
+          allow_audio = ${Boolean(request.body.allowAudio ?? true)},
           require_names = ${Boolean(request.body.requireNames ?? true)},
           close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
           updated_at = NOW()
@@ -976,7 +1103,7 @@ app.post("/api/public/pages/:id/message-audio", rateLimit("public-audio", 12, 10
     return;
   }
 
-  if (!page.can_contribute) {
+  if (!page.can_contribute || !page.allow_audio) {
     response.status(403).json({ error: "Audio uploads are disabled for this page" });
     return;
   }
