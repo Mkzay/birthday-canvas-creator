@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import {
   ChevronLeft,
@@ -816,6 +816,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     setSlideDirection('back');
     setCurrentSlide((previousSlide) => Math.max(previousSlide - 1, 0));
   }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [currentSlide]);
 
   const handleDeleteMessage = async (messageId: string) => {
     if (!isPreview || !pageId || !window.confirm('Are you sure you want to delete this message? This cannot be undone.')) {

@@ -68,7 +68,7 @@ const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
                       <img
                         src={resolveAssetUrl(profile.avatar_url)!}
                         alt={displayName}
-                        className="h-full w-full object-cover"
+                        className="block h-full w-full object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-primary/10 text-primary">
