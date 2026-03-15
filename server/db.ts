@@ -141,6 +141,11 @@ export async function initializeDatabase() {
   `;
 
   await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS letter_color TEXT;
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS birthday_message_photos (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       message_id UUID NOT NULL REFERENCES birthday_messages(id) ON DELETE CASCADE,

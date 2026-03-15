@@ -59,6 +59,7 @@ const EditPage = () => {
   const [birthdayDate, setBirthdayDate] = useState<Date>();
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
+  const [letterColor, setLetterColor] = useState<string>('');
   const [allowPhotos, setAllowPhotos] = useState(true);
   const [allowAudio, setAllowAudio] = useState(true);
   const [requireNames, setRequireNames] = useState(true);
@@ -104,6 +105,7 @@ const EditPage = () => {
         birthday_date: string;
         creator_message: string | null;
         theme: string;
+        letter_color: string | null;
         soundtrack_id: string | null;
         custom_audio_url: string | null;
         allow_photos: boolean;
@@ -118,6 +120,7 @@ const EditPage = () => {
       setBirthdayDate(parseLocalDate(data.birthday_date));
       setCreatorMessage(data.creator_message || '');
       setSelectedTheme(data.theme as Theme);
+      setLetterColor(data.letter_color || '');
       setSelectedSoundtrackId(data.soundtrack_id || 'golden-hour');
       setAllowPhotos(data.allow_photos);
       setAllowAudio(data.allow_audio);
@@ -305,6 +308,7 @@ const EditPage = () => {
           birthdayDate: format(birthdayDate, 'yyyy-MM-dd'),
           creatorMessage: creatorMessage || null,
           theme: selectedTheme,
+          letterColor: letterColor || null,
           soundtrackId: selectedSoundtrackId,
           allowPhotos,
           allowAudio,
@@ -533,6 +537,35 @@ const EditPage = () => {
               onSelect={setSelectedTheme}
               customThemes={customThemes}
             />
+
+            <div className="mt-8">
+              <Label className="text-foreground">Letter / envelope color</Label>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Optional. Sets the paper color of the letter cards in the story. Leave empty to use the theme default.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <input
+                  type="color"
+                  id="letter-color"
+                  value={letterColor || '#f5f0e8'}
+                  onChange={(e) => setLetterColor(e.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded-lg border border-border bg-background"
+                  aria-label="Choose letter color"
+                />
+                <Input
+                  type="text"
+                  placeholder="#f5f0e8"
+                  value={letterColor}
+                  onChange={(e) => setLetterColor(e.target.value)}
+                  className="max-w-[10rem] font-mono text-sm"
+                />
+                {letterColor && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setLetterColor('')}>
+                    Use default
+                  </Button>
+                )}
+              </div>
+            </div>
 
             <div className="panel-inset mt-8 p-4 sm:p-6">
               <h3 className="text-lg font-bold text-foreground">Opening soundtrack</h3>

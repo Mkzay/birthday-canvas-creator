@@ -34,65 +34,77 @@ const BirthdayShareCard = ({
 
     const width = 640;
     const height = 640;
+    const radius = 40;
     canvas.width = width;
     canvas.height = height;
 
-    // Create gradient background
+    // Gradient background (135deg-style: top-left to bottom-right)
     const gradient = ctx.createLinearGradient(0, 0, width, height);
     gradient.addColorStop(0, themeColors[0] || '#8b5cf6');
-    gradient.addColorStop(0.5, themeColors[1] || '#a855f7');
-    gradient.addColorStop(1, themeColors[2] || '#ec4899');
-    
-    // Draw rounded rect background
+    gradient.addColorStop(0.45, themeColors[1] || themeColors[0] || '#a855f7');
+    gradient.addColorStop(1, themeColors[2] || themeColors[1] || '#ec4899');
+
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.roundRect(0, 0, width, height, 40);
+    ctx.roundRect(0, 0, width, height, radius);
     ctx.fill();
 
-    // Draw decorative elements
-    ctx.font = '80px serif';
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = 'white';
-    ctx.fillText('✨', 40, 100);
-    ctx.fillText('🎉', width - 120, height - 40);
-    ctx.fillText('🎂', width - 100, 160);
-    ctx.fillText('🎁', 40, height - 120);
-    ctx.globalAlpha = 1;
+    // Subtle vignette for depth (radial overlay)
+    const vignette = ctx.createRadialGradient(
+      width / 2, height / 2, width * 0.2,
+      width / 2, height / 2, width * 0.85
+    );
+    vignette.addColorStop(0, 'transparent');
+    vignette.addColorStop(0.7, 'transparent');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.12)');
+    ctx.fillStyle = vignette;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, width, height, radius);
+    ctx.fill();
 
-    // Draw main emoji
+    // Inner border for definition (no emoji clutter; clean card)
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(1, 1, width - 2, height - 2, radius - 1);
+    ctx.stroke();
+
+    // Theme emoji as main visual anchor
     ctx.font = '120px serif';
     ctx.textAlign = 'center';
+    ctx.fillStyle = 'white';
     ctx.fillText(themeEmoji, width / 2, 200);
 
-    // Draw title
+    // Title – supporting line
+    ctx.font = '600 28px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.fillText('Happy Birthday', width / 2, 288);
+
+    // Recipient name – hero type
+    ctx.font = 'bold 52px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
-    ctx.fillText('Happy Birthday to Me!', width / 2, 290);
+    ctx.fillText(recipientName, width / 2, 368);
 
-    // Draw name
-    ctx.font = 'bold 56px system-ui, -apple-system, sans-serif';
-    ctx.fillText(recipientName, width / 2, 370);
-
-    // Draw wishes count badge
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-    const badgeText = `🎈 ${messageCount} wishes received`;
-    const badgeWidth = 340;
-    const badgeHeight = 50;
+    // Wishes count badge (text only, no emoji-as-icon per a11y/style)
+    const badgeText = `${messageCount} wish${messageCount === 1 ? '' : 'es'} received`;
+    const badgePadding = 32;
+    ctx.font = '22px system-ui, -apple-system, sans-serif';
+    const badgeTextWidth = ctx.measureText(badgeText).width;
+    const badgeWidth = Math.min(badgeTextWidth + badgePadding * 2, width - 80);
+    const badgeHeight = 48;
     const badgeX = (width - badgeWidth) / 2;
-    const badgeY = 420;
+    const badgeY = 418;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
     ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 25);
+    ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 24);
     ctx.fill();
-
     ctx.fillStyle = 'white';
-    ctx.font = '24px system-ui, -apple-system, sans-serif';
-    ctx.fillText(badgeText, width / 2, badgeY + 34);
+    ctx.fillText(badgeText, width / 2, badgeY + 32);
 
-    // Draw footer
-    ctx.font = '18px system-ui, -apple-system, sans-serif';
-    ctx.globalAlpha = 0.7;
-    ctx.fillText('Made with WishCanvas', width / 2, height - 50);
-    ctx.globalAlpha = 1;
+    // Footer – subtle
+    ctx.font = '16px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.fillText('Made with WishCanvas', width / 2, height - 44);
 
     return canvas;
   }, [recipientName, messageCount, themeEmoji, themeColors]);

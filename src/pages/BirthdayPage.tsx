@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import {
   ChevronLeft,
@@ -17,16 +17,28 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import BirthdayCountdown from '@/components/BirthdayCountdown';
 import BirthdayShareCard from '@/components/BirthdayShareCard';
 import { apiFetch, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
+import { toast } from 'sonner';
 import { playPresetSoundtrack, soundtrackMap, type SoundtrackController } from '@/lib/soundtracks';
 import { cn } from '@/lib/utils';
 import AnimatedBackground from '@/components/AnimatedBackground';
 
 interface BirthdayPageData {
   id: string;
+  public_code?: string;
   recipient_name: string;
   birthday_date: string;
   theme: string;
@@ -34,6 +46,7 @@ interface BirthdayPageData {
   theme_gradient_from?: string | null;
   theme_gradient_to?: string | null;
   theme_font?: string | null;
+  letter_color?: string | null;
   creator_message: string | null;
   cover_photo_url: string | null;
   soundtrack_id?: string | null;
@@ -397,6 +410,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPhoto, setExpandedPhoto] = useState<ExpandedPhoto>(null);
+   const [messagePendingDelete, setMessagePendingDelete] = useState<Message | null>(null);
   const [showShareCard, setShowShareCard] = useState(false);
   const [showRevealIntro, setShowRevealIntro] = useState(false);
   const [hasTriggeredIntro, setHasTriggeredIntro] = useState(false);
@@ -522,7 +536,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     } finally {
       setLoading(false);
     }
-  }, [isPreview, pageId]);
+  }, [isPreview, navigate, pageId]);
 
   useEffect(() => {
     void fetchData();
@@ -1233,14 +1247,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       onMouseMove={handleBoardParallaxMove}
                       onMouseLeave={handleBoardParallaxLeave}
                     >
-                      <div className="relative isolate h-[20rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] sm:h-[24rem]">
+                      <div className="relative isolate aspect-[4/5] min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] sm:min-h-[24rem]">
                         {coverPhotoSrc ? (
-                          renderStoryImage(coverPhotoSrc, `${page.recipient_name}'s birthday cover`, {
-                            objectPosition: 'center 28%',
-                            eager: true,
-                            disableParallax: true,
-                            className: 'block',
-                          })
+                          <img
+                            src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
+                            alt={`${page.recipient_name}'s birthday cover`}
+                            className="absolute inset-0 h-full w-full object-cover"
+                            decoding="async"
+                            loading="eager"
+                            draggable={false}
+                            style={{ objectPosition: 'center 28%' }}
+                          />
                         ) : (
                           <div className="flex h-full items-center justify-center text-[5rem]">{theme.emoji}</div>
                         )}
@@ -1563,14 +1580,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           >
                             <span className={cn('absolute left-6 top-4 h-6 w-16 rounded-full opacity-80 sm:left-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
                             <span className={cn('absolute right-6 top-4 h-6 w-16 rounded-full opacity-80 sm:right-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
-                            <div className="relative isolate h-[20rem] overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:h-[24rem] sm:rounded-[1.7rem] lg:flex-1 lg:h-auto lg:min-h-0 lg:w-full">
+                            <div className="relative isolate aspect-[4/5] min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:min-h-[24rem] sm:rounded-[1.7rem] lg:aspect-auto lg:min-h-0 lg:flex-1">
                               {coverPhotoSrc ? (
-                                renderStoryImage(coverPhotoSrc, `${page.recipient_name}'s birthday cover`, {
-                                  objectPosition: 'center 28%',
-                                  eager: true,
-                                  disableParallax: true,
-                                  className: 'block',
-                                })
+                                <img
+                                  src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
+                                  alt={`${page.recipient_name}'s birthday cover`}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  decoding="async"
+                                  loading="eager"
+                                  draggable={false}
+                                  style={{ objectPosition: 'center 28%' }}
+                                />
                               ) : (
                                 <div className="flex h-full items-center justify-center text-[6rem] sm:text-[8rem]">
                                   {theme.emoji}
@@ -1671,17 +1691,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       const photoFrameClass =
                         'group relative min-h-0 overflow-hidden rounded-[1.4rem] border border-white/45 bg-white/55 p-2 text-left shadow-[0_18px_50px_rgba(18,18,23,0.16)] transition-transform duration-500 hover:-translate-y-1 sm:rounded-[1.65rem] sm:p-2.5';
 
-                      const renderPhotoCard = (photo: MessagePhoto, className?: string, imageClassName?: string) => (
+                      const renderPhotoCard = (photo: MessagePhoto, className?: string, containerAspect?: string) => (
                         <button
                           key={photo.id}
                           type="button"
-                          className={cn(photoFrameClass, className)}
+                          className={cn(photoFrameClass, className, containerAspect)}
                           onClick={() => openPhoto(photo)}
                           aria-label={`Expand photo from ${activeSlide.message.sender_name}`}
                         >
                           <div className="relative isolate h-full min-h-[8.8rem] overflow-hidden rounded-[1.2rem] bg-[#dfe7dc] sm:rounded-[1.35rem]">
                             <img
-                              className={cn('story-photo-layer absolute inset-0 z-0 h-full w-full object-cover', imageClassName)}
+                              className="story-photo-layer absolute inset-0 z-0 h-full w-full object-cover"
                               src={resolveAssetUrl(photo.photo_url) || photo.photo_url}
                               alt={`Photo from ${activeSlide.message.sender_name}`}
                               decoding="async"
@@ -1727,7 +1747,22 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             {wishPhotos.map((photo, photoIndex) => renderPhotoCard(photo, photoIndex === 0 ? 'rotate-[-1deg]' : 'rotate-[1deg]'))}
                           </div>
                         );
-                      } else if (photoCount >= 3) {
+                      } else if (photoCount === 3) {
+                        photoLayout = (
+                          <div className="grid grid-cols-2 grid-rows-2 gap-3 pt-7 sm:gap-4 sm:pt-8 aspect-[5/4] lg:aspect-auto lg:h-full lg:min-h-0">
+                            {wishPhotos.map((photo, photoIndex) =>
+                              renderPhotoCard(
+                                photo,
+                                photoIndex === 0
+                                  ? 'col-span-2 h-full min-h-0 rotate-[-1deg] lg:col-span-1 lg:row-span-2'
+                                  : photoIndex === 1
+                                    ? 'h-full min-h-0 rotate-[1deg]'
+                                    : 'h-full min-h-0 rotate-[-1deg]',
+                              ),
+                            )}
+                          </div>
+                        );
+                      } else if (photoCount >= 4) {
                         photoLayout = (
                           <div className={cn(
                             "grid min-h-[18rem] gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0 overflow-y-auto pr-2 pb-2 custom-scrollbar",
@@ -1742,7 +1777,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     ? 'rotate-[1deg]'
                                     : 'rotate-[-1deg]',
                                 photoIndex === 0 && photoCount < 5 ? 'aspect-[16/10] lg:aspect-auto lg:h-full' : 'aspect-[4/5]',
-                              ),
+                              )
                             )}
                           </div>
                         );
@@ -1752,6 +1787,20 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         <div className="grid h-full gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                           <div className="flex flex-col gap-4 lg:justify-center">
                             <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass)} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
+                              {isPreview && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-4 top-4 gap-1 text-destructive/90 hover:bg-destructive/5 hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMessagePendingDelete(activeSlide.message);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="hidden sm:inline">Remove wish</span>
+                                </Button>
+                              )}
                               <div className="flex items-start justify-between gap-4">
                                 <div>
                                   <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
@@ -1761,25 +1810,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     {activeSlide.message.sender_name}
                                   </h2>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <div className={cn('hidden rounded-[1.25rem] border px-4 py-3 sm:block', keepsakeSoftClass)}>
-                                    <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wish no.</p>
-                                    <p className={cn('mt-1 text-xl font-semibold', theme.text)}>{String(activeSlide.index + 1).padStart(2, '0')}</p>
-                                  </div>
-                                  {isPreview && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-2 h-12 rounded-2xl"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        void handleDeleteMessage(activeSlide.message.id);
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                      Remove Wish
-                                    </Button>
-                                  )}
+                                <div className={cn('hidden rounded-[1.25rem] border px-4 py-3 sm:block', keepsakeSoftClass)}>
+                                  <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wish no.</p>
+                                  <p className={cn('mt-1 text-xl font-semibold', theme.text)}>{String(activeSlide.index + 1).padStart(2, '0')}</p>
                                 </div>
                               </div>
 
@@ -1955,6 +1988,42 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         open={showShareCard}
         onOpenChange={setShowShareCard}
       />
+
+      <AlertDialog
+        open={Boolean(messagePendingDelete)}
+        onOpenChange={(open) => {
+          if (!open) setMessagePendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this wish from the story?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the letter, photos, and audio attached to this wish from the birthday playback.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
+            <Trash2 className="mt-0.5 h-4 w-4 text-destructive" />
+            <span>
+              {messagePendingDelete?.sender_name}&apos;s wish will disappear from this birthday story. This can&apos;t be undone.
+            </span>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setMessagePendingDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (messagePendingDelete) {
+                  void handleDeleteMessage(messagePendingDelete.id);
+                }
+                setMessagePendingDelete(null);
+              }}
+            >
+              Remove wish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

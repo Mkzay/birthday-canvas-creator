@@ -295,6 +295,7 @@ function publicPageQuery(pageId: string) {
       bp.recipient_name,
       bp.birthday_date,
       bp.theme,
+      bp.letter_color,
       ct.emoji AS theme_emoji,
       ct.gradient_from AS theme_gradient_from,
       ct.gradient_to AS theme_gradient_to,
@@ -863,6 +864,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
           close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
           cover_photo_url = ${request.body.coverPhotoUrl || null},
           custom_audio_url = ${request.body.pageCustomAudioUrl || null},
+          letter_color = ${request.body.letterColor ?? null},
           updated_at = NOW()
         WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
           AND user_id = ${request.user!.id}
@@ -880,6 +882,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
           allow_audio = ${Boolean(request.body.allowAudio ?? true)},
           require_names = ${Boolean(request.body.requireNames ?? true)},
           close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
+          letter_color = ${request.body.letterColor ?? null},
           updated_at = NOW()
         WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
           AND user_id = ${request.user!.id}
