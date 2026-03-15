@@ -1045,35 +1045,42 @@ app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, respons
 });
 
 app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), async (request: AuthedRequest, response) => {
-  const pageId = String(request.body.pageId || "");
+  const pageIdOrCode = String(request.body.pageId || "");
   const file = request.file;
 
-  if (!file || !pageId) {
+  if (!file || !pageIdOrCode) {
     response.status(400).json({ error: "Missing file upload or page id" });
-    logRequestFailure("upload-cover", { userId: request.user?.id, pageId, reason: "missing-file-or-page" });
+    logRequestFailure("upload-cover", { userId: request.user?.id, pageId: pageIdOrCode, reason: "missing-file-or-page" });
     return;
   }
 
-  const rows = await sql`
-    SELECT cover_photo_url
+  // Allow either the internal UUID id or the public_code to be sent from the client.
+  // Compare against id::text to avoid Postgres attempting to cast arbitrary strings to uuid.
+  const rows = await sql<{
+    id: string;
+    cover_photo_url: string | null;
+  }>`
+    SELECT id, cover_photo_url
     FROM birthday_pages
-    WHERE id = ${pageId}
+    WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
       AND user_id = ${request.user!.id}
     LIMIT 1
   `;
 
-  if (!rows[0]) {
+  const page = rows[0];
+
+  if (!page) {
     response.status(404).json({ error: "Page not found" });
     return;
   }
 
-  removeFileByUrl(rows[0].cover_photo_url);
+  removeFileByUrl(page.cover_photo_url);
   const url = fileUrl(path.join("covers", file.filename));
 
   await sql`
     UPDATE birthday_pages
     SET cover_photo_url = ${url}, updated_at = NOW()
-    WHERE id = ${pageId}
+    WHERE id = ${page.id}
       AND user_id = ${request.user!.id}
   `;
 
