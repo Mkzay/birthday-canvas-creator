@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Music4, Pause, Play, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { soundtrackOptions, playPresetSoundtrack, type SoundtrackController } from '@/lib/soundtracks';
+import { cn } from '@/lib/utils';
 
 interface SoundtrackSelectorProps {
   selectedSoundtrackId: string;
@@ -75,74 +76,90 @@ const SoundtrackSelector = ({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="scrollbar-hide flex gap-2.5 overflow-x-auto pb-1 snap-x">
         {soundtrackOptions.map((soundtrack) => {
           const isSelected = soundtrack.id === selectedSoundtrackId;
           const isPreviewing = soundtrack.id === activePreviewId;
 
           return (
-            <article
+            <button
               key={soundtrack.id}
-              className={[
-                'rounded-[1.5rem] border p-5 transition-all duration-300',
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelectSoundtrackId(soundtrack.id)}
+              className={cn(
+                'group relative flex w-[9.5rem] shrink-0 snap-start flex-col rounded-xl border p-3 text-left transition-all duration-200',
                 isSelected
-                  ? 'border-primary/30 bg-white shadow-[0_18px_55px_rgba(18,18,23,0.06)]'
-                  : 'border-border/60 bg-background/70 hover:border-primary/20 hover:bg-white',
-                disabled ? 'opacity-60' : '',
-              ].join(' ')}
+                  ? 'border-primary/35 bg-white shadow-card'
+                  : 'border-border/60 bg-card hover:border-primary/20 hover:bg-white',
+                disabled && 'opacity-60',
+              )}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br ${soundtrack.accent} text-white shadow-lg`}>
-                  <Music4 className="h-5 w-5" />
+              {/* Accent bar */}
+              <div
+                className={cn('absolute inset-x-0 top-0 h-1 rounded-t-xl bg-gradient-to-r', soundtrack.accent)}
+              />
+
+              <div className="flex items-center justify-between gap-2">
+                <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br text-white', soundtrack.accent)}>
+                  <Music4 className="h-3.5 w-3.5" />
                 </div>
-                <button
-                  type="button"
-                  disabled={disabled}
+                <div
+                  role="button"
+                  aria-label={isPreviewing ? `Pause ${soundtrack.name} preview` : `Preview ${soundtrack.name}`}
+                  aria-pressed={isPreviewing}
+                  tabIndex={-1}
                   onClick={(event) => {
                     event.stopPropagation();
-                    togglePreview(soundtrack.id);
+                    if (!disabled) {
+                      togglePreview(soundtrack.id);
+                    }
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-white text-foreground transition-colors hover:border-primary/20 hover:text-primary"
-                  aria-label={isPreviewing ? `Pause ${soundtrack.name} preview` : `Preview ${soundtrack.name}`}
+                  className={cn(
+                    'flex h-7 w-7 items-center justify-center rounded-full border transition-colors',
+                    isPreviewing
+                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      : 'border-border/60 bg-white text-muted-foreground hover:text-foreground',
+                    disabled && 'opacity-60 cursor-default',
+                  )}
                 >
-                  {isPreviewing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </button>
+                  {isPreviewing ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                </div>
               </div>
-              <p className="mt-4 text-base font-semibold text-foreground">{soundtrack.name}</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{soundtrack.description}</p>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onSelectSoundtrackId(soundtrack.id)}
-                className={[
-                  'mt-4 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] transition-colors',
-                  isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground',
-                ].join(' ')}
-              >
-                {isSelected ? 'Selected' : 'Use soundtrack'}
-              </button>
-            </article>
+
+              <p className="mt-2.5 truncate text-[13px] font-semibold text-foreground">{soundtrack.name}</p>
+
+              {isSelected ? (
+                <span className="mt-1.5 inline-flex self-start rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                  Selected
+                </span>
+              ) : (
+                <span className="mt-1.5 text-[11px] text-muted-foreground">
+                  Tap to use
+                </span>
+              )}
+            </button>
           );
         })}
       </div>
 
-      <div className="rounded-[1.5rem] border border-border/60 bg-card/80 p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="rounded-xl border border-border/60 bg-card/80 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-foreground">Custom opening audio</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Upload your own short audio clip. If present, it overrides the selected preset on the birthday page.
+            <p className="text-sm font-semibold text-foreground">Custom audio</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Overrides the selected preset when present.
             </p>
           </div>
           <div className="flex gap-2">
             <input ref={fileInputRef} type="file" accept="audio/*" className="hidden" onChange={handleFileChange} disabled={disabled} />
-            <Button type="button" variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()} disabled={disabled}>
-              <Upload className="h-4 w-4" />
-              Upload audio
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={disabled}>
+              <Upload className="h-3.5 w-3.5" />
+              Upload
             </Button>
             {customAudioUrl && (
-              <Button type="button" variant="ghost" className="gap-2" onClick={onRemoveCustomAudio} disabled={disabled}>
-                <X className="h-4 w-4" />
+              <Button type="button" variant="ghost" size="sm" className="gap-1.5" onClick={onRemoveCustomAudio} disabled={disabled}>
+                <X className="h-3.5 w-3.5" />
                 Remove
               </Button>
             )}
@@ -150,16 +167,15 @@ const SoundtrackSelector = ({
         </div>
 
         {customAudioUrl ? (
-          <div className="mt-4 rounded-2xl border border-border/60 bg-background/80 p-4">
-            <p className="mb-3 text-sm font-medium text-foreground">Custom audio preview</p>
+          <div className="mt-3 rounded-lg border border-border/60 bg-background/80 p-3">
             <audio controls className="w-full" src={customAudioUrl}>
               Your browser does not support audio playback.
             </audio>
           </div>
         ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-border/60 bg-background/60 p-4 text-sm text-muted-foreground">
+          <p className="mt-3 rounded-lg border border-dashed border-border/60 bg-background/60 px-3 py-2.5 text-xs text-muted-foreground">
             {selectedPreset.name} will be used as the opening soundtrack.
-          </div>
+          </p>
         )}
       </div>
     </div>

@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, ArrowRight, Check, Copy, QrCode, Calendar, Image, X, Loader2, Palette } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, Eye, QrCode, Calendar, Image, X, Loader2, Palette } from 'lucide-react';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import QRCodeModal from '@/components/QRCodeModal';
 import ThemeSelector from '@/components/ThemeSelector';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { apiFetch, apiForm } from '@/lib/api';
+import Header from '@/components/Header';
 
 type Theme = string;
 type Step = 1 | 2 | 3;
@@ -338,25 +339,9 @@ const CreatePage = () => {
 
   return (
     <div className="min-h-screen app-shell">
-      {/* Header */}
-      <header className="border-b border-border/60 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-cta flex items-center justify-center text-lg sm:text-xl">
-              🎨
-            </div>
-            <span className="text-lg sm:text-xl font-bold text-foreground hidden sm:block">WishCanvas</span>
-          </Link>
-          
-          <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 sm:gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Back to Dashboard</span>
-            <span className="sm:hidden">Back</span>
-          </Link>
-        </div>
-      </header>
+      <Header backTo={{ label: 'Dashboard', href: '/dashboard' }} />
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-24 pb-6 sm:pt-28 sm:pb-10">
         <div className="panel-card mb-6 overflow-hidden p-6 sm:p-8">
           <span className="eyebrow-chip">Birthday page builder</span>
           <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-4xl">Shape the surprise before anyone sees it</h1>
@@ -533,6 +518,7 @@ const CreatePage = () => {
               selectedTheme={selectedTheme}
               onSelect={setSelectedTheme}
               customThemes={customThemes}
+              recipientName={recipientName}
             />
 
             <div className="panel-inset mt-8 p-4 sm:p-6">
@@ -653,14 +639,14 @@ const CreatePage = () => {
         {/* Navigation Buttons */}
         <div className="panel-card mt-6 flex gap-3 p-4 sm:gap-4 sm:p-5">
           {step > 1 && step < 3 && (
-            <Button variant="outline" size="default" onClick={handleBack} className="flex-1 text-sm">
+            <Button variant="outline" size="lg" onClick={handleBack} className="flex-1">
               <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2" />
               Back
             </Button>
           )}
           
           {step < 3 ? (
-            <Button variant="hero" size="default" onClick={handleNext} className="flex-1 text-sm" disabled={saving || uploadingCover}>
+            <Button variant="hero" size="lg" onClick={handleNext} className="flex-1" disabled={saving || uploadingCover}>
               {(saving || uploadingCover) ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" />
@@ -674,7 +660,7 @@ const CreatePage = () => {
               )}
             </Button>
           ) : (
-            <Button variant="hero" size="default" onClick={() => navigate('/dashboard')} className="flex-1 text-sm">
+            <Button variant="hero" size="lg" onClick={() => navigate('/dashboard')} className="flex-1">
               Go to Dashboard
               <ArrowRight className="w-4 h-4 ml-1 sm:ml-2" />
             </Button>

@@ -31,18 +31,18 @@ const ThemesSection = () => {
             {showcasedThemes.map((theme) => (
               <article
                 key={theme.key}
-                className="aspect-square flex flex-col items-center justify-center text-center rounded-[1.75rem] border border-border/60 bg-white/82 p-5 shadow-[0_18px_55px_rgba(18,18,23,0.05)] transition-transform duration-300 hover:-translate-y-1 xl:p-6"
+                className="aspect-square flex flex-col items-center justify-center text-center rounded-[2rem] border border-border/60 bg-white/82 p-5 shadow-card transition-transform duration-300 hover:-translate-y-1 xl:p-6"
               >
                 <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${theme.primary} text-xl shadow-lg`}>
                   <span>{theme.emoji}</span>
                 </div>
-                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-primary/65">{theme.mood}</p>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-primary/65">{theme.mood}</p>
                 <h3 className="mt-2 text-lg font-bold text-foreground">{theme.name}</h3>
               </article>
             ))}
           </div>
 
-          <aside className="rounded-[1.9rem] border border-border/60 bg-white/82 p-6 shadow-[0_18px_55px_rgba(18,18,23,0.05)] lg:sticky lg:top-24 xl:p-7">
+          <aside className="rounded-[2rem] border border-border/60 bg-white/82 p-6 shadow-card lg:sticky lg:top-24 xl:p-7">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Paintbrush2 className="h-5 w-5" />
             </div>

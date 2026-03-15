@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, LockKeyhole, Mail, Sparkles, User2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import { apiFetch } from '@/lib/api';
 
 const emailSchema = z.string().email('Please enter a valid email');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -62,6 +63,7 @@ const PasswordField = ({
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signIn, signUp, user } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -71,6 +73,10 @@ const AuthPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const searchParams = new URLSearchParams(location.search);
+  const pendingSavePageId = searchParams.get('page');
+  const shouldSaveAfterAuth = searchParams.get('save') === '1';
 
   React.useEffect(() => {
     if (user) {
@@ -121,6 +127,16 @@ const AuthPage = () => {
         }
 
         toast.success('Welcome back!');
+
+        if (shouldSaveAfterAuth && pendingSavePageId) {
+          try {
+            await apiFetch<void>(`/pages/${pendingSavePageId}/save`, { method: 'POST' });
+            toast.success('Saved to your dashboard');
+          } catch (saveError) {
+            console.error(saveError);
+          }
+        }
+
         navigate('/dashboard');
         return;
       }
@@ -136,6 +152,16 @@ const AuthPage = () => {
       }
 
       toast.success('Account created! Welcome to WishCanvas!');
+
+      if (shouldSaveAfterAuth && pendingSavePageId) {
+        try {
+          await apiFetch<void>(`/pages/${pendingSavePageId}/save`, { method: 'POST' });
+          toast.success('Saved to your dashboard');
+        } catch (saveError) {
+          console.error(saveError);
+        }
+      }
+
       navigate('/dashboard');
     } finally {
       setLoading(false);

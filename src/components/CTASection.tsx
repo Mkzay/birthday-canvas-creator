@@ -16,7 +16,7 @@ const CTASection = () => {
 
       <div className="relative mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="rounded-[2rem] border border-white/15 bg-white/10 p-6 text-primary-foreground shadow-[0_24px_90px_rgba(102,37,143,0.24)] backdrop-blur-sm sm:p-8 md:p-10">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-primary-foreground/85">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/85">
             <Sparkles className="h-3.5 w-3.5" />
             Ready when you are
           </span>
@@ -45,7 +45,7 @@ const CTASection = () => {
 
         <div className="grid gap-4">
           <article className="rounded-[1.9rem] border border-white/15 bg-slate-950/22 p-6 text-primary-foreground shadow-[0_20px_70px_rgba(69,24,113,0.22)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary-foreground/65">What you avoid</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/65">What you avoid</p>
             <div className="mt-4 space-y-3">
               {[
                 'No digging through chat threads for scattered wishes',
@@ -61,7 +61,7 @@ const CTASection = () => {
           </article>
 
           <article className="rounded-[1.9rem] border border-white/15 bg-white/12 p-6 text-primary-foreground shadow-[0_20px_70px_rgba(69,24,113,0.18)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary-foreground/65">Typical setup</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/65">Typical setup</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {[
                 { value: '2 min', label: 'to create the page' },

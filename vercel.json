@@ -1,6 +1,17 @@
 {
   "rewrites": [
     {
+      "source": "/birthday/:pageId",
+      "has": [
+        {
+          "type": "header",
+          "key": "User-Agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
+        }
+      ],
+      "destination": "https://api.wishcanvas.app/api/og/:pageId"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -65,7 +65,7 @@ const HowItWorksSection = () => {
               'Contribution flow that works on mobile without friction',
               'Reveal moment that feels like a finished page, not a dump of messages',
             ].map((item) => (
-              <div key={item} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-white/70 px-4 py-3 shadow-[0_12px_36px_rgba(18,18,23,0.04)]">
+              <div key={item} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-white/70 px-4 py-3 shadow-card">
                 <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <ArrowRight className="h-3.5 w-3.5" />
                 </div>
@@ -82,7 +82,7 @@ const HowItWorksSection = () => {
               <article
                 key={item.step}
                 className={[
-                  'relative overflow-hidden rounded-[2rem] border border-border/60 bg-gradient-to-br p-5 shadow-[0_22px_70px_rgba(18,18,23,0.05)] transition-transform duration-300 hover:-translate-y-1 sm:p-6',
+                  'relative overflow-hidden rounded-[2rem] border border-border/60 bg-gradient-to-br p-5 shadow-card transition-transform duration-300 hover:-translate-y-1 sm:p-6',
                   item.accent,
                   index === 1 ? 'lg:ml-8' : '',
                 ].join(' ')}
@@ -95,7 +95,7 @@ const HowItWorksSection = () => {
                     <item.icon className="h-5 w-5 text-white" />
                   </div>
                   <div className="max-w-xl">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/70">{item.eyebrow}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">{item.eyebrow}</p>
                     <h3 className="mt-2.5 text-lg font-bold leading-tight text-foreground sm:text-[1.75rem]">{item.title}</h3>
                     <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground sm:text-[0.96rem]">{item.description}</p>
                     <p className="mt-3 text-sm font-medium text-foreground/80">{item.detail}</p>

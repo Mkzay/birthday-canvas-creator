@@ -4,8 +4,8 @@ import { format } from 'date-fns';
 import { GripVertical, ImagePlus, Loader2, Lock, Mic2, Plus, Send, Sparkles, X, Square, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import RichTextEditor from '@/components/RichTextEditor';
 import { toast } from 'sonner';
 import Confetti from '@/components/Confetti';
 import { parseLocalDate } from '@/lib/date';
@@ -72,6 +72,7 @@ const ContributePage = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<number | null>(null);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
   useEffect(() => {
     selectedPhotosRef.current = selectedPhotos;
@@ -105,6 +106,26 @@ const ContributePage = () => {
       void fetchPage();
     }
   }, [fetchPage, pageId]);
+
+  const placeholderTemplates = [
+    (name: string) => `Write something ${name} will never forget...`,
+    (name: string) => `What's your favorite memory with ${name}?`,
+    (name: string) => `If you could tell ${name} one thing on their birthday...`,
+    (name: string) => `What makes ${name} so special to you?`,
+    (name: string) => `Write your birthday wish for ${name}...`,
+  ];
+
+  const currentPlaceholder = page
+    ? placeholderTemplates[placeholderIndex % placeholderTemplates.length](page.recipient_name)
+    : 'Write your birthday wish...';
+
+  useEffect(() => {
+    if (!page) return;
+    const timer = setInterval(() => {
+      setPlaceholderIndex((i) => (i + 1) % placeholderTemplates.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [page, placeholderTemplates.length]);
 
   const clearSelectedPhotos = useCallback(() => {
     setSelectedPhotos((currentPhotos) => {
@@ -385,7 +406,8 @@ const ContributePage = () => {
       return;
     }
 
-    if (!message.trim()) {
+    const plainText = message.replace(/<[^>]*>/g, '').trim();
+    if (!plainText) {
       toast.error('Please write a message');
       return;
     }
@@ -514,18 +536,14 @@ const ContributePage = () => {
                 )}
 
                 <div className="mb-6">
-                  <div className="mb-2 flex items-center justify-between">
-                    <Label htmlFor="message" className="text-foreground">
-                      Your Message
-                    </Label>
-                    <span className="text-xs text-muted-foreground">{message.length}/500</span>
-                  </div>
-                  <Textarea
-                    id="message"
+                  <Label htmlFor="message" className="mb-2 block text-foreground">
+                    Your Message
+                  </Label>
+                  <RichTextEditor
                     value={message}
-                    onChange={(event) => setMessage(event.target.value.slice(0, 500))}
-                    placeholder={`Write your birthday wish for ${page.recipient_name}...`}
-                    className="min-h-[140px] rounded-xl"
+                    onChange={setMessage}
+                    placeholder={currentPlaceholder}
+                    maxLength={500}
                     disabled={!page.can_contribute}
                   />
                 </div>

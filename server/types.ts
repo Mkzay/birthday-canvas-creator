@@ -7,6 +7,7 @@ export interface SessionUser {
   avatarUrl: string | null;
   defaultTheme: string;
   defaultAllowPhotos: boolean;
+  defaultAllowAudio: boolean;
   defaultRequireNames: boolean;
 }
 

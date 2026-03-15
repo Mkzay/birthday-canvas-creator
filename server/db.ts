@@ -141,6 +141,16 @@ export async function initializeDatabase() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS birthday_page_saves (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      page_id UUID NOT NULL REFERENCES birthday_pages(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, page_id)
+    );
+  `;
+
+  await sql`
     ALTER TABLE birthday_pages
     ADD COLUMN IF NOT EXISTS letter_color TEXT;
   `;
@@ -157,6 +167,26 @@ export async function initializeDatabase() {
   `;
 
   await sql`
+    ALTER TABLE custom_themes
+    ADD COLUMN IF NOT EXISTS gradient_mid TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE custom_themes
+    ADD COLUMN IF NOT EXISTS gradient_angle INTEGER NOT NULL DEFAULT 135;
+  `;
+
+  await sql`
+    ALTER TABLE custom_themes
+    ADD COLUMN IF NOT EXISTS accent_color TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE custom_themes
+    ADD COLUMN IF NOT EXISTS icon_url TEXT;
+  `;
+
+  await sql`
     CREATE INDEX IF NOT EXISTS idx_custom_themes_user_id ON custom_themes(user_id);
   `;
   await sql`
@@ -164,6 +194,9 @@ export async function initializeDatabase() {
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_birthday_pages_public_code ON birthday_pages(public_code);
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_birthday_page_saves_user_id ON birthday_page_saves(user_id);
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_birthday_messages_page_id ON birthday_messages(page_id);

@@ -89,7 +89,7 @@ const FeaturesSection = () => {
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:gap-6">
-          <article className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,241,255,0.96))] p-6 shadow-[0_24px_80px_rgba(91,51,158,0.08)] sm:p-8">
+          <article className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,241,255,0.96))] p-6 shadow-card-lg sm:p-8">
             <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
             <div className="absolute -right-10 top-10 h-32 w-32 rounded-full bg-secondary/15 blur-3xl" />
             <div className="absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
@@ -110,7 +110,7 @@ const FeaturesSection = () => {
               </div>
 
               <div className="max-w-xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary/70">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary/70">
                   Main advantage
                 </p>
                 <h3 className="mt-3 text-2xl font-bold leading-tight text-foreground sm:text-3xl">
@@ -141,8 +141,8 @@ const FeaturesSection = () => {
               </div>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[1.75rem] border border-border/60 bg-slate-950 p-5 text-slate-50 shadow-xl">
-                  <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                <div className="rounded-[2rem] border border-border/60 bg-slate-950 p-5 text-slate-50 shadow-xl">
+                  <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
                     <span>Birthday board</span>
                     <span>Live preview</span>
                   </div>
@@ -170,7 +170,7 @@ const FeaturesSection = () => {
 
                 <div className="grid gap-3">
                   <div className="rounded-[1.5rem] border border-border/60 bg-white/80 p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                       Contribution mode
                     </p>
                     <p className="mt-3 text-3xl font-bold text-foreground">2 min</p>
@@ -179,7 +179,7 @@ const FeaturesSection = () => {
                     </p>
                   </div>
                   <div className="rounded-[1.5rem] border border-border/60 bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/70">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
                       Surprise-friendly
                     </p>
                     <p className="mt-3 text-base font-semibold text-foreground">
@@ -199,7 +199,7 @@ const FeaturesSection = () => {
               <article
                 key={feature.title}
                 className={[
-                  'group rounded-[1.75rem] border border-border/60 bg-gradient-to-br p-5 shadow-[0_18px_50px_rgba(18,18,23,0.04)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_24px_60px_rgba(118,62,186,0.12)] sm:p-6',
+                  'group rounded-[2rem] border border-border/60 bg-gradient-to-br p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_24px_60px_rgba(118,62,186,0.12)] sm:p-6',
                   feature.panelClassName,
                   feature.wide ? 'sm:col-span-2' : '',
                 ].join(' ')}

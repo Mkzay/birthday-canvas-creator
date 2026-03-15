@@ -1,14 +1,30 @@
-import React from 'react';
+import { useMemo } from 'react';
 import { Check, Palette, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { builtInThemeOptions, type ThemeSelectorCustomTheme } from '@/lib/themes';
+import { builtInThemeOptions, builtInThemeMap, type ThemeSelectorCustomTheme } from '@/lib/themes';
+
+const fontClassMap: Record<string, string> = {
+  sans: 'font-jakarta',
+  serif: 'font-playfair',
+  jakarta: 'font-jakarta',
+  playfair: 'font-playfair',
+  caveat: 'font-caveat',
+  nunito: 'font-nunito',
+  sora: 'font-sora',
+  cormorant: 'font-cormorant',
+  'space-grotesk': 'font-space-grotesk',
+  'dm-serif': 'font-dm-serif',
+  inter: 'font-inter',
+  outfit: 'font-outfit',
+};
 
 interface ThemeSelectorProps {
   selectedTheme: string;
   onSelect: (theme: string) => void;
   customThemes?: ThemeSelectorCustomTheme[];
   manageThemesHref?: string;
+  recipientName?: string;
 }
 
 const ThemeSelector = ({
@@ -16,25 +32,89 @@ const ThemeSelector = ({
   onSelect,
   customThemes = [],
   manageThemesHref = '/themes',
+  recipientName,
 }: ThemeSelectorProps) => {
+  const previewData = useMemo(() => {
+    if (selectedTheme.startsWith('custom_')) {
+      const customId = selectedTheme.slice('custom_'.length);
+      const ct = customThemes.find((t) => String(t.id) === customId);
+      if (ct) {
+        const stops = ct.gradient_mid
+          ? `${ct.gradient_from}, ${ct.gradient_mid}, ${ct.gradient_to}`
+          : `${ct.gradient_from}, ${ct.gradient_to}`;
+        return {
+          gradient: `linear-gradient(${ct.gradient_angle ?? 135}deg, ${stops})`,
+          name: ct.name,
+          emoji: ct.emoji,
+          iconUrl: ct.icon_url || null,
+          fontClass: fontClassMap[ct.font || 'sans'] || 'font-jakarta',
+          isDark: true,
+        };
+      }
+    }
+    const builtin = builtInThemeMap[selectedTheme];
+    if (builtin) {
+      const [from, to] = builtin.gradientColors;
+      const isDark = ['minimalist', 'cosmic', 'midnight'].includes(builtin.key);
+      return {
+        gradient: `linear-gradient(135deg, ${from}, ${to})`,
+        name: builtin.name,
+        emoji: builtin.emoji,
+        iconUrl: null,
+        fontClass: 'font-jakarta',
+        isDark,
+      };
+    }
+    return {
+      gradient: 'linear-gradient(135deg, #fbbf24, #f97316)',
+      name: 'Elegant',
+      emoji: '✨',
+      iconUrl: null,
+      fontClass: 'font-jakarta',
+      isDark: false,
+    };
+  }, [customThemes, selectedTheme]);
+
+  const displayName = recipientName?.trim() || 'Alex';
+
   return (
-    <div className="space-y-6">
-      <div className="rounded-[1.75rem] border border-border/70 bg-gradient-to-br from-white via-background to-primary/5 p-4 shadow-soft sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/70">
-              Built-in themes
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Pick a visual mood, not just a color swatch.
-            </p>
-          </div>
-          <div className="hidden rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary sm:block">
-            {builtInThemeOptions.length} moods
+    <div className="space-y-5">
+      {/* Mini preview */}
+      <div
+        className="relative overflow-hidden rounded-[1.5rem] p-5 sm:p-6"
+        style={{ background: previewData.gradient }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+        <div className="relative">
+          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.28em]', previewData.isDark ? 'text-white/60' : 'text-white/70')}>
+            Preview
+          </p>
+          <h3 className={cn('mt-2 text-2xl font-bold leading-tight sm:text-3xl', previewData.fontClass, previewData.isDark ? 'text-white' : 'text-white')}>
+            Happy Birthday, {displayName}.
+          </h3>
+          <div className="mt-4 flex items-center gap-3">
+            <div className={cn('rounded-xl border px-4 py-2.5', previewData.isDark ? 'border-white/15 bg-white/10' : 'border-white/25 bg-white/20')}>
+              <p className={cn('text-xs', previewData.isDark ? 'text-white/70' : 'text-white/80')}>Wish card</p>
+              <p className={cn('mt-1 text-sm font-medium italic', previewData.isDark ? 'text-white/90' : 'text-white')}>&ldquo;Your message here...&rdquo;</p>
+            </div>
+            <div className={cn('flex h-10 w-10 items-center justify-center rounded-full text-lg', previewData.isDark ? 'bg-white/12' : 'bg-white/22')}>
+              {previewData.iconUrl ? (
+                <img src={previewData.iconUrl} alt={previewData.name} className="h-8 w-8 rounded-xl object-cover" />
+              ) : (
+                previewData.emoji
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Built-in themes */}
+      <div className="rounded-[2rem] border border-border/70 bg-gradient-to-br from-white via-background to-primary/5 p-4 shadow-card sm:p-5">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
+          Built-in themes
+        </p>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {builtInThemeOptions.map((theme) => {
             const isSelected = selectedTheme === theme.key;
 
@@ -44,46 +124,25 @@ const ThemeSelector = ({
                 type="button"
                 onClick={() => onSelect(theme.key)}
                 className={cn(
-                  'group relative overflow-hidden rounded-[1.6rem] border bg-card text-left transition-all duration-300',
-                  'hover:-translate-y-1 hover:border-primary/30 hover:shadow-[0_18px_45px_rgba(118,62,186,0.12)]',
+                  'group flex items-center gap-3 rounded-xl border p-2.5 text-left transition-all duration-200',
+                  'hover:border-primary/30 hover:bg-white',
                   isSelected
-                    ? 'border-primary/40 shadow-[0_20px_55px_rgba(118,62,186,0.18)] ring-2 ring-primary/15'
-                    : 'border-border/60',
+                    ? 'border-primary/40 bg-white shadow-card ring-2 ring-primary/15'
+                    : 'border-border/60 bg-card',
                 )}
               >
-                <div className={cn('aspect-square min-h-[10.5rem] bg-gradient-to-br', theme.primary)}>
-                  <div className="flex h-full items-start justify-between p-4">
-                    <div className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90 backdrop-blur-sm">
-                      {theme.mood}
-                    </div>
-                    <div
-                      className={cn(
-                        'flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/12 text-white backdrop-blur-sm transition-all duration-300',
-                        isSelected ? 'scale-100 opacity-100' : 'scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100',
-                      )}
-                    >
-                      <Check className="h-4 w-4" />
-                    </div>
-                  </div>
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg text-white shadow-sm"
+                  style={{ background: `linear-gradient(135deg, ${theme.gradientColors[0]}, ${theme.gradientColors[1]})` }}
+                >
+                  {theme.emoji}
                 </div>
-
-                <div className="space-y-3 p-4">
-                  <div className="flex items-start gap-3">
-                    <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-xl text-white shadow-md', theme.primary)}>
-                      <span>{theme.emoji}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-bold text-foreground">{theme.name}</h3>
-                        {isSelected && (
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                            Selected
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{theme.description}</p>
-                    </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold text-foreground">{theme.name}</span>
+                    {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
                   </div>
+                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{theme.mood}</p>
                 </div>
               </button>
             );
@@ -91,31 +150,30 @@ const ThemeSelector = ({
         </div>
       </div>
 
-      <div className="rounded-[1.75rem] border border-border/70 bg-card p-4 shadow-soft sm:p-5">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Palette className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold text-foreground">Custom themes</p>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Use your saved gradients when a built-in theme is too safe.
-            </p>
+      {/* Custom themes */}
+      <div className="rounded-[2rem] border border-border/70 bg-card p-4 shadow-card sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Palette className="h-4 w-4 text-primary" />
+            <p className="text-sm font-semibold text-foreground">Custom themes</p>
           </div>
           <Link
             to={manageThemesHref}
             className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
           >
             <Sparkles className="h-4 w-4" />
-            Manage themes
+            Manage
           </Link>
         </div>
 
         {customThemes.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {customThemes.map((theme) => {
               const themeKey = `custom_${theme.id}`;
               const isSelected = selectedTheme === themeKey;
+              const stops = theme.gradient_mid
+                ? `${theme.gradient_from}, ${theme.gradient_mid}, ${theme.gradient_to}`
+                : `${theme.gradient_from}, ${theme.gradient_to}`;
 
               return (
                 <button
@@ -123,44 +181,36 @@ const ThemeSelector = ({
                   type="button"
                   onClick={() => onSelect(themeKey)}
                   className={cn(
-                    'group relative overflow-hidden rounded-[1.6rem] border text-left transition-all duration-300',
-                    'hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(18,18,23,0.12)]',
-                    isSelected ? 'border-white/50 ring-2 ring-primary/15' : 'border-transparent',
+                    'group flex items-center gap-3 rounded-xl border p-2.5 text-left transition-all duration-200',
+                    'hover:border-primary/30 hover:bg-white',
+                    isSelected
+                      ? 'border-primary/40 bg-white shadow-card ring-2 ring-primary/15'
+                      : 'border-border/60 bg-card',
                   )}
-                  style={{
-                    background: `linear-gradient(135deg, ${theme.gradient_from}, ${theme.gradient_to})`,
-                  }}
                 >
-                  <div className="flex aspect-square min-h-[10.5rem] flex-col justify-between p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90 backdrop-blur-sm">
-                        Custom
-                      </div>
-                      <div
-                        className={cn(
-                          'flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/12 text-white backdrop-blur-sm transition-all duration-300',
-                          isSelected ? 'scale-100 opacity-100' : 'scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100',
-                        )}
-                      >
-                        <Check className="h-4 w-4" />
-                      </div>
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg text-white shadow-sm overflow-hidden"
+                    style={{ background: `linear-gradient(${theme.gradient_angle ?? 135}deg, ${stops})` }}
+                  >
+                    {theme.icon_url ? (
+                      <img src={theme.icon_url} alt={theme.name} className="h-full w-full object-cover" />
+                    ) : (
+                      theme.emoji
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold text-foreground">{theme.name}</span>
+                      {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
                     </div>
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/18 text-xl text-white shadow-md backdrop-blur-sm">
-                        <span>{theme.emoji}</span>
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-lg font-bold text-white drop-shadow-sm">{theme.name}</h3>
-                        <p className="mt-1 text-sm text-white/85">Your own gradient and mood, ready to reuse.</p>
-                      </div>
-                    </div>
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">Custom gradient</p>
                   </div>
                 </button>
               );
             })}
           </div>
         ) : (
-          <div className="rounded-[1.5rem] border border-dashed border-border bg-muted/20 px-4 py-6 text-center">
+          <div className="rounded-[1.5rem] border border-dashed border-border bg-muted/20 px-4 py-5 text-center">
             <p className="text-sm text-muted-foreground">
               No custom themes yet. Create one to give the page a more personal visual style.
             </p>

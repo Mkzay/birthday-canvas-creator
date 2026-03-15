@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import BirthdayCountdown from '@/components/BirthdayCountdown';
+import FloatingParticles from '@/components/FloatingParticles';
 import BirthdayShareCard from '@/components/BirthdayShareCard';
 import { apiFetch, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
@@ -35,6 +36,8 @@ import { toast } from 'sonner';
 import { playPresetSoundtrack, soundtrackMap, type SoundtrackController } from '@/lib/soundtracks';
 import { cn } from '@/lib/utils';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import { hexToHsl } from '@/lib/colors';
+import { useAuth } from '@/context/AuthContext';
 
 interface BirthdayPageData {
   id: string;
@@ -45,6 +48,9 @@ interface BirthdayPageData {
   theme_emoji?: string | null;
   theme_gradient_from?: string | null;
   theme_gradient_to?: string | null;
+  theme_gradient_mid?: string | null;
+  theme_gradient_angle?: number | null;
+  theme_accent_color?: string | null;
   theme_font?: string | null;
   letter_color?: string | null;
   creator_message: string | null;
@@ -348,6 +354,31 @@ const themeConfig = {
   },
 } as const;
 
+const fontClassMap: Record<string, string> = {
+  sans: 'font-jakarta',
+  serif: 'font-playfair',
+  jakarta: 'font-jakarta',
+  playfair: 'font-playfair',
+  caveat: 'font-caveat',
+  nunito: 'font-nunito',
+  sora: 'font-sora',
+  cormorant: 'font-cormorant',
+  'space-grotesk': 'font-space-grotesk',
+  'dm-serif': 'font-dm-serif',
+  inter: 'font-inter',
+  outfit: 'font-outfit',
+};
+
+function stripHtml(html: string): string {
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  return temp.textContent || temp.innerText || '';
+}
+
+function isRichHtml(text: string): boolean {
+  return /<[a-z][\s\S]*>/i.test(text);
+}
+
 const DecorativeLayer = ({ colors }: { colors: readonly string[] }) => {
   const [bubbles] = useState(() =>
     Array.from({ length: 12 }, (_, index) => ({
@@ -410,12 +441,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPhoto, setExpandedPhoto] = useState<ExpandedPhoto>(null);
-   const [messagePendingDelete, setMessagePendingDelete] = useState<Message | null>(null);
+  const [messagePendingDelete, setMessagePendingDelete] = useState<Message | null>(null);
   const [showShareCard, setShowShareCard] = useState(false);
   const [showRevealIntro, setShowRevealIntro] = useState(false);
   const [hasTriggeredIntro, setHasTriggeredIntro] = useState(false);
   const [revealPhase, setRevealPhase] = useState<RevealPhase>('idle');
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'forward' | 'back'>('forward');
   const [activeWishAudioId, setActiveWishAudioId] = useState<string | null>(null);
   const soundtrackAudioRef = useRef<HTMLAudioElement | null>(null);
   const presetControllerRef = useRef<SoundtrackController | null>(null);
@@ -424,6 +456,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const ignoreTouchNavigationRef = useRef(false);
   const mobileRevealRef = useRef<HTMLDivElement | null>(null);
   const [isDesktopReveal, setIsDesktopReveal] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 640));
+  const { user } = useAuth();
+  const [isSaved, setIsSaved] = useState(false);
 
   const stopSoundtrack = useCallback(() => {
     shouldResumeSoundtrackRef.current = false;
@@ -494,6 +528,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     await startSoundtrack(true);
   }, [showRevealIntro, startSoundtrack]);
 
+  const toggleSavePage = useCallback(async () => {
+    if (!pageId) return;
+
+    try {
+      if (isSaved) {
+        await apiFetch<void>(`/pages/${pageId}/save`, { method: 'DELETE' });
+        setIsSaved(false);
+        toast.success('Removed from your dashboard');
+      } else {
+        await apiFetch<void>(`/pages/${pageId}/save`, { method: 'POST' });
+        setIsSaved(true);
+        toast.success('Saved to your dashboard');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Unable to update saved status');
+    }
+  }, [isSaved, pageId]);
+
   const fetchData = useCallback(async () => {
     if (!pageId) return;
 
@@ -529,6 +582,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       } else {
         setMessages([]);
       }
+
+      if (user) {
+        try {
+          const status = await apiFetch<{ isSaved: boolean }>(`/pages/${pageId}/save-status`);
+          setIsSaved(status.isSaved);
+        } catch {
+          // ignore save status errors
+        }
+      } else {
+        setIsSaved(false);
+      }
     } catch (error) {
       console.error(error);
       setPage(null);
@@ -536,7 +600,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     } finally {
       setLoading(false);
     }
-  }, [isPreview, navigate, pageId]);
+  }, [isPreview, navigate, pageId, user]);
 
   useEffect(() => {
     void fetchData();
@@ -586,8 +650,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
+            entry.target.classList.remove('is-exiting');
             entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
+          } else if (entry.target.classList.contains('is-visible')) {
+            entry.target.classList.remove('is-visible');
+            entry.target.classList.add('is-exiting');
           }
         });
       },
@@ -635,31 +702,65 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const isCustomTheme = page?.theme?.startsWith('custom_') ?? false;
   const fallbackTheme = themeConfig[(page?.theme as keyof typeof themeConfig) || 'elegant'] || themeConfig.elegant;
+
+  const customGradientFrom = page?.theme_gradient_from || '#8b5cf6';
+  const customGradientTo = page?.theme_gradient_to || '#ec4899';
+  const customGradientMid = page?.theme_gradient_mid || null;
+  const customGradientAngle = page?.theme_gradient_angle ?? 135;
+  const customAccentColor = page?.theme_accent_color || null;
+  const customGradientStops = customGradientMid
+    ? `${customGradientFrom}, ${customGradientMid}, ${customGradientTo}`
+    : `${customGradientFrom}, ${customGradientTo}`;
+
   const theme = isCustomTheme
     ? {
         emoji: page?.theme_emoji || '🎨',
         colors: [
-          page?.theme_gradient_from || '#8b5cf6',
-          page?.theme_gradient_to || '#ec4899',
-          page?.theme_gradient_from || '#8b5cf6',
+          customGradientFrom,
+          customGradientMid || customGradientTo,
+          customGradientTo,
         ],
-        font: page?.theme_font === 'serif' ? 'font-serif' : 'font-sans',
+        font: fontClassMap[page?.theme_font || 'sans'] || 'font-sans',
         heroClass: '',
-        titleClass: 'text-white',
-        cardClass: 'bg-white/10 border-white/16',
-        text: 'text-white',
+        titleClass: 'text-slate-900',
+        cardClass: 'bg-white/82 border-white/70',
+        text: 'text-slate-950',
+        accentColor: customAccentColor,
         style: {
-          background: `linear-gradient(135deg, ${page?.theme_gradient_from || '#8b5cf6'}, ${page?.theme_gradient_to || '#ec4899'})`,
+          background: `linear-gradient(${customGradientAngle}deg, ${customGradientStops})`,
         },
       }
     : {
         ...fallbackTheme,
+        accentColor: null as string | null,
         style: undefined,
       };
 
+  const baseHex =
+    page?.letter_color?.trim() ||
+    (isCustomTheme ? page?.theme_gradient_from || undefined : undefined) ||
+    '#ff915a';
+
+  const { h: letterH, s: letterS, l: letterL } = hexToHsl(baseHex);
+  const clampedS = Math.min(letterS, 70);
+
+  const letterThemeStyle = {
+    '--letter-h': letterH.toFixed(0),
+    '--letter-s': `${clampedS.toFixed(0)}%`,
+    '--letter-l': `${letterL.toFixed(0)}%`,
+    '--letter-bg': 'var(--letter-h) calc(var(--letter-s) * 0.4) 12%',
+    '--letter-bg-soft': 'var(--letter-h) var(--letter-s) 22%',
+    '--letter-card': 'var(--letter-h) calc(var(--letter-s) * 0.55) 92%',
+    '--letter-card-border': 'var(--letter-h) calc(var(--letter-s) * 0.35) 80%',
+    '--letter-accent': 'var(--letter-h) var(--letter-s) 55%',
+    '--letter-accent-soft': 'var(--letter-h) var(--letter-s) 70%',
+    '--letter-text-strong': 'var(--letter-h) 22% 12%',
+    '--letter-text-muted': 'var(--letter-h) 18% 34%',
+  } as React.CSSProperties;
+
   const birthdayDate = parseLocalDate(page?.birthday_date);
   const isBeforeBirthday = !isPreview && page?.is_revealed === false;
-  const isDarkExperience = isCustomTheme || page?.theme === 'cosmic' || page?.theme === 'midnight';
+  const isDarkExperience = page?.theme === 'cosmic' || page?.theme === 'midnight';
   const experiencePanelClass = isDarkExperience
     ? 'border-white/16 bg-white/12 backdrop-blur-xl'
     : 'border-white/65 bg-white/88 shadow-[0_24px_80px_rgba(255,255,255,0.28),0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-md';
@@ -707,10 +808,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }, [revealSlides.length]);
 
   const goToNextSlide = useCallback(() => {
+    setSlideDirection('forward');
     setCurrentSlide((previousSlide) => Math.min(previousSlide + 1, Math.max(revealSlides.length - 1, 0)));
   }, [revealSlides.length]);
 
   const goToPreviousSlide = useCallback(() => {
+    setSlideDirection('back');
     setCurrentSlide((previousSlide) => Math.max(previousSlide - 1, 0));
   }, []);
 
@@ -998,7 +1101,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         isDesktopReveal ? 'h-[100dvh] min-h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto',
         theme.heroClass,
       )}
-      style={theme.style}
+      style={{ ...(theme.style || {}), ...letterThemeStyle }}
     >
       <DecorativeLayer colors={theme.colors} />
 
@@ -1026,7 +1129,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       )}
 
       {showRevealIntro && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[radial-gradient(circle_at_50%_28%,rgba(255,235,214,0.30),transparent_18%),radial-gradient(circle_at_18%_16%,rgba(255,170,150,0.14),transparent_20%),linear-gradient(180deg,rgba(86,37,45,0.70),rgba(48,24,39,0.84))] px-4 backdrop-blur-md">
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center px-4 backdrop-blur-md"
+          style={{
+            background: [
+              `radial-gradient(circle at 50% 28%, hsl(${letterH} ${clampedS * 0.5}% 85% / 0.30), transparent 18%)`,
+              `radial-gradient(circle at 18% 16%, hsl(${letterH} ${clampedS * 0.6}% 68% / 0.16), transparent 20%)`,
+              `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 18% / 0.72), hsl(${letterH} ${clampedS * 0.3}% 14% / 0.86))`,
+            ].join(', '),
+          }}
+        >
           <div className="relative flex w-full max-w-5xl items-center justify-center">
             <button
               type="button"
@@ -1038,9 +1150,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             </button>
 
             <div className="relative flex min-h-[100dvh] w-full items-center justify-center py-20">
+              <FloatingParticles hue={letterH} saturation={clampedS * 100} />
               <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,241,221,0.34),transparent_58%)] blur-2xl" />
-                <div className="absolute left-1/2 top-[43%] h-[30rem] w-[20rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,193,147,0.16),transparent_68%)] blur-3xl" />
+                <div className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl" style={{ background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.34), transparent 58%)` }} />
+                <div className="absolute left-1/2 top-[43%] h-[30rem] w-[20rem] -translate-x-1/2 rounded-full blur-3xl" style={{ background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.18), transparent 68%)` }} />
               </div>
 
               <div className="relative flex w-full max-w-xl flex-col items-center justify-center">
@@ -1054,7 +1167,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     <div
                       key={message.id}
                       className={cn(
-                        'absolute left-1/2 top-1/2 w-48 rounded-[1.4rem] border border-white/14 bg-white/12 p-4 text-white shadow-[0_20px_70px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-700 ease-out sm:w-56',
+                        'absolute left-1/2 top-1/2 w-48 rounded-[1.4rem] border border-white/14 bg-white/12 p-4 text-white shadow-[0_20px_70px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-700 ease-out hover:scale-[1.03] hover:shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:w-56',
                         revealPhase === 'burst'
                           ? [
                               '-translate-x-[150%] -translate-y-[165%] rotate-[-14deg]',
@@ -1067,7 +1180,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       style={{ transitionDelay: `${index * 85}ms` }}
                     >
                       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">Wish {index + 1}</p>
-                      <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/88">&quot;{message.message}&quot;</p>
+                      <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/88">&quot;{stripHtml(message.message)}&quot;</p>
                       <p className="mt-3 text-xs font-semibold text-white/72">{message.sender_name}</p>
                     </div>
                   ))}
@@ -1082,31 +1195,67 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       revealPhase === 'burst' && 'scale-[0.94] opacity-80',
                     )}
                   >
-                    <div className="absolute inset-0 rounded-[2.4rem] bg-[linear-gradient(145deg,#fff8ef,#ffe4cf)] shadow-[0_26px_90px_rgba(33,18,24,0.18)]" />
+                    {/* Envelope outer shell */}
+                    <div
+                      className="absolute inset-0 rounded-[2.4rem]"
+                      style={{
+                        background: `linear-gradient(145deg, hsl(${letterH} ${clampedS * 0.45}% 95%), hsl(${letterH} ${clampedS * 0.55}% 88%))`,
+                        boxShadow: `0 26px 90px hsl(${letterH} ${clampedS * 0.3}% 20% / 0.22)`,
+                      }}
+                    />
                     <div className="absolute inset-[1px] rounded-[2.35rem] border border-white/60" />
-                    <div className="absolute inset-[1.2rem] rounded-[1.9rem] border border-[#f6dec9]/80 opacity-60" />
+                    <div
+                      className="absolute inset-[1.2rem] rounded-[1.9rem] border opacity-60"
+                      style={{ borderColor: `hsl(${letterH} ${clampedS * 0.4}% 82%)` }}
+                    />
+                    {/* Envelope flap */}
                     <div
                       className={cn(
-                        'absolute left-1/2 top-0 h-[52%] w-[92%] -translate-x-1/2 origin-top rounded-[2rem] bg-[linear-gradient(145deg,#ffd1ad,#ffe6d1)] shadow-[0_16px_36px_rgba(227,144,104,0.2)] transition-all duration-500',
+                        'absolute left-1/2 top-0 h-[52%] w-[92%] -translate-x-1/2 origin-top rounded-[2rem] transition-all duration-500',
                         revealPhase !== 'idle' ? '-translate-y-4 rotate-[-12deg]' : 'group-hover:-translate-y-1',
                       )}
-                      style={{ clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }}
+                      style={{
+                        clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+                        background: `linear-gradient(145deg, hsl(${letterH} ${clampedS * 0.6}% 78%), hsl(${letterH} ${clampedS * 0.5}% 88%))`,
+                        boxShadow: `0 16px 36px hsl(${letterH} ${clampedS * 0.4}% 40% / 0.22)`,
+                      }}
                     />
-                    <div className="absolute bottom-[11%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[1.8rem] border border-amber-100/70 bg-[linear-gradient(180deg,#fffaf4,#ffead7)] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]" />
+                    {/* Envelope body / inner pocket */}
+                    <div
+                      className="absolute bottom-[11%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[1.8rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                      style={{
+                        background: `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.4}% 97%), hsl(${letterH} ${clampedS * 0.55}% 90%))`,
+                        borderColor: `hsl(${letterH} ${clampedS * 0.3}% 85% / 0.7)`,
+                      }}
+                    />
+                    {/* Letter card */}
                     <div
                       className={cn(
-                        'absolute left-1/2 top-[24%] h-[40%] w-[74%] -translate-x-1/2 rounded-[1.4rem] border border-[#f4c7aa]/80 bg-[linear-gradient(180deg,rgba(255,250,245,0.98),rgba(255,238,221,0.95))] px-5 py-4 text-left shadow-[0_14px_28px_rgba(206,120,92,0.14)] transition-all duration-500 sm:w-[72%]',
+                        'absolute left-1/2 top-[24%] h-[40%] w-[74%] -translate-x-1/2 rounded-[1.4rem] border px-5 py-4 text-left transition-all duration-500 sm:w-[72%]',
                         revealPhase === 'opening' ? '-translate-y-6' : '',
                         revealPhase === 'burst' ? '-translate-y-10 opacity-0' : '',
                       )}
+                      style={{
+                        background: `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 97%), hsl(${letterH} ${clampedS * 0.45}% 93%))`,
+                        borderColor: `hsl(${letterH} ${clampedS * 0.4}% 78% / 0.8)`,
+                        boxShadow: `0 14px 28px hsl(${letterH} ${clampedS * 0.3}% 35% / 0.16)`,
+                      }}
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#a46f56]">To</p>
-                      <p className="mt-2 text-[1.45rem] font-bold leading-none text-[#6b3e39] sm:text-[1.7rem]">{page.recipient_name}</p>
-                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] text-[#8d6a63] sm:max-w-[10rem]">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: `hsl(${letterH} 30% 42%)` }}>To</p>
+                      <p className="mt-2 text-[1.45rem] font-bold leading-none sm:text-[1.7rem]" style={{ color: `hsl(${letterH} 28% 22%)` }}>{page.recipient_name}</p>
+                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] sm:max-w-[10rem]" style={{ color: `hsl(${letterH} 20% 38%)` }}>
                         Open when ready for the birthday story.
                       </p>
                     </div>
-                    <div className="absolute bottom-[15%] left-1/2 h-16 w-16 -translate-x-1/2 rounded-full border-[5px] border-[#f7dbc7] bg-[radial-gradient(circle_at_30%_30%,#ffc59b,#ef8c71)] shadow-[0_12px_24px_rgba(220,107,79,0.28)] transition-transform duration-300 group-hover:scale-105">
+                    {/* Stamp / seal button */}
+                    <div
+                      className="animate-seal-breathe absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] transition-transform duration-300 group-hover:scale-105"
+                      style={{
+                        background: `radial-gradient(circle at 30% 30%, hsl(${letterH} ${clampedS}% 62%), hsl(${letterH} ${clampedS * 0.8}% 48%))`,
+                        borderColor: `hsl(${letterH} ${clampedS * 0.5}% 82%)`,
+                        '--seal-glow': `hsl(${letterH} ${clampedS * 0.6}% 55% / 0.35)`,
+                      } as React.CSSProperties}
+                    >
                       <div className="flex h-full w-full items-center justify-center text-white/90">
                         <Mail className="h-6 w-6" />
                       </div>
@@ -1215,6 +1364,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 <div className={cn('absolute -left-[8%] top-[8%] h-28 w-28 rounded-full blur-3xl', isDarkExperience ? 'bg-white/8' : 'bg-white/55')} />
                 <div className={cn('absolute bottom-[-8%] right-[-6%] h-32 w-32 rounded-full blur-3xl', isDarkExperience ? 'bg-primary/20' : 'bg-amber-200/55')} />
               </div>
+              <div aria-hidden="true" className="slide-stars-layer">
+                <div className="slide-star" style={{ left: '8%', '--star-x': '0%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '26%', '--star-x': '3%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '42%', '--star-x': '-2%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '61%', '--star-x': '4%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '79%', '--star-x': '-3%' } as React.CSSProperties} />
+              </div>
 
               <div className="relative z-10">
                 {slide.kind === 'cover' && (
@@ -1321,12 +1477,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   return (
                     <div className="space-y-4">
-                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(40, getStoryMotionDuration(slide))}>
+                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass)} style={getStoryDelayStyle(40, getStoryMotionDuration(slide))}>
                         <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
                           Letter {slide.index + 1} of {messages.length}
                         </p>
                         <h2 className={cn('mt-3 text-3xl font-bold leading-[0.98]', theme.titleClass, theme.font)}>{slide.message.sender_name}</h2>
-                        <p className={cn('mt-4 text-lg leading-relaxed', theme.text)}>&quot;{slide.message.message}&quot;</p>
+                        {isRichHtml(slide.message.message)
+                          ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed', theme.text)} dangerouslySetInnerHTML={{ __html: `\u201C${slide.message.message}\u201D` }} />
+                          : <p className={cn('mt-4 text-lg leading-relaxed', theme.text)}>&quot;{slide.message.message}&quot;</p>
+                        }
                         <div className="mt-5 flex flex-wrap gap-2">
                           {photoCount > 0 && (
                             <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
@@ -1398,9 +1557,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                 {slide.kind === 'closing' && (
                   <div className="space-y-4 text-center">
-                    <div className={cn('story-stage-reveal mx-auto flex h-18 w-18 items-center justify-center rounded-[1.5rem] border text-4xl', experienceInsetClass)} style={getStoryDelayStyle(40, getStoryMotionDuration(slide))}>
-                      {theme.emoji}
-                    </div>
                     <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(130, getStoryMotionDuration(slide))}>
                       <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>Final page</p>
                       <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[1]', theme.titleClass, theme.font)}>
@@ -1450,7 +1606,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           <div className="flex items-start gap-4">
             <div className="flex flex-1 gap-2">
               {revealSlides.map((slide, index) => (
-                <div key={slide.id} className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/12">
+                <div key={slide.id} className={cn('h-1.5 flex-1 overflow-hidden rounded-full bg-black/12 transition-transform duration-200', index === currentSlide && 'scale-y-[1.6]')}>
                   <div
                     key={index === currentSlide ? `${slide.id}-active` : slide.id}
                     className={cn(
@@ -1499,6 +1655,35 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 <Volume2 className="h-4 w-4" />
                 Stop
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (user) {
+                    void toggleSavePage();
+                  } else {
+                    const redirectPath = `/birthday/${pageId}`;
+                    const params = new URLSearchParams({
+                      redirect: redirectPath,
+                      save: '1',
+                      page: pageId || '',
+                    });
+                    navigate(`/auth?${params.toString()}`);
+                  }
+                }}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                  user && isSaved
+                    ? isDarkExperience
+                      ? 'bg-emerald-500/90 text-white hover:bg-emerald-500'
+                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : isDarkExperience
+                      ? 'bg-white/10 text-white hover:bg-white/15'
+                      : 'bg-white/78 text-foreground hover:bg-white',
+                )}
+              >
+                <Heart className={cn('h-4 w-4', user && isSaved ? 'fill-current' : '')} />
+                {user ? (isSaved ? 'Saved' : 'Save to dashboard') : 'Save to my dashboard'}
+              </button>
             </div>
           </div>
 
@@ -1523,12 +1708,19 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             onTouchEnd={handleTouchEnd}
           >
             {activeSlide && (
-              <div key={activeSlide.id} className="h-full animate-wrapped-slide">
+              <div key={activeSlide.id} className={cn('h-full', slideDirection === 'back' ? 'animate-wrapped-slide-reverse' : 'animate-wrapped-slide')}>
                 <div className={cn('relative h-full overflow-hidden rounded-[2rem] border p-3 shadow-[0_30px_90px_rgba(18,18,23,0.14)] sm:rounded-[2.4rem] sm:p-6 lg:p-8', experiencePanelClass)}>
                   <div className="pointer-events-none absolute inset-0">
                     <div className={cn('absolute -left-[10%] top-[10%] h-40 w-40 rounded-full blur-3xl sm:h-56 sm:w-56', isDarkExperience ? 'bg-white/8' : 'bg-white/55')} />
                     <div className={cn('absolute bottom-[-8%] right-[-4%] h-48 w-48 rounded-full blur-3xl sm:h-72 sm:w-72', isDarkExperience ? 'bg-primary/20' : 'bg-amber-200/55')} />
                     <div className={cn('absolute inset-0 opacity-70', isDarkExperience ? 'bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_36%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_45%)]' : 'bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.9),transparent_34%),linear-gradient(145deg,rgba(255,246,236,0.76),transparent_45%)]')} />
+                  </div>
+                  <div aria-hidden="true" className="slide-stars-layer">
+                    <div className="slide-star" style={{ left: '6%', '--star-x': '0%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '24%', '--star-x': '3%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '46%', '--star-x': '-2%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '68%', '--star-x': '4%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '86%', '--star-x': '-3%' } as React.CSSProperties} />
                   </div>
 
                   <div className="relative z-10 h-full">
@@ -1816,9 +2008,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 </div>
                               </div>
 
-                              <p className={cn('mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)}>
+                              {isRichHtml(activeSlide.message.message)
+                                ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)} dangerouslySetInnerHTML={{ __html: `\u201C${activeSlide.message.message}\u201D` }} />
+                                : <p className={cn('mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)}>
                                 &quot;{activeSlide.message.message}&quot;
-                              </p>
+                              </p>}
 
                               <div className="mt-6 flex flex-wrap gap-2.5">
                                 {photoCount > 0 && (
@@ -1893,10 +2087,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     })()}
 
                   {activeSlide.kind === 'closing' && (
-                    <div className="flex h-full flex-col items-center justify-center text-center">
-                      <div className={cn('story-stage-reveal flex h-24 w-24 items-center justify-center rounded-[2rem] border text-5xl', experienceInsetClass)} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
-                        {theme.emoji}
-                      </div>
+                  <div className="flex h-full flex-col items-center justify-center text-center">
                       <div className="grid w-full max-w-5xl gap-6 lg:grid-cols-[1.06fr_0.94fr] lg:items-center">
                         <article className={cn('story-stage-reveal relative overflow-hidden rounded-[2rem] border p-6 text-left sm:p-8', keepsakePaperClass)} style={getStoryDelayStyle(110, getStoryMotionDuration(activeSlide))}>
                           <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>

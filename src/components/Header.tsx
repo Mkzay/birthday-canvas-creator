@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import BrandLogo from '@/components/BrandLogo';
 import { resolveAssetUrl } from '@/lib/api';
-import { User, Settings, LogOut, LayoutDashboard } from 'lucide-react';
+import { User, Settings, LogOut, LayoutDashboard, ArrowLeft } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,9 +15,10 @@ import {
 
 interface HeaderProps {
   showDashboardLabel?: boolean;
+  backTo?: { label: string; href: string };
 }
 
-const Header = ({ showDashboardLabel = false }: HeaderProps) => {
+const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -35,12 +36,26 @@ const Header = ({ showDashboardLabel = false }: HeaderProps) => {
           <BrandLogo compact className="gap-2 sm:gap-3" />
           {showDashboardLabel && (
             <div className="hidden border-l border-border/60 pl-3 sm:block">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">Dashboard</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">Dashboard</p>
+            </div>
+          )}
+          {backTo && (
+            <div className="hidden border-l border-border/60 pl-3 sm:block">
+              <Link to={backTo.href} className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+                <ArrowLeft className="h-3.5 w-3.5" />
+                {backTo.label}
+              </Link>
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-3">
+          {backTo && (
+            <Link to={backTo.href} className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground sm:hidden">
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back</span>
+            </Link>
+          )}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

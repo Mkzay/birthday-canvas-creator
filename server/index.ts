@@ -7,7 +7,8 @@ import type { Response } from "express";
 import { clearSessionCookie, hashPassword, readSession, requireAuth, setSessionCookie, signSession, verifyPassword } from "./auth";
 import { initializeDatabase, sql } from "./db";
 import type { AuthedRequest, SessionUser } from "./types";
-import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload } from "./uploads";
+import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload, themeIconUpload } from "./uploads";
+import sanitizeHtml from "sanitize-html";
 
 const app = express();
 const port = Number(process.env.PORT || process.env.API_PORT || 3001);
@@ -292,6 +293,7 @@ function publicPageQuery(pageId: string) {
   return sql`
     SELECT
       bp.id,
+      bp.public_code,
       bp.recipient_name,
       bp.birthday_date,
       bp.theme,
@@ -299,6 +301,9 @@ function publicPageQuery(pageId: string) {
       ct.emoji AS theme_emoji,
       ct.gradient_from AS theme_gradient_from,
       ct.gradient_to AS theme_gradient_to,
+      ct.gradient_mid AS theme_gradient_mid,
+      ct.gradient_angle AS theme_gradient_angle,
+      ct.accent_color AS theme_accent_color,
       ct.font AS theme_font,
       CASE WHEN CURRENT_DATE >= bp.birthday_date THEN bp.creator_message ELSE NULL END AS creator_message,
       bp.cover_photo_url,
@@ -327,6 +332,9 @@ function privatePageQuery(pageId: string, userId: string) {
       ct.emoji AS theme_emoji,
       ct.gradient_from AS theme_gradient_from,
       ct.gradient_to AS theme_gradient_to,
+      ct.gradient_mid AS theme_gradient_mid,
+      ct.gradient_angle AS theme_gradient_angle,
+      ct.accent_color AS theme_accent_color,
       ct.font AS theme_font,
       COUNT(bm.id)::int AS message_count
     FROM birthday_pages bp
@@ -561,7 +569,7 @@ app.delete("/api/auth/me/data", requireAuth, async (request: AuthedRequest, resp
 
 app.get("/api/themes", requireAuth, async (request: AuthedRequest, response) => {
   const rows = await sql`
-    SELECT id, name, emoji, gradient_from, gradient_to, font, created_at, updated_at
+    SELECT id, name, emoji, gradient_from, gradient_to, gradient_mid, gradient_angle, accent_color, font, icon_url, created_at, updated_at
     FROM custom_themes
     WHERE user_id = ${request.user!.id}
     ORDER BY created_at DESC
@@ -572,14 +580,18 @@ app.get("/api/themes", requireAuth, async (request: AuthedRequest, response) => 
 
 app.post("/api/themes", requireAuth, async (request: AuthedRequest, response) => {
   const rows = await sql`
-    INSERT INTO custom_themes (user_id, name, emoji, gradient_from, gradient_to, font)
+    INSERT INTO custom_themes (user_id, name, emoji, gradient_from, gradient_to, gradient_mid, gradient_angle, accent_color, font, icon_url)
     VALUES (
       ${request.user!.id},
       ${String(request.body.name || "").trim()},
       ${String(request.body.emoji || "🎨")},
       ${String(request.body.gradientFrom || "#f472b6")},
       ${String(request.body.gradientTo || "#8b5cf6")},
-      ${String(request.body.font || "sans")}
+      ${request.body.gradientMid || null},
+      ${Number(request.body.gradientAngle) || 135},
+      ${request.body.accentColor || null},
+      ${String(request.body.font || "sans")},
+      ${request.body.iconUrl || null}
     )
     RETURNING *
   `;
@@ -595,7 +607,11 @@ app.patch("/api/themes/:id", requireAuth, async (request: AuthedRequest, respons
       emoji = ${String(request.body.emoji || "🎨")},
       gradient_from = ${String(request.body.gradientFrom || "#f472b6")},
       gradient_to = ${String(request.body.gradientTo || "#8b5cf6")},
+      gradient_mid = ${request.body.gradientMid || null},
+      gradient_angle = ${Number(request.body.gradientAngle) || 135},
+      accent_color = ${request.body.accentColor || null},
       font = ${String(request.body.font || "sans")},
+      icon_url = ${request.body.iconUrl || null},
       updated_at = NOW()
     WHERE id = ${request.params.id}
       AND user_id = ${request.user!.id}
@@ -608,6 +624,18 @@ app.patch("/api/themes/:id", requireAuth, async (request: AuthedRequest, respons
   }
 
   response.json(rows[0]);
+});
+
+app.post("/api/uploads/theme-icon", requireAuth, themeIconUpload.single("file"), async (request: AuthedRequest, response) => {
+  const file = request.file;
+
+  if (!file) {
+    response.status(400).json({ error: "Missing icon upload" });
+    return;
+  }
+
+  const url = fileUrl(path.join("theme-icons", file.filename));
+  response.json({ url });
 });
 
 app.delete("/api/themes/:id", requireAuth, async (request: AuthedRequest, response) => {
@@ -630,6 +658,23 @@ app.get("/api/pages/dashboard", requireAuth, async (request: AuthedRequest, resp
     WHERE bp.user_id = ${request.user!.id}
     GROUP BY bp.id
     ORDER BY bp.created_at DESC
+  `;
+
+  response.json(rows.map((row) => serializePageDates(row)));
+});
+
+app.get("/api/pages/saved", requireAuth, async (request: AuthedRequest, response) => {
+  const rows = await sql`
+    SELECT
+      bp.*,
+      COUNT(bm.id)::int AS message_count,
+      MAX(s.created_at) AS saved_at
+    FROM birthday_page_saves s
+    JOIN birthday_pages bp ON bp.id = s.page_id
+    LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
+    WHERE s.user_id = ${request.user!.id}
+    GROUP BY bp.id
+    ORDER BY saved_at DESC
   `;
 
   response.json(rows.map((row) => serializePageDates(row)));
@@ -704,6 +749,56 @@ app.get("/api/pages/:id/ownership", requireAuth, async (request: AuthedRequest, 
   `;
 
   response.json({ isOwner: Boolean(rows[0]), publicCode: rows[0] ? String(rows[0].public_code) : null });
+});
+
+app.get("/api/pages/:id/save-status", requireAuth, async (request: AuthedRequest, response) => {
+  const resolvedPageId = await resolvePageId(request.params.id);
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const rows = await sql`
+    SELECT 1
+    FROM birthday_page_saves
+    WHERE user_id = ${request.user!.id}
+      AND page_id = ${resolvedPageId}
+    LIMIT 1
+  `;
+
+  response.json({ isSaved: Boolean(rows[0]) });
+});
+
+app.post("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, response) => {
+  const resolvedPageId = await resolvePageId(request.params.id);
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  await sql`
+    INSERT INTO birthday_page_saves (user_id, page_id)
+    VALUES (${request.user!.id}, ${resolvedPageId})
+    ON CONFLICT (user_id, page_id) DO NOTHING
+  `;
+
+  response.status(204).end();
+});
+
+app.delete("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, response) => {
+  const resolvedPageId = await resolvePageId(request.params.id);
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  await sql`
+    DELETE FROM birthday_page_saves
+    WHERE user_id = ${request.user!.id}
+      AND page_id = ${resolvedPageId}
+  `;
+
+  response.status(204).end();
 });
 
 app.delete("/api/pages/:id/messages/:messageId", requireAuth, async (request: AuthedRequest, response) => {
@@ -986,34 +1081,41 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), async (r
 });
 
 app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("file"), async (request: AuthedRequest, response) => {
-  const pageId = String(request.body.pageId || "");
+  const pageIdOrCode = String(request.body.pageId || "");
   const file = request.file;
 
-  if (!file || !pageId) {
+  if (!file || !pageIdOrCode) {
     response.status(400).json({ error: "Missing audio upload or page id" });
     return;
   }
 
-  const rows = await sql`
-    SELECT custom_audio_url
+  // Allow either the internal UUID id or the public_code to be sent from the client.
+  // Compare against id::text to avoid Postgres attempting to cast arbitrary strings to uuid.
+  const rows = await sql<{
+    id: string;
+    custom_audio_url: string | null;
+  }>`
+    SELECT id, custom_audio_url
     FROM birthday_pages
-    WHERE id = ${pageId}
+    WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
       AND user_id = ${request.user!.id}
     LIMIT 1
   `;
 
-  if (!rows[0]) {
+  const page = rows[0];
+
+  if (!page) {
     response.status(404).json({ error: "Page not found" });
     return;
   }
 
-  removeFileByUrl(rows[0].custom_audio_url);
+  removeFileByUrl(page.custom_audio_url);
   const url = fileUrl(path.join("page-audio", file.filename));
 
   await sql`
     UPDATE birthday_pages
     SET custom_audio_url = ${url}, updated_at = NOW()
-    WHERE id = ${pageId}
+    WHERE id = ${page.id}
       AND user_id = ${request.user!.id}
   `;
 
@@ -1141,7 +1243,12 @@ app.post("/api/public/pages/:id/messages", rateLimit("public-message", 24, 10 * 
   }
 
   const senderName = sanitizeDisplayName(request.body.senderName);
-  const message = typeof request.body.message === "string" ? request.body.message.trim() : "";
+  const rawMessage = typeof request.body.message === "string" ? request.body.message.trim() : "";
+  const message = sanitizeHtml(rawMessage, {
+    allowedTags: ["b", "i", "u", "strong", "em", "ul", "ol", "li", "br", "p"],
+    allowedAttributes: {},
+  });
+  const plainTextLength = sanitizeHtml(message, { allowedTags: [], allowedAttributes: {} }).length;
   const photoUrl = typeof request.body.photoUrl === "string" ? request.body.photoUrl.trim() : null;
   const audioUrl = typeof request.body.audioUrl === "string" ? request.body.audioUrl.trim() : null;
   const normalizedPhotos = normalizeContributionPhotos(request.body.photos);
@@ -1151,13 +1258,13 @@ app.post("/api/public/pages/:id/messages", rateLimit("public-message", 24, 10 * 
       ? [{ url: photoUrl, caption: null, sortOrder: 0 }]
       : [];
 
-  if (!message) {
+  if (!plainTextLength) {
       response.status(400).json({ error: "Please write a message" });
       logRequestFailure("create-message", { pageId: resolvedPageId, reason: "empty-message" });
       return;
   }
 
-  if (message.length > 500) {
+  if (plainTextLength > 500) {
     response.status(400).json({ error: "Messages must be 500 characters or fewer" });
     return;
   }
@@ -1209,6 +1316,127 @@ app.post("/api/public/pages/:id/messages", rateLimit("public-message", 24, 10 * 
   const messages = await fetchMessagesForPage(String(createdMessage.page_id));
   const messageWithPhotos = messages.find((item) => item.id === createdMessage.id);
   response.status(201).json(messageWithPhotos || createdMessage);
+});
+
+// --- Social Preview / OG endpoints ---
+
+const themeGradientColors: Record<string, [string, string]> = {
+  elegant: ["#f59e0b", "#f97316"],
+  playful: ["#ec4899", "#a855f7"],
+  minimalist: ["#475569", "#1e293b"],
+  retro: ["#22d3ee", "#a855f7"],
+  tropical: ["#4ade80", "#10b981"],
+  cosmic: ["#8b5cf6", "#4f46e5"],
+  sunset: ["#fb923c", "#f43f5e"],
+  ocean: ["#38bdf8", "#06b6d4"],
+  candyland: ["#f472b6", "#a855f7"],
+  midnight: ["#6366f1", "#7c3aed"],
+};
+
+function resolveThemeColors(page: Record<string, unknown>): [string, string] {
+  const theme = String(page.theme || "elegant");
+  if (theme.startsWith("custom_") && page.theme_gradient_from && page.theme_gradient_to) {
+    return [String(page.theme_gradient_from), String(page.theme_gradient_to)];
+  }
+  return themeGradientColors[theme] || themeGradientColors.elegant;
+}
+
+app.get("/api/og-image/:id", async (request, response) => {
+  try {
+    const resolvedPageId = await resolvePageId(request.params.id);
+    if (!resolvedPageId) { response.status(404).send("Not found"); return; }
+
+    const rows = await publicPageQuery(resolvedPageId);
+    const page = rows[0];
+    if (!page) { response.status(404).send("Not found"); return; }
+
+    const [colorFrom, colorTo] = resolveThemeColors(page);
+    const name = String(page.recipient_name || "Someone special");
+    const count = Number(page.message_count || 0);
+
+    const escapedName = name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${colorFrom}" />
+      <stop offset="100%" stop-color="${colorTo}" />
+    </linearGradient>
+    <linearGradient id="overlay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(0,0,0,0)" />
+      <stop offset="100%" stop-color="rgba(0,0,0,0.35)" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <rect width="1200" height="630" fill="url(#overlay)" />
+  <circle cx="200" cy="130" r="180" fill="rgba(255,255,255,0.08)" />
+  <circle cx="1000" cy="500" r="220" fill="rgba(255,255,255,0.06)" />
+  <text x="100" y="260" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="600" letter-spacing="6" fill="rgba(255,255,255,0.7)" text-transform="uppercase">BIRTHDAY POST</text>
+  <text x="100" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="white">Happy Birthday,</text>
+  <text x="100" y="420" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="white">${escapedName}.</text>
+  <text x="100" y="500" font-family="system-ui, -apple-system, sans-serif" font-size="26" fill="rgba(255,255,255,0.8)">${count} birthday ${count === 1 ? "wish" : "wishes"} waiting inside</text>
+  <text x="100" y="580" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" letter-spacing="3" fill="rgba(255,255,255,0.5)">WISHCANVAS</text>
+</svg>`;
+
+    response.setHeader("Content-Type", "image/svg+xml");
+    response.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+    response.send(svg);
+  } catch {
+    response.status(500).send("Error generating image");
+  }
+});
+
+app.get("/api/og/:id", async (request, response) => {
+  try {
+    const resolvedPageId = await resolvePageId(request.params.id);
+    if (!resolvedPageId) { response.status(404).send("Not found"); return; }
+
+    const rows = await publicPageQuery(resolvedPageId);
+    const page = rows[0];
+    if (!page) { response.status(404).send("Not found"); return; }
+
+    const name = String(page.recipient_name || "Someone special");
+    const count = Number(page.message_count || 0);
+    const publicCode = String(page.public_code || resolvedPageId);
+    const apiBase = process.env.API_URL || `${request.protocol}://${request.get("host")}`;
+    const siteBase = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "https://wishcanvas.app").split(",")[0].trim();
+
+    const title = `Happy Birthday, ${name}!`;
+    const description = `${count} birthday ${count === 1 ? "wish has" : "wishes have"} been collected. Open the letter to start the birthday story.`;
+    const pageUrl = `${siteBase}/birthday/${publicCode}`;
+    const imageUrl = `${apiBase}/api/og-image/${publicCode}`;
+
+    const escapedTitle = title.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    const escapedDesc = description.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+    response.setHeader("Content-Type", "text/html; charset=utf-8");
+    response.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+    response.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapedTitle}</title>
+  <meta name="description" content="${escapedDesc}" />
+  <meta property="og:title" content="${escapedTitle}" />
+  <meta property="og:description" content="${escapedDesc}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${pageUrl}" />
+  <meta property="og:image" content="${imageUrl}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapedTitle}" />
+  <meta name="twitter:description" content="${escapedDesc}" />
+  <meta name="twitter:image" content="${imageUrl}" />
+  <meta http-equiv="refresh" content="0;url=${pageUrl}" />
+</head>
+<body>
+  <p>Redirecting to <a href="${pageUrl}">${escapedTitle}</a></p>
+</body>
+</html>`);
+  } catch {
+    response.status(500).send("Error");
+  }
 });
 
 app.use((error: Error, _request: express.Request, response: express.Response, _next: express.NextFunction) => {

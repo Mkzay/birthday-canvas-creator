@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   ArrowLeft,
@@ -25,6 +25,7 @@ import QRCodeModal from '@/components/QRCodeModal';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import SoundtrackSelector from '@/components/SoundtrackSelector';
 import ThemeSelector from '@/components/ThemeSelector';
+import Header from '@/components/Header';
 import { apiFetch, apiForm } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,10 @@ interface CustomTheme {
   emoji: string;
   gradient_from: string;
   gradient_to: string;
+  gradient_mid?: string | null;
+  gradient_angle?: number | null;
+  accent_color?: string | null;
+  font?: string | null;
 }
 
 const steps = [
@@ -355,24 +360,9 @@ const EditPage = () => {
 
   return (
     <div className="min-h-screen app-shell">
-      <header className="border-b border-border/60 bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-2 sm:gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-cta text-lg sm:h-10 sm:w-10 sm:text-xl">
-              W
-            </div>
-            <span className="hidden text-lg font-bold text-foreground sm:block sm:text-xl">WishCanvas</span>
-          </Link>
+      <Header backTo={{ label: 'Dashboard', href: '/dashboard' }} />
 
-          <Link to="/dashboard" className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground sm:gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Back to Dashboard</span>
-            <span className="sm:hidden">Dashboard</span>
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto max-w-3xl px-4 pt-24 pb-8 sm:px-6 sm:pt-28 sm:pb-10">
         <div className="panel-card mb-6 overflow-hidden p-6 sm:p-8">
           <span className="eyebrow-chip">Editor</span>
           <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-4xl">Edit the birthday page</h1>
@@ -536,6 +526,7 @@ const EditPage = () => {
               selectedTheme={selectedTheme}
               onSelect={setSelectedTheme}
               customThemes={customThemes}
+              recipientName={recipientName}
             />
 
             <div className="mt-8">
@@ -564,6 +555,25 @@ const EditPage = () => {
                     Use default
                   </Button>
                 )}
+              </div>
+              <div className="mt-4 inline-flex items-center gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 pr-4">
+                <div
+                  className="relative h-16 w-28 rounded-2xl border border-border/60 bg-gradient-to-b from-white/96 to-white/86 shadow-card-sm"
+                  style={{
+                    background: letterColor
+                      ? `linear-gradient(180deg, ${letterColor} 0%, ${letterColor} 100%)`
+                      : undefined,
+                  }}
+                >
+                  <div className="absolute inset-x-2 top-2 h-4 rounded-xl border border-border/60 bg-white/82" />
+                  <div className="absolute inset-x-3 bottom-3 h-2 rounded-full bg-black/5" />
+                </div>
+                <div className="space-y-0.5 text-xs">
+                  <p className="font-semibold text-foreground">Letter theme preview</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Approximate paper tone for the opening letter and keepsake cards.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -657,23 +667,23 @@ const EditPage = () => {
 
         <div className="panel-card mt-6 flex gap-3 p-4 sm:gap-4 sm:p-5">
           {step > 1 ? (
-            <Button variant="outline" onClick={handleBack} className="flex-1">
+            <Button variant="outline" size="lg" onClick={handleBack} className="flex-1">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
           ) : (
-            <Button variant="outline" onClick={() => navigate('/dashboard')} className="flex-1">
+            <Button variant="outline" size="lg" onClick={() => navigate('/dashboard')} className="flex-1">
               Cancel
             </Button>
           )}
 
           {step < 3 ? (
-            <Button variant="hero" onClick={handleNext} className="flex-1">
+            <Button variant="hero" size="lg" onClick={handleNext} className="flex-1">
               Next
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button variant="hero" onClick={handleSave} className="flex-1" disabled={saving || uploadingCover}>
+            <Button variant="hero" size="lg" onClick={handleSave} className="flex-1" disabled={saving || uploadingCover}>
               {saving || uploadingCover ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

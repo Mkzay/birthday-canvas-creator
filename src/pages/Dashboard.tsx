@@ -16,6 +16,7 @@ import {
   Sparkles,
   Trash2,
   Search,
+  Users,
 } from 'lucide-react';
 import { differenceInDays, format } from 'date-fns';
 import { toast } from 'sonner';
@@ -101,12 +102,13 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user, profile, signOut, loading: authLoading } = useAuth();
   const [pages, setPages] = useState<BirthdayPage[]>([]);
+  const [savedPages, setSavedPages] = useState<BirthdayPage[]>([]);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagePendingDelete, setPagePendingDelete] = useState<BirthdayPage | null>(null);
+  const [savedPagePendingRemove, setSavedPagePendingRemove] = useState<BirthdayPage | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState('all');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -141,41 +143,46 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  const fetchSavedPages = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const data = await apiFetch<BirthdayPage[]>('/pages/saved');
+      setSavedPages(data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (user) {
-      void Promise.all([fetchPages(), fetchCustomThemes()]);
+      void Promise.all([fetchPages(), fetchSavedPages(), fetchCustomThemes()]);
     }
-  }, [fetchCustomThemes, fetchPages, user]);
+  }, [fetchCustomThemes, fetchPages, fetchSavedPages, user]);
 
-  const filteredPages = useMemo(() => {
-    try {
-      return pages.filter((page) => {
-        const name = page.recipient_name || '';
-        const matchesSearch = name.toLowerCase().includes((searchQuery || '').toLowerCase());
-        
-        const birthdayDate = parseLocalDate(page.birthday_date);
-        let daysUntilBirthday = 0;
-        
-        if (!isNaN(birthdayDate.getTime())) {
-          daysUntilBirthday = differenceInDays(birthdayDate, new Date());
-        }
-        
-        let matchesDate = true;
-        if (dateFilter === 'upcoming') {
-          matchesDate = daysUntilBirthday >= 0;
-        } else if (dateFilter === 'past') {
-          matchesDate = daysUntilBirthday < 0;
-        } else if (dateFilter === 'delivered') {
-          matchesDate = page.status === 'delivered';
-        }
+  const isArchivedPage = (page: BirthdayPage) => {
+    const birthdayDate = parseLocalDate(page.birthday_date);
+    const daysUntilBirthday = differenceInDays(birthdayDate, new Date());
+    return page.status === 'delivered' || daysUntilBirthday < 0;
+  };
 
-        return matchesSearch && matchesDate;
-      });
-    } catch (e) {
-      console.error("Filter error:", e);
-      return pages;
-    }
-  }, [pages, searchQuery, dateFilter]);
+  const filteredLivePages = useMemo(() => {
+    const query = (searchQuery || '').toLowerCase();
+    return pages.filter((page) => {
+      const name = page.recipient_name || '';
+      const matchesSearch = name.toLowerCase().includes(query);
+      return matchesSearch && !isArchivedPage(page);
+    });
+  }, [pages, searchQuery]);
+
+  const filteredArchivedPages = useMemo(() => {
+    const query = (searchQuery || '').toLowerCase();
+    return pages.filter((page) => {
+      const name = page.recipient_name || '';
+      const matchesSearch = name.toLowerCase().includes(query);
+      return matchesSearch && isArchivedPage(page);
+    });
+  }, [pages, searchQuery]);
 
   const getThemeDisplay = useCallback(
     (themeKey: string): ThemeDisplay => {
@@ -288,7 +295,7 @@ const Dashboard = () => {
 
       <main className="mx-auto max-w-7xl px-4 pb-6 pt-24 sm:px-6 sm:pb-8 sm:pt-28">
         <section className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(255,246,241,0.98))] p-6 shadow-[0_24px_80px_rgba(18,18,23,0.08)] sm:p-8">
+          <div className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(255,246,241,0.98))] p-6 shadow-card-lg sm:p-8">
             <div className="absolute -right-10 top-8 h-32 w-32 rounded-full bg-secondary/14 blur-3xl" />
             <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
             <div className="relative">
@@ -349,7 +356,7 @@ const Dashboard = () => {
             ].map((item) => (
               <article
                 key={item.label}
-                className={`rounded-[1.6rem] border border-border/60 bg-gradient-to-br ${item.panelClassName} p-5 shadow-[0_18px_55px_rgba(18,18,23,0.05)]`}
+                className={`rounded-[1.5rem] border border-border/60 bg-gradient-to-br ${item.panelClassName} p-5 shadow-card`}
               >
                 <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${item.iconClassName}`}>
                   <item.icon className="h-5 w-5" />
@@ -365,7 +372,7 @@ const Dashboard = () => {
         <section className="mt-8">
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Your pages</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Your pages</p>
               <h2 className="mt-2 text-2xl font-bold text-foreground">Birthday pages in progress</h2>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -378,22 +385,11 @@ const Dashboard = () => {
                   className="w-full pl-9 sm:w-64"
                 />
               </div>
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-full sm:w-[140px]">
-                  <SelectValue placeholder="Filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Pages</SelectItem>
-                  <SelectItem value="upcoming">Upcoming</SelectItem>
-                  <SelectItem value="past">Past</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
           {pages.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-[0_18px_55px_rgba(18,18,23,0.04)]">
+            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-3xl">🎂</div>
               <h3 className="mt-5 text-xl font-bold text-foreground">No birthday pages yet</h3>
               <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -405,20 +401,27 @@ const Dashboard = () => {
                 </Button>
               </Link>
             </div>
-          ) : filteredPages.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-[0_18px_55px_rgba(18,18,23,0.04)]">
+          ) : filteredLivePages.length === 0 && filteredArchivedPages.length === 0 ? (
+            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-muted text-3xl">🔍</div>
               <h3 className="mt-5 text-xl font-bold text-foreground">No matching pages</h3>
               <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
                 We couldn&apos;t find any pages matching your search and filter criteria.
               </p>
-              <Button variant="outline" className="mt-6" onClick={() => { setSearchQuery(''); setDateFilter('all'); }}>
+              <Button variant="outline" className="mt-6" onClick={() => { setSearchQuery(''); }}>
                 Clear filters
               </Button>
             </div>
           ) : (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredPages.map((page) => {
+            <>
+            {filteredLivePages.length > 0 && (
+              <>
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live</h3>
+                  <span className="text-xs text-muted-foreground">{filteredLivePages.length} active</span>
+                </div>
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 mb-6">
+              {filteredLivePages.map((page) => {
                 const theme = getThemeDisplay(page.theme);
                 const status = getStatusBadge(page);
                 const collectionCloses = page.close_date ? format(parseLocalDate(page.close_date), 'MMM d') : 'Birthday date';
@@ -426,7 +429,7 @@ const Dashboard = () => {
                 return (
                   <article
                     key={page.id}
-                    className="group overflow-hidden rounded-[1.9rem] border border-border/60 bg-card/94 shadow-[0_22px_70px_rgba(18,18,23,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_80px_rgba(18,18,23,0.10)]"
+                    className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
                     style={{ borderColor: `${theme.accent}30` }}
                   >
                     <div className="relative h-48 overflow-hidden">
@@ -503,7 +506,7 @@ const Dashboard = () => {
                     <div className="p-5">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                             <CalendarDays className="h-3.5 w-3.5" />
                             Birthday
                           </div>
@@ -512,7 +515,7 @@ const Dashboard = () => {
                           </p>
                         </div>
                         <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                             <MessageSquare className="h-3.5 w-3.5" />
                             Wishes
                           </div>
@@ -523,7 +526,7 @@ const Dashboard = () => {
                       </div>
 
                       <div className="mt-3 rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Collection window</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Collection window</p>
                         <p className="mt-2 text-sm font-medium text-foreground">Closes {collectionCloses}</p>
                       </div>
 
@@ -545,9 +548,229 @@ const Dashboard = () => {
                   </article>
                 );
               })}
-            </div>
+                </div>
+              </>
+            )}
+
+            {filteredArchivedPages.length > 0 && (
+              <>
+                <div className="mt-4 mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Archived & Past</h3>
+                  <span className="text-xs text-muted-foreground">{filteredArchivedPages.length} completed</span>
+                </div>
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {filteredArchivedPages.map((page) => {
+                const theme = getThemeDisplay(page.theme);
+                const status = { label: 'Revealed', className: 'bg-slate-900/8 text-slate-700' };
+                const collectionCloses = page.close_date ? format(parseLocalDate(page.close_date), 'MMM d') : 'Birthday date';
+
+                return (
+                  <article
+                    key={page.id}
+                    className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
+                    style={{ borderColor: `${theme.accent}30` }}
+                  >
+                    {/* existing card body unchanged */}
+                    {/* We reuse the same layout for archived pages */}
+                    <div className="relative h-48 overflow-hidden">
+                      {page.cover_photo_url ? (
+                        <>
+                          <img
+                            src={page.cover_photo_url}
+                            alt=""
+                            aria-hidden="true"
+                            className="absolute inset-0 h-full w-full object-cover opacity-35 blur-xl transition-transform duration-500 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/30 via-slate-950/10 to-black/30" />
+                          <div className="absolute inset-x-4 bottom-4 top-4 overflow-hidden rounded-[1.35rem] border border-white/18 bg-black/18 shadow-[0_20px_55px_rgba(15,23,42,0.28)] backdrop-blur-[2px]">
+                            <img
+                              src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
+                              alt={`${page.recipient_name}'s cover`}
+                              className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
+                              loading="lazy"
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/58 via-black/12 to-transparent" />
+                        </>
+                      ) : theme.isCustom ? (
+                        <div
+                          className="h-full w-full"
+                          style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+                        />
+                      ) : (
+                        <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
+                      )}
+
+                      <div className="absolute left-5 top-5 flex items-center gap-2">
+                        <span className="rounded-full bg-white/18 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                          {theme.emoji} {theme.name}
+                        </span>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
+                          {status.label}
+                        </span>
+                      </div>
+
+                      <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4">
+                        <div>
+                          <h3 className="text-2xl font-bold text-white">{page.recipient_name}&apos;s Birthday</h3>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm transition-colors hover:bg-black/40"
+                              aria-label={`Open actions for ${page.recipient_name}`}
+                              type="button"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => copyLink(page.public_code, 'contribute')}>
+                              <Share2 className="mr-2 h-4 w-4" />
+                              Copy contribution link
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => copyLink(page.public_code, 'birthday')}>
+                              <Share2 className="mr-2 h-4 w-4" />
+                              Copy birthday link
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={() => setPagePendingDelete(page)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete page
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+
+                    <div className="p-5">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            Birthday
+                          </div>
+                          <p className="mt-2 text-sm font-semibold text-foreground">
+                            {format(parseLocalDate(page.birthday_date), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            Wishes
+                          </div>
+                          <p className="mt-2 text-sm font-semibold text-foreground">
+                            {page.message_count || 0} collected
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Collection closed</p>
+                        <p className="mt-2 text-sm font-medium text-foreground">Closed {collectionCloses}</p>
+                      </div>
+
+                      <div className="mt-5 flex gap-2">
+                        <Link to={`/preview/${page.public_code}`} className="flex-1">
+                          <Button variant="outline" size="sm" className="w-full gap-2">
+                            <Eye className="h-4 w-4" />
+                            Preview
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+                </div>
+              </>
+            )}
+            </>
           )}
         </section>
+
+        {savedPages.length > 0 && (
+          <section className="mt-10 border-t border-border/60 pt-8">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Saved for later</p>
+                <h2 className="mt-2 text-xl font-bold text-foreground">Pages you&apos;re keeping</h2>
+              </div>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {savedPages.map((page) => {
+                const theme = getThemeDisplay(page.theme);
+                const status = getStatusBadge(page);
+                const birthdayLabel = format(parseLocalDate(page.birthday_date), 'MMM d, yyyy');
+
+                return (
+                  <article
+                    key={page.id}
+                    className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
+                    style={{ borderColor: `${theme.accent}30` }}
+                  >
+                    <div className="relative h-40 overflow-hidden">
+                      {page.cover_photo_url ? (
+                        <>
+                          <img
+                            src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
+                            alt={`${page.recipient_name}'s cover`}
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                        </>
+                      ) : theme.isCustom ? (
+                        <div
+                          className="h-full w-full"
+                          style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+                        />
+                      ) : (
+                        <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
+                      )}
+                      <div className="absolute inset-0 flex items-end justify-between px-4 pb-4">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">Saved celebration</p>
+                          <p className="mt-1 text-sm font-semibold text-white">
+                            {page.recipient_name}&apos;s birthday
+                          </p>
+                          <p className="text-xs text-white/80">Birthday on {birthdayLabel}</p>
+                        </div>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>
+                          {status.label}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        <span>{page.message_count || 0} wishes</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-muted-foreground hover:text-destructive"
+                          onClick={() => setSavedPagePendingRemove(page)}
+                        >
+                          Remove
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => copyLink(page.public_code, 'birthday')}
+                        >
+                          Open
+                        </Button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
       <AlertDialog open={Boolean(pagePendingDelete)} onOpenChange={(open) => { if (!open) setPagePendingDelete(null); }}>
@@ -574,6 +797,42 @@ const Dashboard = () => {
               }}
             >
               Delete page
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(savedPagePendingRemove)} onOpenChange={(open) => { if (!open) setSavedPagePendingRemove(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove saved page?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will only remove the page from your saved list. The birthday page itself will stay active for its organizer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
+            <span>You&apos;ll still be able to visit this celebration later if you receive the link again.</span>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSavedPagePendingRemove(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!savedPagePendingRemove) return;
+                try {
+                  await apiFetch<void>(`/pages/${savedPagePendingRemove.id}/save`, { method: 'DELETE' });
+                  setSavedPages((current) => current.filter((p) => p.id !== savedPagePendingRemove.id));
+                  toast.success('Removed from your dashboard');
+                } catch (error) {
+                  console.error(error);
+                  toast.error('Unable to remove saved page');
+                } finally {
+                  setSavedPagePendingRemove(null);
+                }
+              }}
+            >
+              Remove saved page
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
