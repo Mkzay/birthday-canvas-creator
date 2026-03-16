@@ -33,7 +33,7 @@ const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
     <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 sm:px-6 sm:py-4">
       <div className="glass-card mx-auto flex max-w-7xl items-center justify-between rounded-2xl px-4 py-3 shadow-soft">
         <div className="flex items-center gap-3">
-          <BrandLogo compact className="gap-2 sm:gap-3" />
+          <BrandLogo compact />
           {showDashboardLabel && (
             <div className="hidden border-l border-border/60 pl-3 sm:block">
               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">Dashboard</p>

@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import {
   ChevronLeft,
@@ -458,6 +458,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [isDesktopReveal, setIsDesktopReveal] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 640));
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
+  const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
   const stopSoundtrack = useCallback(() => {
     shouldResumeSoundtrackRef.current = false;
@@ -512,7 +513,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     }
 
     if (soundtrackAudioRef.current && !soundtrackAudioRef.current.paused) {
-      soundtrackAudioRef.current.pause();
+      // Duck background track instead of fully stopping
+      soundtrackAudioRef.current.volume = 0.04;
       hadPlayingSoundtrack = true;
     }
 
@@ -525,7 +527,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     }
 
     shouldResumeSoundtrackRef.current = false;
-    await startSoundtrack(true);
+    if (soundtrackAudioRef.current) {
+      soundtrackAudioRef.current.volume = 0.45;
+    } else {
+      await startSoundtrack(true);
+    }
   }, [showRevealIntro, startSoundtrack]);
 
   const toggleSavePage = useCallback(async () => {
@@ -998,6 +1004,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
     return (
       <audio
+        ref={(element) => {
+          if (element) {
+            wishAudioRefs.current[message.id] = element;
+          } else {
+            delete wishAudioRefs.current[message.id];
+          }
+        }}
         controls
         className={className}
         src={src}
@@ -1010,6 +1023,36 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       </audio>
     );
   }, [handleWishAudioPlay, handleWishAudioStop]);
+
+  useEffect(() => {
+    const slide = activeSlide;
+    if (!slide || slide.kind !== 'wish' || !slide.message?.audio_url) {
+      // If we leave an audio slide, stop any active wish audio
+      if (activeWishAudioId) {
+        const previousAudio = wishAudioRefs.current[activeWishAudioId];
+        if (previousAudio && !previousAudio.paused) {
+          previousAudio.pause();
+          previousAudio.currentTime = 0;
+        }
+        handleWishAudioStop(activeWishAudioId);
+      }
+      return;
+    }
+
+    const targetId = slide.message.id;
+    const audioEl = wishAudioRefs.current[targetId];
+    if (!audioEl) return;
+
+    // Attempt autoplay when the slide becomes active
+    audioEl
+      .play()
+      .then(() => {
+        // onPlay handler will handle ducking + activeWishAudioId
+      })
+      .catch((error) => {
+        console.error('Wish audio autoplay blocked', error);
+      });
+  }, [activeSlide, activeWishAudioId, handleWishAudioStop]);
 
   useEffect(() => {
     if (!isDesktopReveal || !activeSlide) return;

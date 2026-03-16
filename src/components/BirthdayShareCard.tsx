@@ -32,17 +32,18 @@ const BirthdayShareCard = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    const width = 640;
-    const height = 640;
-    const radius = 40;
+    // Square 1080x1080 for story / post friendly aspect
+    const width = 1080;
+    const height = 1080;
+    const radius = 68;
     canvas.width = width;
     canvas.height = height;
 
-    // Gradient background (135deg-style: top-left to bottom-right)
+    // Gradient background – soft bokeh wash
     const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, themeColors[0] || '#8b5cf6');
+    gradient.addColorStop(0, themeColors[0] || '#f9a8d4');
     gradient.addColorStop(0.45, themeColors[1] || themeColors[0] || '#a855f7');
-    gradient.addColorStop(1, themeColors[2] || themeColors[1] || '#ec4899');
+    gradient.addColorStop(1, themeColors[2] || themeColors[1] || '#38bdf8');
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -62,49 +63,113 @@ const BirthdayShareCard = ({
     ctx.roundRect(0, 0, width, height, radius);
     ctx.fill();
 
-    // Inner border for definition (no emoji clutter; clean card)
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = 1;
+    // Outer card stroke
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(1, 1, width - 2, height - 2, radius - 1);
     ctx.stroke();
 
-    // Theme emoji as main visual anchor
-    ctx.font = '120px serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'white';
-    ctx.fillText(themeEmoji, width / 2, 200);
+    // Inner card – centered keepsake layout
+    const cardWidth = width - 260;
+    const cardHeight = height - 260;
+    const cardX = (width - cardWidth) / 2;
+    const cardY = (height - cardHeight) / 2;
+    const cardRadius = 60;
 
-    // Title – supporting line
-    ctx.font = '600 28px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.fillText('Happy Birthday', width / 2, 288);
-
-    // Recipient name – hero type
-    ctx.font = 'bold 52px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = 'white';
-    ctx.fillText(recipientName, width / 2, 368);
-
-    // Wishes count badge (text only, no emoji-as-icon per a11y/style)
-    const badgeText = `${messageCount} wish${messageCount === 1 ? '' : 'es'} received`;
-    const badgePadding = 32;
-    ctx.font = '22px system-ui, -apple-system, sans-serif';
-    const badgeTextWidth = ctx.measureText(badgeText).width;
-    const badgeWidth = Math.min(badgeTextWidth + badgePadding * 2, width - 80);
-    const badgeHeight = 48;
-    const badgeX = (width - badgeWidth) / 2;
-    const badgeY = 418;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.strokeStyle = 'rgba(226,232,240,0.9)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 24);
+    ctx.roundRect(cardX, cardY, cardWidth, cardHeight, cardRadius);
     ctx.fill();
-    ctx.fillStyle = 'white';
-    ctx.fillText(badgeText, width / 2, badgeY + 32);
+    ctx.stroke();
 
-    // Footer – subtle
-    ctx.font = '16px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.65)';
-    ctx.fillText('Made with WishCanvas', width / 2, height - 44);
+    // Emoji avatar
+    const avatarRadius = 58;
+    const avatarCx = cardX + 120;
+    const avatarCy = cardY + 140;
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(248,250,252,1)';
+    ctx.arc(avatarCx, avatarCy, avatarRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '72px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(15,23,42,0.96)';
+    ctx.fillText(themeEmoji, avatarCx, avatarCy + 26);
+
+    // Text block
+    const textLeft = avatarCx + avatarRadius + 40;
+    const contentTop = cardY + 92;
+
+    ctx.textAlign = 'left';
+    // Script subheading (handwritten accent)
+    ctx.font = 'italic 26px "DM Serif Display", system-ui, -apple-system, serif';
+    ctx.fillStyle = 'rgba(148,163,184,0.95)';
+    ctx.fillText("Birthday playback", textLeft, contentTop);
+
+    // Main heading
+    ctx.font = '800 60px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(15,23,42,0.98)';
+    const clippedName = recipientName.length > 18 ? `${recipientName.slice(0, 15)}…` : recipientName;
+    ctx.fillText(`For ${clippedName}`, textLeft, contentTop + 70);
+
+    // Body copy
+    ctx.font = '400 26px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(51,65,85,0.9)';
+    ctx.fillText('A whole page of birthday wishes in one link.', textLeft, contentTop + 118);
+
+    // Single stats line
+    const statsY = contentTop + 178;
+    const statsText = `${messageCount} wish${messageCount === 1 ? '' : 'es'}, photos & voice notes gathered here.`;
+    ctx.font = '500 22px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(71,85,105,0.95)';
+    ctx.fillText(statsText, textLeft, statsY);
+
+    // Polaroid-style keepsake block on the right
+    const polaroidWidth = 320;
+    const polaroidHeight = 360;
+    const polaroidX = cardX + cardWidth - polaroidWidth - 80;
+    const polaroidY = cardY + 130;
+
+    ctx.fillStyle = 'rgba(248,250,252,1)';
+    ctx.strokeStyle = 'rgba(226,232,240,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(polaroidX, polaroidY, polaroidWidth, polaroidHeight, 32);
+    ctx.fill();
+    ctx.stroke();
+
+    const photoX = polaroidX + 28;
+    const photoY = polaroidY + 30;
+    const photoW = polaroidWidth - 56;
+    const photoH = polaroidHeight - 110;
+    const photoGrad = ctx.createLinearGradient(photoX, photoY, photoX + photoW, photoY + photoH);
+    photoGrad.addColorStop(0, 'rgba(241,245,249,1)');
+    photoGrad.addColorStop(1, 'rgba(226,232,240,1)');
+    ctx.fillStyle = photoGrad;
+    ctx.beginPath();
+    ctx.roundRect(photoX, photoY, photoW, photoH, 24);
+    ctx.fill();
+
+    ctx.textAlign = 'center';
+    ctx.font = '500 18px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(148,163,184,0.95)';
+    ctx.fillText("Birthday keepsake", polaroidX + polaroidWidth / 2, polaroidY + polaroidHeight - 36);
+
+    // Lower copy
+    ctx.font = '500 22px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(100,116,139,0.96)';
+    ctx.fillText('Share this as a story, post, or status.', cardX + 80, cardY + cardHeight - 110);
+
+    ctx.font = '400 19px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(148,163,184,0.96)';
+    ctx.fillText('Made with WishCanvas', cardX + 80, cardY + cardHeight - 66);
+
+    ctx.textAlign = 'right';
+    ctx.font = '600 19px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(148,163,184,0.96)';
+    ctx.fillText('wishcanvas.app', cardX + cardWidth - 80, cardY + cardHeight - 66);
 
     return canvas;
   }, [recipientName, messageCount, themeEmoji, themeColors]);
