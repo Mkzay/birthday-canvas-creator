@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import BrandLogo from '@/components/BrandLogo';
 import { apiFetch } from '@/lib/api';
 
 const emailSchema = z.string().email('Please enter a valid email');
@@ -180,12 +181,7 @@ const AuthPage = () => {
 
       <div className="relative grid w-full max-w-sm gap-8 sm:max-w-2xl md:max-w-4xl lg:max-w-[68rem] lg:grid-cols-[0.9fr_1.1fr] lg:items-center xl:max-w-[74rem]">
         <div className="hidden text-primary-foreground lg:block">
-          <Link to="/" className="inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/18 text-2xl backdrop-blur-sm">
-              🎨
-            </div>
-            <span className="text-2xl font-bold">WishCanvas</span>
-          </Link>
+          <BrandLogo compact to="/" textClassName="text-2xl font-bold text-white" />
 
           <div className="mt-10 max-w-xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/80">

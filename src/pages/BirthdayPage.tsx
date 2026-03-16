@@ -977,6 +977,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     event.currentTarget.style.setProperty('--parallax-x', `${offsetX}px`);
     event.currentTarget.style.setProperty('--parallax-y', `${offsetY}px`);
   }, []);
+
+  const lastAutoPlayedWishIdRef = useRef<string | null>(null);
   const handleBoardParallaxLeave = useCallback((event: React.MouseEvent<HTMLElement>) => {
     event.currentTarget.style.setProperty('--parallax-x', '0px');
     event.currentTarget.style.setProperty('--parallax-y', '0px');
@@ -1014,7 +1016,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         controls
         className={className}
         src={src}
-        preload="none"
+        preload="metadata"
         onPlay={() => handleWishAudioPlay(message.id)}
         onPause={() => handleWishAudioStop(message.id)}
         onEnded={() => handleWishAudioStop(message.id)}
@@ -1036,17 +1038,24 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         }
         handleWishAudioStop(activeWishAudioId);
       }
+      lastAutoPlayedWishIdRef.current = null;
       return;
     }
 
     const targetId = slide.message.id;
+
+    // Only attempt autoplay once per wish slide activation
+    if (lastAutoPlayedWishIdRef.current === targetId) {
+      return;
+    }
+
     const audioEl = wishAudioRefs.current[targetId];
     if (!audioEl) return;
 
-    // Attempt autoplay when the slide becomes active
     audioEl
       .play()
       .then(() => {
+        lastAutoPlayedWishIdRef.current = targetId;
         // onPlay handler will handle ducking + activeWishAudioId
       })
       .catch((error) => {

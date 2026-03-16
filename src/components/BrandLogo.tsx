@@ -16,18 +16,18 @@ const BrandLogo = ({ to, compact = false, className, textClassName, markClassNam
   const target = to || (user ? '/dashboard' : '/');
 
   return (
-    <Link to={target} className={cn('inline-flex items-center justify-center gap-0', className)}>
+    <Link to={target} className={cn('inline-flex items-center gap-1', className)}>
       <img
-        src="/wish-canvas-logo.png"
+        src="/wish-canvas-logo.svg"
         alt="WishCanvas"
         className={cn(
-          compact ? 'h-10 w-10 rounded-2xl' : 'h-11 w-11 rounded-2xl sm:h-12 sm:w-12',
+          compact ? 'h-10 w-10 rounded-2xl relative top-[1px]' : 'h-11 w-11 rounded-2xl sm:h-12 sm:w-12 relative top-[1px]',
           markClassName,
         )}
       />
       <span
         className={cn(
-          'text-[1.35rem] font-bold tracking-tight text-foreground sm:text-[1.5rem] leading-none relative top-[1px]',
+          'text-[1.3rem] font-bold tracking-tight text-foreground sm:text-[1.45rem] leading-tight',
           textClassName,
         )}
       >

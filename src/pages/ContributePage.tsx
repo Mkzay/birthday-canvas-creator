@@ -414,6 +414,11 @@ const ContributePage = () => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (isRecording) {
+      toast.error('Please stop your recording before submitting your wish');
+      return;
+    }
+
     if (page.require_names && !senderName.trim()) {
       toast.error('Please enter your name');
       return;
@@ -701,7 +706,6 @@ const ContributePage = () => {
                       ref={audioInputRef}
                       type="file"
                       accept="audio/*"
-                      capture="user"
                       onChange={handleWishAudioSelect}
                       className="hidden"
                       disabled={!page.can_contribute}
@@ -748,7 +752,7 @@ const ContributePage = () => {
                   </div>
                 )}
 
-                <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading || uploadingAudio || !page.can_contribute}>
+                <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading || uploadingAudio || isRecording || !page.can_contribute}>
                   {submitting || uploading || uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                   {uploading
                     ? 'Uploading photos...'

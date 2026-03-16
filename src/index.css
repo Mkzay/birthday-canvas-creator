@@ -215,37 +215,39 @@
   inset: 0;
   overflow: hidden;
   opacity: 0.9;
+  z-index: 40 !important;
 }
 
 .slide-star {
   position: absolute;
-  width: 3px;
-  height: 18px;
+  width: 4px;
+  height: 40px;
   border-radius: 999px;
-  background: linear-gradient(to bottom, hsla(48, 100%, 96%, 0.1), hsla(48, 100%, 96%, 0.9));
+  background: linear-gradient(to bottom, hsla(48, 100%, 96%, 0.2), hsla(48, 100%, 96%, 1));
   box-shadow:
-    0 0 6px hsla(48, 100%, 90%, 0.5),
-    0 0 18px hsla(48, 100%, 84%, 0.35);
-  animation: slide-star-fall 4.5s linear infinite;
+    0 0 10px hsla(48, 100%, 90%, 0.8),
+    0 0 26px hsla(48, 100%, 84%, 0.6);
+  animation: slide-star-fall 2.5s linear infinite;
+  mix-blend-mode: screen;
 }
 
 .slide-star:nth-child(3n) {
-  width: 2px;
-  height: 14px;
-  animation-duration: 5.25s;
+  width: 3px;
+  height: 32px;
+  animation-duration: 3s;
   animation-delay: -1.2s;
 }
 
 .slide-star:nth-child(4n) {
-  width: 2px;
-  height: 20px;
-  animation-duration: 6.1s;
+  width: 3px;
+  height: 46px;
+  animation-duration: 3.4s;
   animation-delay: -2s;
 }
 
 .slide-star:nth-child(5n) {
-  opacity: 0.7;
-  animation-duration: 7.2s;
+  opacity: 0.9;
+  animation-duration: 3.8s;
 }
 
 @keyframes slide-star-fall {
@@ -927,12 +929,10 @@
     opacity: 0 !important;
   }
 
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+  /* Keep slide star animations running even when reduced motion is enabled */
+  .slide-star {
+    animation-duration: 4.5s !important;
+    animation-iteration-count: infinite !important;
+    opacity: 1 !important;
   }
 }
