@@ -44,12 +44,12 @@ function mapProfile(user: AuthUser | null): Profile | null {
     user_id: user.id,
     display_name: user.displayName,
     avatar_url: user.avatarUrl,
-    defaultTheme: user.defaultTheme,
-    defaultAllowPhotos: user.defaultAllowPhotos,
-    defaultAllowAudio: user.defaultAllowAudio,
-    defaultRequireNames: user.defaultRequireNames,
-    };
-    }
+    default_theme: user.defaultTheme,
+    default_allow_photos: user.defaultAllowPhotos,
+    default_allow_audio: user.defaultAllowAudio,
+    default_require_names: user.defaultRequireNames,
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);

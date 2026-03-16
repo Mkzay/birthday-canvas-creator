@@ -84,3 +84,33 @@ export function requireAuth(request: AuthedRequest, response: Response, next: Ne
   request.user = session;
   next();
 }
+
+function getAdminEmails() {
+  const raw = process.env.ADMIN_EMAILS || "";
+  return raw
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function requireAdmin(request: AuthedRequest, response: Response, next: NextFunction) {
+  const session = readSession(request);
+  if (!session) {
+    response.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const adminEmails = getAdminEmails();
+  if (!adminEmails.length) {
+    response.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  if (!adminEmails.includes(String(session.email).toLowerCase())) {
+    response.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  request.user = session;
+  next();
+}

@@ -3,8 +3,11 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "node:path";
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
 import type { Response } from "express";
-import { clearSessionCookie, hashPassword, readSession, requireAuth, setSessionCookie, signSession, verifyPassword } from "./auth";
+import * as Sentry from "@sentry/node";
+import { clearSessionCookie, hashPassword, readSession, requireAdmin, requireAuth, setSessionCookie, signSession, verifyPassword } from "./auth";
 import { initializeDatabase, sql } from "./db";
 import type { AuthedRequest, SessionUser } from "./types";
 import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload, themeIconUpload } from "./uploads";
@@ -12,6 +15,13 @@ import sanitizeHtml from "sanitize-html";
 
 const app = express();
 const port = Number(process.env.PORT || process.env.API_PORT || 3001);
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+  });
+}
 
 function getAllowedOrigins() {
   const rawOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:8080";
@@ -35,6 +45,13 @@ function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
 
 const allowedOrigins = getAllowedOrigins();
 const rateLimitStore = new Map<string, { count: number; expiresAt: number }>();
+
+function shouldLogRequest(request: express.Request, status: number, durationMs: number) {
+  if (status >= 500) return true;
+  if (durationMs >= 750) return true;
+  if (status >= 400 && /^\/api\/(auth|uploads)\b/i.test(request.path)) return true;
+  return false;
+}
 
 function logRequestFailure(scope: string, details: Record<string, unknown>) {
   console.warn(`[${scope}]`, JSON.stringify(details));
@@ -84,6 +101,33 @@ app.use(cors({
   credentials: true,
 }));
 app.use(cookieParser());
+app.use((request, response, next) => {
+  const start = Date.now();
+  const requestId = crypto.randomUUID();
+  (request as express.Request & { requestId?: string }).requestId = requestId;
+  response.setHeader("x-request-id", requestId);
+
+  response.on("finish", () => {
+    const durationMs = Date.now() - start;
+    if (!shouldLogRequest(request, response.statusCode, durationMs)) return;
+
+    const authed = request as AuthedRequest;
+    const userId = authed.user?.id;
+
+    console.warn(JSON.stringify({
+      scope: "request",
+      requestId,
+      method: request.method,
+      path: request.path,
+      status: response.statusCode,
+      duration_ms: durationMs,
+      ip: getRequestIp(request),
+      userId,
+    }));
+  });
+
+  next();
+});
 app.use(express.json({ limit: "2mb" }));
 app.use("/uploads", express.static(uploadsRoot));
 
@@ -346,8 +390,64 @@ function privatePageQuery(pageId: string, userId: string) {
   `;
 }
 
-app.get("/api/health", (_request, response) => {
-  response.json({ ok: true });
+async function buildHealthPayload() {
+  const startedAt = Date.now();
+
+  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number) => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        const timeout = setTimeout(() => {
+          clearTimeout(timeout);
+          reject(new Error("timeout"));
+        }, timeoutMs);
+      }),
+    ]);
+  };
+
+  const checkDb = async () => {
+    const start = Date.now();
+    try {
+      await withTimeout(sql`SELECT 1`, 1500);
+      return { ok: true, latency_ms: Date.now() - start };
+    } catch (error) {
+      return { ok: false, latency_ms: Date.now() - start, error: error instanceof Error ? error.message : "unknown" };
+    }
+  };
+
+  const checkUploads = async () => {
+    try {
+      await fs.access(uploadsRoot);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "unknown" };
+    }
+  };
+
+  const [db, uploads] = await Promise.all([checkDb(), checkUploads()]);
+  const ok = Boolean(db.ok && uploads.ok);
+
+  return {
+    ok,
+    checks: { db, uploads },
+    ts: new Date().toISOString(),
+    latency_ms: Date.now() - startedAt,
+  };
+}
+
+app.get("/api/health", async (_request, response) => {
+  const payload = await buildHealthPayload();
+  response.status(payload.ok ? 200 : 503).json(payload);
+});
+
+app.get("/api/system/status", requireAdmin, async (_request, response) => {
+  const payload = await buildHealthPayload();
+  response.status(payload.ok ? 200 : 503).json({
+    ...payload,
+    meta: {
+      node_env: process.env.NODE_ENV || "development",
+    },
+  });
 });
 
 app.get("/api/auth/session", async (request, response) => {
@@ -752,7 +852,7 @@ app.get("/api/pages/:id/ownership", requireAuth, async (request: AuthedRequest, 
 });
 
 app.get("/api/pages/:id/save-status", requireAuth, async (request: AuthedRequest, response) => {
-  const resolvedPageId = await resolvePageId(request.params.id);
+  const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
     return;
@@ -770,7 +870,7 @@ app.get("/api/pages/:id/save-status", requireAuth, async (request: AuthedRequest
 });
 
 app.post("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, response) => {
-  const resolvedPageId = await resolvePageId(request.params.id);
+  const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
     return;
@@ -786,7 +886,7 @@ app.post("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, resp
 });
 
 app.delete("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, response) => {
-  const resolvedPageId = await resolvePageId(request.params.id);
+  const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
     return;
@@ -1056,10 +1156,7 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), async (r
 
   // Allow either the internal UUID id or the public_code to be sent from the client.
   // Compare against id::text to avoid Postgres attempting to cast arbitrary strings to uuid.
-  const rows = await sql<{
-    id: string;
-    cover_photo_url: string | null;
-  }>`
+  const rows = await sql`
     SELECT id, cover_photo_url
     FROM birthday_pages
     WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
@@ -1067,7 +1164,7 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), async (r
     LIMIT 1
   `;
 
-  const page = rows[0];
+  const page = rows[0] as undefined | { id: string; cover_photo_url: string | null };
 
   if (!page) {
     response.status(404).json({ error: "Page not found" });
@@ -1098,10 +1195,7 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
 
   // Allow either the internal UUID id or the public_code to be sent from the client.
   // Compare against id::text to avoid Postgres attempting to cast arbitrary strings to uuid.
-  const rows = await sql<{
-    id: string;
-    custom_audio_url: string | null;
-  }>`
+  const rows = await sql`
     SELECT id, custom_audio_url
     FROM birthday_pages
     WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
@@ -1109,7 +1203,7 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
     LIMIT 1
   `;
 
-  const page = rows[0];
+  const page = rows[0] as undefined | { id: string; custom_audio_url: string | null };
 
   if (!page) {
     response.status(404).json({ error: "Page not found" });
@@ -1447,6 +1541,9 @@ app.get("/api/og/:id", async (request, response) => {
 });
 
 app.use((error: Error, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(error);
+  }
   console.error(error);
   response.status(500).json({ error: error.message || "Internal server error" });
 });

@@ -38,7 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { apiFetch, resolveAssetUrl } from '@/lib/api';
+import { ApiError, apiFetch, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { builtInThemeMap } from '@/lib/themes';
 import {
@@ -74,6 +74,17 @@ interface CustomTheme {
   gradient_to: string;
 }
 
+type SystemStatusPayload = {
+  ok: boolean;
+  checks: {
+    db: { ok: boolean; latency_ms?: number; error?: string };
+    uploads: { ok: boolean; error?: string };
+  };
+  ts: string;
+  latency_ms: number;
+  meta?: { node_env?: string };
+};
+
 type ThemeDisplay = {
   name: string;
   emoji: string;
@@ -107,6 +118,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [pagePendingDelete, setPagePendingDelete] = useState<BirthdayPage | null>(null);
   const [savedPagePendingRemove, setSavedPagePendingRemove] = useState<BirthdayPage | null>(null);
+  const [systemStatus, setSystemStatus] = useState<SystemStatusPayload | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -154,11 +166,27 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  const fetchSystemStatus = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const data = await apiFetch<SystemStatusPayload>('/system/status');
+      setSystemStatus(data);
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        setSystemStatus(null);
+        return;
+      }
+      console.error(error);
+      setSystemStatus(null);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (user) {
-      void Promise.all([fetchPages(), fetchSavedPages(), fetchCustomThemes()]);
+      void Promise.all([fetchPages(), fetchSavedPages(), fetchCustomThemes(), fetchSystemStatus()]);
     }
-  }, [fetchCustomThemes, fetchPages, fetchSavedPages, user]);
+  }, [fetchCustomThemes, fetchPages, fetchSavedPages, fetchSystemStatus, user]);
 
   const isArchivedPage = (page: BirthdayPage) => {
     const birthdayDate = parseLocalDate(page.birthday_date);
@@ -328,6 +356,33 @@ const Dashboard = () => {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            {systemStatus && (
+              <div className="relative overflow-hidden rounded-[1.8rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(246,249,255,0.96))] p-5 shadow-card sm:col-span-3 lg:col-span-1 xl:col-span-3">
+                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+                <div className="relative flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">System status</p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">
+                      {systemStatus.ok ? 'All systems operational' : 'Degraded'}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className={systemStatus.checks.db.ok ? 'text-emerald-700' : 'text-destructive'}>
+                        DB {systemStatus.checks.db.ok ? 'OK' : 'FAIL'}
+                      </span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span className={systemStatus.checks.uploads.ok ? 'text-emerald-700' : 'text-destructive'}>
+                        Uploads {systemStatus.checks.uploads.ok ? 'OK' : 'FAIL'}
+                      </span>
+                      <span className="text-muted-foreground/40">•</span>
+                      <span>{new Date(systemStatus.ts).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className={systemStatus.ok ? 'flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700' : 'flex h-11 w-11 items-center justify-center rounded-2xl bg-destructive/10 text-destructive'}>
+                    {systemStatus.ok ? <Activity className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+                  </div>
+                </div>
+              </div>
+            )}
             {[
               {
                 label: 'Pages',
