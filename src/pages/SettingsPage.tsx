@@ -221,7 +221,7 @@ const SettingsPage = () => {
       });
       await signOut();
       toast.success('Your account and workspace data were deleted');
-      navigate('/');
+      navigate('/auth');
     } catch (error) {
       toast.error('Failed to delete account data');
       console.error(error);

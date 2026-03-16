@@ -24,7 +24,7 @@ const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate('/auth');
   };
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';

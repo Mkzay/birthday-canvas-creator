@@ -45,6 +45,7 @@ function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
 
 const allowedOrigins = getAllowedOrigins();
 const rateLimitStore = new Map<string, { count: number; expiresAt: number }>();
+const loginFailureStore = new Map<string, { count: number; lockedUntil: number | null }>();
 
 function shouldLogRequest(request: express.Request, status: number, durationMs: number) {
   if (status >= 500) return true;
@@ -386,6 +387,7 @@ function privatePageQuery(pageId: string, userId: string) {
     LEFT JOIN custom_themes ct ON bp.theme = CONCAT('custom_', ct.id::text)
     WHERE (bp.id::text = ${pageId} OR bp.public_code = ${pageId})
       AND bp.user_id = ${userId}
+      AND bp.owner_deleted IS NOT TRUE
     GROUP BY bp.id, ct.id
   `;
 }
@@ -514,6 +516,19 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
   const email = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
   const password = typeof request.body.password === "string" ? request.body.password : "";
 
+  const clientIp = getRequestIp(request);
+  const key = `${email || "unknown"}:${clientIp}`;
+  const now = Date.now();
+  const failureWindowMs = 15 * 60 * 1000;
+  const maxFailures = 8;
+  const lockoutMs = 15 * 60 * 1000;
+
+  const existingFailure = loginFailureStore.get(key);
+  if (existingFailure?.lockedUntil && existingFailure.lockedUntil > now) {
+    response.status(429).json({ error: "Too many failed login attempts. Please try again later." });
+    return;
+  }
+
   const rows = await sql`
     SELECT id, email, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
     FROM users
@@ -523,16 +538,31 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
 
   const user = rows[0];
   if (!user) {
+    const previous = loginFailureStore.get(key);
+    const baseCount = previous && previous.lockedUntil && previous.lockedUntil <= now ? 0 : previous?.count || 0;
+    const nextCount = baseCount + 1;
+    loginFailureStore.set(key, {
+      count: nextCount,
+      lockedUntil: nextCount >= maxFailures ? now + lockoutMs : null,
+    });
     response.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
   const matches = await verifyPassword(password, user.password_hash);
   if (!matches) {
+    const previous = loginFailureStore.get(key);
+    const baseCount = previous && previous.lockedUntil && previous.lockedUntil <= now ? 0 : previous?.count || 0;
+    const nextCount = baseCount + 1;
+    loginFailureStore.set(key, {
+      count: nextCount,
+      lockedUntil: nextCount >= maxFailures ? now + lockoutMs : null,
+    });
     response.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
+  loginFailureStore.delete(key);
   sendAuth(response, sessionUserFromRow(user));
 });
 
@@ -756,6 +786,7 @@ app.get("/api/pages/dashboard", requireAuth, async (request: AuthedRequest, resp
     FROM birthday_pages bp
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
     WHERE bp.user_id = ${request.user!.id}
+      AND bp.owner_deleted IS NOT TRUE
     GROUP BY bp.id
     ORDER BY bp.created_at DESC
   `;
@@ -1094,7 +1125,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
 
 app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, response) => {
   const rows = await sql`
-    SELECT id, cover_photo_url, custom_audio_url
+    SELECT id
     FROM birthday_pages
     WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
       AND user_id = ${request.user!.id}
@@ -1108,35 +1139,9 @@ app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, respons
 
   const resolvedPageId = rows[0].id;
 
-  const messagePhotos = await sql`
-    SELECT bm.photo_url
-    FROM birthday_messages bm
-    INNER JOIN birthday_pages bp ON bp.id = bm.page_id
-    WHERE bp.id = ${resolvedPageId}
-      AND bp.user_id = ${request.user!.id}
-      AND bm.photo_url IS NOT NULL
-    UNION ALL
-    SELECT bm.audio_url AS photo_url
-    FROM birthday_messages bm
-    INNER JOIN birthday_pages bp ON bp.id = bm.page_id
-    WHERE bp.id = ${resolvedPageId}
-      AND bp.user_id = ${request.user!.id}
-      AND bm.audio_url IS NOT NULL
-    UNION ALL
-    SELECT bmp.photo_url
-    FROM birthday_message_photos bmp
-    INNER JOIN birthday_messages bm ON bm.id = bmp.message_id
-    INNER JOIN birthday_pages bp ON bp.id = bm.page_id
-    WHERE bp.id = ${resolvedPageId}
-      AND bp.user_id = ${request.user!.id}
-  `;
-
-  removeFileByUrl(rows[0].cover_photo_url);
-  removeFileByUrl(rows[0].custom_audio_url);
-  messagePhotos.forEach((row) => removeFileByUrl(row.photo_url));
-
   await sql`
-    DELETE FROM birthday_pages
+    UPDATE birthday_pages
+    SET owner_deleted = TRUE, updated_at = NOW()
     WHERE id = ${resolvedPageId}
       AND user_id = ${request.user!.id}
   `;

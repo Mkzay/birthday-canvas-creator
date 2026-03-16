@@ -152,6 +152,11 @@ export async function initializeDatabase() {
 
   await sql`
     ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS owner_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
     ADD COLUMN IF NOT EXISTS letter_color TEXT;
   `;
 

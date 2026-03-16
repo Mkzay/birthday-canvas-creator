@@ -174,7 +174,18 @@ const ContributePage = () => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      let mimeType = '';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')) {
+          mimeType = 'audio/mp4;codecs=mp4a.40.2';
+        } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        }
+      }
+
+      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -185,8 +196,10 @@ const ContributePage = () => {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioFile = new File([audioBlob], 'voice-note.webm', { type: 'audio/webm' });
+        const blobType = mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
+        const extension = blobType.startsWith('audio/mp4') ? 'm4a' : 'webm';
+        const audioFile = new File([audioBlob], `voice-note.${extension}`, { type: blobType });
         
         if (wishAudioPreviewUrl?.startsWith('blob:')) {
           URL.revokeObjectURL(wishAudioPreviewUrl);
@@ -688,6 +701,7 @@ const ContributePage = () => {
                       ref={audioInputRef}
                       type="file"
                       accept="audio/*"
+                      capture="user"
                       onChange={handleWishAudioSelect}
                       className="hidden"
                       disabled={!page.can_contribute}
