@@ -142,8 +142,14 @@ const ContributePage = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('audio/')) {
-      toast.error('Please select an audio file');
+    const mimeType = file.type.toLowerCase();
+    const isAudioLike =
+      mimeType.startsWith('audio/') ||
+      mimeType === 'video/3gpp' ||
+      mimeType === 'video/3gpp2';
+
+    if (!isAudioLike) {
+      toast.error('Please select an audio or voice-note file');
       event.target.value = '';
       return;
     }
@@ -705,7 +711,7 @@ const ContributePage = () => {
                     <input
                       ref={audioInputRef}
                       type="file"
-                      accept="audio/*"
+                      accept="audio/*,video/*"
                       onChange={handleWishAudioSelect}
                       className="hidden"
                       disabled={!page.can_contribute}

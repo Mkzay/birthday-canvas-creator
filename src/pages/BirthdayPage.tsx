@@ -96,28 +96,28 @@ type RevealSlide =
   | { id: string; kind: 'closing' };
 
 function getSlideDuration(slide: RevealSlide | undefined) {
-  if (!slide) return 4800;
+  if (!slide) return 6800;
 
   switch (slide.kind) {
     case 'cover':
-      return 5800;
+      return 7800;
     case 'stats':
-      return 5000;
+      return 7000;
     case 'organizer':
-      return 6200;
+      return 8200;
     case 'wish': {
       const photoCount = getMessagePhotos(slide.message).length;
       const hasAudio = Boolean(slide.message.audio_url);
-      if (hasAudio && photoCount >= 1) return 8600;
-      if (hasAudio) return 8000;
-      if (photoCount >= 3) return 7000;
-      if (photoCount >= 1) return 6200;
-      return 5400;
+      if (hasAudio && photoCount >= 1) return 10600;
+      if (hasAudio) return 10000;
+      if (photoCount >= 3) return 9000;
+      if (photoCount >= 1) return 8200;
+      return 7400;
     }
     case 'closing':
-      return 7200;
+      return 9200;
     default:
-      return 4800;
+      return 6800;
   }
 }
 
@@ -1014,6 +1014,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           }
         }}
         controls
+        playsInline
+        muted={false}
         className={className}
         src={src}
         preload="metadata"
@@ -1039,6 +1041,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         handleWishAudioStop(activeWishAudioId);
       }
       lastAutoPlayedWishIdRef.current = null;
+      return;
+    }
+
+    // On touch/mobile devices, rely on the user's tap to start audio
+    if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) {
       return;
     }
 

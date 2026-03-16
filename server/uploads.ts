@@ -43,7 +43,15 @@ function audioFileFilter(
   file: Express.Multer.File,
   callback: multer.FileFilterCallback,
 ) {
-  if (!file.mimetype.startsWith("audio/")) {
+  const type = file.mimetype.toLowerCase();
+
+  // Accept standard audio/* types plus common mobile voice-note formats
+  const isAudio =
+    type.startsWith("audio/") ||
+    type === "video/3gpp" ||
+    type === "video/3gpp2";
+
+  if (!isAudio) {
     callback(new Error("Only audio uploads are supported"));
     return;
   }
