@@ -1540,6 +1540,10 @@ app.get("/api/og/:id", async (request, response) => {
   }
 });
 
+app.use((_request, response) => {
+  response.status(404).json({ error: "Not found" });
+});
+
 app.use((error: Error, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   if (process.env.SENTRY_DSN) {
     Sentry.captureException(error);
