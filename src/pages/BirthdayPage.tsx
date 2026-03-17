@@ -1097,6 +1097,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const renderWishAudioPlayer = useCallback((message: Message, className?: string) => {
     const src = resolveAssetUrl(message.audio_url) || undefined;
     if (!src) return null;
+    const isCoarsePointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
     return (
       <div
@@ -1104,8 +1105,30 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
-        onTouchEnd={(e) => e.stopPropagation()}
       >
+        {isCoarsePointer && (
+          <button
+            type="button"
+            className={cn(
+              'w-full rounded-xl border border-white/45 bg-white/55 px-4 py-3 text-left text-sm font-semibold shadow-[0_12px_30px_rgba(18,18,23,0.10)]',
+              'transition-colors hover:bg-white/65',
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              const el = wishAudioRefs.current[message.id];
+              if (!el) return;
+              if (!el.paused) {
+                el.pause();
+                return;
+              }
+              void el.play().catch((err) => {
+                console.error('Voice note play failed', err);
+              });
+            }}
+          >
+            Tap to {activeWishAudioId === message.id ? 'pause' : 'play'} voice note
+          </button>
+        )}
         <audio
           ref={(element) => {
             if (element) {
@@ -1114,7 +1137,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
               delete wishAudioRefs.current[message.id];
             }
           }}
-          controls
+          controls={!isCoarsePointer}
           playsInline
           muted={false}
           className={className}
@@ -1128,7 +1151,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </audio>
       </div>
     );
-  }, [handleWishAudioPlay, handleWishAudioStop]);
+  }, [activeWishAudioId, handleWishAudioPlay, handleWishAudioStop]);
 
   useEffect(() => {
     const slide = activeSlide;
