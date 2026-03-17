@@ -660,31 +660,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const pauseSoundtrackForWishAudio = useCallback(() => {
     let hadPlayingSoundtrack = false;
 
-    // Avoid repeatedly ducking on incidental events.
+    // Avoid repeatedly stopping on incidental events.
     if (soundtrackWasDuckedRef.current) {
       shouldResumeSoundtrackRef.current = true;
       return;
     }
 
     if (presetControllerRef.current) {
-      // Best-effort: remember previous volume if supported.
-      if (presetPrevVolumeRef.current === null) {
-        presetPrevVolumeRef.current = 0.12;
-      }
-      // Duck very low so voice notes always cut through.
-      presetControllerRef.current.setVolume?.(0.003);
+      // Stop preset soundtrack so voice notes always cut through.
+      presetControllerRef.current.stop?.();
+      presetControllerRef.current = null;
+      presetPrevVolumeRef.current = null;
       hadPlayingSoundtrack = true;
     }
 
     const customAudio = soundtrackAudioRef.current;
     if (customAudio && !customAudio.paused && !customAudio.ended) {
-      // Duck background track instead of fully stopping.
-      // Only duck while the soundtrack is actually playing; on mobile, scroll/gesture can
-      // transiently toggle pause/buffer states and we don't want that to change volume.
-      if (soundtrackPrevVolumeRef.current === null) {
-        soundtrackPrevVolumeRef.current = customAudio.volume;
-      }
-      customAudio.volume = 0.01;
+      // Pause custom soundtrack (don't reset currentTime so it can resume).
+      customAudio.pause();
+      soundtrackPrevVolumeRef.current = null;
       hadPlayingSoundtrack = true;
     }
 
@@ -703,22 +697,20 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
     shouldResumeSoundtrackRef.current = false;
     soundtrackWasDuckedRef.current = false;
-    if (soundtrackAudioRef.current) {
-      const previous = soundtrackPrevVolumeRef.current;
-      soundtrackPrevVolumeRef.current = null;
-      soundtrackAudioRef.current.volume = previous ?? 0.45;
+    presetPrevVolumeRef.current = null;
+    soundtrackPrevVolumeRef.current = null;
+
+    const customAudio = soundtrackAudioRef.current;
+    if (customAudio && customAudio.paused && !customAudio.ended && customAudio.currentTime > 0) {
+      try {
+        await customAudio.play();
+        return;
+      } catch (error) {
+        console.error('Audio autoplay blocked', error);
+      }
     }
 
-    if (presetControllerRef.current) {
-      const previous = presetPrevVolumeRef.current;
-      presetPrevVolumeRef.current = null;
-      presetControllerRef.current.setVolume?.(previous ?? 0.12);
-      return;
-    }
-
-    if (!soundtrackAudioRef.current) {
-      await startSoundtrack(true);
-    }
+    await startSoundtrack(true);
   }, [showRevealIntro, startSoundtrack]);
 
   const toggleSavePage = useCallback(async () => {
@@ -943,25 +935,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const burstMessages = useMemo(() => messages.slice(0, 4), [messages]);
   const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
   const coverPhotoSrc = resolvedCoverPhotoUrl;
-  const [coverPhotoFit, setCoverPhotoFit] = useState<'cover' | 'contain'>('cover');
-
-  useEffect(() => {
-    if (!coverPhotoSrc) return;
-
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => {
-      const w = img.naturalWidth || 0;
-      const h = img.naturalHeight || 0;
-      if (!w || !h) return;
-
-      // The cover frame is ~4:5 (0.8). Portrait uploads (common on new pages)
-      // look "halved" with object-cover, so switch them to contain.
-      const ratio = w / h;
-      setCoverPhotoFit(ratio < 0.92 ? 'contain' : 'cover');
-    };
-    img.src = coverPhotoSrc;
-  }, [coverPhotoSrc]);
 
   const beginReveal = async () => {
     setHasTriggeredIntro(true);
@@ -1284,22 +1257,20 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const handleWishAudioPlay = useCallback((messageId: string) => {
     setActiveWishAudioId(messageId);
-    pauseSoundtrackForWishAudio();
 
     // On some mobile browsers, media events can fire during scroll/gesture without
-    // actual sustained playback. Confirm it's really playing; otherwise undo ducking.
+    // actual sustained playback. Confirm it's really playing; only then stop soundtrack.
     window.setTimeout(() => {
       const el = wishAudioRefs.current[messageId];
       if (!el) return;
-      if (!el.paused && !el.ended) return;
+      if (!el.paused && !el.ended) {
+        pauseSoundtrackForWishAudio();
+        return;
+      }
 
-      setActiveWishAudioId((currentId) => {
-        if (currentId !== messageId) return currentId;
-        void resumeSoundtrackAfterWishAudio();
-        return null;
-      });
+      setActiveWishAudioId((currentId) => (currentId === messageId ? null : currentId));
     }, 180);
-  }, [pauseSoundtrackForWishAudio, resumeSoundtrackAfterWishAudio]);
+  }, [pauseSoundtrackForWishAudio]);
 
   const handleWishAudioStop = useCallback((messageId: string) => {
     setActiveWishAudioId((currentId) => {
@@ -1823,10 +1794,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             <img
                               src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
                               alt={`${page.recipient_name}'s birthday cover`}
-                              className={cn(
-                                'absolute inset-0 h-full w-full',
-                                coverPhotoFit === 'contain' ? 'object-contain' : 'object-cover',
-                              )}
+                              className="absolute inset-0 h-full w-full object-cover"
                               decoding="async"
                               loading="eager"
                               draggable={false}
@@ -2201,10 +2169,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 <img
                                   src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
                                   alt={`${page.recipient_name}'s birthday cover`}
-                                  className={cn(
-                                    'absolute inset-0 h-full w-full',
-                                    coverPhotoFit === 'contain' ? 'object-contain' : 'object-cover',
-                                  )}
+                                  className="absolute inset-0 h-full w-full object-cover"
                                   decoding="async"
                                   loading="eager"
                                   draggable={false}
