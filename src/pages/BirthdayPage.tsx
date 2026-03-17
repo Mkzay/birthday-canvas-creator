@@ -1797,15 +1797,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     >
                       <div className="relative isolate aspect-[4/5] min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] sm:min-h-[24rem]">
                         {coverPhotoSrc ? (
-                          <img
-                            src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
-                            alt={`${page.recipient_name}'s birthday cover`}
-                            className="absolute inset-0 h-full w-full object-cover"
-                            decoding="async"
-                            loading="eager"
-                            draggable={false}
-                            style={{ objectPosition: 'center 28%' }}
-                          />
+                            <img
+                              src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
+                              alt={`${page.recipient_name}'s birthday cover`}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              decoding="async"
+                              loading="eager"
+                              draggable={false}
+                              style={{ objectPosition: 'center' }}
+                            />
                         ) : (
                           <div className="flex h-full items-center justify-center text-[5rem]">{theme.emoji}</div>
                         )}
@@ -2179,7 +2179,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   decoding="async"
                                   loading="eager"
                                   draggable={false}
-                                  style={{ objectPosition: 'center 28%' }}
+                                  style={{ objectPosition: 'center' }}
                                 />
                               ) : (
                                 <div className="flex h-full items-center justify-center text-[6rem] sm:text-[8rem]">
