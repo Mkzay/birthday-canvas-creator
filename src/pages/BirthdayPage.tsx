@@ -671,14 +671,18 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       if (presetPrevVolumeRef.current === null) {
         presetPrevVolumeRef.current = 0.12;
       }
-      presetControllerRef.current.setVolume?.(0.01);
+      // Duck very low so voice notes always cut through.
+      presetControllerRef.current.setVolume?.(0.003);
       hadPlayingSoundtrack = true;
     }
 
-    if (soundtrackAudioRef.current && !soundtrackAudioRef.current.paused) {
-      // Duck background track instead of fully stopping
-      soundtrackPrevVolumeRef.current = soundtrackAudioRef.current.volume;
-      soundtrackAudioRef.current.volume = 0.02;
+    if (soundtrackAudioRef.current) {
+      // Duck background track instead of fully stopping.
+      // Don't rely on `.paused` here — mobile browsers can transiently report paused during scroll/gesture.
+      if (soundtrackPrevVolumeRef.current === null) {
+        soundtrackPrevVolumeRef.current = soundtrackAudioRef.current.volume;
+      }
+      soundtrackAudioRef.current.volume = 0.01;
       hadPlayingSoundtrack = true;
     }
 
