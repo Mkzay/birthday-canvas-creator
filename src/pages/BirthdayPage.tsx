@@ -197,9 +197,10 @@ function MobileVoiceNoteControl({
     <div
       data-no-nav="true"
       className="w-full rounded-[1.25rem] border border-white/45 bg-white/55 p-4 text-left shadow-[0_12px_30px_rgba(18,18,23,0.10)]"
+      onPointerUp={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-foreground/90">Voice note</p>
         <p className="text-xs font-medium text-muted-foreground">
           {formatMediaTime(currentTime)} / {formatMediaTime(duration)}
         </p>
@@ -776,6 +777,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   useEffect(() => {
     if (showRevealIntro && shouldShowRevealExperience) {
+      // Avoid autoplay attempts on touch/mobile devices (will be blocked anyway).
+      if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) return;
       void startSoundtrack(true);
     }
   }, [shouldShowRevealExperience, showRevealIntro, startSoundtrack]);
@@ -1252,7 +1255,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         data-no-nav="true"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
       >
         {isCoarsePointer && (
           <MobileVoiceNoteControl
