@@ -22,6 +22,32 @@ const loadImage = (src: string) =>
     img.src = src;
   });
 
+const withAlpha = (color: string, alpha: number) => {
+  const a = Math.max(0, Math.min(1, alpha));
+  const c = (color || '').trim();
+
+  if (!c) return `rgba(0,0,0,${a})`;
+  if (c.startsWith('rgba(')) return c.replace(/rgba\(([^)]+),\s*[\d.]+\s*\)/, `rgba($1, ${a})`);
+  if (c.startsWith('rgb(')) return c.replace('rgb(', 'rgba(').replace(')', `, ${a})`);
+
+  const hex = c.startsWith('#') ? c.slice(1) : c;
+  if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+    const r = parseInt(hex[0] + hex[0], 16);
+    const g = parseInt(hex[1] + hex[1], 16);
+    const b = parseInt(hex[2] + hex[2], 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // Fallback: keep original (best-effort)
+  return c;
+};
+
 const BirthdayShareCard = ({
   recipientName,
   messageCount,
@@ -48,18 +74,28 @@ const BirthdayShareCard = ({
     canvas.width = width;
     canvas.height = height;
 
-    // Dashboard-style background wash (soft + airy)
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.roundRect(0, 0, width, height, radius);
-    ctx.fill();
-
     const a = themeColors[0] || '#fbbf24';
     const b = themeColors[1] || themeColors[0] || '#ec4899';
     const c = themeColors[2] || themeColors[1] || '#60a5fa';
 
+    // Bold theme-forward gradient background (not bland)
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, withAlpha(a, 0.95));
+    bg.addColorStop(0.48, withAlpha(b, 0.88));
+    bg.addColorStop(1, withAlpha(c, 0.9));
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, width, height, radius);
+    ctx.fill();
+
+    // Soft white veil so content stays readable (still colorful)
+    ctx.fillStyle = 'rgba(255,255,255,0.68)';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, width, height, radius);
+    ctx.fill();
+
     const wash1 = ctx.createRadialGradient(width * 0.18, height * 0.12, 10, width * 0.18, height * 0.12, width * 0.62);
-    wash1.addColorStop(0, `${a}2A`);
+    wash1.addColorStop(0, withAlpha(a, 0.38));
     wash1.addColorStop(1, 'transparent');
     ctx.fillStyle = wash1;
     ctx.beginPath();
@@ -67,7 +103,7 @@ const BirthdayShareCard = ({
     ctx.fill();
 
     const wash2 = ctx.createRadialGradient(width * 0.86, height * 0.14, 10, width * 0.86, height * 0.14, width * 0.58);
-    wash2.addColorStop(0, `${b}26`);
+    wash2.addColorStop(0, withAlpha(b, 0.34));
     wash2.addColorStop(1, 'transparent');
     ctx.fillStyle = wash2;
     ctx.beginPath();
@@ -75,7 +111,7 @@ const BirthdayShareCard = ({
     ctx.fill();
 
     const wash3 = ctx.createRadialGradient(width * 0.72, height * 0.88, 10, width * 0.72, height * 0.88, width * 0.6);
-    wash3.addColorStop(0, `${c}1F`);
+    wash3.addColorStop(0, withAlpha(c, 0.3));
     wash3.addColorStop(1, 'transparent');
     ctx.fillStyle = wash3;
     ctx.beginPath();
@@ -107,12 +143,32 @@ const BirthdayShareCard = ({
     const panelR = 70;
 
     ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.strokeStyle = 'rgba(226,232,240,0.95)';
+    // Slight theme tint on the border so it feels "themed"
+    const panelStroke = ctx.createLinearGradient(panelX, panelY, panelX + panelW, panelY + panelH);
+    panelStroke.addColorStop(0, withAlpha(a, 0.45));
+    panelStroke.addColorStop(0.5, 'rgba(226,232,240,0.95)');
+    panelStroke.addColorStop(1, withAlpha(c, 0.35));
+    ctx.strokeStyle = panelStroke;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(panelX, panelY, panelW, panelH, panelR);
     ctx.fill();
     ctx.stroke();
+
+    // Theme ribbon at top of panel (strong color presence)
+    const ribbonX = panelX + 18;
+    const ribbonY = panelY + 18;
+    const ribbonW = panelW - 36;
+    const ribbonH = 18;
+    const ribbonR = 999;
+    const ribbon = ctx.createLinearGradient(ribbonX, ribbonY, ribbonX + ribbonW, ribbonY + ribbonH);
+    ribbon.addColorStop(0, withAlpha(a, 0.9));
+    ribbon.addColorStop(0.52, withAlpha(b, 0.85));
+    ribbon.addColorStop(1, withAlpha(c, 0.9));
+    ctx.fillStyle = ribbon;
+    ctx.beginPath();
+    ctx.roundRect(ribbonX, ribbonY, ribbonW, ribbonH, ribbonR);
+    ctx.fill();
 
     // Brand row (logo + wordmark)
     try {
@@ -150,7 +206,11 @@ const BirthdayShareCard = ({
     const chipY = panelY + 164;
     const chipW = 230;
     const chipH = 52;
-    ctx.fillStyle = 'rgba(2,6,23,0.04)';
+    const chipGrad = ctx.createLinearGradient(chipX, chipY, chipX + chipW, chipY + chipH);
+    chipGrad.addColorStop(0, withAlpha(a, 0.22));
+    chipGrad.addColorStop(0.55, withAlpha(b, 0.18));
+    chipGrad.addColorStop(1, withAlpha(c, 0.2));
+    ctx.fillStyle = chipGrad;
     ctx.beginPath();
     ctx.roundRect(chipX, chipY, chipW, chipH, 999);
     ctx.fill();
@@ -178,8 +238,8 @@ const BirthdayShareCard = ({
 
     const drawPill = (x: number, gradFrom: string, gradTo: string, label: string, value: string) => {
       const g = ctx.createLinearGradient(x, pillY, x + pillW, pillY + pillH);
-      g.addColorStop(0, `${gradFrom}24`);
-      g.addColorStop(1, `${gradTo}18`);
+      g.addColorStop(0, withAlpha(gradFrom, 0.34));
+      g.addColorStop(1, withAlpha(gradTo, 0.26));
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.roundRect(x, pillY, pillW, pillH, pillR);
