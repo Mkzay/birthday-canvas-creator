@@ -1002,6 +1002,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }, [interactiveSelector]);
 
   const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const path = (event.nativeEvent as unknown as { composedPath?: () => EventTarget[] }).composedPath?.() ?? [];
+    if (path.some((node) => node instanceof HTMLAudioElement)) {
+      touchStartXRef.current = null;
+      ignoreTouchNavigationRef.current = false;
+      return;
+    }
+    if (path.some((node) => node instanceof Element && Boolean(node.closest?.('[data-no-nav="true"]')))) {
+      touchStartXRef.current = null;
+      ignoreTouchNavigationRef.current = false;
+      return;
+    }
     if (ignoreTouchNavigationRef.current) {
       ignoreTouchNavigationRef.current = false;
       touchStartXRef.current = null;
