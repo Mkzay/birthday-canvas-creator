@@ -1295,6 +1295,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }, [handleWishAudioPlay, handleWishAudioStop, pauseSoundtrackForWishAudio]);
 
   useEffect(() => {
+    // This effect is only valid for the desktop "activeSlide" reveal experience.
+    // On mobile we render a scrollable list of slides, so `activeSlide` does not
+    // represent the currently interacted wish card and would incorrectly stop audio.
+    if (!isDesktopReveal) {
+      return;
+    }
+
     const slide = activeSlide;
     if (!slide || slide.kind !== 'wish' || !slide.message?.audio_url) {
       // If we leave an audio slide, stop any active wish audio
@@ -1334,7 +1341,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       .catch((error) => {
         console.error('Wish audio autoplay blocked', error);
       });
-  }, [activeSlide, activeWishAudioId, handleWishAudioStop]);
+  }, [activeSlide, activeWishAudioId, handleWishAudioStop, isDesktopReveal]);
 
   useEffect(() => {
     if (!isDesktopReveal || !activeSlide) return;
