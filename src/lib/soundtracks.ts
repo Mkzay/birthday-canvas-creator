@@ -97,6 +97,7 @@ export const soundtrackMap = Object.fromEntries(soundtrackOptions.map((soundtrac
 
 export interface SoundtrackController {
   stop: () => void;
+  setVolume?: (volume: number) => void;
 }
 
 export function playPresetSoundtrack(soundtrackId: string, options?: { loop?: boolean; volume?: number }) {
@@ -116,7 +117,8 @@ export function playPresetSoundtrack(soundtrackId: string, options?: { loop?: bo
 
   const context = new AudioContextConstructor();
   const masterGain = context.createGain();
-  masterGain.gain.value = options?.volume ?? 0.12;
+  const initialVolume = options?.volume ?? 0.12;
+  masterGain.gain.value = initialVolume;
   masterGain.connect(context.destination);
 
   let intervalId: number | null = null;
@@ -162,6 +164,12 @@ export function playPresetSoundtrack(soundtrackId: string, options?: { loop?: bo
   }
 
   return {
+    setVolume: (volume: number) => {
+      if (stopped) return;
+      const v = Math.max(0, Math.min(1, volume));
+      masterGain.gain.cancelScheduledValues(context.currentTime);
+      masterGain.gain.setTargetAtTime(v, context.currentTime, 0.06);
+    },
     stop: () => {
       if (stopped) return;
       stopped = true;
