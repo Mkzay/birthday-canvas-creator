@@ -676,13 +676,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       hadPlayingSoundtrack = true;
     }
 
-    if (soundtrackAudioRef.current) {
+    const customAudio = soundtrackAudioRef.current;
+    if (customAudio && !customAudio.paused && !customAudio.ended) {
       // Duck background track instead of fully stopping.
-      // Don't rely on `.paused` here — mobile browsers can transiently report paused during scroll/gesture.
+      // Only duck while the soundtrack is actually playing; on mobile, scroll/gesture can
+      // transiently toggle pause/buffer states and we don't want that to change volume.
       if (soundtrackPrevVolumeRef.current === null) {
-        soundtrackPrevVolumeRef.current = soundtrackAudioRef.current.volume;
+        soundtrackPrevVolumeRef.current = customAudio.volume;
       }
-      soundtrackAudioRef.current.volume = 0.01;
+      customAudio.volume = 0.01;
       hadPlayingSoundtrack = true;
     }
 
@@ -841,6 +843,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       // Don't restart while a wish voice note is playing/active.
       if (activeWishAudioId) return;
       if (userPausedSoundtrackRef.current) return;
+      // If we're currently ducked for a voice note, don't fight it.
+      if (soundtrackWasDuckedRef.current || soundtrackPrevVolumeRef.current !== null || presetPrevVolumeRef.current !== null) return;
 
       const audio = soundtrackAudioRef.current;
       if (!audio) return;
@@ -939,6 +943,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const burstMessages = useMemo(() => messages.slice(0, 4), [messages]);
   const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
   const coverPhotoSrc = resolvedCoverPhotoUrl;
+  const [coverPhotoFit, setCoverPhotoFit] = useState<'cover' | 'contain'>('cover');
+
+  useEffect(() => {
+    if (!coverPhotoSrc) return;
+
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      const w = img.naturalWidth || 0;
+      const h = img.naturalHeight || 0;
+      if (!w || !h) return;
+
+      // The cover frame is ~4:5 (0.8). Portrait uploads (common on new pages)
+      // look "halved" with object-cover, so switch them to contain.
+      const ratio = w / h;
+      setCoverPhotoFit(ratio < 0.92 ? 'contain' : 'cover');
+    };
+    img.src = coverPhotoSrc;
+  }, [coverPhotoSrc]);
 
   const beginReveal = async () => {
     setHasTriggeredIntro(true);
@@ -1800,7 +1823,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             <img
                               src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
                               alt={`${page.recipient_name}'s birthday cover`}
-                              className="absolute inset-0 h-full w-full object-cover"
+                              className={cn(
+                                'absolute inset-0 h-full w-full',
+                                coverPhotoFit === 'contain' ? 'object-contain' : 'object-cover',
+                              )}
                               decoding="async"
                               loading="eager"
                               draggable={false}
@@ -2175,7 +2201,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 <img
                                   src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
                                   alt={`${page.recipient_name}'s birthday cover`}
-                                  className="absolute inset-0 h-full w-full object-cover"
+                                  className={cn(
+                                    'absolute inset-0 h-full w-full',
+                                    coverPhotoFit === 'contain' ? 'object-contain' : 'object-cover',
+                                  )}
                                   decoding="async"
                                   loading="eager"
                                   draggable={false}
