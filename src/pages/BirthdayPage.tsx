@@ -1256,10 +1256,18 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }, []);
 
   const handleWishAudioPlay = useCallback((messageId: string) => {
+    // On mobile, the MobileVoiceNoteControl button tap already calls pauseSoundtrackForWishAudio
+    // before play() is called, so we must not touch the soundtrack here at all.
+    // Spurious onPlay events from scroll/gesture on mobile must never affect the soundtrack.
+    const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+    if (isMobile) {
+      setActiveWishAudioId(messageId);
+      return;
+    }
+
     setActiveWishAudioId(messageId);
 
-    // On some mobile browsers, media events can fire during scroll/gesture without
-    // actual sustained playback. Confirm it's really playing; only then stop soundtrack.
+    // On desktop, confirm it's really playing before stopping the soundtrack.
     window.setTimeout(() => {
       const el = wishAudioRefs.current[messageId];
       if (!el) return;
