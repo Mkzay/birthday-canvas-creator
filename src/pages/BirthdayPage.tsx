@@ -973,6 +973,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     if (path.some((node) => node instanceof HTMLAudioElement)) {
       return;
     }
+    if (path.some((node) => node instanceof Element && Boolean(node.closest?.('[data-no-nav="true"]')))) {
+      return;
+    }
     if (target instanceof Element && target.closest(interactiveSelector)) {
       return;
     }
@@ -992,7 +995,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     const target = event.target;
     const path = (event.nativeEvent as unknown as { composedPath?: () => EventTarget[] }).composedPath?.() ?? [];
     ignoreTouchNavigationRef.current =
-      path.some((node) => node instanceof HTMLAudioElement) || (target instanceof Element && Boolean(target.closest(interactiveSelector)));
+      path.some((node) => node instanceof HTMLAudioElement) ||
+      path.some((node) => node instanceof Element && Boolean(node.closest?.('[data-no-nav="true"]'))) ||
+      (target instanceof Element && Boolean(target.closest(interactiveSelector)));
     touchStartXRef.current = event.changedTouches[0]?.clientX ?? null;
   }, [interactiveSelector]);
 
@@ -1083,7 +1088,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     if (!src) return null;
 
     return (
-      <div data-no-nav="true" onClickCapture={(e) => e.stopPropagation()} onTouchStartCapture={(e) => e.stopPropagation()}>
+      <div
+        data-no-nav="true"
+        onClickCapture={(e) => e.stopPropagation()}
+        onPointerDownCapture={(e) => e.stopPropagation()}
+        onTouchStartCapture={(e) => e.stopPropagation()}
+        onTouchEndCapture={(e) => e.stopPropagation()}
+      >
         <audio
           ref={(element) => {
             if (element) {
@@ -1437,56 +1448,58 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             </div>
           </div>
 
-          <div
-            className={cn(
-              'fixed inset-x-0 bottom-4 z-50 mx-auto flex w-full max-w-2xl items-center justify-center px-3',
-              'pointer-events-none',
-            )}
-            aria-hidden="true"
-          >
+          {!showRevealIntro && (
             <div
               className={cn(
-                'pointer-events-auto flex items-center gap-2 rounded-full border px-2.5 py-2 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl',
-                isDarkExperience ? 'border-white/18 bg-white/10 text-white' : 'border-white/70 bg-white/80 text-foreground',
+                'fixed inset-x-0 bottom-4 z-50 mx-auto flex w-full max-w-2xl items-center justify-center px-3',
+                'pointer-events-none',
               )}
-              data-no-nav="true"
+              aria-hidden="true"
             >
-              <button
-                type="button"
-                onClick={() => setShowShareCard(true)}
+              <div
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-                  isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                'pointer-events-auto flex items-center gap-2 rounded-full border px-2.5 py-0.5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl',
+                  isDarkExperience ? 'border-white/18 bg-white/10 text-white' : 'border-white/70 bg-white/80 text-foreground',
                 )}
+                data-no-nav="true"
               >
-                <Share2 className="h-4 w-4" />
-                Share
-              </button>
-              <div className={cn('h-7 w-px', isDarkExperience ? 'bg-white/15' : 'bg-black/10')} />
-              <button
-                type="button"
-                onClick={() => void startSoundtrack(true)}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-                  isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
-                )}
-              >
-                <Music4 className="h-4 w-4" />
-                Play
-              </button>
-              <button
-                type="button"
-                onClick={stopSoundtrack}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-                  isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
-                )}
-              >
-                <Volume2 className="h-4 w-4" />
-                Pause
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowShareCard(true)}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-semibold transition-colors',
+                    isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                  )}
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </button>
+                <div className={cn('h-7 w-px', isDarkExperience ? 'bg-white/15' : 'bg-black/10')} />
+                <button
+                  type="button"
+                  onClick={() => void startSoundtrack(true)}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-semibold transition-colors',
+                    isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                  )}
+                >
+                  <Music4 className="h-4 w-4" />
+                  Play
+                </button>
+                <button
+                  type="button"
+                  onClick={stopSoundtrack}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-semibold transition-colors',
+                    isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                  )}
+                >
+                  <Volume2 className="h-4 w-4" />
+                  Pause
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {revealSlides.map((slide, index) => (
             <React.Fragment key={slide.id}>
@@ -1778,12 +1791,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
               ))}
             </div>
 
-            <div className="hidden items-center gap-2 sm:flex" data-no-nav="true">
+            {!showRevealIntro && (
+              <div className="hidden items-center gap-2 sm:flex" data-no-nav="true">
               <button
                 type="button"
                 onClick={() => setShowShareCard(true)}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                  'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
                   isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
                 )}
               >
@@ -1794,7 +1808,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 type="button"
                 onClick={() => void startSoundtrack(true)}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                  'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
                   isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
                 )}
               >
@@ -1805,7 +1819,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 type="button"
                 onClick={stopSoundtrack}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                  'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
                   isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
                 )}
               >
@@ -1828,7 +1842,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   }
                 }}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                  'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
                   user && isSaved
                     ? isDarkExperience
                       ? 'bg-emerald-500/90 text-white hover:bg-emerald-500'
@@ -1841,7 +1855,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 <Heart className={cn('h-4 w-4', user && isSaved ? 'fill-current' : '')} />
                 {user ? (isSaved ? 'Saved' : 'Save to dashboard') : 'Save to my dashboard'}
               </button>
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-3 flex flex-col gap-2 sm:mt-4 sm:flex-row sm:items-center sm:justify-between">
