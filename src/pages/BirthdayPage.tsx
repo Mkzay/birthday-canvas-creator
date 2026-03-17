@@ -452,6 +452,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const soundtrackAudioRef = useRef<HTMLAudioElement | null>(null);
   const presetControllerRef = useRef<SoundtrackController | null>(null);
   const shouldResumeSoundtrackRef = useRef(false);
+  const userPausedSoundtrackRef = useRef(false);
   const touchStartXRef = useRef<number | null>(null);
   const ignoreTouchNavigationRef = useRef(false);
   const mobileRevealRef = useRef<HTMLDivElement | null>(null);
@@ -461,19 +462,20 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
   const stopSoundtrack = useCallback(() => {
+    userPausedSoundtrackRef.current = true;
     shouldResumeSoundtrackRef.current = false;
     presetControllerRef.current?.stop();
     presetControllerRef.current = null;
 
     if (soundtrackAudioRef.current) {
       soundtrackAudioRef.current.pause();
-      soundtrackAudioRef.current.currentTime = 0;
     }
   }, []);
 
   const startSoundtrack = useCallback(
     async (withLoop = true) => {
       if (!page) return;
+      userPausedSoundtrackRef.current = false;
 
       presetControllerRef.current?.stop();
       presetControllerRef.current = null;
@@ -523,6 +525,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const resumeSoundtrackAfterWishAudio = useCallback(async () => {
     if (!shouldResumeSoundtrackRef.current || showRevealIntro) {
+      return;
+    }
+    if (userPausedSoundtrackRef.current) {
+      shouldResumeSoundtrackRef.current = false;
       return;
     }
 
@@ -625,6 +631,47 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       void startSoundtrack(true);
     }
   }, [shouldShowRevealExperience, showRevealIntro, startSoundtrack]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!page?.is_revealed) return;
+    if (showRevealIntro) return;
+
+    const audio = soundtrackAudioRef.current;
+    if (!audio) return;
+
+    const handleEnded = () => {
+      // If a wish voice note is active, don't fight it.
+      if (activeWishAudioId) return;
+      if (userPausedSoundtrackRef.current) return;
+      void startSoundtrack(true);
+    };
+
+    audio.addEventListener('ended', handleEnded);
+    return () => audio.removeEventListener('ended', handleEnded);
+  }, [activeWishAudioId, page?.is_revealed, showRevealIntro, startSoundtrack]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!page?.is_revealed) return;
+    if (showRevealIntro) return;
+
+    const watchdogId = window.setInterval(() => {
+      // Don't restart while a wish voice note is playing/active.
+      if (activeWishAudioId) return;
+      if (userPausedSoundtrackRef.current) return;
+
+      const audio = soundtrackAudioRef.current;
+      if (!audio) return;
+
+      // If the soundtrack stops unexpectedly during playback, restart it.
+      if (audio.paused && audio.currentTime > 0) {
+        void startSoundtrack(true);
+      }
+    }, 4000);
+
+    return () => window.clearInterval(watchdogId);
+  }, [activeWishAudioId, page?.is_revealed, showRevealIntro, startSoundtrack]);
 
   useEffect(() => {
     return () => {
@@ -1394,7 +1441,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
               )}
             >
               <Volume2 className="h-4 w-4" />
-              Stop
+              Pause
             </button>
           </div>
 
@@ -1716,7 +1763,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 )}
               >
                 <Volume2 className="h-4 w-4" />
-                Stop
+                Pause
               </button>
               <button
                 type="button"
@@ -2013,6 +2060,24 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   : photoIndex === 1
                                     ? 'h-full min-h-0 rotate-[1deg]'
                                     : 'h-full min-h-0 rotate-[-1deg]',
+                              ),
+                            )}
+                          </div>
+                        );
+                      } else if (photoCount === 4) {
+                        photoLayout = (
+                          <div className="grid grid-cols-2 grid-rows-2 gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0">
+                            {wishPhotos.map((photo) => renderPhotoCard(photo, 'h-full min-h-0', 'aspect-square'))}
+                          </div>
+                        );
+                      } else if (photoCount === 5) {
+                        photoLayout = (
+                          <div className="grid grid-cols-2 gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0 lg:grid-cols-3 lg:grid-rows-2">
+                            {wishPhotos.map((photo, photoIndex) =>
+                              renderPhotoCard(
+                                photo,
+                                photoIndex === 4 ? 'h-full min-h-0 lg:row-span-2' : 'h-full min-h-0',
+                                photoIndex === 4 ? 'aspect-[4/5] lg:aspect-auto lg:h-full' : 'aspect-[4/5]',
                               ),
                             )}
                           </div>
