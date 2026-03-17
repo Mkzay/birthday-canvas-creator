@@ -1262,7 +1262,21 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const handleWishAudioPlay = useCallback((messageId: string) => {
     setActiveWishAudioId(messageId);
     pauseSoundtrackForWishAudio();
-  }, [pauseSoundtrackForWishAudio]);
+
+    // On some mobile browsers, media events can fire during scroll/gesture without
+    // actual sustained playback. Confirm it's really playing; otherwise undo ducking.
+    window.setTimeout(() => {
+      const el = wishAudioRefs.current[messageId];
+      if (!el) return;
+      if (!el.paused && !el.ended) return;
+
+      setActiveWishAudioId((currentId) => {
+        if (currentId !== messageId) return currentId;
+        void resumeSoundtrackAfterWishAudio();
+        return null;
+      });
+    }, 180);
+  }, [pauseSoundtrackForWishAudio, resumeSoundtrackAfterWishAudio]);
 
   const handleWishAudioStop = useCallback((messageId: string) => {
     setActiveWishAudioId((currentId) => {
