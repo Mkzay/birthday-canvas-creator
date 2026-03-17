@@ -730,6 +730,31 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     return messages.filter((message) => Boolean(message.audio_url)).length;
   }, [messages]);
 
+  const contributorNames = useMemo(() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+
+    for (const message of messages) {
+      const raw = message.sender_name?.trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(raw);
+    }
+
+    return names;
+  }, [messages]);
+
+  const contributorCount = contributorNames.length;
+  const contributorLine = useMemo(() => {
+    if (!contributorCount) return null;
+    if (contributorCount === 1) return contributorNames[0];
+    if (contributorCount === 2) return `${contributorNames[0]} and ${contributorNames[1]}`;
+    if (contributorCount === 3) return `${contributorNames[0]}, ${contributorNames[1]}, and ${contributorNames[2]}`;
+    return `${contributorNames[0]}, ${contributorNames[1]}, ${contributorNames[2]}, and ${contributorCount - 3} more`;
+  }, [contributorCount, contributorNames]);
+
   const burstMessages = useMemo(() => messages.slice(0, 4), [messages]);
   const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
   const coverPhotoSrc = resolvedCoverPhotoUrl;
@@ -1547,7 +1572,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   <div className="space-y-4">
                     <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(30, getStoryMotionDuration(slide))}>
                       <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>The shape of the celebration</p>
-                      <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[0.98]', theme.titleClass, theme.font)}>Collected with love.</h2>
+                      <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[0.98]', theme.titleClass, theme.font)}>
+                        Collected with love.
+                      </h2>
                       <p className={cn('mt-3 text-sm leading-relaxed opacity-80', theme.text)}>
                         Before the story started, people left little pieces of themselves here. This is what made it into the envelope.
                       </p>
@@ -1693,7 +1720,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       </div>
                     </article>
                     <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4 text-left', keepsakeSoftClass)} style={getStoryDelayStyle(220, 760)}>
-                      <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>From everyone who wrote tonight</p>
+                      <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>
+                        Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}
+                      </p>
                       <p className={cn('mt-3 text-lg leading-relaxed', theme.text)}>
                         Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                       </p>
@@ -2266,6 +2295,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             <p className={cn('mt-4 text-lg leading-relaxed sm:text-[1.15rem]', theme.text)}>
                               Happy birthday, {page.recipient_name}. This story was worth making because you were worth gathering for.
                             </p>
+                            {contributorLine && (
+                              <p className={cn('mt-3 text-sm leading-relaxed opacity-75', theme.text)}>
+                                {contributorLine}.
+                              </p>
+                            )}
                           </article>
                         </div>
                       </div>
