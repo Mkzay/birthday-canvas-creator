@@ -9,6 +9,7 @@ interface BirthdayShareCardProps {
   messageCount: number;
   themeEmoji: string;
   themeColors: readonly string[];
+  shareUrl: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -53,6 +54,7 @@ const BirthdayShareCard = ({
   messageCount,
   themeEmoji,
   themeColors,
+  shareUrl,
   open,
   onOpenChange,
 }: BirthdayShareCardProps) => {
@@ -327,13 +329,14 @@ const BirthdayShareCard = ({
     // First trigger download so user has the image
     handleDownload();
     
-    const message = `I received ${messageCount} birthday wishes! 🎂🎉`;
+    const message = `I received ${messageCount} birthday wishes! 🎂🎉 ${shareUrl}`;
     const encodedMessage = encodeURIComponent(message);
+    const encodedUrl = encodeURIComponent(shareUrl);
     
     const urls = {
       whatsapp: `https://wa.me/?text=${encodedMessage}`,
-      twitter: `https://twitter.com/intent/tweet?text=${encodedMessage}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?quote=${encodedMessage}`,
+      twitter: `https://twitter.com/intent/tweet?text=${encodedMessage}&url=${encodedUrl}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedMessage}`,
     };
     
     window.open(urls[platform], '_blank', 'noopener,noreferrer,width=600,height=400');

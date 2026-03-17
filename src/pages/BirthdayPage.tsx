@@ -969,6 +969,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const handleStageClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target;
+    const path = (event.nativeEvent as unknown as { composedPath?: () => EventTarget[] }).composedPath?.() ?? [];
+    if (path.some((node) => node instanceof HTMLAudioElement)) {
+      return;
+    }
     if (target instanceof Element && target.closest(interactiveSelector)) {
       return;
     }
@@ -986,7 +990,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     const target = event.target;
-    ignoreTouchNavigationRef.current = target instanceof Element && Boolean(target.closest(interactiveSelector));
+    const path = (event.nativeEvent as unknown as { composedPath?: () => EventTarget[] }).composedPath?.() ?? [];
+    ignoreTouchNavigationRef.current =
+      path.some((node) => node instanceof HTMLAudioElement) || (target instanceof Element && Boolean(target.closest(interactiveSelector)));
     touchStartXRef.current = event.changedTouches[0]?.clientX ?? null;
   }, [interactiveSelector]);
 
@@ -1077,26 +1083,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     if (!src) return null;
 
     return (
-      <audio
-        ref={(element) => {
-          if (element) {
-            wishAudioRefs.current[message.id] = element;
-          } else {
-            delete wishAudioRefs.current[message.id];
-          }
-        }}
-        controls
-        playsInline
-        muted={false}
-        className={className}
-        src={src}
-        preload="metadata"
-        onPlay={() => handleWishAudioPlay(message.id)}
-        onPause={() => handleWishAudioStop(message.id)}
-        onEnded={() => handleWishAudioStop(message.id)}
-      >
-        Your browser does not support audio playback.
-      </audio>
+      <div data-no-nav="true" onClickCapture={(e) => e.stopPropagation()} onTouchStartCapture={(e) => e.stopPropagation()}>
+        <audio
+          ref={(element) => {
+            if (element) {
+              wishAudioRefs.current[message.id] = element;
+            } else {
+              delete wishAudioRefs.current[message.id];
+            }
+          }}
+          controls
+          playsInline
+          muted={false}
+          className={className}
+          src={src}
+          preload="metadata"
+          onPlay={() => handleWishAudioPlay(message.id)}
+          onPause={() => handleWishAudioStop(message.id)}
+          onEnded={() => handleWishAudioStop(message.id)}
+        >
+          Your browser does not support audio playback.
+        </audio>
+      </div>
     );
   }, [handleWishAudioPlay, handleWishAudioStop]);
 
@@ -1414,7 +1422,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       )}
 
       <section className="relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden">
-        <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-10">
+        <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-28">
           <div className="story-scroll-reveal flex items-start justify-between gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
             <div>
               <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
@@ -1430,44 +1438,54 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           </div>
 
           <div
-            className="story-scroll-reveal flex flex-wrap gap-2"
-            data-no-nav="true"
-            data-scroll-reveal="true"
-            style={getStoryDelayStyle(80)}
+            className={cn(
+              'fixed inset-x-0 bottom-4 z-50 mx-auto flex w-full max-w-2xl items-center justify-center px-3',
+              'pointer-events-none',
+            )}
+            aria-hidden="true"
           >
-            <button
-              type="button"
-              onClick={() => setShowShareCard(true)}
+            <div
               className={cn(
-                'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
+                'pointer-events-auto flex items-center gap-2 rounded-full border px-2.5 py-2 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl',
+                isDarkExperience ? 'border-white/18 bg-white/10 text-white' : 'border-white/70 bg-white/80 text-foreground',
               )}
+              data-no-nav="true"
             >
-              <Share2 className="h-4 w-4" />
-              Share
-            </button>
-            <button
-              type="button"
-              onClick={() => void startSoundtrack(true)}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-              )}
-            >
-              <Music4 className="h-4 w-4" />
-              Play
-            </button>
-            <button
-              type="button"
-              onClick={stopSoundtrack}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-              )}
-            >
-              <Volume2 className="h-4 w-4" />
-              Pause
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowShareCard(true)}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+                  isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                )}
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </button>
+              <div className={cn('h-7 w-px', isDarkExperience ? 'bg-white/15' : 'bg-black/10')} />
+              <button
+                type="button"
+                onClick={() => void startSoundtrack(true)}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+                  isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                )}
+              >
+                <Music4 className="h-4 w-4" />
+                Play
+              </button>
+              <button
+                type="button"
+                onClick={stopSoundtrack}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
+                  isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                )}
+              >
+                <Volume2 className="h-4 w-4" />
+                Pause
+              </button>
+            </div>
           </div>
 
           {revealSlides.map((slide, index) => (
@@ -2338,6 +2356,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         messageCount={messages.length}
         themeEmoji={theme.emoji}
         themeColors={theme.colors}
+        shareUrl={typeof window === 'undefined' ? '' : window.location.href}
         open={showShareCard}
         onOpenChange={setShowShareCard}
       />

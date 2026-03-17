@@ -34,6 +34,13 @@ const SeoController = () => {
   const location = useLocation();
 
   useEffect(() => {
+    const upsertMeta = (selector: string, attrName: string, attrValue: string, content: string) => {
+      const existing = document.querySelector(selector) || document.createElement("meta");
+      existing.setAttribute(attrName, attrValue);
+      existing.setAttribute("content", content);
+      document.head.appendChild(existing);
+    };
+
     const robots = document.querySelector('meta[name="robots"]') || document.createElement("meta");
     robots.setAttribute("name", "robots");
     document.head.appendChild(robots);
@@ -48,11 +55,21 @@ const SeoController = () => {
 
     const origin = window.location.origin;
     const pathname = location.pathname;
+    const url = `${origin}${pathname}`;
 
     if (pathname === "/") {
       setTitle("Create collaborative birthday surprises");
       robots.setAttribute("content", "index,follow");
       canonical.setAttribute("href", `${origin}/`);
+      upsertMeta('meta[property="og:title"]', "property", "og:title", `Create collaborative birthday surprises | ${APP_NAME}`);
+      upsertMeta('meta[property="og:description"]', "property", "og:description", "Create a collaborative birthday page with wishes, photos, and voice notes.");
+      upsertMeta('meta[property="og:url"]', "property", "og:url", `${origin}/`);
+      upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
+      upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
+      upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", `Create collaborative birthday surprises | ${APP_NAME}`);
+      upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", "Create a collaborative birthday page with wishes, photos, and voice notes.");
+      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/wish-canvas-logo.png`);
       return;
     }
 
@@ -60,6 +77,15 @@ const SeoController = () => {
       setTitle("Add your birthday wish");
       robots.setAttribute("content", "noindex,nofollow");
       canonical.setAttribute("href", `${origin}${pathname}`);
+      upsertMeta('meta[property="og:title"]', "property", "og:title", `Add your birthday wish | ${APP_NAME}`);
+      upsertMeta('meta[property="og:description"]', "property", "og:description", "Add a wish, photo, or voice note to the birthday story.");
+      upsertMeta('meta[property="og:url"]', "property", "og:url", url);
+      upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
+      upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
+      upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", `Add your birthday wish | ${APP_NAME}`);
+      upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", "Add a wish, photo, or voice note to the birthday story.");
+      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/wish-canvas-logo.png`);
       return;
     }
 
@@ -67,6 +93,15 @@ const SeoController = () => {
       setTitle("Happy Birthday!");
       robots.setAttribute("content", "noindex,nofollow");
       canonical.setAttribute("href", `${origin}${pathname}`);
+      upsertMeta('meta[property="og:title"]', "property", "og:title", `Happy Birthday! | ${APP_NAME}`);
+      upsertMeta('meta[property="og:description"]', "property", "og:description", "Open the birthday story: wishes, photos, and voice notes in one replayable link.");
+      upsertMeta('meta[property="og:url"]', "property", "og:url", url);
+      upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
+      upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
+      upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", `Happy Birthday! | ${APP_NAME}`);
+      upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", "Open the birthday story: wishes, photos, and voice notes in one replayable link.");
+      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/wish-canvas-logo.png`);
       return;
     }
 
@@ -80,6 +115,15 @@ const SeoController = () => {
     setTitle("WishCanvas");
     robots.setAttribute("content", "noindex,nofollow");
     canonical.setAttribute("href", `${origin}${pathname}`);
+    upsertMeta('meta[property="og:title"]', "property", "og:title", `${APP_NAME}`);
+    upsertMeta('meta[property="og:description"]', "property", "og:description", "Birthday wishes, photos, and voice notes—beautifully delivered.");
+    upsertMeta('meta[property="og:url"]', "property", "og:url", url);
+    upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
+    upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/wish-canvas-logo.png`);
+    upsertMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
+    upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", `${APP_NAME}`);
+    upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", "Birthday wishes, photos, and voice notes—beautifully delivered.");
+    upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/wish-canvas-logo.png`);
   }, [location.pathname]);
 
   return null;
