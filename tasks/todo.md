@@ -16,9 +16,14 @@ All UX & Design backlog items from this plan have been implemented in code.
 6. **#13 Social previews** – Done. Dynamic `/api/og/:id` + `/api/og-image/:id` endpoints, SVG OG image, and `vercel.json` rewrites for bot user-agents.
 7. **#8 More personalized messages** – Done. Rich text editor on `ContributePage`, rotating placeholders, sanitized HTML storage, and rich-text rendering on `BirthdayPage`.
 8. **#17 Audio plays from letter** – Done. Opening soundtrack controls on the birthday page wired so audio plays from the letter experience when enabled.
+9. **Dashboard refresh (new mock)** – In progress.
+   - Update `src/pages/Dashboard.tsx` layout to match mock (hero + stacked stat pills + simplified page cards)
+   - Keep existing colors/tokens, logo + header, icons, and page-fetch logic/handlers
+   - Verify responsiveness (mobile → desktop) and no regressions to delete/share/search flows
 
 ## Verification
 
 - For #33: Open share card dialog on a birthday page → check contrast, readability, download/copy still work.
 - For #5: Open /themes → create theme → verify all 10 fonts render in preview, midpoint/angle/accent persist on save/edit. Apply custom theme to a page → verify gradient + font on BirthdayPage.
+- For Dashboard refresh: Open `/dashboard` with live pages + archived pages + saved pages → confirm stats match, search works, preview/edit links work, actions menu works, and layout matches mock.
 - Re-read plan after each item; update this file when scope changes.

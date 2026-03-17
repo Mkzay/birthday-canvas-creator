@@ -13,6 +13,15 @@ interface BirthdayShareCardProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const loadImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+    img.src = src;
+  });
+
 const BirthdayShareCard = ({
   recipientName,
   messageCount,
@@ -25,7 +34,7 @@ const BirthdayShareCard = ({
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const drawCard = useCallback(() => {
+  const drawCard = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
@@ -39,25 +48,45 @@ const BirthdayShareCard = ({
     canvas.width = width;
     canvas.height = height;
 
-    // Gradient background – soft bokeh wash
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, themeColors[0] || '#f9a8d4');
-    gradient.addColorStop(0.45, themeColors[1] || themeColors[0] || '#a855f7');
-    gradient.addColorStop(1, themeColors[2] || themeColors[1] || '#38bdf8');
-
-    ctx.fillStyle = gradient;
+    // Dashboard-style background wash (soft + airy)
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.roundRect(0, 0, width, height, radius);
     ctx.fill();
 
-    // Subtle vignette for depth (radial overlay)
-    const vignette = ctx.createRadialGradient(
-      width / 2, height / 2, width * 0.2,
-      width / 2, height / 2, width * 0.85
-    );
+    const a = themeColors[0] || '#fbbf24';
+    const b = themeColors[1] || themeColors[0] || '#ec4899';
+    const c = themeColors[2] || themeColors[1] || '#60a5fa';
+
+    const wash1 = ctx.createRadialGradient(width * 0.18, height * 0.12, 10, width * 0.18, height * 0.12, width * 0.62);
+    wash1.addColorStop(0, `${a}2A`);
+    wash1.addColorStop(1, 'transparent');
+    ctx.fillStyle = wash1;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, width, height, radius);
+    ctx.fill();
+
+    const wash2 = ctx.createRadialGradient(width * 0.86, height * 0.14, 10, width * 0.86, height * 0.14, width * 0.58);
+    wash2.addColorStop(0, `${b}26`);
+    wash2.addColorStop(1, 'transparent');
+    ctx.fillStyle = wash2;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, width, height, radius);
+    ctx.fill();
+
+    const wash3 = ctx.createRadialGradient(width * 0.72, height * 0.88, 10, width * 0.72, height * 0.88, width * 0.6);
+    wash3.addColorStop(0, `${c}1F`);
+    wash3.addColorStop(1, 'transparent');
+    ctx.fillStyle = wash3;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, width, height, radius);
+    ctx.fill();
+
+    // Gentle vignette for depth
+    const vignette = ctx.createRadialGradient(width / 2, height / 2, width * 0.25, width / 2, height / 2, width * 0.9);
     vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(0.7, 'transparent');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.12)');
+    vignette.addColorStop(0.85, 'transparent');
+    vignette.addColorStop(1, 'rgba(2,6,23,0.10)');
     ctx.fillStyle = vignette;
     ctx.beginPath();
     ctx.roundRect(0, 0, width, height, radius);
@@ -70,106 +99,123 @@ const BirthdayShareCard = ({
     ctx.roundRect(1, 1, width - 2, height - 2, radius - 1);
     ctx.stroke();
 
-    // Inner card – centered keepsake layout
-    const cardWidth = width - 260;
-    const cardHeight = height - 260;
-    const cardX = (width - cardWidth) / 2;
-    const cardY = (height - cardHeight) / 2;
-    const cardRadius = 60;
+    // Center panel
+    const panelX = 90;
+    const panelY = 120;
+    const panelW = width - 180;
+    const panelH = height - 220;
+    const panelR = 70;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.96)';
-    ctx.strokeStyle = 'rgba(226,232,240,0.9)';
-    ctx.lineWidth = 1.5;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.strokeStyle = 'rgba(226,232,240,0.95)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(cardX, cardY, cardWidth, cardHeight, cardRadius);
+    ctx.roundRect(panelX, panelY, panelW, panelH, panelR);
     ctx.fill();
     ctx.stroke();
 
-    // Emoji avatar
-    const avatarRadius = 58;
-    const avatarCx = cardX + 120;
-    const avatarCy = cardY + 140;
+    // Brand row (logo + wordmark)
+    try {
+      const logo = await loadImage('/wish-canvas-logo.png');
+      const markSize = 74;
+      const markX = panelX + 62;
+      const markY = panelY + 54;
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(markX, markY, markSize, markSize, 26);
+      ctx.clip();
+      ctx.drawImage(logo, markX, markY, markSize, markSize);
+      ctx.restore();
+
+      ctx.textAlign = 'left';
+      ctx.font = '800 44px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(2,6,23,0.92)';
+      ctx.fillText('WishCanvas', markX + markSize + 22, markY + 52);
+      ctx.font = '600 18px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(100,116,139,0.96)';
+      ctx.fillText('Birthday wishes', markX + markSize + 22, markY + 80);
+    } catch {
+      // If logo fails to load, still render cleanly with text fallback.
+      ctx.textAlign = 'left';
+      ctx.font = '800 44px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(2,6,23,0.92)';
+      ctx.fillText('WishCanvas', panelX + 62, panelY + 106);
+      ctx.font = '600 18px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(100,116,139,0.96)';
+      ctx.fillText('Birthday wishes', panelX + 62, panelY + 134);
+    }
+
+    // Accent chip (theme emoji)
+    const chipX = panelX + 62;
+    const chipY = panelY + 164;
+    const chipW = 230;
+    const chipH = 52;
+    ctx.fillStyle = 'rgba(2,6,23,0.04)';
     ctx.beginPath();
-    ctx.fillStyle = 'rgba(248,250,252,1)';
-    ctx.arc(avatarCx, avatarCy, avatarRadius, 0, Math.PI * 2);
+    ctx.roundRect(chipX, chipY, chipW, chipH, 999);
     ctx.fill();
-    ctx.font = '72px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(15,23,42,0.96)';
-    ctx.fillText(themeEmoji, avatarCx, avatarCy + 26);
-
-    // Text block
-    const textLeft = avatarCx + avatarRadius + 40;
-    const contentTop = cardY + 92;
-
+    ctx.font = '600 20px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(15,23,42,0.9)';
     ctx.textAlign = 'left';
-    // Script subheading (handwritten accent)
-    ctx.font = 'italic 26px "DM Serif Display", system-ui, -apple-system, serif';
-    ctx.fillStyle = 'rgba(148,163,184,0.95)';
-    ctx.fillText("Birthday playback", textLeft, contentTop);
+    ctx.fillText(`${themeEmoji}  Birthday card`, chipX + 18, chipY + 34);
 
-    // Main heading
-    ctx.font = '800 60px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = 'rgba(15,23,42,0.98)';
-    const clippedName = recipientName.length > 18 ? `${recipientName.slice(0, 15)}…` : recipientName;
-    ctx.fillText(`For ${clippedName}`, textLeft, contentTop + 70);
+    // Main title
+    const clippedName = recipientName.length > 24 ? `${recipientName.slice(0, 22)}…` : recipientName;
+    ctx.font = '900 78px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(2,6,23,0.94)';
+    ctx.fillText(`For ${clippedName}`, panelX + 60, panelY + 330);
 
-    // Body copy
-    ctx.font = '400 26px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = 'rgba(51,65,85,0.9)';
-    ctx.fillText('A whole page of birthday wishes in one link.', textLeft, contentTop + 118);
+    ctx.font = '500 28px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(51,65,85,0.92)';
+    ctx.fillText('A whole page of birthday wishes in one link.', panelX + 62, panelY + 385);
 
-    // Single stats line
-    const statsY = contentTop + 178;
-    const statsText = `${messageCount} wish${messageCount === 1 ? '' : 'es'}, photos & voice notes gathered here.`;
-    ctx.font = '500 22px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = 'rgba(71,85,105,0.95)';
-    ctx.fillText(statsText, textLeft, statsY);
+    // Stat pills (match dashboard feel)
+    const pillY = panelY + 440;
+    const pillH = 92;
+    const pillR = 36;
+    const pillGap = 22;
+    const pillW = (panelW - 124 - pillGap) / 2;
 
-    // Polaroid-style keepsake block on the right
-    const polaroidWidth = 320;
-    const polaroidHeight = 360;
-    const polaroidX = cardX + cardWidth - polaroidWidth - 80;
-    const polaroidY = cardY + 130;
+    const drawPill = (x: number, gradFrom: string, gradTo: string, label: string, value: string) => {
+      const g = ctx.createLinearGradient(x, pillY, x + pillW, pillY + pillH);
+      g.addColorStop(0, `${gradFrom}24`);
+      g.addColorStop(1, `${gradTo}18`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.roundRect(x, pillY, pillW, pillH, pillR);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(226,232,240,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
-    ctx.fillStyle = 'rgba(248,250,252,1)';
-    ctx.strokeStyle = 'rgba(226,232,240,0.9)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(polaroidX, polaroidY, polaroidWidth, polaroidHeight, 32);
-    ctx.fill();
-    ctx.stroke();
+      ctx.textAlign = 'left';
+      ctx.font = '800 34px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(2,6,23,0.92)';
+      ctx.fillText(value, x + 28, pillY + 52);
+      ctx.font = '600 18px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(71,85,105,0.95)';
+      ctx.fillText(label, x + 28, pillY + 76);
+    };
 
-    const photoX = polaroidX + 28;
-    const photoY = polaroidY + 30;
-    const photoW = polaroidWidth - 56;
-    const photoH = polaroidHeight - 110;
-    const photoGrad = ctx.createLinearGradient(photoX, photoY, photoX + photoW, photoY + photoH);
-    photoGrad.addColorStop(0, 'rgba(241,245,249,1)');
-    photoGrad.addColorStop(1, 'rgba(226,232,240,1)');
-    ctx.fillStyle = photoGrad;
-    ctx.beginPath();
-    ctx.roundRect(photoX, photoY, photoW, photoH, 24);
-    ctx.fill();
+    const leftPillX = panelX + 62;
+    const rightPillX = leftPillX + pillW + pillGap;
+    drawPill(leftPillX, a, b, 'messages collected', `${messageCount}`);
+    drawPill(rightPillX, b, c, 'ready to share', '1 card');
 
-    ctx.textAlign = 'center';
-    ctx.font = '500 18px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = 'rgba(148,163,184,0.95)';
-    ctx.fillText("Birthday keepsake", polaroidX + polaroidWidth / 2, polaroidY + polaroidHeight - 36);
-
-    // Lower copy
-    ctx.font = '500 22px system-ui, -apple-system, sans-serif';
+    // Footer
+    ctx.textAlign = 'left';
+    ctx.font = '600 22px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = 'rgba(100,116,139,0.96)';
-    ctx.fillText('Share this as a story, post, or status.', cardX + 80, cardY + cardHeight - 110);
+    ctx.fillText('Share this as a story, post, or status.', panelX + 62, panelY + panelH - 88);
 
-    ctx.font = '400 19px system-ui, -apple-system, sans-serif';
+    ctx.font = '500 18px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = 'rgba(148,163,184,0.96)';
-    ctx.fillText('Made with WishCanvas', cardX + 80, cardY + cardHeight - 66);
+    ctx.fillText('Made with WishCanvas', panelX + 62, panelY + panelH - 48);
 
     ctx.textAlign = 'right';
-    ctx.font = '600 19px system-ui, -apple-system, sans-serif';
+    ctx.font = '700 18px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = 'rgba(148,163,184,0.96)';
-    ctx.fillText('wishcanvas.app', cardX + cardWidth - 80, cardY + cardHeight - 66);
+    ctx.fillText('wishcanvas.app', panelX + panelW - 62, panelY + panelH - 48);
 
     return canvas;
   }, [recipientName, messageCount, themeEmoji, themeColors]);
@@ -177,7 +223,7 @@ const BirthdayShareCard = ({
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const canvas = drawCard();
+      const canvas = await drawCard();
       if (!canvas) throw new Error('Canvas not available');
       
       const link = document.createElement('a');
@@ -194,7 +240,7 @@ const BirthdayShareCard = ({
 
   const handleCopyImage = async () => {
     try {
-      const canvas = drawCard();
+      const canvas = await drawCard();
       if (!canvas) throw new Error('Canvas not available');
       
       canvas.toBlob(async (blob) => {
@@ -246,7 +292,9 @@ const BirthdayShareCard = ({
   // Draw preview when dialog opens
   React.useEffect(() => {
     if (open) {
-      setTimeout(() => drawCard(), 100);
+      setTimeout(() => {
+        void drawCard();
+      }, 100);
     }
   }, [open, drawCard]);
 
