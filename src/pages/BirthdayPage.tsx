@@ -107,17 +107,20 @@ function MobileVoiceNoteControl({
   messageId,
   getAudioEl,
   onUserStartPlayback,
-  onPlaybackFailed,
+  onStopped,
 }: {
   messageId: string;
   getAudioEl: () => HTMLAudioElement | null;
   onUserStartPlayback: () => void;
-  onPlaybackFailed: () => void;
+  onStopped: () => void;
 }) {
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  // Tracks whether the user intentionally started playback via the button.
+  // Only when this is true should we call onStopped (to resume the soundtrack).
+  const isSessionActiveRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +151,21 @@ function MobileVoiceNoteControl({
         if (cancelled) return;
         setIsBusy(false);
         setIsPlaying(false);
+        // Scroll can fire spurious pause events. Only notify parent when this
+        // was a real user-initiated session (button tap), not a scroll glitch.
+        if (isSessionActiveRef.current) {
+          isSessionActiveRef.current = false;
+          onStopped();
+        }
+      };
+      const handleEnded = () => {
+        if (cancelled) return;
+        setIsBusy(false);
+        setIsPlaying(false);
+        if (isSessionActiveRef.current) {
+          isSessionActiveRef.current = false;
+          onStopped();
+        }
       };
       const handleWaiting = () => {
         if (cancelled) return;
@@ -167,7 +185,7 @@ function MobileVoiceNoteControl({
       el.addEventListener('timeupdate', handleTime);
       el.addEventListener('play', handlePlay);
       el.addEventListener('pause', handlePause);
-      el.addEventListener('ended', handlePause);
+      el.addEventListener('ended', handleEnded);
       el.addEventListener('waiting', handleWaiting);
       el.addEventListener('playing', handlePlaying);
 
@@ -177,7 +195,7 @@ function MobileVoiceNoteControl({
         el.removeEventListener('timeupdate', handleTime);
         el.removeEventListener('play', handlePlay);
         el.removeEventListener('pause', handlePause);
-        el.removeEventListener('ended', handlePause);
+        el.removeEventListener('ended', handleEnded);
         el.removeEventListener('waiting', handleWaiting);
         el.removeEventListener('playing', handlePlaying);
       };
@@ -189,7 +207,7 @@ function MobileVoiceNoteControl({
       cancelled = true;
       cleanup?.();
     };
-  }, [getAudioEl, messageId]);
+  }, [getAudioEl, messageId, onStopped]);
 
   const progress = duration > 0 ? Math.max(0, Math.min(1, currentTime / duration)) : 0;
 
@@ -223,18 +241,23 @@ function MobileVoiceNoteControl({
           if (!el) return;
 
           if (!el.paused) {
+            // User explicitly paused — notify parent to resume soundtrack.
+            isSessionActiveRef.current = false;
             el.pause();
+            onStopped();
             return;
           }
 
-          // Make a single tap feel responsive: update UI + duck soundtrack immediately.
+          // User tapped play — stop soundtrack immediately, then start voice note.
+          isSessionActiveRef.current = true;
           onUserStartPlayback();
           setIsBusy(true);
 
           void el.play().catch((err) => {
             console.error('Voice note play failed', err);
+            isSessionActiveRef.current = false;
             setIsBusy(false);
-            onPlaybackFailed();
+            onStopped();
           });
         }}
       >
@@ -1256,18 +1279,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }, []);
 
   const handleWishAudioPlay = useCallback((messageId: string) => {
-    // On mobile, the MobileVoiceNoteControl button tap already calls pauseSoundtrackForWishAudio
-    // before play() is called, so we must not touch the soundtrack here at all.
-    // Spurious onPlay events from scroll/gesture on mobile must never affect the soundtrack.
-    const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
-    if (isMobile) {
-      setActiveWishAudioId(messageId);
-      return;
-    }
-
+    // Desktop only: onPlay/onPause/onEnded are not wired on mobile (MobileVoiceNoteControl owns it).
     setActiveWishAudioId(messageId);
 
-    // On desktop, confirm it's really playing before stopping the soundtrack.
+    // Confirm it's really playing before stopping the soundtrack (guards against
+    // desktop browsers firing onPlay before stable playback).
     window.setTimeout(() => {
       const el = wishAudioRefs.current[messageId];
       if (!el) return;
@@ -1313,7 +1329,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
               pauseSoundtrackForWishAudio();
               setActiveWishAudioId(message.id);
             }}
-            onPlaybackFailed={() => handleWishAudioStop(message.id)}
+            onStopped={() => handleWishAudioStop(message.id)}
           />
         )}
         <audio
@@ -1330,9 +1346,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           className={className}
           src={src}
           preload="metadata"
-          onPlay={() => handleWishAudioPlay(message.id)}
-          onPause={() => handleWishAudioStop(message.id)}
-          onEnded={() => handleWishAudioStop(message.id)}
+          onPlay={isCoarsePointer ? undefined : () => handleWishAudioPlay(message.id)}
+          onPause={isCoarsePointer ? undefined : () => handleWishAudioStop(message.id)}
+          onEnded={isCoarsePointer ? undefined : () => handleWishAudioStop(message.id)}
         >
           Your browser does not support audio playback.
         </audio>
