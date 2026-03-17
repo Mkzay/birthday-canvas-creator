@@ -1101,10 +1101,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     return (
       <div
         data-no-nav="true"
-        onClickCapture={(e) => e.stopPropagation()}
-        onPointerDownCapture={(e) => e.stopPropagation()}
-        onTouchStartCapture={(e) => e.stopPropagation()}
-        onTouchEndCapture={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
       >
         <audio
           ref={(element) => {
