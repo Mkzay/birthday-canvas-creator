@@ -98,6 +98,7 @@ export const soundtrackMap = Object.fromEntries(soundtrackOptions.map((soundtrac
 export interface SoundtrackController {
   stop: () => void;
   setVolume?: (volume: number) => void;
+  getVolume?: () => number;
 }
 
 export function playPresetSoundtrack(soundtrackId: string, options?: { loop?: boolean; volume?: number }) {
@@ -164,6 +165,7 @@ export function playPresetSoundtrack(soundtrackId: string, options?: { loop?: bo
   }
 
   return {
+    getVolume: () => masterGain.gain.value,
     setVolume: (volume: number) => {
       if (stopped) return;
       const v = Math.max(0, Math.min(1, volume));

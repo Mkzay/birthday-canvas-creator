@@ -602,6 +602,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const presetControllerRef = useRef<SoundtrackController | null>(null);
   const shouldResumeSoundtrackRef = useRef(false);
   const userPausedSoundtrackRef = useRef(false);
+  const soundtrackWasDuckedRef = useRef(false);
+  const soundtrackPrevVolumeRef = useRef<number | null>(null);
+  const presetPrevVolumeRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const ignoreTouchNavigationRef = useRef(false);
   const mobileRevealRef = useRef<HTMLDivElement | null>(null);
@@ -657,17 +660,29 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const pauseSoundtrackForWishAudio = useCallback(() => {
     let hadPlayingSoundtrack = false;
 
+    // Avoid repeatedly ducking on incidental events.
+    if (soundtrackWasDuckedRef.current) {
+      shouldResumeSoundtrackRef.current = true;
+      return;
+    }
+
     if (presetControllerRef.current) {
-      presetControllerRef.current.setVolume?.(0.03);
+      // Best-effort: remember previous volume if supported.
+      if (presetPrevVolumeRef.current === null) {
+        presetPrevVolumeRef.current = 0.12;
+      }
+      presetControllerRef.current.setVolume?.(0.01);
       hadPlayingSoundtrack = true;
     }
 
     if (soundtrackAudioRef.current && !soundtrackAudioRef.current.paused) {
       // Duck background track instead of fully stopping
-      soundtrackAudioRef.current.volume = 0.04;
+      soundtrackPrevVolumeRef.current = soundtrackAudioRef.current.volume;
+      soundtrackAudioRef.current.volume = 0.02;
       hadPlayingSoundtrack = true;
     }
 
+    soundtrackWasDuckedRef.current = hadPlayingSoundtrack;
     shouldResumeSoundtrackRef.current = hadPlayingSoundtrack;
   }, []);
 
@@ -681,12 +696,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     }
 
     shouldResumeSoundtrackRef.current = false;
+    soundtrackWasDuckedRef.current = false;
     if (soundtrackAudioRef.current) {
-      soundtrackAudioRef.current.volume = 0.45;
+      const previous = soundtrackPrevVolumeRef.current;
+      soundtrackPrevVolumeRef.current = null;
+      soundtrackAudioRef.current.volume = previous ?? 0.45;
     }
 
     if (presetControllerRef.current) {
-      presetControllerRef.current.setVolume?.(0.12);
+      const previous = presetPrevVolumeRef.current;
+      presetPrevVolumeRef.current = null;
+      presetControllerRef.current.setVolume?.(previous ?? 0.12);
       return;
     }
 
