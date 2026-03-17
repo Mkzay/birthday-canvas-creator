@@ -656,6 +656,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const pauseSoundtrackForWishAudio = useCallback(() => {
     let hadPlayingSoundtrack = false;
+    const isCoarsePointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
     if (presetControllerRef.current) {
       presetControllerRef.current.stop();
@@ -664,6 +665,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     }
 
     if (soundtrackAudioRef.current && !soundtrackAudioRef.current.paused) {
+      // On mobile, be more aggressive (muting/volume changes can be deferred otherwise).
+      if (isCoarsePointer) {
+        soundtrackAudioRef.current.muted = true;
+      }
       // Duck background track instead of fully stopping
       soundtrackAudioRef.current.volume = 0.04;
       hadPlayingSoundtrack = true;
@@ -683,6 +688,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
     shouldResumeSoundtrackRef.current = false;
     if (soundtrackAudioRef.current) {
+      soundtrackAudioRef.current.muted = false;
       soundtrackAudioRef.current.volume = 0.45;
     } else {
       await startSoundtrack(true);
@@ -1264,8 +1270,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             messageId={message.id}
             getAudioEl={() => wishAudioRefs.current[message.id] ?? null}
             onUserStartPlayback={() => {
-              setActiveWishAudioId(message.id);
               pauseSoundtrackForWishAudio();
+              setActiveWishAudioId(message.id);
             }}
             onPlaybackFailed={() => handleWishAudioStop(message.id)}
           />
