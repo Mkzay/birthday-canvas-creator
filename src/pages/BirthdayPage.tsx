@@ -1813,7 +1813,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       onMouseMove={handleBoardParallaxMove}
                       onMouseLeave={handleBoardParallaxLeave}
                     >
-                      <div className="relative isolate aspect-[4/5] min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] sm:min-h-[24rem]">
+                      <div className="relative isolate h-full min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] sm:min-h-[24rem]">
                         {coverPhotoSrc ? (
                             <img
                               src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
@@ -2188,7 +2188,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           >
                             <span className={cn('absolute left-6 top-4 h-6 w-16 rounded-full opacity-80 sm:left-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
                             <span className={cn('absolute right-6 top-4 h-6 w-16 rounded-full opacity-80 sm:right-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
-                            <div className="relative isolate aspect-[4/5] min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:min-h-[24rem] sm:rounded-[1.7rem] lg:aspect-auto lg:min-h-0 lg:flex-1">
+                            <div className="relative isolate h-full min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:min-h-[24rem] sm:rounded-[1.7rem] lg:min-h-0 lg:flex-1">
                               {coverPhotoSrc ? (
                                 <img
                                   src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
