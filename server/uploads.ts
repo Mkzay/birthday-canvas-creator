@@ -14,10 +14,17 @@ export const wishAudioRoot = path.join(uploadsRoot, "wish-audio");
 export const avatarsRoot = path.join(uploadsRoot, "avatars");
 export const themeIconsRoot = path.join(uploadsRoot, "theme-icons");
 
-for (const dir of [uploadsRoot, coversRoot, messagesRoot, pageAudioRoot, wishAudioRoot, avatarsRoot, themeIconsRoot]) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+export async function ensureUploadDirs() {
+  const dirs = [uploadsRoot, coversRoot, messagesRoot, pageAudioRoot, wishAudioRoot, avatarsRoot, themeIconsRoot];
+  await Promise.all(
+    dirs.map(async (dir) => {
+      try {
+        await fs.promises.access(dir);
+      } catch {
+        await fs.promises.mkdir(dir, { recursive: true });
+      }
+    }),
+  );
 }
 
 function buildFilename(originalName: string) {
@@ -129,7 +136,7 @@ export function fileUrl(relativePath: string) {
   return `/uploads/${relativePath.replaceAll("\\", "/")}`;
 }
 
-export function removeFileByUrl(url?: string | null) {
+export async function removeFileByUrl(url?: string | null) {
   if (!url || !url.startsWith("/uploads/")) return;
 
   const relativePath = url.slice("/uploads/".length);
@@ -139,7 +146,10 @@ export function removeFileByUrl(url?: string | null) {
     return;
   }
 
-  if (fs.existsSync(filePath)) {
-    fs.rmSync(filePath, { force: true });
+  try {
+    await fs.promises.access(filePath);
+    await fs.promises.rm(filePath, { force: true });
+  } catch {
+    // File doesn't exist or other error, ignore
   }
 }
