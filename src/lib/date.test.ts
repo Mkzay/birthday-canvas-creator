@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { formatDateInputValue, parseLocalDate } from './date';
+import { formatDateInputValue, parseLocalDate } from './date.ts';
 
 describe('formatDateInputValue', () => {
   test('formats valid date correctly', () => {
