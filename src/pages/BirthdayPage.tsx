@@ -1813,13 +1813,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       onMouseMove={handleBoardParallaxMove}
                       onMouseLeave={handleBoardParallaxLeave}
                     >
-                      <div className="relative isolate aspect-[4/5] min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] sm:min-h-[24rem]">
+                      <div className="relative isolate h-full min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] sm:min-h-[24rem]">
                         {coverPhotoSrc ? (
-                          renderStoryImage(
-                            resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc,
-                            `${page.recipient_name}'s birthday cover`,
-                            { eager: true, objectPosition: 'center' }
-                          )
+                            <img
+                              src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
+                              alt={`${page.recipient_name}'s birthday cover`}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              decoding="async"
+                              loading="eager"
+                              draggable={false}
+                              style={{ objectPosition: 'center' }}
+                            />
                         ) : (
                           <div className="flex h-full items-center justify-center text-[5rem]">{theme.emoji}</div>
                         )}
@@ -2184,13 +2188,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           >
                             <span className={cn('absolute left-6 top-4 h-6 w-16 rounded-full opacity-80 sm:left-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
                             <span className={cn('absolute right-6 top-4 h-6 w-16 rounded-full opacity-80 sm:right-8 sm:top-5 sm:h-7 sm:w-20', isDarkExperience ? 'bg-white/12' : 'bg-amber-100/80')} />
-                            <div className="relative isolate aspect-[4/5] min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:min-h-[24rem] sm:rounded-[1.7rem] lg:aspect-auto lg:min-h-0 lg:flex-1">
+                            <div className="relative isolate h-full min-h-[20rem] w-full overflow-hidden rounded-[1.45rem] bg-[#dfe7dc] shadow-[0_18px_40px_rgba(0,0,0,0.14)] sm:min-h-[24rem] sm:rounded-[1.7rem] lg:min-h-0 lg:flex-1">
                               {coverPhotoSrc ? (
-                                renderStoryImage(
-                                  resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc,
-                                  `${page.recipient_name}'s birthday cover`,
-                                  { eager: true, objectPosition: 'center' }
-                                )
+                                <img
+                                  src={resolveAssetUrl(coverPhotoSrc) || coverPhotoSrc}
+                                  alt={`${page.recipient_name}'s birthday cover`}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  decoding="async"
+                                  loading="eager"
+                                  draggable={false}
+                                  style={{ objectPosition: 'center' }}
+                                />
                               ) : (
                                 <div className="flex h-full items-center justify-center text-[6rem] sm:text-[8rem]">
                                   {theme.emoji}
