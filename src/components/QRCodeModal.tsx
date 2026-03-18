@@ -36,7 +36,6 @@ const QRCodeModal = ({ open, onOpenChange, url, title, recipientName }: QRCodeMo
       });
       setQrDataUrl(dataUrl);
     } catch (error) {
-      console.error('Failed to generate QR code:', error);
       toast.error('Failed to generate QR code');
       setQrDataUrl(null);
     } finally {
