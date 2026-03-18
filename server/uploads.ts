@@ -135,7 +135,7 @@ export function removeFileByUrl(url?: string | null) {
   const relativePath = url.slice("/uploads/".length);
   const filePath = path.resolve(uploadsRoot, relativePath);
 
-  if (!filePath.startsWith(uploadsRoot)) {
+  if (!filePath.startsWith(uploadsRoot + path.sep)) {
     return;
   }
 
