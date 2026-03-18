@@ -132,6 +132,15 @@ app.use((request, response, next) => {
 app.use(express.json({ limit: "2mb" }));
 app.use("/uploads", express.static(uploadsRoot));
 
+function escapeHtml(str: string) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function sanitizeDisplayName(value: unknown) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -1465,7 +1474,7 @@ app.get("/api/og-image/:id", async (request, response) => {
     const name = String(page.recipient_name || "Someone special");
     const count = Number(page.message_count || 0);
 
-    const escapedName = name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const escapedName = escapeHtml(name);
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
@@ -1517,8 +1526,8 @@ app.get("/api/og/:id", async (request, response) => {
     const pageUrl = `${siteBase}/birthday/${publicCode}`;
     const imageUrl = `${apiBase}/api/og-image/${publicCode}`;
 
-    const escapedTitle = title.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-    const escapedDesc = description.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    const escapedTitle = escapeHtml(title);
+    const escapedDesc = escapeHtml(description);
 
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
