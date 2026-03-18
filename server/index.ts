@@ -215,7 +215,12 @@ function serializePageDates<T extends Record<string, unknown>>(row: T) {
 }
 
 function buildPublicCode() {
-  return Math.random().toString(36).slice(2, 12);
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < 10; i++) {
+    result += chars[crypto.randomInt(chars.length)];
+  }
+  return result;
 }
 
 async function createUniquePublicCode() {
