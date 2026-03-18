@@ -10,7 +10,7 @@ import * as Sentry from "@sentry/node";
 import { clearSessionCookie, hashPassword, readSession, requireAdmin, requireAuth, setSessionCookie, signSession, verifyPassword } from "./auth";
 import { initializeDatabase, sql } from "./db";
 import type { AuthedRequest, SessionUser } from "./types";
-import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload, themeIconUpload } from "./uploads";
+import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload, themeIconUpload, ensureUploadDirs } from "./uploads";
 import sanitizeHtml from "sanitize-html";
 
 const app = express();
@@ -624,7 +624,7 @@ app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async 
     LIMIT 1
   `;
 
-  removeFileByUrl(existingRows[0]?.avatar_url);
+  await removeFileByUrl(existingRows[0]?.avatar_url);
   const url = fileUrl(path.join("avatars", file.filename));
 
   await sql`
@@ -686,7 +686,7 @@ app.delete("/api/auth/me/data", requireAuth, async (request: AuthedRequest, resp
     WHERE bp.user_id = ${userId}
   `;
 
-  fileRows.forEach((row) => removeFileByUrl(row.url));
+  await Promise.all(fileRows.map((row) => removeFileByUrl(row.url)));
 
   await sql`
     DELETE FROM users
@@ -957,9 +957,9 @@ app.delete("/api/pages/:id/messages/:messageId", requireAuth, async (request: Au
     WHERE message_id = ${request.params.messageId}
   `;
 
-  removeFileByUrl(messageRows[0].photo_url);
-  removeFileByUrl(messageRows[0].audio_url);
-  messagePhotos.forEach((photo) => removeFileByUrl(photo.photo_url));
+  await removeFileByUrl(messageRows[0].photo_url);
+  await removeFileByUrl(messageRows[0].audio_url);
+  await Promise.all(messagePhotos.map((photo) => removeFileByUrl(photo.photo_url)));
 
   await sql`
     DELETE FROM birthday_messages
@@ -989,7 +989,7 @@ app.delete("/api/pages/:id/messages/:messageId/audio", requireAuth, async (reque
     return;
   }
 
-  removeFileByUrl(messageRows[0].audio_url);
+  await removeFileByUrl(messageRows[0].audio_url);
 
   await sql`
     UPDATE birthday_messages
@@ -1026,7 +1026,7 @@ app.delete("/api/pages/:id/messages/photos/:photoId", requireAuth, async (reques
     `;
 
     if (legacyPhotoRows[0] && legacyPhotoRows[0].photo_url) {
-      removeFileByUrl(legacyPhotoRows[0].photo_url);
+      await removeFileByUrl(legacyPhotoRows[0].photo_url);
       await sql`
         UPDATE birthday_messages
         SET photo_url = NULL
@@ -1041,7 +1041,7 @@ app.delete("/api/pages/:id/messages/photos/:photoId", requireAuth, async (reques
     return;
   }
 
-  removeFileByUrl(photoRows[0].photo_url);
+  await removeFileByUrl(photoRows[0].photo_url);
 
   await sql`
     DELETE FROM birthday_message_photos
@@ -1071,7 +1071,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
 
     const nextAudioUrl = request.body.pageCustomAudioUrl || null;
     if (existingRows[0].custom_audio_url && existingRows[0].custom_audio_url !== nextAudioUrl) {
-      removeFileByUrl(existingRows[0].custom_audio_url);
+      await removeFileByUrl(existingRows[0].custom_audio_url);
     }
   }
 
@@ -1176,7 +1176,7 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), async (r
     return;
   }
 
-  removeFileByUrl(page.cover_photo_url);
+  await removeFileByUrl(page.cover_photo_url);
   const url = fileUrl(path.join("covers", file.filename));
 
   await sql`
@@ -1215,7 +1215,7 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
     return;
   }
 
-  removeFileByUrl(page.custom_audio_url);
+  await removeFileByUrl(page.custom_audio_url);
   const url = fileUrl(path.join("page-audio", file.filename));
 
   await sql`
@@ -1558,7 +1558,8 @@ app.use((error: Error, _request: express.Request, response: express.Response, _n
 });
 
 initializeDatabase()
-  .then(() => {
+  .then(async () => {
+    await ensureUploadDirs();
     app.listen(port, () => {
       console.log(`WishCanvas API listening on port ${port}`);
     });
