@@ -240,11 +240,18 @@ const Dashboard = () => {
   );
 
   const stats = useMemo(
-    () => ({
-      totalPages: pages.length,
-      activePages: pages.filter((page) => page.status === 'active').length,
-      totalMessages: pages.reduce((accumulator, page) => accumulator + (page.message_count || 0), 0),
-    }),
+    () =>
+      pages.reduce(
+        (acc, page) => {
+          acc.totalPages++;
+          if (page.status === 'active') {
+            acc.activePages++;
+          }
+          acc.totalMessages += page.message_count || 0;
+          return acc;
+        },
+        { totalPages: 0, activePages: 0, totalMessages: 0 },
+      ),
     [pages],
   );
 
