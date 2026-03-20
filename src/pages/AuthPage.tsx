@@ -90,45 +90,8 @@ const AuthPage = () => {
 
   useEffect(() => {
     if (!verifyToken) return;
-
-    let active = true;
-    setVerificationBusy(true);
-
-    void (async () => {
-      try {
-        await apiFetch<{ user: unknown }>('/auth/verify/confirm', {
-          method: 'POST',
-          body: JSON.stringify({ token: verifyToken }),
-        });
-        await refreshSession();
-
-        if (!active) return;
-        toast.success('Email verified. You are signed in.');
-
-        if (shouldSaveAfterAuth && pendingSavePageId) {
-          try {
-            await apiFetch<void>(`/pages/${pendingSavePageId}/save`, { method: 'POST' });
-            toast.success('Saved to your dashboard');
-          } catch (saveError) {
-            console.error(saveError);
-          }
-        }
-
-        navigate('/dashboard');
-      } catch (error) {
-        if (!active) return;
-        console.error(error);
-        toast.error('Verification link is invalid or expired. Request a new one below.');
-        navigate('/auth', { replace: true });
-      } finally {
-        if (active) setVerificationBusy(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [navigate, pendingSavePageId, refreshSession, shouldSaveAfterAuth, verifyToken]);
+    navigate(`/verify-email?token=${encodeURIComponent(verifyToken)}`, { replace: true });
+  }, [navigate, verifyToken]);
 
   const toggleMode = () => {
     setIsLogin((current) => !current);
@@ -362,12 +325,6 @@ const AuthPage = () => {
                         : 'Start creating polished birthday surprises'}
                 </p>
               </div>
-
-              {verifyToken && (
-                <div className="mb-4 rounded-xl border border-border/60 bg-muted/50 p-3 text-sm text-muted-foreground">
-                  {verificationBusy ? 'Verifying your email…' : 'Email verification in progress…'}
-                </div>
-              )}
 
               {resetToken ? (
                 <form onSubmit={handleResetPassword} className="space-y-4">

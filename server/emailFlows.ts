@@ -39,7 +39,13 @@ function shell(innerHtml: string, preheader: string) {
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <meta name="color-scheme" content="light dark"/>
   <title>WishCanvas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <style>
+    body, table, tr, td, div, p, a, span, h1 {
+      font-family: Nunito, 'Segoe UI', Arial, sans-serif !important;
+    }
     @media (prefers-color-scheme: dark) {
       .shell   { background: #140800 !important; }
       .card    { background: #1E0E04 !important; border-color: #3D1F0D !important; }
@@ -195,7 +201,7 @@ export async function sendWelcomeEmail(params: { to: string; displayName?: strin
 export async function sendVerificationEmail(params: { to: string; token: string; displayName?: string | null }) {
   const appName = getAppName();
   const safeName = escapeHtml(params.displayName?.trim() || "there");
-  const url = `${getSiteBaseUrl()}/auth?verify=${encodeURIComponent(params.token)}`;
+  const url = `${getSiteBaseUrl()}/verify-email?token=${encodeURIComponent(params.token)}`;
 
   const inner = hero("✉️", "One last step", "Confirm your email address") +
     body(`

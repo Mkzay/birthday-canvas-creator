@@ -15,8 +15,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-        jakarta: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        sans: ['Nunito', 'system-ui', 'sans-serif'],
+        jakarta: ['Nunito', 'system-ui', 'sans-serif'],
         playfair: ['Playfair Display', 'Georgia', 'serif'],
         caveat: ['Caveat', 'cursive'],
         nunito: ['Nunito', 'system-ui', 'sans-serif'],
@@ -24,8 +24,8 @@ export default {
         cormorant: ['Cormorant Garamond', 'Georgia', 'serif'],
         'space-grotesk': ['Space Grotesk', 'system-ui', 'sans-serif'],
         'dm-serif': ['DM Serif Display', 'Georgia', 'serif'],
-        inter: ['Inter', 'system-ui', 'sans-serif'],
-        outfit: ['Outfit', 'system-ui', 'sans-serif'],
+        inter: ['Nunito', 'system-ui', 'sans-serif'],
+        outfit: ['Nunito', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

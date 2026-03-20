@@ -10,6 +10,7 @@ import { useEffect } from "react";
 
 const Index = lazy(() => import("./pages/Index"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CreatePage = lazy(() => import("./pages/CreatePage"));
 const EditPage = lazy(() => import("./pages/EditPage"));
@@ -112,6 +113,13 @@ const SeoController = () => {
       return;
     }
 
+    if (pathname === "/verify-email") {
+      setTitle("Verify email");
+      robots.setAttribute("content", "noindex,nofollow");
+      canonical.setAttribute("href", `${origin}/verify-email`);
+      return;
+    }
+
     setTitle("WishCanvas");
     robots.setAttribute("content", "noindex,nofollow");
     canonical.setAttribute("href", `${origin}${pathname}`);
@@ -141,6 +149,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/create" element={<CreatePage />} />
               <Route path="/edit/:pageId" element={<EditPage />} />
