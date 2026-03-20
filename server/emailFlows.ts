@@ -1,5 +1,7 @@
 import { sendTransactionalEmail } from "./mailer";
 
+type Cta = { label: string; href: string };
+
 function getSiteBaseUrl() {
   const raw = process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:8080";
   const first = raw.split(",")[0]?.trim() || "http://localhost:8080";
@@ -10,123 +12,285 @@ function getAppName() {
   return process.env.APP_NAME?.trim() || "WishCanvas";
 }
 
-function renderBaseLayout(title: string, body: string) {
-  return `
-    <div style="font-family: Inter, Arial, sans-serif; line-height: 1.55; color: #1f2937; max-width: 560px; margin: 0 auto;">
-      <h2 style="margin: 0 0 12px; font-size: 24px; color: #111827;">${title}</h2>
-      ${body}
-      <p style="margin-top: 24px; font-size: 12px; color: #6b7280;">Sent by ${getAppName()}</p>
-    </div>
-  `;
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-export async function sendWelcomeEmail(params: { to: string; displayName?: string | null }) {
-  const name = params.displayName?.trim() || "there";
-  const appName = getAppName();
+// ─── Shared design tokens ────────────────────────────────────────────────────
+const CORAL     = "#E8572A";
+const CORAL_MID = "#E8724A";
+const CORAL_LT  = "#FCEEE8";
+const CREAM     = "#FFF8F2";
+const INK       = "#1A0A00";
+const MUTED     = "#7A5540";
+const BORDER    = "#F0D9CE";
 
-  const html = renderBaseLayout(
-    `Welcome to ${appName}`,
-    `
-      <p style="margin: 0 0 12px;">Hi ${name},</p>
-      <p style="margin: 0 0 12px;">Your account is ready. You can start creating collaborative birthday pages right away.</p>
-      <p style="margin: 0;">When you're ready, set the date, share one link, and let everyone contribute.</p>
+// ─── Base shell ─────────────────────────────────────────────────────────────
+function shell(innerHtml: string, preheader: string) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
+  <title>WishCanvas</title>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .shell   { background: #140800 !important; }
+      .card    { background: #1E0E04 !important; border-color: #3D1F0D !important; }
+      .hero    { background: linear-gradient(135deg,#C0401A 0%,#A0300E 100%) !important; }
+      .ink     { color: #FFF0E8 !important; }
+      .muted   { color: #C4927A !important; }
+      .cream   { background: #1E0E04 !important; }
+      .divider { border-color: #3D1F0D !important; }
+      .footer  { color: #7A5540 !important; }
+      .cta-btn { background: linear-gradient(135deg,#FF7043,#E8572A) !important; }
+      .pill    { background: rgba(232,87,42,0.2) !important; color: #FF9070 !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#F5EDE6;" class="shell">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="shell" style="background:#F5EDE6;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;">
+        <!-- wordmark -->
+        <tr><td style="padding:0 4px 16px;font-family:Georgia,serif;font-size:13px;letter-spacing:0.12em;color:${MUTED};text-transform:uppercase;">
+          WishCanvas
+        </td></tr>
+        <!-- card -->
+        <tr><td class="card" style="border-radius:24px;overflow:hidden;background:#fff;border:1px solid ${BORDER};">
+          ${innerHtml}
+        </td></tr>
+        <!-- footer -->
+        <tr><td class="footer" style="padding:20px 4px 0;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:0.05em;text-align:center;">
+          Sent with care by WishCanvas &nbsp;·&nbsp; <a href="${getSiteBaseUrl()}" style="color:${CORAL};text-decoration:none;">${getSiteBaseUrl().replace(/https?:\/\//, "")}</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ─── Hero block ──────────────────────────────────────────────────────────────
+function hero(icon: string, eyebrow: string, title: string) {
+  return `
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+    <tr><td class="hero" style="background:linear-gradient(135deg,${CORAL} 0%,${CORAL_MID} 50%,#D4845A 100%);padding:40px 36px 32px;border-radius:24px 24px 0 0;position:relative;">
+      <!-- blob decoration -->
+      <div style="position:absolute;bottom:0;left:0;width:160px;height:100px;background:rgba(255,255,255,0.06);border-radius:0 60% 0 0;"></div>
+      <div style="position:absolute;top:0;right:0;width:120px;height:80px;background:rgba(255,255,255,0.05);border-radius:0 24px 0 60%;"></div>
+
+      <div style="font-size:36px;margin-bottom:12px;">${icon}</div>
+
+      <div class="pill" style="display:inline-block;margin-bottom:14px;padding:5px 12px;border-radius:9999px;background:rgba(255,255,255,0.18);color:#fff;font-family:Georgia,serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">
+        ${escapeHtml(eyebrow)}
+      </div>
+
+      <h1 style="margin:0;font-family:Georgia,serif;font-size:30px;line-height:1.2;color:#ffffff;letter-spacing:-0.01em;">
+        ${escapeHtml(title)}
+      </h1>
+    </td></tr>
+  </table>`;
+}
+
+// ─── Body block ──────────────────────────────────────────────────────────────
+function body(contentHtml: string, cta?: Cta, note?: string) {
+  const ctaHtml = cta ? `
+    <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0 20px;">
+      <tr><td>
+        <a href="${cta.href}" class="cta-btn" style="display:inline-block;padding:14px 28px;border-radius:9999px;background:linear-gradient(135deg,#FF7043,${CORAL});color:#ffffff;font-family:Georgia,serif;font-size:15px;font-weight:bold;text-decoration:none;letter-spacing:0.02em;">
+          ${escapeHtml(cta.label)} &rarr;
+        </a>
+      </td></tr>
+    </table>` : "";
+
+  const noteHtml = note ? `
+    <p style="margin:16px 0 0;font-family:Georgia,serif;font-size:12px;color:${MUTED};line-height:1.6;">
+      ${note}
+    </p>` : "";
+
+  return `
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+    <tr><td class="cream" style="background:${CREAM};padding:32px 36px 36px;">
+      <div class="ink" style="font-family:Georgia,serif;font-size:15px;line-height:1.7;color:${INK};">
+        ${contentHtml}
+      </div>
+      ${ctaHtml}
+      <hr class="divider" style="border:none;border-top:1px solid ${BORDER};margin:24px 0 20px;"/>
+      <p class="muted" style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};line-height:1.6;">
+        If you didn't expect this email, you can safely ignore it.
+      </p>
+      ${noteHtml}
+    </td></tr>
+  </table>`;
+}
+
+function p(text: string) {
+  return `<p style="margin:0 0 16px;">${text}</p>`;
+}
+
+function highlight(text: string) {
+  return `<span style="color:${CORAL};font-weight:bold;">${text}</span>`;
+}
+
+// ─── Feature row (used in welcome) ───────────────────────────────────────────
+function featureRow(icon: string, label: string, desc: string) {
+  return `
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:14px;">
+    <tr>
+      <td width="40" valign="top" style="padding-top:2px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:${CORAL_LT};display:flex;align-items:center;justify-content:center;font-size:16px;text-align:center;line-height:32px;">
+          ${icon}
+        </div>
+      </td>
+      <td style="padding-left:12px;">
+        <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${INK};">${escapeHtml(label)}</p>
+        <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};line-height:1.5;">${escapeHtml(desc)}</p>
+      </td>
+    </tr>
+  </table>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// WELCOME
+// ════════════════════════════════════════════════════════════════════════════
+export async function sendWelcomeEmail(params: { to: string; displayName?: string | null }) {
+  const appName = getAppName();
+  const safeName = escapeHtml(params.displayName?.trim() || "there");
+  const dashboardUrl = `${getSiteBaseUrl()}/dashboard`;
+
+  const inner = hero("🎨", "Welcome aboard", `You're in, ${safeName}`) +
+    body(`
+      ${p(`We're glad you're here. ${highlight("WishCanvas")} gives you one beautiful place to collect birthday wishes, photos, and memories.`)}
+      ${p("Here's what you can do:")}
+      ${featureRow("🔗", "One link, everyone contributes", "Share a single link with family and friends — no accounts needed for guests.")}
+      ${featureRow("🎁", "Reveal on the big day", "Everything stays hidden until you're ready to present it.")}
+      ${featureRow("🖼️", "Themes that feel personal", "Pick a look that fits the person you're celebrating.")}
     `,
+    { label: "Open your dashboard", href: dashboardUrl },
+    `Sent to ${params.to}`
   );
+
+  const html = shell(inner, "Your WishCanvas account is ready. Let's build something beautiful.");
 
   await sendTransactionalEmail({
     to: params.to,
-    subject: `Welcome to ${appName}`,
+    subject: `Welcome to ${appName} 🎨`,
     html,
-    text: `Hi ${name}, welcome to ${appName}. Your account is ready.`,
+    text: `Welcome to ${appName}, ${safeName}. Your account is ready. Open your dashboard: ${dashboardUrl}`,
     tags: [{ name: "type", value: "welcome" }],
   });
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// EMAIL VERIFICATION
+// ════════════════════════════════════════════════════════════════════════════
 export async function sendVerificationEmail(params: { to: string; token: string; displayName?: string | null }) {
-  const name = params.displayName?.trim() || "there";
   const appName = getAppName();
+  const safeName = escapeHtml(params.displayName?.trim() || "there");
   const url = `${getSiteBaseUrl()}/auth?verify=${encodeURIComponent(params.token)}`;
 
-  const html = renderBaseLayout(
-    "Verify your email",
-    `
-      <p style="margin: 0 0 12px;">Hi ${name},</p>
-      <p style="margin: 0 0 16px;">Please verify your email address to secure your ${appName} account.</p>
-      <p style="margin: 0 0 18px;">
-        <a href="${url}" style="display: inline-block; background: #8b5cf6; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600;">
-          Verify email
-        </a>
+  const inner = hero("✉️", "One last step", "Confirm your email address") +
+    body(`
+      ${p(`Hi ${safeName},`)}
+      ${p(`You're almost set. Just click below to verify your email and activate your ${escapeHtml(appName)} account.`)}
+      ${p("This link expires automatically — if it stops working, you can request a new one from the sign-in page.")}
+      <p style="margin:0 0 8px;font-size:12px;color:${MUTED};font-family:Georgia,serif;">Or copy this link directly:</p>
+      <p style="margin:0;font-size:12px;word-break:break-all;font-family:Georgia,serif;">
+        <a href="${url}" style="color:${CORAL};text-decoration:none;">${escapeHtml(url)}</a>
       </p>
-      <p style="margin: 0; font-size: 13px; color: #6b7280;">If the button doesn't work, use this link: ${url}</p>
     `,
+    { label: "Verify my email", href: url }
   );
+
+  const html = shell(inner, "Verify your email to finish setting up your WishCanvas account.");
 
   await sendTransactionalEmail({
     to: params.to,
     subject: `Verify your email for ${appName}`,
     html,
-    text: `Verify your email: ${url}`,
+    text: `Verify your email for ${appName}: ${url}`,
     tags: [{ name: "type", value: "verify-email" }],
   });
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// PASSWORD RESET
+// ════════════════════════════════════════════════════════════════════════════
 export async function sendPasswordResetEmail(params: { to: string; token: string; displayName?: string | null }) {
-  const name = params.displayName?.trim() || "there";
   const appName = getAppName();
+  const safeName = escapeHtml(params.displayName?.trim() || "there");
   const url = `${getSiteBaseUrl()}/auth?reset=${encodeURIComponent(params.token)}`;
 
-  const html = renderBaseLayout(
-    "Reset your password",
-    `
-      <p style="margin: 0 0 12px;">Hi ${name},</p>
-      <p style="margin: 0 0 16px;">We received a request to reset your ${appName} password.</p>
-      <p style="margin: 0 0 18px;">
-        <a href="${url}" style="display: inline-block; background: #8b5cf6; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600;">
-          Reset password
-        </a>
+  const inner = hero("🔑", "Account security", "Reset your password") +
+    body(`
+      ${p(`Hi ${safeName},`)}
+      ${p(`We received a request to reset your ${escapeHtml(appName)} password. Click the button below to set a new one.`)}
+      ${p(`${highlight("This link expires automatically.")} If you didn't request this, no changes have been made to your account — you can safely ignore this email.`)}
+      <p style="margin:0 0 8px;font-size:12px;color:${MUTED};font-family:Georgia,serif;">Backup link:</p>
+      <p style="margin:0;font-size:12px;word-break:break-all;font-family:Georgia,serif;">
+        <a href="${url}" style="color:${CORAL};text-decoration:none;">${escapeHtml(url)}</a>
       </p>
-      <p style="margin: 0; font-size: 13px; color: #6b7280;">This link expires soon. If you didn&apos;t request this, you can ignore this email.</p>
     `,
+    { label: "Reset my password", href: url }
   );
+
+  const html = shell(inner, "Use this link to reset your WishCanvas password.");
 
   await sendTransactionalEmail({
     to: params.to,
     subject: `Reset your ${appName} password`,
     html,
-    text: `Reset your password: ${url}`,
+    text: `Reset your ${appName} password: ${url}`,
     tags: [{ name: "type", value: "password-reset" }],
   });
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// BIRTHDAY RECIPIENT
+// ════════════════════════════════════════════════════════════════════════════
 export async function sendBirthdayRecipientEmail(params: {
   to: string;
   recipientName: string;
   publicCode: string;
   messageCount: number;
 }) {
-  const appName = getAppName();
+  const safeRecipientName = escapeHtml(params.recipientName.trim() || "Friend");
+  const messageLabel = params.messageCount === 1 ? "message" : "messages";
   const url = `${getSiteBaseUrl()}/birthday/${params.publicCode}`;
 
-  const html = renderBaseLayout(
-    `Happy Birthday, ${params.recipientName}!`,
-    `
-      <p style="margin: 0 0 12px;">Your birthday story is ready.</p>
-      <p style="margin: 0 0 12px;">${params.messageCount} message${params.messageCount === 1 ? "" : "s"} have been collected for you.</p>
-      <p style="margin: 0 0 18px;">
-        <a href="${url}" style="display: inline-block; background: #16a34a; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600;">
-          Open your birthday page
-        </a>
-      </p>
-      <p style="margin: 0; font-size: 13px; color: #6b7280;">From ${appName}</p>
+  const inner = hero("🎂", "Birthday reveal", `Happy Birthday, ${safeRecipientName}!`) +
+    body(`
+      ${p("The people who love you put something together.")}
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:4px 0 20px;">
+        <tr>
+          <td align="center" style="background:${CORAL_LT};border-radius:16px;padding:20px 24px;">
+            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:13px;color:${MUTED};letter-spacing:0.06em;text-transform:uppercase;">waiting for you inside</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:36px;font-weight:bold;color:${CORAL};">${params.messageCount}</p>
+            <p style="margin:4px 0 0;font-family:Georgia,serif;font-size:14px;color:${MUTED};">${messageLabel}</p>
+          </td>
+        </tr>
+      </table>
+      ${p("Notes, photos, voice messages — all in one place, just for you.")}
     `,
+    { label: "Open your birthday page 🎁", href: url },
+    "Made with care in WishCanvas"
   );
+
+  const html = shell(inner, "Your birthday story is ready. Open it to see the full reveal.");
 
   await sendTransactionalEmail({
     to: params.to,
-    subject: `Your birthday story is ready, ${params.recipientName}`,
+    subject: `Your birthday story is ready, ${params.recipientName} 🎂`,
     html,
-    text: `Your birthday page is ready: ${url}`,
+    text: `Happy Birthday, ${params.recipientName}. Your story is ready with ${params.messageCount} ${messageLabel}. Open: ${url}`,
     tags: [{ name: "type", value: "birthday-recipient" }],
   });
 }
-

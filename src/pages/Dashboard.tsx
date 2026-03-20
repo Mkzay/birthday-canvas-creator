@@ -7,7 +7,6 @@ import {
   Edit,
   Eye,
   FileText,
-  Loader2,
   MessageSquare,
   MoreVertical,
   Palette,
@@ -45,6 +44,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import DashboardEntryLoader from '@/components/DashboardEntryLoader';
 
 interface BirthdayPage {
   id: string;
@@ -304,11 +304,7 @@ const Dashboard = () => {
   };
 
   if (authLoading || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DashboardEntryLoader />;
   }
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
