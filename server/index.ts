@@ -23,16 +23,30 @@ if (process.env.SENTRY_DSN) {
   });
 }
 
+function normalizeOrigin(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    // Normalize to origin so values like https://site.com/ still match.
+    return new URL(trimmed).origin;
+  } catch {
+    // Keep fallback behavior for already-origin-like strings.
+    return trimmed.replace(/\/+$/, "");
+  }
+}
+
 function getAllowedOrigins() {
   const rawOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:8080";
   return rawOrigins
     .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+    .map((origin) => normalizeOrigin(origin))
+    .filter((origin): origin is string => Boolean(origin));
 }
 
 function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
-  if (allowedOrigins.includes(origin)) {
+  const normalizedRequestOrigin = normalizeOrigin(origin);
+  if (normalizedRequestOrigin && allowedOrigins.includes(normalizedRequestOrigin)) {
     return true;
   }
 
