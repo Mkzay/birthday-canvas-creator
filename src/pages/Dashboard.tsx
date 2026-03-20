@@ -31,7 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ApiError, apiFetch, resolveAssetUrl } from '@/lib/api';
+import { apiFetch, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { builtInThemeMap } from '@/lib/themes';
 import {
@@ -163,13 +163,9 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      const data = await apiFetch<SystemStatusPayload>('/system/status');
+      const data = await apiFetch<SystemStatusPayload>('/health');
       setSystemStatus(data);
     } catch (error) {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        setSystemStatus(null);
-        return;
-      }
       console.error(error);
       setSystemStatus(null);
     }

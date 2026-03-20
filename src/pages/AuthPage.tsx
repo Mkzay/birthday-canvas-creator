@@ -155,7 +155,8 @@ const AuthPage = () => {
       toast.success('Verification email sent.');
     } catch (error) {
       console.error(error);
-      toast.error('Could not send verification email.');
+      const message = error instanceof Error ? error.message : 'Could not send verification email.';
+      toast.error(message);
     } finally {
       setVerificationBusy(false);
     }
@@ -180,7 +181,8 @@ const AuthPage = () => {
       setForgotMode(false);
     } catch (error) {
       console.error(error);
-      toast.error('Could not send password reset email.');
+      const message = error instanceof Error ? error.message : 'Could not send password reset email.';
+      toast.error(message);
     } finally {
       setResetBusy(false);
     }
@@ -512,7 +514,7 @@ const AuthPage = () => {
                             className="text-foreground/80 transition-opacity hover:opacity-75"
                             disabled={verificationBusy}
                           >
-                            {verificationBusy ? 'Sending…' : 'Resend verification'}
+                            {verificationBusy ? 'Sending...' : 'Resend verification'}
                           </button>
                         </div>
                       )}
