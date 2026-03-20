@@ -4,6 +4,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 interface AuthUser {
   id: string;
   email: string;
+  emailVerifiedAt: string | null;
   displayName: string | null;
   avatarUrl: string | null;
   defaultTheme: string;
@@ -28,8 +29,13 @@ interface AuthContextType {
   session: null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName?: string) => Promise<{ error: Error | null; session: null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<{
+    error: Error | null;
+    session: null;
+    requiresVerification: boolean;
+    message: string | null;
+  }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; code: string | null }>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -72,14 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, displayName?: string) => {
     try {
-      const data = await apiFetch<{ user: AuthUser }>('/auth/signup', {
+      const data = await apiFetch<{ requiresVerification?: boolean; message?: string }>('/auth/signup', {
         method: 'POST',
         body: JSON.stringify({ email, password, displayName }),
       });
-      setUser(data.user);
-      return { error: null, session: null };
+      return {
+        error: null,
+        session: null,
+        requiresVerification: Boolean(data.requiresVerification),
+        message: data.message || null,
+      };
     } catch (error) {
-      return { error: error as Error, session: null };
+      return { error: error as Error, session: null, requiresVerification: false, message: null };
     }
   };
 
@@ -90,9 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
       setUser(data.user);
-      return { error: null };
+      return { error: null, code: null };
     } catch (error) {
-      return { error: error as Error };
+      const err = error as Error & { code?: string };
+      return { error: err, code: err.code || null };
     }
   };
 

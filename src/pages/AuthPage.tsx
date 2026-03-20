@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LockKeyhole, Mail, Sparkles, User2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -32,40 +32,38 @@ const PasswordField = ({
   showPassword,
   onToggleVisibility,
   placeholder = 'Enter your password',
-}: PasswordFieldProps) => {
-  return (
-    <div>
-      <Label htmlFor={id} className="text-foreground">
-        {label}
-      </Label>
-      <div className="relative mt-2">
-        <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          id={id}
-          type={showPassword ? 'text' : 'password'}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          className="h-12 rounded-xl border-border/80 bg-white pl-10 pr-12 shadow-sm"
-          required
-        />
-        <button
-          type="button"
-          onClick={onToggleVisibility}
-          className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={showPassword ? 'Hide password' : 'Show password'}
-        >
-          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
+}: PasswordFieldProps) => (
+  <div>
+    <Label htmlFor={id} className="text-foreground">
+      {label}
+    </Label>
+    <div className="relative mt-2">
+      <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        id={id}
+        type={showPassword ? 'text' : 'password'}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-12 rounded-xl border-border/80 bg-white pl-10 pr-12 shadow-sm"
+        required
+      />
+      <button
+        type="button"
+        onClick={onToggleVisibility}
+        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        aria-label={showPassword ? 'Hide password' : 'Show password'}
+      >
+        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
     </div>
-  );
-};
+  </div>
+);
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, refreshSession, user } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,23 +72,154 @@ const AuthPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [verificationBusy, setVerificationBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
 
-  const searchParams = new URLSearchParams(location.search);
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const pendingSavePageId = searchParams.get('page');
   const shouldSaveAfterAuth = searchParams.get('save') === '1';
+  const verifyToken = searchParams.get('verify');
+  const resetToken = searchParams.get('reset');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (user) {
       navigate('/dashboard');
     }
   }, [user, navigate]);
 
+  useEffect(() => {
+    if (!verifyToken) return;
+
+    let active = true;
+    setVerificationBusy(true);
+
+    void (async () => {
+      try {
+        await apiFetch<{ user: unknown }>('/auth/verify/confirm', {
+          method: 'POST',
+          body: JSON.stringify({ token: verifyToken }),
+        });
+        await refreshSession();
+
+        if (!active) return;
+        toast.success('Email verified. You are signed in.');
+
+        if (shouldSaveAfterAuth && pendingSavePageId) {
+          try {
+            await apiFetch<void>(`/pages/${pendingSavePageId}/save`, { method: 'POST' });
+            toast.success('Saved to your dashboard');
+          } catch (saveError) {
+            console.error(saveError);
+          }
+        }
+
+        navigate('/dashboard');
+      } catch (error) {
+        if (!active) return;
+        console.error(error);
+        toast.error('Verification link is invalid or expired. Request a new one below.');
+        navigate('/auth', { replace: true });
+      } finally {
+        if (active) setVerificationBusy(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [navigate, pendingSavePageId, refreshSession, shouldSaveAfterAuth, verifyToken]);
+
   const toggleMode = () => {
     setIsLogin((current) => !current);
+    setForgotMode(false);
     setPassword('');
     setConfirmPassword('');
     setShowPassword(false);
     setShowConfirmPassword(false);
+  };
+
+  const handleResendVerification = async () => {
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      toast.error('Enter your account email, then try resend.');
+      return;
+    }
+
+    setVerificationBusy(true);
+    try {
+      await apiFetch('/auth/verify/send', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      toast.success('Verification email sent.');
+    } catch (error) {
+      console.error(error);
+      toast.error('Could not send verification email.');
+    } finally {
+      setVerificationBusy(false);
+    }
+  };
+
+  const handleForgotPassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      toast.error(emailResult.error.errors[0].message);
+      return;
+    }
+
+    setResetBusy(true);
+    try {
+      await apiFetch('/auth/password-reset/request', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      toast.success('If that email exists, a password reset link has been sent.');
+      setForgotMode(false);
+    } catch (error) {
+      console.error(error);
+      toast.error('Could not send password reset email.');
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
+  const handleResetPassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!resetToken) {
+      toast.error('Reset token is missing.');
+      return;
+    }
+
+    const passwordResult = passwordSchema.safeParse(password);
+    if (!passwordResult.success) {
+      toast.error(passwordResult.error.errors[0].message);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    setResetBusy(true);
+    try {
+      await apiFetch('/auth/password-reset/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ token: resetToken, password }),
+      });
+      await refreshSession();
+      toast.success('Password reset complete. You are signed in.');
+      navigate('/dashboard');
+    } catch (error) {
+      console.error(error);
+      toast.error('Reset link is invalid or expired.');
+    } finally {
+      setResetBusy(false);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -117,9 +246,11 @@ const AuthPage = () => {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const { error, code } = await signIn(email, password);
         if (error) {
-          if (error.message.includes('Invalid')) {
+          if (code === 'EMAIL_NOT_VERIFIED') {
+            toast.error('Please verify your email before signing in.');
+          } else if (error.message.includes('Invalid')) {
             toast.error('Invalid email or password');
           } else {
             toast.error(error.message);
@@ -142,7 +273,7 @@ const AuthPage = () => {
         return;
       }
 
-      const { error } = await signUp(email, password, displayName);
+      const { error, requiresVerification, message } = await signUp(email, password, displayName);
       if (error) {
         if (error.message.includes('already registered')) {
           toast.error('This email is already registered. Try signing in instead.');
@@ -152,17 +283,15 @@ const AuthPage = () => {
         return;
       }
 
-      toast.success('Account created! Welcome to WishCanvas!');
-
-      if (shouldSaveAfterAuth && pendingSavePageId) {
-        try {
-          await apiFetch<void>(`/pages/${pendingSavePageId}/save`, { method: 'POST' });
-          toast.success('Saved to your dashboard');
-        } catch (saveError) {
-          console.error(saveError);
-        }
+      if (requiresVerification) {
+        toast.success(message || 'Account created. Check your email to verify your account.');
+        setIsLogin(true);
+        setPassword('');
+        setConfirmPassword('');
+        return;
       }
 
+      toast.success('Account created! Welcome to WishCanvas!');
       navigate('/dashboard');
     } finally {
       setLoading(false);
@@ -219,82 +348,178 @@ const AuthPage = () => {
                   <Sparkles className="h-6 w-6" />
                 </div>
                 <h1 className="mt-5 text-2xl font-bold text-foreground">
-                  {isLogin ? 'Welcome back' : 'Create your account'}
+                  {resetToken ? 'Reset your password' : forgotMode ? 'Forgot your password?' : isLogin ? 'Welcome back' : 'Create your account'}
                 </h1>
                 <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                  {isLogin ? 'Sign in to manage your birthday pages' : 'Start creating polished birthday surprises'}
+                  {resetToken
+                    ? 'Set a new password to continue.'
+                    : forgotMode
+                      ? 'Enter your email and we will send a reset link.'
+                      : isLogin
+                        ? 'Sign in to manage your birthday pages'
+                        : 'Start creating polished birthday surprises'}
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {!isLogin && (
-                  <div>
-                    <Label htmlFor="displayName" className="text-foreground">
-                      Display Name
-                    </Label>
-                    <div className="relative mt-2">
-                      <User2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="displayName"
-                        type="text"
-                        value={displayName}
-                        onChange={(event) => setDisplayName(event.target.value)}
-                        placeholder="Your name"
-                        className="h-12 rounded-xl border-border/80 bg-white pl-10 shadow-sm"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <Label htmlFor="email" className="text-foreground">
-                    Email
-                  </Label>
-                  <div className="relative mt-2">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="you@example.com"
-                      className="h-12 rounded-xl border-border/80 bg-white pl-10 shadow-sm"
-                      required
-                    />
-                  </div>
+              {verifyToken && (
+                <div className="mb-4 rounded-xl border border-border/60 bg-muted/50 p-3 text-sm text-muted-foreground">
+                  {verificationBusy ? 'Verifying your email…' : 'Email verification in progress…'}
                 </div>
+              )}
 
-                <PasswordField
-                  id="password"
-                  label="Password"
-                  value={password}
-                  onChange={setPassword}
-                  showPassword={showPassword}
-                  onToggleVisibility={() => setShowPassword((current) => !current)}
-                />
-
-                {!isLogin && (
+              {resetToken ? (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <PasswordField
+                    id="password"
+                    label="New Password"
+                    value={password}
+                    onChange={setPassword}
+                    showPassword={showPassword}
+                    onToggleVisibility={() => setShowPassword((current) => !current)}
+                  />
                   <PasswordField
                     id="confirmPassword"
-                    label="Confirm Password"
+                    label="Confirm New Password"
                     value={confirmPassword}
                     onChange={setConfirmPassword}
                     showPassword={showConfirmPassword}
                     onToggleVisibility={() => setShowConfirmPassword((current) => !current)}
-                    placeholder="Repeat your password"
+                    placeholder="Repeat your new password"
                   />
-                )}
 
-                <Button type="submit" variant="hero" size="lg" className="mt-2 w-full" disabled={loading}>
-                  {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
-                </Button>
-              </form>
+                  <Button type="submit" variant="hero" size="lg" className="mt-2 w-full" disabled={resetBusy}>
+                    {resetBusy ? 'Please wait...' : 'Reset Password'}
+                  </Button>
+                </form>
+              ) : forgotMode ? (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div>
+                    <Label htmlFor="email" className="text-foreground">
+                      Email
+                    </Label>
+                    <div className="relative mt-2">
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="you@example.com"
+                        className="h-12 rounded-xl border-border/80 bg-white pl-10 shadow-sm"
+                        required
+                      />
+                    </div>
+                  </div>
 
-              <div className="mt-6 text-center text-sm text-muted-foreground">
-                <button onClick={toggleMode} className="font-medium text-foreground transition-opacity hover:opacity-75" type="button">
-                  {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-                </button>
-              </div>
+                  <Button type="submit" variant="hero" size="lg" className="mt-2 w-full" disabled={resetBusy}>
+                    {resetBusy ? 'Please wait...' : 'Send Reset Link'}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {!isLogin && (
+                    <div>
+                      <Label htmlFor="displayName" className="text-foreground">
+                        Display Name
+                      </Label>
+                      <div className="relative mt-2">
+                        <User2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          id="displayName"
+                          type="text"
+                          value={displayName}
+                          onChange={(event) => setDisplayName(event.target.value)}
+                          placeholder="Your name"
+                          className="h-12 rounded-xl border-border/80 bg-white pl-10 shadow-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label htmlFor="email" className="text-foreground">
+                      Email
+                    </Label>
+                    <div className="relative mt-2">
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="you@example.com"
+                        className="h-12 rounded-xl border-border/80 bg-white pl-10 shadow-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <PasswordField
+                    id="password"
+                    label="Password"
+                    value={password}
+                    onChange={setPassword}
+                    showPassword={showPassword}
+                    onToggleVisibility={() => setShowPassword((current) => !current)}
+                  />
+
+                  {!isLogin && (
+                    <PasswordField
+                      id="confirmPassword"
+                      label="Confirm Password"
+                      value={confirmPassword}
+                      onChange={setConfirmPassword}
+                      showPassword={showConfirmPassword}
+                      onToggleVisibility={() => setShowConfirmPassword((current) => !current)}
+                      placeholder="Repeat your password"
+                    />
+                  )}
+
+                  <Button type="submit" variant="hero" size="lg" className="mt-2 w-full" disabled={loading}>
+                    {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
+                  </Button>
+                </form>
+              )}
+
+              {!resetToken && (
+                <div className="mt-6 text-center text-sm text-muted-foreground">
+                  {forgotMode ? (
+                    <button
+                      onClick={() => setForgotMode(false)}
+                      className="font-medium text-foreground transition-opacity hover:opacity-75"
+                      type="button"
+                    >
+                      Back to sign in
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={toggleMode} className="font-medium text-foreground transition-opacity hover:opacity-75" type="button">
+                        {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+                      </button>
+                      {isLogin && (
+                        <div className="mt-3 flex items-center justify-center gap-3 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setForgotMode(true)}
+                            className="text-foreground/80 transition-opacity hover:opacity-75"
+                          >
+                            Forgot password?
+                          </button>
+                          <span>•</span>
+                          <button
+                            type="button"
+                            onClick={() => void handleResendVerification()}
+                            className="text-foreground/80 transition-opacity hover:opacity-75"
+                            disabled={verificationBusy}
+                          >
+                            {verificationBusy ? 'Sending…' : 'Resend verification'}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

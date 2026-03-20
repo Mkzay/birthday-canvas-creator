@@ -53,6 +53,7 @@ const CreatePage = () => {
   
   // Form state
   const [recipientName, setRecipientName] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [birthdayDate, setBirthdayDate] = useState<Date>();
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
@@ -97,6 +98,7 @@ const CreatePage = () => {
     if (user) {
       setSelectedTheme(user.defaultTheme || 'elegant');
       setAllowPhotos(user.defaultAllowPhotos ?? true);
+      setAllowAudio(user.defaultAllowAudio ?? true);
       setRequireNames(user.defaultRequireNames ?? true);
       void fetchCustomThemes();
     }
@@ -236,11 +238,13 @@ const CreatePage = () => {
           method: 'POST',
           body: JSON.stringify({
             recipientName,
+            recipientEmail: recipientEmail.trim() || null,
             birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
             theme: selectedTheme,
             creatorMessage: creatorMessage || null,
             soundtrackId: selectedSoundtrackId,
             allowPhotos,
+            allowAudio,
             requireNames,
             closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate!, 'yyyy-MM-dd'),
           }),
@@ -289,6 +293,7 @@ const CreatePage = () => {
         method: 'PATCH',
         body: JSON.stringify({
           recipientName,
+          recipientEmail: recipientEmail.trim() || null,
           birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
           theme: selectedTheme,
           creatorMessage: creatorMessage || null,
@@ -304,7 +309,7 @@ const CreatePage = () => {
       toast.error('Failed to update page settings');
       console.error(error);
     }
-  }, [birthdayDate, closeDate, createdPageId, creatorMessage, pageCustomAudioUrl, recipientName, selectedSoundtrackId, selectedTheme]);
+  }, [birthdayDate, closeDate, createdPageId, creatorMessage, pageCustomAudioUrl, recipientEmail, recipientName, selectedSoundtrackId, selectedTheme]);
 
   const handleAllowPhotosChange = (checked: boolean) => {
     setAllowPhotos(checked);
@@ -396,6 +401,21 @@ const CreatePage = () => {
                   placeholder="e.g., Sarah"
                   className="mt-2"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="recipientEmail" className="text-foreground">Recipient Email (optional)</Label>
+                <Input
+                  id="recipientEmail"
+                  type="email"
+                  value={recipientEmail}
+                  onChange={(event) => setRecipientEmail(event.target.value)}
+                  placeholder="e.g., sarah@example.com"
+                  className="mt-2"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  If provided, birthday-day notification is sent to this address.
+                </p>
               </div>
 
               <div>

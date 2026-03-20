@@ -61,6 +61,7 @@ const EditPage = () => {
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
 
   const [recipientName, setRecipientName] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [birthdayDate, setBirthdayDate] = useState<Date>();
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
@@ -107,6 +108,7 @@ const EditPage = () => {
     try {
       const data = await apiFetch<{
         recipient_name: string;
+        recipient_email: string | null;
         birthday_date: string;
         creator_message: string | null;
         theme: string;
@@ -122,6 +124,7 @@ const EditPage = () => {
       }>(`/pages/${pageId}`);
 
       setRecipientName(data.recipient_name);
+      setRecipientEmail(data.recipient_email || '');
       setBirthdayDate(parseLocalDate(data.birthday_date));
       setCreatorMessage(data.creator_message || '');
       setSelectedTheme(data.theme as Theme);
@@ -310,6 +313,7 @@ const EditPage = () => {
         method: 'PATCH',
         body: JSON.stringify({
           recipientName,
+          recipientEmail: recipientEmail.trim() || null,
           birthdayDate: format(birthdayDate, 'yyyy-MM-dd'),
           creatorMessage: creatorMessage || null,
           theme: selectedTheme,
@@ -415,6 +419,21 @@ const EditPage = () => {
               <div>
                 <Label htmlFor="name" className="text-foreground">Recipient&apos;s Name</Label>
                 <Input id="name" value={recipientName} onChange={(event) => setRecipientName(event.target.value)} className="mt-2" />
+              </div>
+
+              <div>
+                <Label htmlFor="recipientEmail">Recipient Email (optional)</Label>
+                <Input
+                  id="recipientEmail"
+                  type="email"
+                  value={recipientEmail}
+                  onChange={(event) => setRecipientEmail(event.target.value)}
+                  className="mt-2"
+                  placeholder="e.g., esther@example.com"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  If provided, birthday-day notification is sent to this address.
+                </p>
               </div>
 
               <div>

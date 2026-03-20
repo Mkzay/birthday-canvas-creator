@@ -12,6 +12,9 @@ import { initializeDatabase, sql } from "./db";
 import type { AuthedRequest, SessionUser } from "./types";
 import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload, themeIconUpload, ensureUploadDirs } from "./uploads";
 import sanitizeHtml from "sanitize-html";
+import { isMailerConfigured, sendTransactionalEmail } from "./mailer";
+import { consumeEmailToken, issueEmailToken, revokeOutstandingEmailTokens } from "./emailTokens";
+import { sendBirthdayRecipientEmail, sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "./emailFlows";
 
 const app = express();
 const port = Number(process.env.PORT || process.env.API_PORT || 3001);
@@ -161,16 +164,36 @@ function sanitizeDisplayName(value: unknown) {
   return trimmed ? trimmed : null;
 }
 
+function sanitizeEmail(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return null;
+  if (!trimmed.includes("@")) return null;
+  return trimmed;
+}
+
 function sendAuth(response: Response, user: SessionUser) {
   const token = signSession(user);
   setSessionCookie(response, token);
   response.json({ user });
 }
 
+async function sendVerificationEmailForUser(row: Record<string, unknown>) {
+  const userId = String(row.id);
+  await revokeOutstandingEmailTokens(userId, "verify_email");
+  const issued = await issueEmailToken({ userId, purpose: "verify_email" });
+  await sendVerificationEmail({
+    to: String(row.email),
+    token: issued.token,
+    displayName: typeof row.display_name === "string" ? row.display_name : null,
+  });
+}
+
 function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
   return {
     id: String(row.id),
     email: String(row.email),
+    emailVerifiedAt: typeof row.email_verified_at === "string" ? row.email_verified_at : null,
     displayName: typeof row.display_name === "string" ? row.display_name : null,
     avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
     defaultTheme: typeof row.default_theme === "string" ? row.default_theme : "elegant",
@@ -460,6 +483,9 @@ async function buildHealthPayload() {
   return {
     ok,
     checks: { db, uploads },
+    services: {
+      email_configured: isMailerConfigured(),
+    },
     ts: new Date().toISOString(),
     latency_ms: Date.now() - startedAt,
   };
@@ -480,6 +506,156 @@ app.get("/api/system/status", requireAdmin, async (_request, response) => {
   });
 });
 
+app.post("/api/system/test-email", requireAdmin, rateLimit("system-test-email", 5, 10 * 60 * 1000), async (request: AuthedRequest, response) => {
+  const defaultRecipient = request.user?.email || "";
+  const to = typeof request.body.to === "string" ? request.body.to.trim() : defaultRecipient;
+
+  if (!to || !to.includes("@")) {
+    response.status(400).json({ error: "Please provide a valid recipient email." });
+    return;
+  }
+
+  const appName = process.env.APP_NAME || "WishCanvas";
+  const subject = typeof request.body.subject === "string" && request.body.subject.trim()
+    ? request.body.subject.trim()
+    : `${appName} Resend test`;
+
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; line-height: 1.6; color: #1f2937;">
+      <h2 style="margin: 0 0 12px;">Resend is connected</h2>
+      <p style="margin: 0 0 12px;">This is a test email from ${appName}.</p>
+      <p style="margin: 0; color: #6b7280; font-size: 13px;">Sent at ${new Date().toISOString()}</p>
+    </div>
+  `;
+
+  const text = `Resend is connected. This is a test email from ${appName}. Sent at ${new Date().toISOString()}`;
+
+  try {
+    const result = await sendTransactionalEmail({
+      to,
+      subject,
+      html,
+      text,
+      tags: [{ name: "type", value: "system-test" }],
+    });
+
+    response.json({ ok: true, id: result.id });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to send test email";
+    logRequestFailure("email-test", { to, message });
+    response.status(500).json({ error: message });
+  }
+});
+
+async function sendBirthdayNotifications(targetDate: string | null) {
+  const normalizedDate = targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate) ? targetDate : null;
+  if (!isMailerConfigured()) {
+    throw new Error("Email service is not configured.");
+  }
+
+  const rows = await sql`
+    SELECT
+      bp.id,
+      bp.public_code,
+      bp.recipient_name,
+      bp.recipient_email,
+      bp.birthday_date,
+      bp.birthday_notified_year,
+      COUNT(bm.id)::int AS message_count,
+      u.email AS owner_email
+    FROM birthday_pages bp
+    INNER JOIN users u ON u.id = bp.user_id
+    LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
+    WHERE bp.status = 'active'
+      AND bp.owner_deleted IS NOT TRUE
+      AND bp.birthday_date = COALESCE(${normalizedDate}::date, CURRENT_DATE)
+    GROUP BY bp.id, u.id
+  `;
+
+  const currentYear = normalizedDate ? Number(normalizedDate.slice(0, 4)) : new Date().getUTCFullYear();
+  const results: Array<{ pageId: string; sent: boolean; reason?: string }> = [];
+
+  for (const row of rows) {
+    const pageId = String(row.id);
+    const alreadyNotified = Number(row.birthday_notified_year || 0) >= currentYear;
+    if (alreadyNotified) {
+      results.push({ pageId, sent: false, reason: "already-notified-this-year" });
+      continue;
+    }
+
+    const toEmail = sanitizeEmail(row.recipient_email) || sanitizeEmail(row.owner_email);
+    if (!toEmail) {
+      results.push({ pageId, sent: false, reason: "missing-recipient-email" });
+      continue;
+    }
+
+    try {
+      await sendBirthdayRecipientEmail({
+        to: toEmail,
+        recipientName: String(row.recipient_name),
+        publicCode: String(row.public_code),
+        messageCount: Number(row.message_count || 0),
+      });
+
+      await sql`
+        UPDATE birthday_pages
+        SET birthday_notified_year = ${currentYear}, updated_at = NOW()
+        WHERE id = ${pageId}
+      `;
+
+      results.push({ pageId, sent: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "birthday-email-send-failed";
+      logRequestFailure("birthday-notification", { pageId, message });
+      results.push({ pageId, sent: false, reason: message });
+    }
+  }
+
+  return {
+    ok: true,
+    date: normalizedDate || "today",
+    total: rows.length,
+    sent: results.filter((item) => item.sent).length,
+    results,
+  };
+}
+
+app.post("/api/system/notify-birthdays", requireAdmin, rateLimit("system-birthday-notify", 4, 10 * 60 * 1000), async (request, response) => {
+  const targetDate = typeof request.body.date === "string" ? request.body.date : null;
+  try {
+    const payload = await sendBirthdayNotifications(targetDate);
+    response.json(payload);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "birthday-notification-run-failed";
+    logRequestFailure("birthday-notification-manual", { message });
+    response.status(500).json({ error: message });
+  }
+});
+
+app.post("/api/system/notify-birthdays/cron", rateLimit("system-birthday-notify-cron", 10, 10 * 60 * 1000), async (request, response) => {
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  const providedSecret = typeof request.headers["x-cron-secret"] === "string"
+    ? request.headers["x-cron-secret"]
+    : (typeof request.body.secret === "string"
+      ? request.body.secret
+      : (typeof request.query.secret === "string" ? request.query.secret : ""));
+
+  if (!cronSecret || providedSecret !== cronSecret) {
+    response.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const targetDate = typeof request.body.date === "string" ? request.body.date : null;
+  try {
+    const payload = await sendBirthdayNotifications(targetDate);
+    response.json(payload);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "birthday-notification-run-failed";
+    logRequestFailure("birthday-notification-cron", { message });
+    response.status(500).json({ error: message });
+  }
+});
+
 app.get("/api/auth/session", async (request, response) => {
   const session = readSession(request as AuthedRequest);
   if (!session) {
@@ -488,7 +664,7 @@ app.get("/api/auth/session", async (request, response) => {
   }
 
   const rows = await sql`
-    SELECT id, email, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    SELECT id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
     FROM users
     WHERE id = ${session.id}
     LIMIT 1
@@ -534,10 +710,23 @@ app.post("/api/auth/signup", rateLimit("auth-signup", 6, 15 * 60 * 1000), async 
   const rows = await sql`
     INSERT INTO users (email, password_hash, display_name)
     VALUES (${email}, ${passwordHash}, ${displayName})
-    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
   `;
+  const createdUser = rows[0];
 
-  sendAuth(response, sessionUserFromRow(rows[0]));
+  if (isMailerConfigured()) {
+    try {
+      await sendVerificationEmailForUser(createdUser);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "welcome-or-verify-email-send-failed";
+      logRequestFailure("signup-email", { email, message });
+    }
+  }
+
+  response.status(201).json({
+    requiresVerification: true,
+    message: "Account created. Verify your email to continue.",
+  });
 });
 
 app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (request, response) => {
@@ -558,7 +747,7 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
   }
 
   const rows = await sql`
-    SELECT id, email, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    SELECT id, email, email_verified_at, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
     FROM users
     WHERE email = ${email}
     LIMIT 1
@@ -590,6 +779,11 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
     return;
   }
 
+  if (!user.email_verified_at) {
+    response.status(403).json({ error: "Please verify your email before signing in.", code: "EMAIL_NOT_VERIFIED" });
+    return;
+  }
+
   loginFailureStore.delete(key);
   sendAuth(response, sessionUserFromRow(user));
 });
@@ -597,6 +791,169 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
 app.post("/api/auth/logout", (_request, response) => {
   clearSessionCookie(response);
   response.status(204).end();
+});
+
+app.post("/api/auth/verify/send", rateLimit("auth-verify-send", 6, 15 * 60 * 1000), async (request, response) => {
+  if (!isMailerConfigured()) {
+    response.status(500).json({ error: "Email service is not configured." });
+    return;
+  }
+
+  const emailInput = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
+  if (!emailInput || !emailInput.includes("@")) {
+    response.status(400).json({ error: "Please provide a valid email." });
+    return;
+  }
+
+  const rows = await sql`
+    SELECT id, email, email_verified_at, display_name
+    FROM users
+    WHERE email = ${emailInput}
+    LIMIT 1
+  `;
+  const user = rows[0];
+
+  if (!user) {
+    response.json({ ok: true });
+    return;
+  }
+
+  if (user.email_verified_at) {
+    response.json({ ok: true, alreadyVerified: true });
+    return;
+  }
+
+  try {
+    await sendVerificationEmailForUser(user);
+    response.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "verification-email-send-failed";
+    logRequestFailure("verify-send", { email: emailInput, message });
+    response.status(500).json({ error: "Failed to send verification email." });
+  }
+});
+
+app.post("/api/auth/verify/confirm", rateLimit("auth-verify-confirm", 30, 15 * 60 * 1000), async (request, response) => {
+  const token = typeof request.body.token === "string" ? request.body.token.trim() : "";
+  if (!token) {
+    response.status(400).json({ error: "Verification token is required." });
+    return;
+  }
+
+  const consumed = await consumeEmailToken({ token, purpose: "verify_email" });
+  if (!consumed) {
+    response.status(400).json({ error: "Verification link is invalid or expired." });
+    return;
+  }
+
+  const rows = await sql`
+    UPDATE users
+    SET email_verified_at = NOW(), updated_at = NOW()
+    WHERE id = ${consumed.userId}
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+  `;
+
+  if (!rows[0]) {
+    response.status(404).json({ error: "User not found." });
+    return;
+  }
+
+  if (isMailerConfigured()) {
+    try {
+      await sendWelcomeEmail({
+        to: String(rows[0].email),
+        displayName: typeof rows[0].display_name === "string" ? rows[0].display_name : null,
+      });
+      await sql`
+        UPDATE users
+        SET last_welcome_email_at = NOW()
+        WHERE id = ${String(rows[0].id)}
+      `;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "welcome-email-send-failed";
+      logRequestFailure("verify-confirm-welcome", { userId: String(rows[0].id), message });
+    }
+  }
+
+  sendAuth(response, sessionUserFromRow(rows[0]));
+});
+
+app.post("/api/auth/password-reset/request", rateLimit("auth-password-reset-request", 6, 15 * 60 * 1000), async (request, response) => {
+  if (!isMailerConfigured()) {
+    response.status(500).json({ error: "Email service is not configured." });
+    return;
+  }
+
+  const emailInput = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
+  if (!emailInput || !emailInput.includes("@")) {
+    response.status(400).json({ error: "Please provide a valid email." });
+    return;
+  }
+
+  const rows = await sql`
+    SELECT id, email, display_name
+    FROM users
+    WHERE email = ${emailInput}
+    LIMIT 1
+  `;
+  const user = rows[0];
+
+  // Always return ok to avoid leaking account existence.
+  if (!user) {
+    response.json({ ok: true });
+    return;
+  }
+
+  try {
+    await revokeOutstandingEmailTokens(String(user.id), "password_reset");
+    const issued = await issueEmailToken({ userId: String(user.id), purpose: "password_reset" });
+    await sendPasswordResetEmail({
+      to: String(user.email),
+      token: issued.token,
+      displayName: typeof user.display_name === "string" ? user.display_name : null,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "password-reset-email-send-failed";
+    logRequestFailure("password-reset-request", { email: emailInput, message });
+  }
+
+  response.json({ ok: true });
+});
+
+app.post("/api/auth/password-reset/confirm", rateLimit("auth-password-reset-confirm", 15, 15 * 60 * 1000), async (request, response) => {
+  const token = typeof request.body.token === "string" ? request.body.token.trim() : "";
+  const password = typeof request.body.password === "string" ? request.body.password : "";
+
+  if (!token) {
+    response.status(400).json({ error: "Reset token is required." });
+    return;
+  }
+
+  if (password.length < 6) {
+    response.status(400).json({ error: "Password must be at least 6 characters." });
+    return;
+  }
+
+  const consumed = await consumeEmailToken({ token, purpose: "password_reset" });
+  if (!consumed) {
+    response.status(400).json({ error: "Reset link is invalid or expired." });
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
+  const rows = await sql`
+    UPDATE users
+    SET password_hash = ${passwordHash}, updated_at = NOW()
+    WHERE id = ${consumed.userId}
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+  `;
+
+  if (!rows[0]) {
+    response.status(404).json({ error: "User not found." });
+    return;
+  }
+
+  sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
 app.patch("/api/auth/profile", requireAuth, async (request: AuthedRequest, response) => {
@@ -610,7 +967,7 @@ app.patch("/api/auth/profile", requireAuth, async (request: AuthedRequest, respo
       avatar_url = ${avatarUrl || null},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
   `;
 
   sendAuth(response, sessionUserFromRow(rows[0]));
@@ -631,7 +988,7 @@ app.patch("/api/auth/preferences", requireAuth, async (request: AuthedRequest, r
       default_require_names = ${defaultRequireNames},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
   `;
 
   sendAuth(response, sessionUserFromRow(rows[0]));
@@ -841,11 +1198,13 @@ app.get("/api/pages/saved", requireAuth, async (request: AuthedRequest, response
 
 app.post("/api/pages", requireAuth, async (request: AuthedRequest, response) => {
   const publicCode = await createUniquePublicCode();
+  const recipientEmail = sanitizeEmail(request.body.recipientEmail);
   const rows = await sql`
     INSERT INTO birthday_pages (
       user_id,
       public_code,
       recipient_name,
+      recipient_email,
       birthday_date,
       theme,
       creator_message,
@@ -860,6 +1219,7 @@ app.post("/api/pages", requireAuth, async (request: AuthedRequest, response) => 
       ${request.user!.id},
       ${publicCode},
       ${String(request.body.recipientName || "").trim()},
+      ${recipientEmail},
       ${String(request.body.birthdayDate)},
       ${String(request.body.theme || "elegant")},
       ${sanitizeDisplayName(request.body.creatorMessage)},
@@ -1108,6 +1468,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
         UPDATE birthday_pages
         SET
           recipient_name = ${String(request.body.recipientName || "").trim()},
+          recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
           birthday_date = ${String(request.body.birthdayDate)},
           theme = ${String(request.body.theme || "elegant")},
           creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
@@ -1128,6 +1489,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
         UPDATE birthday_pages
         SET
           recipient_name = ${String(request.body.recipientName || "").trim()},
+          recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
           birthday_date = ${String(request.body.birthdayDate)},
           theme = ${String(request.body.theme || "elegant")},
           creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
