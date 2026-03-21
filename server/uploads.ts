@@ -166,8 +166,12 @@ export async function normalizeCoverUpload(filePath: string) {
         progressive: false,
       })
       .toFile(normalizedPath);
-  } finally {
+
     await fs.promises.rm(filePath, { force: true });
+  } catch (error) {
+    await fs.promises.rm(normalizedPath, { force: true });
+    await fs.promises.rm(filePath, { force: true });
+    throw error;
   }
 
   return {
