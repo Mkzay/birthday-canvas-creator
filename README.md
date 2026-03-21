@@ -57,8 +57,10 @@ DATABASE_URL=...
 JWT_SECRET=...
 CLIENT_URLS=https://your-production-domain.com,https://your-vercel-preview.vercel.app
 ALLOW_VERCEL_PREVIEWS=true
+# Cross-origin SPA (Vercel) + API (Railway): required
 COOKIE_SAME_SITE=none
 COOKIE_SECURE=true
+# Same-site deployments can omit these (defaults: SameSite=Strict, Secure in production)
 UPLOADS_ROOT=/data/uploads
 ```
 
@@ -85,7 +87,8 @@ Authentication uses cookies. For Vercel and Railway to work together:
 
 - the frontend must call the Railway API using `VITE_API_ORIGIN`
 - the backend must allow the frontend origin in `CLIENT_URLS`
-- production cookies must use `COOKIE_SAME_SITE=none` and `COOKIE_SECURE=true`
+- **Cross-site** browser requests to the API need `COOKIE_SAME_SITE=none` and `COOKIE_SECURE=true` (Set-Cookie is still on the API host; the browser will send it on credentialed XHR/fetch to that host).
+- **Same-site** (e.g. API proxies under one domain) can rely on defaults: `SameSite=Strict` and `Secure` in production.
 
 ## Scripts
 

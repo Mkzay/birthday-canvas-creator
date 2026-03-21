@@ -17,10 +17,12 @@
 - **`DATABASE_URL`**: Neon connection string.
 - **`CLIENT_URLS`**: comma-separated allowed origins for CORS (e.g. `https://wish-canvas.vercel.app,http://localhost:5173`).
 - **`ALLOW_VERCEL_PREVIEWS`**: set `true` if you want `*.vercel.app` preview origins allowed.
+- **`TRUST_PROXY`**: set `true` if the API sits behind a reverse proxy and you need accurate client IPs for rate limiting (otherwise rely on production default `trust proxy`).
+- **`API_GLOBAL_RATE_LIMIT_MAX`**: optional override for the default per-IP cap on `/api/*` (see `server/rateLimits.ts`).
 - **Cookie/session**
   - **`COOKIE_DOMAIN`**
-  - **`COOKIE_SAME_SITE`**: typically `none` in prod (cross-site), `lax` for local dev.
-  - **`COOKIE_SECURE`**: `true` in prod when using `sameSite=none`.
+  - **`COOKIE_SAME_SITE`**: default **`strict`**. Set `none` (+ `COOKIE_SECURE=true`) when the SPA and API are on different sites (e.g. Vercel + Railway). Use `lax` if you need a middle ground.
+  - **`COOKIE_SECURE`**: defaults `true` in production; required `true` when `sameSite=none`.
 - **Admin status tile / endpoint**
   - **`ADMIN_EMAILS`**: comma-separated allowlist (lower/upper case doesn’t matter).
 - **Sentry (server)**
@@ -38,11 +40,8 @@
 
 Likely cookie domain / sameSite / secure mismatch.
 
-- Ensure API cookie settings are correct:
-  - `COOKIE_SAME_SITE=none`
-  - `COOKIE_SECURE=true`
-  - `COOKIE_DOMAIN=.wish-canvas.vercel.app` (or your actual apex domain)
-- Prefer proxying `/api/*` through the frontend domain (first-party) when possible.
+- **Cross-origin API** (SPA on Vercel, API on Railway): set `COOKIE_SAME_SITE=none`, `COOKIE_SECURE=true`, and correct `COOKIE_DOMAIN` if sharing a parent domain.
+- **First-party** (same site): defaults use `Strict`; prefer proxying `/api/*` through the frontend origin when possible.
 
 ### Images/audio not loading (uploads 404)
 
@@ -50,6 +49,10 @@ Likely cookie domain / sameSite / secure mismatch.
 - If the frontend is on a different origin, either:
   - Proxy `/uploads/*` through the frontend domain, or
   - Ensure `resolveAssetUrl()` prefixes the correct API origin.
+
+### CSP / blocked API or Sentry requests (production SPA)
+
+Vercel sets a `Content-Security-Policy` on static responses. If you point `VITE_API_ORIGIN` at a **new API host**, add that origin to `connect-src` in `vercel.json` (or relax policy deliberately). Sentry ingest hosts are already allowlisted by pattern where possible.
 
 ### CORS errors in dev
 

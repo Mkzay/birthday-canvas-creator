@@ -8,7 +8,8 @@ import type { AuthedRequest, SessionUser } from "./types";
 const ACCESS_COOKIE_NAME = "wishcanvas_access";
 const REFRESH_COOKIE_NAME = "wishcanvas_refresh";
 const ACCESS_TOKEN_TTL_MS = 30 * 60 * 1000;
-const DEFAULT_REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Sliding idle expiry for all sessions (30-day inactivity logout, capped by absolute_expires_at). */
+const DEFAULT_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REMEMBER_ME_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const ABSOLUTE_SESSION_TTL_MS = 60 * 24 * 60 * 60 * 1000;
 
@@ -20,11 +21,10 @@ function readBooleanEnv(value: string | undefined, fallback: boolean) {
 function getCookieOptions(maxAgeMs: number) {
   const inProduction = process.env.NODE_ENV === "production";
   const configuredSameSite = process.env.COOKIE_SAME_SITE?.toLowerCase();
+  // Default Strict for CSRF protection. Use COOKIE_SAME_SITE=lax|none if API and SPA are on different sites.
   const sameSite = configuredSameSite === "strict" || configuredSameSite === "lax" || configuredSameSite === "none"
     ? configuredSameSite
-    : inProduction
-      ? "none"
-      : "lax";
+    : "strict";
   const secure = readBooleanEnv(process.env.COOKIE_SECURE, sameSite === "none" || inProduction);
   const domain = process.env.COOKIE_DOMAIN?.trim() || undefined;
 
@@ -137,8 +137,8 @@ async function touchSessionById(sessionId: string) {
         expires_at = CASE
           WHEN absolute_expires_at < NOW() + INTERVAL '30 days' AND remember_me THEN absolute_expires_at
           WHEN remember_me THEN NOW() + INTERVAL '30 days'
-          WHEN absolute_expires_at < NOW() + INTERVAL '7 days' THEN absolute_expires_at
-          ELSE NOW() + INTERVAL '7 days'
+          WHEN absolute_expires_at < NOW() + INTERVAL '30 days' THEN absolute_expires_at
+          ELSE NOW() + INTERVAL '30 days'
         END
     WHERE id = ${sessionId}
       AND revoked_at IS NULL
@@ -154,18 +154,26 @@ async function touchSessionById(sessionId: string) {
   return new Date(String(rows[0].expires_at));
 }
 
-async function touchSessionByRefreshToken(refreshToken: string) {
-  const tokenHash = hashToken(refreshToken);
+/**
+ * Validates the current refresh token, issues a new one (rotation), and invalidates the old hash in one UPDATE.
+ * Reuse of a stale refresh token after rotation yields no row → caller should clear cookies.
+ */
+async function rotateRefreshToken(oldRefreshToken: string) {
+  const oldHash = hashToken(oldRefreshToken);
+  const newRefreshToken = crypto.randomBytes(48).toString("hex");
+  const newHash = hashToken(newRefreshToken);
+
   const rows = await sql`
     UPDATE auth_sessions
-    SET last_used_at = NOW(),
+    SET refresh_token_hash = ${newHash},
+        last_used_at = NOW(),
         expires_at = CASE
           WHEN remember_me AND absolute_expires_at < NOW() + INTERVAL '30 days' THEN absolute_expires_at
           WHEN remember_me THEN NOW() + INTERVAL '30 days'
-          WHEN absolute_expires_at < NOW() + INTERVAL '7 days' THEN absolute_expires_at
-          ELSE NOW() + INTERVAL '7 days'
+          WHEN absolute_expires_at < NOW() + INTERVAL '30 days' THEN absolute_expires_at
+          ELSE NOW() + INTERVAL '30 days'
         END
-    WHERE refresh_token_hash = ${tokenHash}
+    WHERE refresh_token_hash = ${oldHash}
       AND revoked_at IS NULL
       AND expires_at > NOW()
       AND absolute_expires_at > NOW()
@@ -180,6 +188,7 @@ async function touchSessionByRefreshToken(refreshToken: string) {
     sessionId: String(rows[0].id),
     userId: String(rows[0].user_id),
     expiresAt: new Date(String(rows[0].expires_at)),
+    newRefreshToken,
   };
 }
 
@@ -270,22 +279,22 @@ async function refreshFromRefreshToken(request: AuthedRequest, response?: Respon
   const refreshToken = request.cookies?.[REFRESH_COOKIE_NAME];
   if (!refreshToken) return null;
 
-  const session = await touchSessionByRefreshToken(refreshToken);
-  if (!session) {
+  const rotated = await rotateRefreshToken(refreshToken);
+  if (!rotated) {
     if (response) clearAuthCookies(response);
     return null;
   }
 
-  const user = await loadSessionUser(session.userId);
+  const user = await loadSessionUser(rotated.userId);
   if (!user) {
     if (response) clearAuthCookies(response);
     return null;
   }
 
   if (response) {
-    const accessToken = signAccessToken(user, session.sessionId);
+    const accessToken = signAccessToken(user, rotated.sessionId);
     setAccessCookie(response, accessToken);
-    setRefreshCookie(response, refreshToken, session.expiresAt);
+    setRefreshCookie(response, rotated.newRefreshToken, rotated.expiresAt);
   }
 
   return user;

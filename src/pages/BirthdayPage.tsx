@@ -39,6 +39,7 @@ import AnimatedBackground from '@/components/AnimatedBackground';
 import { hexToHsl } from '@/lib/colors';
 import { useAuth } from '@/context/AuthContext';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
+import DOMPurify from 'dompurify';
 
 interface BirthdayPageData {
   id: string;
@@ -542,10 +543,22 @@ const fontClassMap: Record<string, string> = {
   outfit: 'font-outfit',
 };
 
+/** Matches server `sanitize-html` allowlist for wish messages (server/index.ts). */
+const WISH_MESSAGE_ALLOWED_TAGS = ['b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'br', 'p'] as const;
+
+function sanitizeWishHtmlForDisplay(message: string): string {
+  return DOMPurify.sanitize(message, {
+    ALLOWED_TAGS: [...WISH_MESSAGE_ALLOWED_TAGS],
+    ALLOWED_ATTR: [],
+  });
+}
+
+function wishMessageHtmlWithQuotes(message: string): string {
+  return `\u201C${sanitizeWishHtmlForDisplay(message)}\u201D`;
+}
+
 function stripHtml(html: string): string {
-  const temp = document.createElement('div');
-  temp.innerHTML = html;
-  return temp.textContent || temp.innerText || '';
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS: [] });
 }
 
 function isRichHtml(text: string): boolean {
@@ -1892,7 +1905,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         </p>
                         <h2 className={cn('mt-3 text-3xl font-bold leading-[0.98]', theme.titleClass, theme.font)}>{slide.message.sender_name}</h2>
                         {isRichHtml(slide.message.message)
-                          ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed', theme.text)} dangerouslySetInnerHTML={{ __html: `\u201C${slide.message.message}\u201D` }} />
+                          ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(slide.message.message) }} />
                           : <p className={cn('mt-4 text-lg leading-relaxed', theme.text)}>&quot;{slide.message.message}&quot;</p>
                         }
                         <div className="mt-5 flex flex-wrap gap-2">
@@ -2440,7 +2453,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                               </div>
 
                               {isRichHtml(activeSlide.message.message)
-                                ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)} dangerouslySetInnerHTML={{ __html: `\u201C${activeSlide.message.message}\u201D` }} />
+                                ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
                                 : <p className={cn('mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)}>
                                 &quot;{activeSlide.message.message}&quot;
                               </p>}

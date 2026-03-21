@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import path from "node:path";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
@@ -32,9 +33,60 @@ import {
   sendVerificationEmail,
   sendWelcomeEmail,
 } from "./emailFlows";
+import { exposeErrorToClient } from "./errors";
+import { securityHeadersMiddleware } from "./securityHeaders";
+import { validateImageMagicBytes, validateAudioMagicBytes } from "./fileSignatures";
+import { validateBody, validateParams } from "./validateRequest";
+import {
+  signupBodySchema,
+  loginBodySchema,
+  emailBodySchema,
+  tokenBodySchema,
+  passwordResetConfirmBodySchema,
+  profilePatchBodySchema,
+  preferencesPatchBodySchema,
+  notificationsPatchBodySchema,
+  passwordChangeBodySchema,
+  themeCreateBodySchema,
+  themePatchBodySchema,
+  pageCreateBodySchema,
+  pagePatchBodySchema,
+  publicMessageBodySchema,
+  uploadPageIdBodySchema,
+  systemTestEmailBodySchema,
+  birthdayNotifyBodySchema,
+  cronNotifyBodySchema,
+  pageIdParamSchema,
+  themeIdParamSchema,
+  pageMessageParamsSchema,
+  pagePhotoParamsSchema,
+} from "./schemas";
+import {
+  createGlobalApiLimiter,
+  authSignupLimiter,
+  authLoginLimiter,
+  authSessionLimiter,
+  authLogoutLimiter,
+  authVerifySendLimiter,
+  authVerifyConfirmLimiter,
+  authPasswordResetRequestLimiter,
+  authPasswordResetConfirmLimiter,
+  authNotificationsLimiter,
+  systemTestEmailLimiter,
+  systemBirthdayNotifyLimiter,
+  systemBirthdayCronLimiter,
+  publicPhotoUploadLimiter,
+  publicAudioUploadLimiter,
+  publicMessageLimiter,
+  healthEndpointLimiter,
+} from "./rateLimits";
 
 const app = express();
 const port = Number(process.env.PORT || process.env.API_PORT || 3001);
+
+if (process.env.TRUST_PROXY === "true" || process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -78,7 +130,6 @@ function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
 }
 
 const allowedOrigins = getAllowedOrigins();
-const rateLimitStore = new Map<string, { count: number; expiresAt: number }>();
 const loginFailureStore = new Map<string, { count: number; lockedUntil: number | null }>();
 
 function shouldLogRequest(request: express.Request, status: number, durationMs: number) {
@@ -101,29 +152,20 @@ function getRequestIp(request: express.Request) {
   return request.ip || "unknown";
 }
 
-function rateLimit(scope: string, limit: number, windowMs: number) {
-  return (request: express.Request, response: express.Response, next: express.NextFunction) => {
-    const key = `${scope}:${getRequestIp(request)}`;
-    const now = Date.now();
-    const existing = rateLimitStore.get(key);
-
-    if (!existing || existing.expiresAt <= now) {
-      rateLimitStore.set(key, { count: 1, expiresAt: now + windowMs });
-      next();
-      return;
-    }
-
-    if (existing.count >= limit) {
-      logRequestFailure("rate-limit", { scope, ip: getRequestIp(request), path: request.path });
-      response.status(429).json({ error: "Too many requests. Please try again shortly." });
-      return;
-    }
-
-    existing.count += 1;
-    next();
-  };
+function routeParamString(value: string | string[] | undefined): string {
+  if (value == null) return "";
+  return Array.isArray(value) ? (value[0] ?? "") : value;
 }
 
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    frameguard: { action: "deny" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+app.use(securityHeadersMiddleware);
 app.use(cors({
   origin(origin, callback) {
     if (!origin || isAllowedOrigin(origin, allowedOrigins)) {
@@ -164,6 +206,7 @@ app.use((request, response, next) => {
   next();
 });
 app.use(express.json({ limit: "2mb" }));
+app.use("/api", createGlobalApiLimiter());
 app.use("/uploads", express.static(uploadsRoot));
 
 function escapeHtml(str: string) {
@@ -173,6 +216,22 @@ function escapeHtml(str: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+async function rejectInvalidUpload(
+  file: Express.Multer.File,
+  kind: "image" | "audio",
+  response: Response,
+  logScope: string,
+): Promise<boolean> {
+  const ok = kind === "image" ? await validateImageMagicBytes(file.path) : await validateAudioMagicBytes(file.path);
+  if (ok) {
+    return true;
+  }
+  await fs.rm(file.path, { force: true });
+  logRequestFailure(logScope, { reason: "invalid-file-signature", filename: file.filename });
+  response.status(400).json({ error: "Invalid or corrupted file upload" });
+  return false;
 }
 
 function sanitizeDisplayName(value: unknown) {
@@ -510,7 +569,7 @@ async function buildHealthPayload() {
   };
 }
 
-app.get("/api/health", async (_request, response) => {
+app.get("/api/health", healthEndpointLimiter, async (_request, response) => {
   const payload = await buildHealthPayload();
   response.status(payload.ok ? 200 : 503).json(payload);
 });
@@ -525,7 +584,7 @@ app.get("/api/system/status", requireAdmin, async (_request, response) => {
   });
 });
 
-app.post("/api/system/test-email", requireAdmin, rateLimit("system-test-email", 5, 10 * 60 * 1000), async (request: AuthedRequest, response) => {
+app.post("/api/system/test-email", requireAdmin, systemTestEmailLimiter, validateBody(systemTestEmailBodySchema), async (request: AuthedRequest, response) => {
   const defaultRecipient = request.user?.email || "";
   const to = typeof request.body.to === "string" ? request.body.to.trim() : defaultRecipient;
 
@@ -562,7 +621,7 @@ app.post("/api/system/test-email", requireAdmin, rateLimit("system-test-email", 
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to send test email";
     logRequestFailure("email-test", { to, message });
-    response.status(500).json({ error: message });
+    response.status(500).json({ error: exposeErrorToClient(error, "Failed to send test email.") });
   }
 });
 
@@ -643,7 +702,11 @@ async function sendBirthdayNotifications(targetDate: string | null) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "birthday-email-send-failed";
       logRequestFailure("birthday-notification", { pageId, message });
-      results.push({ pageId, sent: false, reason: message });
+      results.push({
+        pageId,
+        sent: false,
+        reason: exposeErrorToClient(error, "Email send failed."),
+      });
     }
   }
 
@@ -656,7 +719,7 @@ async function sendBirthdayNotifications(targetDate: string | null) {
   };
 }
 
-app.post("/api/system/notify-birthdays", requireAdmin, rateLimit("system-birthday-notify", 4, 10 * 60 * 1000), async (request, response) => {
+app.post("/api/system/notify-birthdays", requireAdmin, systemBirthdayNotifyLimiter, validateBody(birthdayNotifyBodySchema), async (request, response) => {
   const targetDate = typeof request.body.date === "string" ? request.body.date : null;
   try {
     const payload = await sendBirthdayNotifications(targetDate);
@@ -664,11 +727,11 @@ app.post("/api/system/notify-birthdays", requireAdmin, rateLimit("system-birthda
   } catch (error) {
     const message = error instanceof Error ? error.message : "birthday-notification-run-failed";
     logRequestFailure("birthday-notification-manual", { message });
-    response.status(500).json({ error: message });
+    response.status(500).json({ error: exposeErrorToClient(error, "Could not run birthday notifications.") });
   }
 });
 
-app.post("/api/system/notify-birthdays/cron", rateLimit("system-birthday-notify-cron", 10, 10 * 60 * 1000), async (request, response) => {
+app.post("/api/system/notify-birthdays/cron", systemBirthdayCronLimiter, validateBody(cronNotifyBodySchema), async (request, response) => {
   const cronSecret = process.env.CRON_SECRET?.trim();
   const providedSecret = typeof request.headers["x-cron-secret"] === "string"
     ? request.headers["x-cron-secret"]
@@ -688,11 +751,11 @@ app.post("/api/system/notify-birthdays/cron", rateLimit("system-birthday-notify-
   } catch (error) {
     const message = error instanceof Error ? error.message : "birthday-notification-run-failed";
     logRequestFailure("birthday-notification-cron", { message });
-    response.status(500).json({ error: message });
+    response.status(500).json({ error: exposeErrorToClient(error, "Could not run birthday notifications.") });
   }
 });
 
-app.get("/api/auth/session", async (request, response) => {
+app.get("/api/auth/session", authSessionLimiter, async (request, response) => {
   const session = await getActiveSession(request as AuthedRequest, response);
   if (!session) {
     response.json({ user: null });
@@ -715,20 +778,10 @@ app.get("/api/auth/session", async (request, response) => {
   response.json({ user: sessionUserFromRow(rows[0]) });
 });
 
-app.post("/api/auth/signup", rateLimit("auth-signup", 6, 15 * 60 * 1000), async (request, response) => {
-  const email = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
-  const password = typeof request.body.password === "string" ? request.body.password : "";
+app.post("/api/auth/signup", authSignupLimiter, validateBody(signupBodySchema), async (request, response) => {
+  const email = request.body.email as string;
+  const password = request.body.password as string;
   const displayName = sanitizeDisplayName(request.body.displayName);
-
-  if (!email || !email.includes("@")) {
-    response.status(400).json({ error: "Please enter a valid email" });
-    return;
-  }
-
-  if (password.length < 6) {
-    response.status(400).json({ error: "Password must be at least 6 characters" });
-    return;
-  }
 
   const existing = await sql`
     SELECT id
@@ -765,9 +818,9 @@ app.post("/api/auth/signup", rateLimit("auth-signup", 6, 15 * 60 * 1000), async 
   });
 });
 
-app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (request, response) => {
-  const email = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
-  const password = typeof request.body.password === "string" ? request.body.password : "";
+app.post("/api/auth/login", authLoginLimiter, validateBody(loginBodySchema), async (request, response) => {
+  const email = request.body.email as string;
+  const password = request.body.password as string;
   const rememberMe = Boolean(request.body.rememberMe ?? false);
 
   const clientIp = getRequestIp(request);
@@ -825,23 +878,19 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
   await sendAuth(response, sessionUserFromRow(user), rememberMe);
 });
 
-app.post("/api/auth/logout", async (request: AuthedRequest, response) => {
+app.post("/api/auth/logout", authLogoutLimiter, async (request: AuthedRequest, response) => {
   await revokeCurrentSession(request);
   clearSessionCookie(response);
   response.status(204).end();
 });
 
-app.post("/api/auth/verify/send", rateLimit("auth-verify-send", 6, 15 * 60 * 1000), async (request, response) => {
+app.post("/api/auth/verify/send", authVerifySendLimiter, validateBody(emailBodySchema), async (request, response) => {
   if (!isMailerConfigured()) {
     response.status(500).json({ error: "Email service is not configured." });
     return;
   }
 
-  const emailInput = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
-  if (!emailInput || !emailInput.includes("@")) {
-    response.status(400).json({ error: "Please provide a valid email." });
-    return;
-  }
+  const emailInput = request.body.email as string;
 
   const rows = await sql`
     SELECT id, email, email_verified_at, display_name
@@ -871,12 +920,8 @@ app.post("/api/auth/verify/send", rateLimit("auth-verify-send", 6, 15 * 60 * 100
   }
 });
 
-app.post("/api/auth/verify/confirm", rateLimit("auth-verify-confirm", 30, 15 * 60 * 1000), async (request, response) => {
-  const token = typeof request.body.token === "string" ? request.body.token.trim() : "";
-  if (!token) {
-    response.status(400).json({ error: "Verification token is required." });
-    return;
-  }
+app.post("/api/auth/verify/confirm", authVerifyConfirmLimiter, validateBody(tokenBodySchema), async (request, response) => {
+  const token = request.body.token as string;
 
   const consumed = await consumeEmailToken({ token, purpose: "verify_email" });
   if (!consumed) {
@@ -916,17 +961,13 @@ app.post("/api/auth/verify/confirm", rateLimit("auth-verify-confirm", 30, 15 * 6
   await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
-app.post("/api/auth/password-reset/request", rateLimit("auth-password-reset-request", 6, 15 * 60 * 1000), async (request, response) => {
+app.post("/api/auth/password-reset/request", authPasswordResetRequestLimiter, validateBody(emailBodySchema), async (request, response) => {
   if (!isMailerConfigured()) {
     response.status(500).json({ error: "Email service is not configured." });
     return;
   }
 
-  const emailInput = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
-  if (!emailInput || !emailInput.includes("@")) {
-    response.status(400).json({ error: "Please provide a valid email." });
-    return;
-  }
+  const emailInput = request.body.email as string;
 
   const rows = await sql`
     SELECT id, email, display_name
@@ -958,19 +999,9 @@ app.post("/api/auth/password-reset/request", rateLimit("auth-password-reset-requ
   response.json({ ok: true });
 });
 
-app.post("/api/auth/password-reset/confirm", rateLimit("auth-password-reset-confirm", 15, 15 * 60 * 1000), async (request, response) => {
-  const token = typeof request.body.token === "string" ? request.body.token.trim() : "";
-  const password = typeof request.body.password === "string" ? request.body.password : "";
-
-  if (!token) {
-    response.status(400).json({ error: "Reset token is required." });
-    return;
-  }
-
-  if (password.length < 6) {
-    response.status(400).json({ error: "Password must be at least 6 characters." });
-    return;
-  }
+app.post("/api/auth/password-reset/confirm", authPasswordResetConfirmLimiter, validateBody(passwordResetConfirmBodySchema), async (request, response) => {
+  const token = request.body.token as string;
+  const password = request.body.password as string;
 
   const consumed = await consumeEmailToken({ token, purpose: "password_reset" });
   if (!consumed) {
@@ -995,7 +1026,7 @@ app.post("/api/auth/password-reset/confirm", rateLimit("auth-password-reset-conf
   await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
-app.patch("/api/auth/profile", requireAuth, async (request: AuthedRequest, response) => {
+app.patch("/api/auth/profile", requireAuth, validateBody(profilePatchBodySchema), async (request: AuthedRequest, response) => {
   const displayName = sanitizeDisplayName(request.body.displayName);
   const avatarUrl = typeof request.body.avatarUrl === "string" ? request.body.avatarUrl.trim() : "";
 
@@ -1012,7 +1043,7 @@ app.patch("/api/auth/profile", requireAuth, async (request: AuthedRequest, respo
   await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
-app.patch("/api/auth/preferences", requireAuth, async (request: AuthedRequest, response) => {
+app.patch("/api/auth/preferences", requireAuth, validateBody(preferencesPatchBodySchema), async (request: AuthedRequest, response) => {
   const defaultTheme = typeof request.body.defaultTheme === "string" ? request.body.defaultTheme : "elegant";
   const defaultAllowPhotos = Boolean(request.body.defaultAllowPhotos ?? true);
   const defaultAllowAudio = Boolean(request.body.defaultAllowAudio ?? true);
@@ -1033,7 +1064,7 @@ app.patch("/api/auth/preferences", requireAuth, async (request: AuthedRequest, r
   await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
-app.patch("/api/auth/notifications", requireAuth, rateLimit("auth-notifications", 12, 15 * 60 * 1000), async (request: AuthedRequest, response) => {
+app.patch("/api/auth/notifications", requireAuth, authNotificationsLimiter, validateBody(notificationsPatchBodySchema), async (request: AuthedRequest, response) => {
   const emailNotifications = Boolean(request.body.emailNotifications ?? true);
   const newMessageNotifications = Boolean(request.body.newMessageNotifications ?? true);
   const birthdayReminders = Boolean(request.body.birthdayReminders ?? true);
@@ -1060,6 +1091,10 @@ app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async 
     return;
   }
 
+  if (!(await rejectInvalidUpload(file, "image", response, "upload-avatar"))) {
+    return;
+  }
+
   const existingRows = await sql`
     SELECT avatar_url
     FROM users
@@ -1079,13 +1114,8 @@ app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async 
   response.json({ url });
 });
 
-app.patch("/api/auth/password", requireAuth, async (request: AuthedRequest, response) => {
-  const password = typeof request.body.password === "string" ? request.body.password : "";
-
-  if (password.length < 6) {
-    response.status(400).json({ error: "Password must be at least 6 characters" });
-    return;
-  }
+app.patch("/api/auth/password", requireAuth, validateBody(passwordChangeBodySchema), async (request: AuthedRequest, response) => {
+  const password = request.body.password as string;
 
   const passwordHash = await hashPassword(password);
   await sql`
@@ -1153,7 +1183,7 @@ app.get("/api/themes", requireAuth, async (request: AuthedRequest, response) => 
   response.json(rows);
 });
 
-app.post("/api/themes", requireAuth, async (request: AuthedRequest, response) => {
+app.post("/api/themes", requireAuth, validateBody(themeCreateBodySchema), async (request: AuthedRequest, response) => {
   const rows = await sql`
     INSERT INTO custom_themes (user_id, name, emoji, gradient_from, gradient_to, gradient_mid, gradient_angle, accent_color, font, icon_url)
     VALUES (
@@ -1174,7 +1204,7 @@ app.post("/api/themes", requireAuth, async (request: AuthedRequest, response) =>
   response.status(201).json(rows[0]);
 });
 
-app.patch("/api/themes/:id", requireAuth, async (request: AuthedRequest, response) => {
+app.patch("/api/themes/:id", requireAuth, validateParams(themeIdParamSchema), validateBody(themePatchBodySchema), async (request: AuthedRequest, response) => {
   const rows = await sql`
     UPDATE custom_themes
     SET
@@ -1209,11 +1239,15 @@ app.post("/api/uploads/theme-icon", requireAuth, themeIconUpload.single("file"),
     return;
   }
 
+  if (!(await rejectInvalidUpload(file, "image", response, "upload-theme-icon"))) {
+    return;
+  }
+
   const url = fileUrl(path.join("theme-icons", file.filename));
   response.json({ url });
 });
 
-app.delete("/api/themes/:id", requireAuth, async (request: AuthedRequest, response) => {
+app.delete("/api/themes/:id", requireAuth, validateParams(themeIdParamSchema), async (request: AuthedRequest, response) => {
   await sql`
     DELETE FROM custom_themes
     WHERE id = ${request.params.id}
@@ -1256,7 +1290,7 @@ app.get("/api/pages/saved", requireAuth, async (request: AuthedRequest, response
   response.json(rows.map((row) => serializePageDates(row)));
 });
 
-app.post("/api/pages", requireAuth, async (request: AuthedRequest, response) => {
+app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (request: AuthedRequest, response) => {
   const publicCode = await createUniquePublicCode();
   const recipientEmail = sanitizeEmail(request.body.recipientEmail);
   const rows = await sql`
@@ -1296,7 +1330,7 @@ app.post("/api/pages", requireAuth, async (request: AuthedRequest, response) => 
   response.status(201).json(rows[0]);
 });
 
-app.get("/api/pages/:id", requireAuth, async (request: AuthedRequest, response) => {
+app.get("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
   const rows = await privatePageQuery(String(request.params.id), request.user!.id);
 
   if (!rows[0]) {
@@ -1307,7 +1341,7 @@ app.get("/api/pages/:id", requireAuth, async (request: AuthedRequest, response) 
   response.json(serializePageDates(rows[0]));
 });
 
-app.get("/api/pages/:id/messages", requireAuth, async (request: AuthedRequest, response) => {
+app.get("/api/pages/:id/messages", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
   const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
   if (!pageRows[0]) {
     response.status(404).json({ error: "Page not found" });
@@ -1318,7 +1352,7 @@ app.get("/api/pages/:id/messages", requireAuth, async (request: AuthedRequest, r
   response.json(messages);
 });
 
-app.get("/api/pages/:id/ownership", requireAuth, async (request: AuthedRequest, response) => {
+app.get("/api/pages/:id/ownership", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
   const rows = await sql`
     SELECT id, public_code
     FROM birthday_pages
@@ -1330,7 +1364,7 @@ app.get("/api/pages/:id/ownership", requireAuth, async (request: AuthedRequest, 
   response.json({ isOwner: Boolean(rows[0]), publicCode: rows[0] ? String(rows[0].public_code) : null });
 });
 
-app.get("/api/pages/:id/save-status", requireAuth, async (request: AuthedRequest, response) => {
+app.get("/api/pages/:id/save-status", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
   const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
@@ -1348,7 +1382,7 @@ app.get("/api/pages/:id/save-status", requireAuth, async (request: AuthedRequest
   response.json({ isSaved: Boolean(rows[0]) });
 });
 
-app.post("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, response) => {
+app.post("/api/pages/:id/save", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
   const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
@@ -1364,7 +1398,7 @@ app.post("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, resp
   response.status(204).end();
 });
 
-app.delete("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, response) => {
+app.delete("/api/pages/:id/save", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
   const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
@@ -1380,7 +1414,7 @@ app.delete("/api/pages/:id/save", requireAuth, async (request: AuthedRequest, re
   response.status(204).end();
 });
 
-app.delete("/api/pages/:id/messages/:messageId", requireAuth, async (request: AuthedRequest, response) => {
+app.delete("/api/pages/:id/messages/:messageId", requireAuth, validateParams(pageMessageParamsSchema), async (request: AuthedRequest, response) => {
   const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
   if (!pageRows[0]) {
     response.status(404).json({ error: "Page not found" });
@@ -1418,7 +1452,7 @@ app.delete("/api/pages/:id/messages/:messageId", requireAuth, async (request: Au
   response.status(204).end();
 });
 
-app.delete("/api/pages/:id/messages/:messageId/audio", requireAuth, async (request: AuthedRequest, response) => {
+app.delete("/api/pages/:id/messages/:messageId/audio", requireAuth, validateParams(pageMessageParamsSchema), async (request: AuthedRequest, response) => {
   const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
   if (!pageRows[0]) {
     response.status(404).json({ error: "Page not found" });
@@ -1449,7 +1483,7 @@ app.delete("/api/pages/:id/messages/:messageId/audio", requireAuth, async (reque
   response.status(204).end();
 });
 
-app.delete("/api/pages/:id/messages/photos/:photoId", requireAuth, async (request: AuthedRequest, response) => {
+app.delete("/api/pages/:id/messages/photos/:photoId", requireAuth, validateParams(pagePhotoParamsSchema), async (request: AuthedRequest, response) => {
   const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
   if (!pageRows[0]) {
     response.status(404).json({ error: "Page not found" });
@@ -1499,7 +1533,7 @@ app.delete("/api/pages/:id/messages/photos/:photoId", requireAuth, async (reques
   response.status(204).end();
 });
 
-app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response) => {
+app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), validateBody(pagePatchBodySchema), async (request: AuthedRequest, response) => {
   const hasCoverPhotoUrl = Object.prototype.hasOwnProperty.call(request.body, "coverPhotoUrl");
   const hasCustomAudioUrl = Object.prototype.hasOwnProperty.call(request.body, "pageCustomAudioUrl");
 
@@ -1573,7 +1607,7 @@ app.patch("/api/pages/:id", requireAuth, async (request: AuthedRequest, response
   response.json(rows[0]);
 });
 
-app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, response) => {
+app.delete("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
   const rows = await sql`
     SELECT id
     FROM birthday_pages
@@ -1599,13 +1633,17 @@ app.delete("/api/pages/:id", requireAuth, async (request: AuthedRequest, respons
   response.status(204).end();
 });
 
-app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), async (request: AuthedRequest, response) => {
+app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), validateBody(uploadPageIdBodySchema), async (request: AuthedRequest, response) => {
   const pageIdOrCode = String(request.body.pageId || "");
   const file = request.file;
 
   if (!file || !pageIdOrCode) {
     response.status(400).json({ error: "Missing file upload or page id" });
     logRequestFailure("upload-cover", { userId: request.user?.id, pageId: pageIdOrCode, reason: "missing-file-or-page" });
+    return;
+  }
+
+  if (!(await rejectInvalidUpload(file, "image", response, "upload-cover"))) {
     return;
   }
 
@@ -1639,12 +1677,16 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), async (r
   response.json({ url });
 });
 
-app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("file"), async (request: AuthedRequest, response) => {
+app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("file"), validateBody(uploadPageIdBodySchema), async (request: AuthedRequest, response) => {
   const pageIdOrCode = String(request.body.pageId || "");
   const file = request.file;
 
   if (!file || !pageIdOrCode) {
     response.status(400).json({ error: "Missing audio upload or page id" });
+    return;
+  }
+
+  if (!(await rejectInvalidUpload(file, "audio", response, "upload-page-soundtrack"))) {
     return;
   }
 
@@ -1678,8 +1720,8 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
   response.json({ url });
 });
 
-app.get("/api/public/pages/:id", async (request, response) => {
-  const resolvedPageId = await resolvePageId(request.params.id);
+app.get("/api/public/pages/:id", validateParams(pageIdParamSchema), async (request, response) => {
+  const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
     return;
@@ -1694,8 +1736,8 @@ app.get("/api/public/pages/:id", async (request, response) => {
   response.json(serializePageDates(rows[0]));
 });
 
-app.get("/api/public/pages/:id/messages", async (request, response) => {
-  const resolvedPageId = await resolvePageId(request.params.id);
+app.get("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), async (request, response) => {
+  const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
     return;
@@ -1718,7 +1760,7 @@ app.get("/api/public/pages/:id/messages", async (request, response) => {
   response.json(messages);
 });
 
-app.post("/api/public/pages/:id/message-photo", rateLimit("public-photo", 18, 10 * 60 * 1000), messageUpload.single("file"), async (request, response) => {
+app.post("/api/public/pages/:id/message-photo", validateParams(pageIdParamSchema), publicPhotoUploadLimiter, messageUpload.single("file"), async (request, response) => {
   const file = request.file;
   const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
@@ -1745,10 +1787,14 @@ app.post("/api/public/pages/:id/message-photo", rateLimit("public-photo", 18, 10
     return;
   }
 
+  if (!(await rejectInvalidUpload(file, "image", response, "upload-message-photo"))) {
+    return;
+  }
+
   response.json({ url: fileUrl(path.join("messages", file.filename)) });
 });
 
-app.post("/api/public/pages/:id/message-audio", rateLimit("public-audio", 12, 10 * 60 * 1000), wishAudioUpload.single("file"), async (request, response) => {
+app.post("/api/public/pages/:id/message-audio", validateParams(pageIdParamSchema), publicAudioUploadLimiter, wishAudioUpload.single("file"), async (request, response) => {
   const file = request.file;
   const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
@@ -1775,10 +1821,14 @@ app.post("/api/public/pages/:id/message-audio", rateLimit("public-audio", 12, 10
     return;
   }
 
+  if (!(await rejectInvalidUpload(file, "audio", response, "upload-message-audio"))) {
+    return;
+  }
+
   response.json({ url: fileUrl(path.join("wish-audio", file.filename)) });
 });
 
-app.post("/api/public/pages/:id/messages", rateLimit("public-message", 24, 10 * 60 * 1000), async (request, response) => {
+app.post("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), publicMessageLimiter, validateBody(publicMessageBodySchema), async (request, response) => {
   const resolvedPageId = await resolvePageId(String(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
@@ -1932,9 +1982,9 @@ function resolveThemeColors(page: Record<string, unknown>): [string, string] {
   return themeGradientColors[theme] || themeGradientColors.elegant;
 }
 
-app.get("/api/og-image/:id", async (request, response) => {
+app.get("/api/og-image/:id", validateParams(pageIdParamSchema), async (request, response) => {
   try {
-    const resolvedPageId = await resolvePageId(request.params.id);
+    const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
     if (!resolvedPageId) { response.status(404).send("Not found"); return; }
 
     const rows = await publicPageQuery(resolvedPageId);
@@ -1977,9 +2027,9 @@ app.get("/api/og-image/:id", async (request, response) => {
   }
 });
 
-app.get("/api/og/:id", async (request, response) => {
+app.get("/api/og/:id", validateParams(pageIdParamSchema), async (request, response) => {
   try {
-    const resolvedPageId = await resolvePageId(request.params.id);
+    const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
     if (!resolvedPageId) { response.status(404).send("Not found"); return; }
 
     const rows = await publicPageQuery(resolvedPageId);
@@ -2039,7 +2089,9 @@ app.use((error: Error, _request: express.Request, response: express.Response, _n
     Sentry.captureException(error);
   }
   console.error(error);
-  response.status(500).json({ error: error.message || "Internal server error" });
+  response.status(500).json({
+    error: exposeErrorToClient(error, "Internal server error"),
+  });
 });
 
 initializeDatabase()
