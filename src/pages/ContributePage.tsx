@@ -12,6 +12,7 @@ import { parseLocalDate } from '@/lib/date';
 import { apiFetch, apiForm } from '@/lib/api';
 import BrandLogo from '@/components/BrandLogo';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
+import StickerPicker, { StickerData } from '@/components/StickerPicker';
 
 interface PublicBirthdayPageData {
   id: string;
@@ -74,6 +75,7 @@ const ContributePage = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<number | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [stickers, setStickers] = useState<StickerData[]>([]);
 
   useEffect(() => {
     selectedPhotosRef.current = selectedPhotos;
@@ -460,6 +462,13 @@ const ContributePage = () => {
           message,
           photos: uploadedPhotos,
           audioUrl: uploadedAudioUrl,
+          stickers: stickers.map(s => ({
+            stickerType: s.stickerType,
+            positionX: s.positionX,
+            positionY: s.positionY,
+            rotation: s.rotation,
+            scale: s.scale
+          })),
         }),
       });
 
@@ -489,6 +498,7 @@ const ContributePage = () => {
     setMessage('');
     clearSelectedPhotos();
     removeWishAudio();
+    setStickers([]);
     setIsSubmitted(false);
   };
 
@@ -754,6 +764,23 @@ const ContributePage = () => {
                     )}
                   </div>
                 )}
+
+                <div className="mb-8 font-inherit">
+                  <div className="mb-3">
+                    <Label className="text-foreground">Decorate your wish</Label>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Add some fun stickers to your birthday card!
+                    </p>
+                  </div>
+                  <StickerPicker 
+                    stickers={stickers} 
+                    onChange={setStickers}
+                    className={!page.can_contribute ? "pointer-events-none opacity-60" : ""}
+                    message={message}
+                    photos={selectedPhotos.map(p => p.file)}
+                    themeId={page.theme}
+                  />
+                </div>
 
                 <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading || uploadingAudio || isRecording || !page.can_contribute}>
                   {submitting || uploading || uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}

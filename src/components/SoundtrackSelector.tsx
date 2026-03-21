@@ -15,7 +15,7 @@ interface SoundtrackSelectorProps {
 
 function extractYouTubeId(url: string | null) {
   if (!url) return null;
-  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  const match = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i);
   return match ? match[1] : null;
 }
 
