@@ -97,6 +97,12 @@ type RevealSlide =
   | { id: string; kind: 'wish'; message: Message; index: number }
   | { id: string; kind: 'closing' };
 
+function extractYouTubeId(url: string | null | undefined) {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  return match ? match[1] : null;
+}
+
 function formatMediaTime(seconds: number) {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
   const s = Math.floor(seconds);
@@ -637,6 +643,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [activeWishAudioId, setActiveWishAudioId] = useState<string | null>(null);
   const soundtrackAudioRef = useRef<HTMLAudioElement | null>(null);
   const presetControllerRef = useRef<SoundtrackController | null>(null);
+  const youtubeIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [startYoutube, setStartYoutube] = useState(false);
+  const ytId = useMemo(() => extractYouTubeId(page?.custom_audio_url), [page?.custom_audio_url]);
   const shouldResumeSoundtrackRef = useRef(false);
   const userPausedSoundtrackRef = useRef(false);
   const soundtrackWasDuckedRef = useRef(false);
@@ -659,6 +668,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     if (soundtrackAudioRef.current) {
       soundtrackAudioRef.current.pause();
     }
+
+    if (youtubeIframeRef.current?.contentWindow) {
+      youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+    }
   }, []);
 
   const startSoundtrack = useCallback(
@@ -668,6 +681,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
       presetControllerRef.current?.stop();
       presetControllerRef.current = null;
+
+      if (ytId) {
+        setStartYoutube(true);
+        if (youtubeIframeRef.current?.contentWindow) {
+           youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+        }
+        return;
+      }
 
       const resolvedCustomAudioUrl = resolveAssetUrl(page.custom_audio_url);
 
@@ -691,7 +712,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         presetControllerRef.current = playPresetSoundtrack(page.soundtrack_id, { loop: withLoop, volume: 0.12 });
       }
     },
-    [page],
+    [page, ytId],
   );
 
   const pauseSoundtrackForWishAudio = useCallback(() => {
@@ -719,6 +740,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       hadPlayingSoundtrack = true;
     }
 
+    if (youtubeIframeRef.current?.contentWindow) {
+      youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+      hadPlayingSoundtrack = true;
+    }
+
     soundtrackWasDuckedRef.current = hadPlayingSoundtrack;
     shouldResumeSoundtrackRef.current = hadPlayingSoundtrack;
   }, []);
@@ -736,6 +762,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     soundtrackWasDuckedRef.current = false;
     presetPrevVolumeRef.current = null;
     soundtrackPrevVolumeRef.current = null;
+
+    if (youtubeIframeRef.current?.contentWindow) {
+      youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+      return;
+    }
 
     const customAudio = soundtrackAudioRef.current;
     if (customAudio && customAudio.paused && !customAudio.ended && customAudio.currentTime > 0) {
@@ -2665,6 +2696,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {startYoutube && ytId && (
+        <iframe
+          ref={youtubeIframeRef}
+          className="hidden"
+          src={`https://www.youtube.com/embed/${ytId}?enablejsapi=1&autoplay=1&controls=0&mute=0`}
+          allow="autoplay"
+        />
+      )}
     </div>
   );
 };

@@ -62,7 +62,6 @@ const CreatePage = () => {
   const [requireNames, setRequireNames] = useState(user?.defaultRequireNames ?? true);
   const [closeDate, setCloseDate] = useState<Date>();
   const [selectedSoundtrackId, setSelectedSoundtrackId] = useState('golden-hour');
-  const [pageCustomAudio, setPageCustomAudio] = useState<File | null>(null);
   const [pageCustomAudioUrl, setPageCustomAudioUrl] = useState<string | null>(null);
   
   // Cover photo state
@@ -109,11 +108,8 @@ const CreatePage = () => {
       if (coverPhotoPreview) {
         URL.revokeObjectURL(coverPhotoPreview);
       }
-      if (pageCustomAudioUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(pageCustomAudioUrl);
-      }
     };
-  }, [coverPhotoPreview, pageCustomAudioUrl]);
+  }, [coverPhotoPreview]);
 
   const steps = [
     { number: 1, label: 'Details' },
@@ -170,53 +166,8 @@ const CreatePage = () => {
     }
   };
 
-  const handleCustomAudioSelect = (file: File) => {
-    if (!file.type.startsWith('audio/')) {
-      toast.error('Please select an audio file');
-      return;
-    }
-
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error('Audio must be less than 8MB');
-      return;
-    }
-
-    if (pageCustomAudioUrl?.startsWith('blob:')) {
-      URL.revokeObjectURL(pageCustomAudioUrl);
-    }
-
-    setPageCustomAudio(file);
-    setPageCustomAudioUrl(URL.createObjectURL(file));
-  };
-
-  const removeCustomAudio = () => {
-    setPageCustomAudio(null);
-    if (pageCustomAudioUrl?.startsWith('blob:')) {
-      URL.revokeObjectURL(pageCustomAudioUrl);
-    }
-    setPageCustomAudioUrl(null);
-  };
-
-  const uploadPageSoundtrack = async (pageId: string): Promise<string | null> => {
-    if (!pageCustomAudio) return pageCustomAudioUrl;
-
-    const formData = new FormData();
-    formData.append('file', pageCustomAudio);
-    formData.append('pageId', pageId);
-
-    try {
-      const data = await apiForm<{ url: string }>('/uploads/page-soundtrack', formData);
-      if (pageCustomAudioUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(pageCustomAudioUrl);
-      }
-      setPageCustomAudio(null);
-      setPageCustomAudioUrl(data.url);
-      return data.url;
-    } catch (error) {
-      console.error('Audio upload error:', error);
-      toast.error('Failed to upload opening audio');
-      return null;
-    }
+  const handleCustomAudioUrlChange = (url: string | null) => {
+    setPageCustomAudioUrl(url);
   };
 
   const handleNext = async () => {
@@ -243,6 +194,7 @@ const CreatePage = () => {
             theme: selectedTheme,
             creatorMessage: creatorMessage || null,
             soundtrackId: selectedSoundtrackId,
+            pageCustomAudioUrl,
             allowPhotos,
             allowAudio,
             requireNames,
@@ -253,14 +205,6 @@ const CreatePage = () => {
         if (coverPhoto) {
           const coverUrl = await uploadCoverPhoto(data.id);
           if (!coverUrl) {
-            setSaving(false);
-            return;
-          }
-        }
-
-        if (pageCustomAudio) {
-          const audioUrl = await uploadPageSoundtrack(data.id);
-          if (!audioUrl) {
             setSaving(false);
             return;
           }
@@ -544,15 +488,14 @@ const CreatePage = () => {
             <div className="panel-inset mt-8 p-4 sm:p-6">
               <h3 className="text-lg font-bold text-foreground">Opening soundtrack</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Choose one of the in-app soundtracks or upload your own short opening audio for the reveal.
+                Choose one of the in-app soundtracks or paste a YouTube custom link for the reveal.
               </p>
               <div className="mt-5">
                 <SoundtrackSelector
                   selectedSoundtrackId={selectedSoundtrackId}
                   onSelectSoundtrackId={setSelectedSoundtrackId}
                   customAudioUrl={pageCustomAudioUrl}
-                  onSelectCustomAudio={handleCustomAudioSelect}
-                  onRemoveCustomAudio={removeCustomAudio}
+                  onChangeCustomAudioUrl={handleCustomAudioUrlChange}
                 />
               </div>
             </div>

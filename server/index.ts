@@ -1307,7 +1307,8 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
       allow_audio,
       require_names,
       close_date,
-      status
+      status,
+      custom_audio_url
     )
     VALUES (
       ${request.user!.id},
@@ -1322,7 +1323,8 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
       ${Boolean(request.body.allowAudio ?? true)},
       ${Boolean(request.body.requireNames ?? true)},
       ${String(request.body.closeDate || request.body.birthdayDate)},
-      'active'
+      'active',
+      ${request.body.pageCustomAudioUrl || null}
     )
     RETURNING *
   `;

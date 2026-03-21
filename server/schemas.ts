@@ -89,6 +89,7 @@ export const pageCreateBodySchema = z.object({
   theme: z.string().max(80).optional(),
   creatorMessage: z.union([z.string().max(5000), z.null()]).optional(),
   soundtrackId: z.string().max(64).optional(),
+  pageCustomAudioUrl: z.union([z.string().max(2000), z.null()]).optional(),
   allowPhotos: z.boolean().optional(),
   allowAudio: z.boolean().optional(),
   requireNames: z.boolean().optional(),
