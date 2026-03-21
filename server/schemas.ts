@@ -118,12 +118,21 @@ const contributionPhotoSchema = z.object({
   sortOrder: z.number().int().min(0).max(999).optional(),
 });
 
+const contributionStickerSchema = z.object({
+  stickerType: z.string().min(1).max(50),
+  positionX: z.number().min(0).max(100),
+  positionY: z.number().min(0).max(100),
+  rotation: z.number().min(-360).max(360).optional(),
+  scale: z.number().min(0.1).max(5).optional(),
+});
+
 export const publicMessageBodySchema = z.object({
   senderName: z.string().max(120).optional(),
   message: z.string().min(1).max(20000),
   photoUrl: z.union([z.string().max(2000), z.null()]).optional(),
   audioUrl: z.union([z.string().max(2000), z.null()]).optional(),
   photos: z.array(contributionPhotoSchema).max(12).optional(),
+  stickers: z.array(contributionStickerSchema).max(20).optional(),
 });
 
 export const uploadPageIdBodySchema = z.object({
