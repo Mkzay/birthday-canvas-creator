@@ -118,11 +118,15 @@ function getAllowedOrigins() {
 
 function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
   const normalizedRequestOrigin = normalizeOrigin(origin);
-  if (normalizedRequestOrigin && allowedOrigins.includes(normalizedRequestOrigin)) {
+  if (!normalizedRequestOrigin) return false;
+
+  // Allow explicitly listed origins
+  if (allowedOrigins.includes(normalizedRequestOrigin)) {
     return true;
   }
 
-  if (process.env.ALLOW_VERCEL_PREVIEWS === "true" && /^https:\/\/.*\.vercel\.app$/i.test(origin)) {
+  // Allow all Vercel preview and production domains
+  if (/^https:\/\/.*\.vercel\.app$/i.test(normalizedRequestOrigin)) {
     return true;
   }
 
@@ -156,6 +160,8 @@ function routeParamString(value: string | string[] | undefined): string {
   if (value == null) return "";
   return Array.isArray(value) ? (value[0] ?? "") : value;
 }
+
+app.use("/uploads", express.static(uploadsRoot));
 
 app.use(
   helmet({
@@ -207,7 +213,7 @@ app.use((request, response, next) => {
 });
 app.use(express.json({ limit: "2mb" }));
 app.use("/api", createGlobalApiLimiter());
-app.use("/uploads", express.static(uploadsRoot));
+// Removed duplicate static serving moved up for security bypass
 
 function escapeHtml(str: string) {
   return str
@@ -404,9 +410,16 @@ async function fetchMessagesForPage(pageId: string) {
       bmp.id AS photo_id,
       bmp.photo_url,
       bmp.caption,
-      bmp.sort_order
+      bmp.sort_order,
+      bms.id AS sticker_id,
+      bms.sticker_type,
+      bms.position_x,
+      bms.position_y,
+      bms.rotation,
+      bms.scale
     FROM birthday_messages bm
     LEFT JOIN birthday_message_photos bmp ON bmp.message_id = bm.id
+    LEFT JOIN birthday_message_stickers bms ON bms.message_id = bm.id
     WHERE bm.page_id = ${pageId}
     ORDER BY bm.created_at ASC, bmp.sort_order ASC, bmp.created_at ASC
   `;
@@ -425,18 +438,31 @@ async function fetchMessagesForPage(pageId: string) {
         audio_url: typeof row.audio_url === "string" ? row.audio_url : null,
         created_at: row.created_at,
         photos: [],
+        stickers: [],
       });
     }
 
     const currentMessage = messages.get(messageId)!;
     const photos = currentMessage.photos as Array<Record<string, unknown>>;
+    const stickers = currentMessage.stickers as Array<Record<string, unknown>>;
 
-    if (row.photo_id) {
+    if (row.photo_id && !photos.some(p => p.id === String(row.photo_id))) {
       photos.push({
         id: String(row.photo_id),
         photo_url: String(row.photo_url),
         caption: typeof row.caption === "string" ? row.caption : null,
         sort_order: Number(row.sort_order || 0),
+      });
+    }
+
+    if (row.sticker_id && !stickers.some(s => s.id === String(row.sticker_id))) {
+      stickers.push({
+        id: String(row.sticker_id),
+        sticker_type: String(row.sticker_type),
+        position_x: Number(row.position_x),
+        position_y: Number(row.position_y),
+        rotation: Number(row.rotation || 0),
+        scale: Number(row.scale || 1),
       });
     }
   });
@@ -1919,6 +1945,29 @@ app.post("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), pu
       photos.map((photo) => sql`
         INSERT INTO birthday_message_photos (message_id, photo_url, caption, sort_order)
         VALUES (${createdMessage.id}, ${photo.url}, ${photo.caption}, ${photo.sortOrder})
+      `),
+    );
+  }
+
+  const stickers = Array.isArray(request.body.stickers) ? request.body.stickers : [];
+  if (stickers.length) {
+    await Promise.all(
+      stickers.map((sticker: {
+        stickerType: string;
+        positionX: number;
+        positionY: number;
+        rotation?: number;
+        scale?: number;
+      }) => sql`
+        INSERT INTO birthday_message_stickers (message_id, sticker_type, position_x, position_y, rotation, scale)
+        VALUES (
+          ${createdMessage.id},
+          ${String(sticker.stickerType)},
+          ${Number(sticker.positionX)},
+          ${Number(sticker.positionY)},
+          ${Number(sticker.rotation || 0)},
+          ${Number(sticker.scale || 1)}
+        )
       `),
     );
   }

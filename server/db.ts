@@ -307,4 +307,21 @@ export async function initializeDatabase() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_birthday_message_photos_message_id ON birthday_message_photos(message_id);
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS birthday_message_stickers (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      message_id UUID NOT NULL REFERENCES birthday_messages(id) ON DELETE CASCADE,
+      sticker_type TEXT NOT NULL,
+      position_x REAL NOT NULL,
+      position_y REAL NOT NULL,
+      rotation REAL NOT NULL DEFAULT 0,
+      scale REAL NOT NULL DEFAULT 1,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_birthday_message_stickers_message_id ON birthday_message_stickers(message_id);
+  `;
 }
