@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Loader2, MailWarning } from 'lucide-react';
+import { CheckCircle2, MailWarning } from 'lucide-react';
 import { toast } from 'sonner';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import BrandLogo from '@/components/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 
 type VerifyState = 'verifying' | 'success' | 'error';
 
@@ -78,13 +79,15 @@ const VerifyEmailPage = () => {
 
           <div className="mt-8 text-center">
             {state === 'verifying' && (
-              <>
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+              <div className="flex flex-col items-center gap-5">
+                <div className="overflow-hidden rounded-[1.5rem] shadow-[0_18px_55px_rgba(18,18,23,0.08)]">
+                  <WishCanvasLoader className="relative min-h-[18rem] w-full max-w-[24rem]" />
                 </div>
-                <h1 className="mt-5 text-2xl font-bold text-foreground">Verifying your email</h1>
-                <p className="mt-2 text-sm text-muted-foreground">Please wait while we confirm your account.</p>
-              </>
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">Verifying your email</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">Please wait while we confirm your account.</p>
+                </div>
+              </div>
             )}
 
             {state === 'success' && (

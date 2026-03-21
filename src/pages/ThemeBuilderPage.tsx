@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { apiFetch, apiForm } from '@/lib/api';
 import Header from '@/components/Header';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 
 interface CustomTheme {
   id: string;
@@ -236,11 +237,7 @@ const ThemeBuilderPage = () => {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <WishCanvasLoader />;
   }
 
   return (

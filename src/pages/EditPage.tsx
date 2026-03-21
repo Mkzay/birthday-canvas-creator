@@ -29,6 +29,7 @@ import Header from '@/components/Header';
 import { apiFetch, apiForm } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 
 type Theme = string;
 type Step = 1 | 2 | 3;
@@ -353,11 +354,7 @@ const EditPage = () => {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <WishCanvasLoader />;
   }
 
   const displayCoverUrl = coverPhotoPreview || currentCoverUrl;

@@ -7,7 +7,6 @@ import {
   Edit,
   Eye,
   FileText,
-  Loader2,
   MessageSquare,
   MoreVertical,
   Palette,
@@ -45,6 +44,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 
 interface BirthdayPage {
   id: string;
@@ -304,11 +304,7 @@ const Dashboard = () => {
   };
 
   if (authLoading || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <WishCanvasLoader />;
   }
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
@@ -318,40 +314,43 @@ const Dashboard = () => {
       <Header showDashboardLabel />
 
       <main className="mx-auto max-w-7xl px-4 pb-6 pt-24 sm:px-6 sm:pb-8 sm:pt-28">
-        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-          <div className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(255,246,241,0.98))] p-6 shadow-card-lg sm:p-8">
-            <div className="absolute -right-10 top-8 h-32 w-32 rounded-full bg-secondary/14 blur-3xl" />
-            <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+        <section className="grid gap-4 sm:gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-start">
+          <div className="relative overflow-hidden rounded-[2rem] border-2 border-[#fcece5] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(255,243,236,0.96),rgba(255,234,246,0.72))] p-5 shadow-[0_10px_0_0_#fcece5] sm:rounded-[2.5rem] sm:p-10">
+            <div className="absolute -right-14 -bottom-14 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+            <div className="absolute right-8 top-8 animate-float text-primary/30">
+              <Sparkles className="h-12 w-12" />
+            </div>
             <div className="relative">
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
                 <Sparkles className="h-3.5 w-3.5" />
                 Birthday studio
               </span>
-              <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
-                Welcome back, {displayName}
+              <h1 className="mt-4 text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
+                Welcome back,
+                <span className="block text-primary">{displayName}</span>
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Welcome to Wish birthday page. Preparements and enclerating a pameoon time, and we&apos;ll get that.
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+                Build, style, and manage every celebration from one cozy workspace. Start a new page or refine your themes before the next birthday reveal.
               </p>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-2.5 sm:mt-7 sm:gap-3 sm:flex-row">
                 <Link to="/create">
-                  <Button variant="hero" size="lg" className="w-full gap-2 sm:w-auto">
+                  <Button variant="hero" size="lg" className="w-full gap-2 rounded-full px-6 sm:w-auto sm:px-7">
                     <Plus className="h-4 w-4" />
                     Create birthday page
                   </Button>
                 </Link>
                 <Link to="/themes">
-                  <Button variant="outline" size="lg" className="w-full gap-2 sm:w-auto">
+                  <Button variant="outline" size="lg" className="w-full gap-2 rounded-full border-2 border-primary/40 text-primary hover:bg-primary/5 sm:w-auto">
                     <Palette className="h-4 w-4" />
-                    Open theme builder
+                    Theme builder
                   </Button>
                 </Link>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:gap-4">
             {[
               {
                 label: 'Pages',
@@ -380,22 +379,22 @@ const Dashboard = () => {
             ].map((item) => (
               <article
                 key={item.label}
-                className={`flex items-center gap-4 rounded-[1.35rem] border border-border/60 bg-gradient-to-br ${item.panelClassName} px-5 py-4 shadow-card`}
+                className={`flex items-center gap-3 rounded-[1.3rem] border-2 border-[#fcece5] bg-gradient-to-br ${item.panelClassName} px-4 py-3.5 shadow-[0_8px_0_0_#fcece5] sm:gap-4 sm:rounded-[1.7rem] sm:px-5 sm:py-4`}
               >
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.iconClassName}`}>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.iconClassName} sm:h-12 sm:w-12 sm:rounded-2xl`}>
                   <item.icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-lg font-bold text-foreground">
+                  <p className="text-base font-bold text-foreground sm:text-lg">
                     {item.value} <span className="font-semibold">{item.label}</span>
                   </p>
-                  <p className="text-sm text-muted-foreground">{item.detail}</p>
+                  <p className="text-xs text-muted-foreground sm:text-sm">{item.detail}</p>
                 </div>
               </article>
             ))}
 
             {systemStatus && (
-              <div className="rounded-[1.35rem] border border-border/60 bg-card/80 px-5 py-4 shadow-card">
+              <div className="rounded-[1.7rem] border-2 border-[#fcece5] bg-card/85 px-5 py-4 shadow-[0_8px_0_0_#fcece5]">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">System</p>
@@ -416,58 +415,73 @@ const Dashboard = () => {
         </section>
 
         <section className="mt-8">
-          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-4 flex flex-col gap-4 px-1 sm:mb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Your pages</p>
-              <h2 className="mt-2 text-2xl font-bold text-foreground">Birthday pages in progress</h2>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Birthday pages</h2>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pr-9 sm:w-72"
-                />
-              </div>
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search your journeys..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-2xl border-2 border-[#fcece5] bg-white pl-9 pr-3 focus-visible:ring-primary/25"
+              />
             </div>
           </div>
 
-          {pages.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-3xl">🎂</div>
-              <h3 className="mt-5 text-xl font-bold text-foreground">No birthday pages yet</h3>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Start with one page, choose a mood, and send the contribution link when you are ready to collect wishes.
-              </p>
-              <Link to="/create" className="mt-6 inline-flex">
-                <Button variant="hero" size="lg">
-                  Create your first page
-                </Button>
-              </Link>
-            </div>
-          ) : filteredLivePages.length === 0 && filteredArchivedPages.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-muted text-3xl">🔍</div>
-              <h3 className="mt-5 text-xl font-bold text-foreground">No matching pages</h3>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-                We couldn&apos;t find any pages matching your search and filter criteria.
-              </p>
-              <Button variant="outline" className="mt-6" onClick={() => { setSearchQuery(''); }}>
-                Clear filters
-              </Button>
-            </div>
-          ) : (
-            <>
-            {filteredLivePages.length > 0 && (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live</h3>
-                  <span className="text-xs text-muted-foreground">{filteredLivePages.length} active</span>
+          <div className="px-0 py-0">
+            {pages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center">
+                <div className="relative mb-10">
+                  <div className="relative flex h-56 w-56 items-center justify-center rounded-[2rem] border-2 border-dashed border-[#f0d9ce] bg-[#fff8f2] text-primary/30 shadow-[0_10px_0_0_#fcece5]">
+                    <FileText className="h-24 w-24" />
+                    <div className="absolute inset-3 rounded-[1.5rem] border border-[#f3dfd5]" />
+                  </div>
+                  <div className="absolute -left-6 -top-6 animate-float rounded-full bg-pink-100 p-3 text-pink-400">
+                    <Sparkles className="h-6 w-6" />
+                  </div>
+                  <div className="absolute -bottom-5 -right-5 animate-float rounded-full bg-amber-100 p-3 text-amber-500 [animation-delay:900ms]">
+                    <Sparkles className="h-6 w-6" />
+                  </div>
                 </div>
-                <div className="grid gap-5 md:grid-cols-2 mb-6">
-                  {filteredLivePages.map((page) => {
+                <h3 className="text-3xl font-bold text-foreground">No birthday pages yet</h3>
+                <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
+                  Start your first celebration journey. Create one page, pick a theme, and begin collecting wishes in one beautiful place.
+                </p>
+                <Link to="/create" className="mt-8 inline-flex">
+                  <Button variant="hero" size="lg" className="rounded-2xl px-8">
+                    Create your first page
+                  </Button>
+                </Link>
+              </div>
+            ) : filteredLivePages.length === 0 && filteredArchivedPages.length === 0 ? (
+              <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-muted text-muted-foreground">
+                  <Search className="h-7 w-7" />
+                </div>
+                <h3 className="mt-5 text-xl font-bold text-foreground">No matching pages</h3>
+                <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
+                  We couldn&apos;t find any pages matching your search and filter criteria.
+                </p>
+                <Button variant="outline" className="mt-6" onClick={() => { setSearchQuery(''); }}>
+                  Clear filters
+                </Button>
+              </div>
+            ) : (
+              <div>
+                <div className="overflow-hidden rounded-[2rem] border-2 border-[#fcece5] bg-card/95 shadow-[0_10px_0_0_#fcece5] sm:rounded-[2.5rem]">
+                  <div className="border-b-2 border-[#fcece5] px-4 py-5 sm:px-8 sm:py-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">In progress</h3>
+                    <span className="text-xs text-muted-foreground">{filteredLivePages.length} active</span>
+                  </div>
+                  </div>
+                  <div className="px-4 py-6 sm:px-8 sm:py-8">
+                    {filteredLivePages.length > 0 ? (
+                      <div className="grid gap-4 md:grid-cols-2 sm:gap-5">
+                      {filteredLivePages.map((page) => {
                     const theme = getThemeDisplay(page.theme);
                     const status = getStatusBadge(page);
                     const birthdayLabel = format(parseLocalDate(page.birthday_date), 'MMM d, yyyy');
@@ -475,14 +489,14 @@ const Dashboard = () => {
                     const closesLabel = format(closeDate, 'MMM d, yyyy');
                     const daysLeft = differenceInDays(closeDate, new Date());
 
-                    return (
-                      <article
-                        key={page.id}
-                        className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
-                        style={{ borderColor: `${theme.accent}30` }}
-                      >
-                        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-stretch">
-                          <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                        return (
+                          <article
+                            key={page.id}
+                            className="group overflow-hidden rounded-[1.5rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover sm:rounded-[2rem]"
+                            style={{ borderColor: `${theme.accent}30` }}
+                          >
+                        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-stretch sm:gap-4 sm:p-5">
+                          <div className="relative h-40 w-full overflow-hidden rounded-[1.2rem] sm:h-auto sm:w-56 sm:min-w-56 sm:rounded-[1.5rem]">
                             {page.cover_photo_url ? (
                               <img
                                 src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
@@ -504,7 +518,7 @@ const Dashboard = () => {
                           <div className="flex min-w-0 flex-1 flex-col">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <h3 className="truncate text-xl font-bold text-foreground">{page.recipient_name}&apos;s Birthday</h3>
+                                <h3 className="truncate text-lg font-bold text-foreground sm:text-xl">{page.recipient_name}&apos;s Birthday</h3>
                                 <div className="mt-2 flex flex-wrap items-center gap-2">
                                   <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
                                     {theme.emoji} {theme.name}
@@ -543,7 +557,7 @@ const Dashboard = () => {
                               </DropdownMenu>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-2 gap-3">
+                            <div className="mt-3 grid grid-cols-2 gap-2.5 sm:mt-4 sm:gap-3">
                               <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
                                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                                   <CalendarDays className="h-4 w-4" />
@@ -560,7 +574,7 @@ const Dashboard = () => {
                               </div>
                             </div>
 
-                            <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:mt-3 sm:gap-3">
                               <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
                                 <p className="text-xs font-semibold text-muted-foreground">Closes</p>
                                 <p className="mt-2 text-sm font-semibold text-foreground">{closesLabel}</p>
@@ -573,7 +587,7 @@ const Dashboard = () => {
                               </div>
                             </div>
 
-                            <div className="mt-5 flex gap-2">
+                            <div className="mt-4 flex gap-2 sm:mt-5">
                               <Link to={`/preview/${page.public_code}`} className="flex-1">
                                 <Button variant="outline" size="sm" className="w-full gap-2">
                                   <Eye className="h-4 w-4" />
@@ -589,159 +603,169 @@ const Dashboard = () => {
                             </div>
                           </div>
                         </div>
-                      </article>
-                    );
-                  })}
+                          </article>
+                        );
+                      })}
+                    </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-border bg-card/80 px-5 py-8 text-center">
+                        <p className="text-sm text-muted-foreground">No active pages right now.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </>
+              </div>
             )}
+          </div>
+        </section>
 
-            {filteredArchivedPages.length > 0 && (
-              <>
-                <div className="mt-4 mb-3 flex items-center justify-between">
+        {pages.length > 0 && !(filteredLivePages.length === 0 && filteredArchivedPages.length === 0) && (
+          <section className="mt-8">
+            <div className="overflow-hidden rounded-[2rem] border-2 border-[#fcece5] bg-card/95 shadow-[0_10px_0_0_#fcece5] sm:rounded-[2.5rem]">
+              <div className="border-b-2 border-[#fcece5] px-4 py-5 sm:px-8 sm:py-6">
+                <div className="flex items-center justify-between gap-4">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Archived & Past</h3>
                   <span className="text-xs text-muted-foreground">{filteredArchivedPages.length} completed</span>
                 </div>
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredArchivedPages.map((page) => {
-                const theme = getThemeDisplay(page.theme);
-                const status = { label: 'Revealed', className: 'bg-slate-900/8 text-slate-700' };
-                const collectionCloses = page.close_date ? format(parseLocalDate(page.close_date), 'MMM d') : 'Birthday date';
+              </div>
+              <div className="px-4 py-6 sm:px-8 sm:py-8">
+                {filteredArchivedPages.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2 sm:gap-5">
+                    {filteredArchivedPages.map((page) => {
+                      const theme = getThemeDisplay(page.theme);
+                      const status = { label: 'Revealed', className: 'bg-slate-900/8 text-slate-700' };
+                      const collectionCloses = page.close_date ? format(parseLocalDate(page.close_date), 'MMM d') : 'Birthday date';
+                      const birthdayLabel = format(parseLocalDate(page.birthday_date), 'MMM d, yyyy');
 
-                return (
-                  <article
-                    key={page.id}
-                    className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
-                    style={{ borderColor: `${theme.accent}30` }}
-                  >
-                    {/* existing card body unchanged */}
-                    {/* We reuse the same layout for archived pages */}
-                    <div className="relative h-48 overflow-hidden">
-                      {page.cover_photo_url ? (
-                        <>
-                          <img
-                            src={page.cover_photo_url}
-                            alt=""
-                            aria-hidden="true"
-                            className="absolute inset-0 h-full w-full object-cover opacity-35 blur-xl transition-transform duration-500 group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/30 via-slate-950/10 to-black/30" />
-                          <div className="absolute inset-x-4 bottom-4 top-4 overflow-hidden rounded-[1.35rem] border border-white/18 bg-black/18 shadow-[0_20px_55px_rgba(15,23,42,0.28)] backdrop-blur-[2px]">
-                            <img
-                              src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
-                              alt={`${page.recipient_name}'s cover`}
-                              className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
-                              loading="lazy"
-                            />
+                      return (
+                        <article
+                          key={page.id}
+                          className="group overflow-hidden rounded-[1.5rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover sm:rounded-[2rem]"
+                          style={{ borderColor: `${theme.accent}30` }}
+                        >
+                          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-stretch sm:gap-4 sm:p-5">
+                            <div className="relative h-40 w-full overflow-hidden rounded-[1.2rem] sm:h-auto sm:w-56 sm:min-w-56 sm:rounded-[1.5rem]">
+                              {page.cover_photo_url ? (
+                                <img
+                                  src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
+                                  alt={`${page.recipient_name}'s cover`}
+                                  className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
+                                  loading="lazy"
+                                />
+                              ) : theme.isCustom ? (
+                                <div
+                                  className="h-full w-full"
+                                  style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+                                />
+                              ) : (
+                                <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-transparent" />
+                            </div>
+
+                            <div className="flex min-w-0 flex-1 flex-col">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <h3 className="truncate text-lg font-bold text-foreground sm:text-xl">{page.recipient_name}&apos;s Birthday</h3>
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                                      {theme.emoji} {theme.name}
+                                    </span>
+                                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
+                                      {status.label}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/70 text-foreground transition-colors hover:bg-background"
+                                      aria-label={`Open actions for ${page.recipient_name}`}
+                                      type="button"
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => copyLink(page.public_code, 'contribute')}>
+                                      <Share2 className="mr-2 h-4 w-4" />
+                                      Copy contribution link
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => copyLink(page.public_code, 'birthday')}>
+                                      <Share2 className="mr-2 h-4 w-4" />
+                                      Copy birthday link
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive" onClick={() => setPagePendingDelete(page)}>
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete page
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+
+                              <div className="mt-3 grid grid-cols-2 gap-2.5 sm:mt-4 sm:gap-3">
+                                <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                                    <CalendarDays className="h-4 w-4" />
+                                    <span>Birthday</span>
+                                  </div>
+                                  <p className="mt-2 text-sm font-semibold text-foreground">{birthdayLabel}</p>
+                                </div>
+                                <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                                  <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                                    <MessageSquare className="h-4 w-4" />
+                                    <span>Wishes</span>
+                                  </div>
+                                  <p className="mt-2 text-sm font-semibold text-foreground">{page.message_count || 0} collected</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:mt-3 sm:gap-3">
+                                <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                                  <p className="text-xs font-semibold text-muted-foreground">Collection closed</p>
+                                  <p className="mt-2 text-sm font-semibold text-foreground">{collectionCloses}</p>
+                                </div>
+                                <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                                  <p className="text-xs font-semibold text-muted-foreground">Status</p>
+                                  <p className="mt-2 text-sm font-semibold text-foreground">Revealed</p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex gap-2 sm:mt-5">
+                                <Link to={`/preview/${page.public_code}`} className="flex-1">
+                                  <Button variant="outline" size="sm" className="w-full gap-2">
+                                    <Eye className="h-4 w-4" />
+                                    Preview
+                                  </Button>
+                                </Link>
+                              </div>
+                            </div>
                           </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/58 via-black/12 to-transparent" />
-                        </>
-                      ) : theme.isCustom ? (
-                        <div
-                          className="h-full w-full"
-                          style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
-                        />
-                      ) : (
-                        <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
-                      )}
-
-                      <div className="absolute left-5 top-5 flex items-center gap-2">
-                        <span className="rounded-full bg-white/18 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                          {theme.emoji} {theme.name}
-                        </span>
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
-                          {status.label}
-                        </span>
-                      </div>
-
-                      <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4">
-                        <div>
-                          <h3 className="text-2xl font-bold text-white">{page.recipient_name}&apos;s Birthday</h3>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm transition-colors hover:bg-black/40"
-                              aria-label={`Open actions for ${page.recipient_name}`}
-                              type="button"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => copyLink(page.public_code, 'contribute')}>
-                              <Share2 className="mr-2 h-4 w-4" />
-                              Copy contribution link
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => copyLink(page.public_code, 'birthday')}>
-                              <Share2 className="mr-2 h-4 w-4" />
-                              Copy birthday link
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => setPagePendingDelete(page)}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete page
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    <div className="p-5">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                            <CalendarDays className="h-3.5 w-3.5" />
-                            Birthday
-                          </div>
-                          <p className="mt-2 text-sm font-semibold text-foreground">
-                            {format(parseLocalDate(page.birthday_date), 'MMM d, yyyy')}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                            <MessageSquare className="h-3.5 w-3.5" />
-                            Wishes
-                          </div>
-                          <p className="mt-2 text-sm font-semibold text-foreground">
-                            {page.message_count || 0} collected
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Collection closed</p>
-                        <p className="mt-2 text-sm font-medium text-foreground">Closed {collectionCloses}</p>
-                      </div>
-
-                      <div className="mt-5 flex gap-2">
-                        <Link to={`/preview/${page.public_code}`} className="flex-1">
-                          <Button variant="outline" size="sm" className="w-full gap-2">
-                            <Eye className="h-4 w-4" />
-                            Preview
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-                </div>
-              </>
-            )}
-            </>
-          )}
-        </section>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border bg-card/80 px-5 py-8 text-center">
+                    <p className="text-sm text-muted-foreground">No archived pages yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
 
         {savedPages.length > 0 && (
-          <section className="mt-10 border-t border-border/60 pt-8">
+          <section className="mt-10 pt-2">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Saved for later</p>
                 <h2 className="mt-2 text-xl font-bold text-foreground">Pages you&apos;re keeping</h2>
               </div>
             </div>
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 sm:gap-5">
               {savedPages.map((page) => {
                 const theme = getThemeDisplay(page.theme);
                 const status = getStatusBadge(page);
@@ -750,7 +774,7 @@ const Dashboard = () => {
                 return (
                   <article
                     key={page.id}
-                    className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
+                    className="group overflow-hidden rounded-[1.5rem] border-2 border-[#fcece5] bg-card/94 shadow-[0_10px_0_0_#fcece5] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_0_0_#fcece5] sm:rounded-[2rem]"
                     style={{ borderColor: `${theme.accent}30` }}
                   >
                     <div className="relative h-40 overflow-hidden">
@@ -815,6 +839,10 @@ const Dashboard = () => {
             </div>
           </section>
         )}
+
+        <footer className="py-10 text-center">
+          <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground/70">Magical moments await</p>
+        </footer>
       </main>
 
       <AlertDialog open={Boolean(pagePendingDelete)} onOpenChange={(open) => { if (!open) setPagePendingDelete(null); }}>

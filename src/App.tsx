@@ -4,9 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { Loader2 } from "lucide-react";
 import { AuthProvider } from "@/context/AuthContext";
 import { useEffect } from "react";
+import WishCanvasLoader from "@/components/WishCanvasLoader";
 
 const Index = lazy(() => import("./pages/Index"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
@@ -24,9 +24,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const queryClient = new QueryClient();
 
 const RouteLoader = () => (
-  <div className="flex min-h-screen items-center justify-center bg-background">
-    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-  </div>
+  <WishCanvasLoader />
 );
 
 const APP_NAME = "WishCanvas";

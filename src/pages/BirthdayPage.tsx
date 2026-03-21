@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { hexToHsl } from '@/lib/colors';
 import { useAuth } from '@/context/AuthContext';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 
 interface BirthdayPageData {
   id: string;
@@ -1447,11 +1448,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   ]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <WishCanvasLoader />;
   }
 
   if (!page) {

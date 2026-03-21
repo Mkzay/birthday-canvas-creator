@@ -11,6 +11,7 @@ import Confetti from '@/components/Confetti';
 import { parseLocalDate } from '@/lib/date';
 import { apiFetch, apiForm } from '@/lib/api';
 import BrandLogo from '@/components/BrandLogo';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 
 interface PublicBirthdayPageData {
   id: string;
@@ -377,11 +378,7 @@ const ContributePage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <WishCanvasLoader />;
   }
 
   if (!page) {

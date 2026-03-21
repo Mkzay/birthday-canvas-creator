@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Edit, Share2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BirthdayPage from './BirthdayPage';
 import { apiFetch } from '@/lib/api';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 
 const PreviewPage = () => {
   const { pageId } = useParams();
@@ -60,11 +61,7 @@ const PreviewPage = () => {
   };
 
   if (loading || authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <WishCanvasLoader />;
   }
 
   return (

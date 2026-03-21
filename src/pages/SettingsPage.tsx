@@ -38,6 +38,7 @@ import {
 import { toast } from 'sonner';
 import { apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
 import Header from '@/components/Header';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 
 const themeOptions = [
   { value: 'elegant', label: 'Elegant ✨' },
@@ -231,11 +232,7 @@ const SettingsPage = () => {
   };
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <WishCanvasLoader />;
   }
 
   return (
