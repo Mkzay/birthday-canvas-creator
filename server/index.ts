@@ -21,7 +21,7 @@ import {
 } from "./auth";
 import { initializeDatabase, sql } from "./db";
 import type { AuthedRequest, SessionUser } from "./types";
-import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload, themeIconUpload, ensureUploadDirs } from "./uploads";
+import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload, themeIconUpload, ensureUploadDirs, normalizeCoverUpload } from "./uploads";
 import sanitizeHtml from "sanitize-html";
 import { isMailerConfigured, sendTransactionalEmail } from "./mailer";
 import { consumeEmailToken, issueEmailToken, revokeOutstandingEmailTokens } from "./emailTokens";
@@ -1688,12 +1688,14 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), validate
   const page = rows[0] as undefined | { id: string; cover_photo_url: string | null };
 
   if (!page) {
+    await fs.rm(file.path, { force: true });
     response.status(404).json({ error: "Page not found" });
     return;
   }
 
+  const normalizedCover = await normalizeCoverUpload(file.path);
   await removeFileByUrl(page.cover_photo_url);
-  const url = fileUrl(path.join("covers", file.filename));
+  const url = normalizedCover.url;
 
   await sql`
     UPDATE birthday_pages
