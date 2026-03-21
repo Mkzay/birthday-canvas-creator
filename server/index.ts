@@ -118,11 +118,15 @@ function getAllowedOrigins() {
 
 function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
   const normalizedRequestOrigin = normalizeOrigin(origin);
-  if (normalizedRequestOrigin && allowedOrigins.includes(normalizedRequestOrigin)) {
+  if (!normalizedRequestOrigin) return false;
+
+  // Allow explicitly listed origins
+  if (allowedOrigins.includes(normalizedRequestOrigin)) {
     return true;
   }
 
-  if (process.env.ALLOW_VERCEL_PREVIEWS === "true" && /^https:\/\/.*\.vercel\.app$/i.test(origin)) {
+  // Allow all Vercel preview and production domains
+  if (/^https:\/\/.*\.vercel\.app$/i.test(normalizedRequestOrigin)) {
     return true;
   }
 
