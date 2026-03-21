@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { test, describe, mock } from 'node:test';
 import assert from 'node:assert';
 
 // We'll create the mock once and reuse it
 const useStateMock = mock.fn((initialValue: any) => {
   const setter = mock.fn();
-  useStateMock._lastSetter = setter;
+  (useStateMock as any)._lastSetter = setter;
   return [initialValue, setter];
 });
 
@@ -75,7 +76,7 @@ describe('useIsMobile', () => {
     assert.strictEqual(isMobile, false);
 
     // Effect ran and called setIsMobile(innerWidth < 768) which is false
-    const setIsMobileMock = useStateMock._lastSetter;
+    const setIsMobileMock = (useStateMock as any)._lastSetter;
     assert.strictEqual(setIsMobileMock.mock.calls[0].arguments[0], false);
 
     // Simulate mobile resize
@@ -105,7 +106,7 @@ describe('useIsMobile', () => {
 
     useIsMobileForTest();
 
-    const setIsMobileMock = useStateMock._lastSetter;
+    const setIsMobileMock = (useStateMock as any)._lastSetter;
     assert.strictEqual(setIsMobileMock.mock.calls[0].arguments[0], true);
   });
 });

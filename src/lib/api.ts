@@ -33,7 +33,8 @@ export function getApiOrigin() {
   }
 
   if (import.meta.env.DEV) {
-    return "http://localhost:3001";
+    // Return empty string to allow relative URLs through the Vite proxy
+    return "";
   }
 
   return window.location.origin;
@@ -44,7 +45,8 @@ export function resolveAssetUrl(url?: string | null) {
   if (/^https?:\/\//i.test(url)) return url;
 
   if (url.startsWith("/")) {
-    return `${getApiOrigin()}${url}`;
+    const origin = getApiOrigin();
+    return origin ? `${origin}${url}` : url;
   }
 
   return url;

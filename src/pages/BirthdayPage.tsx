@@ -40,6 +40,10 @@ import { hexToHsl } from '@/lib/colors';
 import { useAuth } from '@/context/AuthContext';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import DOMPurify from 'dompurify';
+import { isRichHtml, wishMessageHtmlWithQuotes, stripHtml } from '@/lib/wish-utils';
+import { visualThemeConfig, fontClassMap } from '@/lib/themes';
+
+const themeConfig = visualThemeConfig;
 
 interface BirthdayPageData {
   id: string;
@@ -72,6 +76,15 @@ interface MessagePhoto {
   sort_order?: number;
 }
 
+interface MessageSticker {
+  id: string;
+  sticker_type: string;
+  position_x: number;
+  position_y: number;
+  rotation: number;
+  scale: number;
+}
+
 interface Message {
   id: string;
   sender_name: string;
@@ -79,6 +92,7 @@ interface Message {
   photo_url?: string | null;
   audio_url?: string | null;
   photos?: MessagePhoto[];
+  stickers?: MessageSticker[];
   created_at: string;
 }
 
@@ -99,7 +113,7 @@ type RevealSlide =
 
 function extractYouTubeId(url: string | null | undefined) {
   if (!url) return null;
-  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  const match = url.match(/(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/i);
   return match ? match[1] : null;
 }
 
@@ -441,135 +455,6 @@ function getMobileSectionTone(slide: RevealSlide, isDarkExperience: boolean) {
   }
 }
 
-const themeConfig = {
-  elegant: {
-    emoji: '✨',
-    colors: ['#fbbf24', '#f97316', '#fef3c7'],
-    font: 'font-serif',
-    heroClass: 'bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100',
-    titleClass: 'font-serif text-amber-900',
-    cardClass: 'bg-white/78 border-amber-200/70',
-    text: 'text-amber-950',
-  },
-  playful: {
-    emoji: '🎈',
-    colors: ['#ec4899', '#a855f7', '#f9a8d4'],
-    font: 'font-sans',
-    heroClass: 'bg-gradient-to-br from-pink-100 via-purple-50 to-pink-100',
-    titleClass: 'text-pink-800',
-    cardClass: 'bg-white/78 border-pink-200/70',
-    text: 'text-pink-950',
-  },
-  minimalist: {
-    emoji: '🎯',
-    colors: ['#94a3b8', '#64748b', '#e2e8f0'],
-    font: 'font-sans',
-    heroClass: 'bg-gradient-to-br from-slate-50 to-gray-100',
-    titleClass: 'text-slate-900',
-    cardClass: 'bg-white/82 border-slate-200/80',
-    text: 'text-slate-950',
-  },
-  retro: {
-    emoji: '🌈',
-    colors: ['#06b6d4', '#a855f7', '#f0abfc'],
-    font: 'font-sans',
-    heroClass: 'bg-gradient-to-br from-cyan-100 via-purple-100 to-pink-100',
-    titleClass: 'text-purple-900',
-    cardClass: 'bg-white/76 border-cyan-200/80',
-    text: 'text-purple-950',
-  },
-  tropical: {
-    emoji: '🌴',
-    colors: ['#22c55e', '#eab308', '#10b981'],
-    font: 'font-sans',
-    heroClass: 'bg-gradient-to-br from-green-100 via-yellow-50 to-emerald-100',
-    titleClass: 'text-emerald-900',
-    cardClass: 'bg-white/78 border-green-200/80',
-    text: 'text-emerald-950',
-  },
-  cosmic: {
-    emoji: '🚀',
-    colors: ['#8b5cf6', '#3b82f6', '#a78bfa'],
-    font: 'font-sans',
-    heroClass: 'bg-gradient-to-br from-violet-950 via-indigo-950 to-purple-950',
-    titleClass: 'text-violet-100',
-    cardClass: 'bg-white/10 border-white/14',
-    text: 'text-white',
-  },
-  sunset: {
-    emoji: '🌅',
-    colors: ['#f97316', '#ef4444', '#fbbf24'],
-    font: 'font-sans',
-    heroClass: 'bg-gradient-to-br from-orange-200 via-rose-200 to-amber-200',
-    titleClass: 'text-rose-900',
-    cardClass: 'bg-white/78 border-orange-200/80',
-    text: 'text-rose-950',
-  },
-  ocean: {
-    emoji: '🌊',
-    colors: ['#0ea5e9', '#06b6d4', '#38bdf8'],
-    font: 'font-sans',
-    heroClass: 'bg-gradient-to-br from-sky-200 via-cyan-100 to-blue-200',
-    titleClass: 'text-sky-900',
-    cardClass: 'bg-white/78 border-sky-200/80',
-    text: 'text-sky-950',
-  },
-  candyland: {
-    emoji: '🍭',
-    colors: ['#f472b6', '#c084fc', '#a3e635'],
-    font: 'font-sans',
-    heroClass: 'bg-gradient-to-br from-pink-200 via-purple-100 to-lime-100',
-    titleClass: 'text-fuchsia-900',
-    cardClass: 'bg-white/78 border-pink-200/80',
-    text: 'text-fuchsia-950',
-  },
-  midnight: {
-    emoji: '🌙',
-    colors: ['#6366f1', '#4f46e5', '#818cf8'],
-    font: 'font-serif',
-    heroClass: 'bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950',
-    titleClass: 'text-indigo-100 font-serif',
-    cardClass: 'bg-white/8 border-white/12',
-    text: 'text-white',
-  },
-} as const;
-
-const fontClassMap: Record<string, string> = {
-  sans: 'font-jakarta',
-  serif: 'font-playfair',
-  jakarta: 'font-jakarta',
-  playfair: 'font-playfair',
-  caveat: 'font-caveat',
-  nunito: 'font-nunito',
-  sora: 'font-sora',
-  cormorant: 'font-cormorant',
-  'space-grotesk': 'font-space-grotesk',
-  'dm-serif': 'font-dm-serif',
-  inter: 'font-inter',
-  outfit: 'font-outfit',
-};
-
-/** Matches server `sanitize-html` allowlist for wish messages (server/index.ts). */
-const WISH_MESSAGE_ALLOWED_TAGS = ['b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'br', 'p'] as const;
-
-function sanitizeWishHtmlForDisplay(message: string): string {
-  return DOMPurify.sanitize(message, {
-    ALLOWED_TAGS: [...WISH_MESSAGE_ALLOWED_TAGS],
-    ALLOWED_ATTR: [],
-  });
-}
-
-function wishMessageHtmlWithQuotes(message: string): string {
-  return `\u201C${sanitizeWishHtmlForDisplay(message)}\u201D`;
-}
-
-function stripHtml(html: string): string {
-  return DOMPurify.sanitize(html, { ALLOWED_TAGS: [] });
-}
-
-function isRichHtml(text: string): boolean {
-  return /<[a-z][\s\S]*>/i.test(text);
-}
 
 const DecorativeLayer = ({ colors }: { colors: readonly string[] }) => {
   const [bubbles] = useState(() =>
@@ -1979,6 +1864,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             </span>
                           )}
                         </div>
+
+                        {/* Stickers Rendering (Mobile) */}
+                        {slide.message.stickers && slide.message.stickers.length > 0 && (
+                          <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+                            {slide.message.stickers.map((sticker) => (
+                              <div
+                                key={sticker.id}
+                                className="absolute select-none text-4xl"
+                                style={{
+                                  left: `${sticker.position_x}%`,
+                                  top: `${sticker.position_y}%`,
+                                  transform: `translate(-50%, -50%) rotate(${sticker.rotation}deg) scale(${sticker.scale})`,
+                                }}
+                              >
+                                {sticker.sticker_type}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </article>
 
                       {slide.message.audio_url && (
@@ -2516,6 +2420,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 : <p className={cn('mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)}>
                                 &quot;{activeSlide.message.message}&quot;
                               </p>}
+
+                              {/* Stickers Rendering (Desktop) */}
+                              {activeSlide.message.stickers && activeSlide.message.stickers.length > 0 && (
+                                <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
+                                  {activeSlide.message.stickers.map((sticker) => (
+                                    <div
+                                      key={sticker.id}
+                                      className="absolute select-none text-6xl"
+                                      style={{
+                                        left: `${sticker.position_x}%`,
+                                        top: `${sticker.position_y}%`,
+                                        transform: `translate(-50%, -50%) rotate(${sticker.rotation}deg) scale(${sticker.scale})`,
+                                      }}
+                                    >
+                                      {sticker.sticker_type}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
 
                               <div className="mt-6 flex flex-wrap gap-2.5">
                                 {photoCount > 0 && (
