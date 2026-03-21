@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -324,7 +324,7 @@ const Dashboard = () => {
                 Welcome back, {displayName}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Welcome to Wish birthday page. Preparements and enclerating a pameoon time, and we&apos;ll get that.
+                Welcome to your WishCanvas dashboard. Create new birthday pages, collect heartfelt wishes from friends and family, and reveal them all in a beautiful birthday story.
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">

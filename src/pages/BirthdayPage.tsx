@@ -659,6 +659,34 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [isSaved, setIsSaved] = useState(false);
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
+  useEffect(() => {
+    if (!page) return;
+    const preloadSet = new Set<string>();
+
+    if (page.cover_photo_url) {
+      const url = resolveAssetUrl(page.cover_photo_url);
+      if (url) preloadSet.add(url);
+    }
+
+    messages.forEach((msg) => {
+      if (msg.photo_url) {
+        const url = resolveAssetUrl(msg.photo_url);
+        if (url) preloadSet.add(url);
+      }
+      if (msg.photos) {
+        msg.photos.forEach((p) => {
+          const url = resolveAssetUrl(p.photo_url);
+          if (url) preloadSet.add(url);
+        });
+      }
+    });
+
+    preloadSet.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+  }, [page, messages]);
+
   const stopSoundtrack = useCallback(() => {
     userPausedSoundtrackRef.current = true;
     shouldResumeSoundtrackRef.current = false;
