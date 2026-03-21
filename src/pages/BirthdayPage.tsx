@@ -4,9 +4,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
+  LayoutGrid,
   Loader2,
   Mail,
   Music4,
+  GalleryHorizontal,
   Share2,
   SkipForward,
   Sparkles,
@@ -15,6 +17,7 @@ import {
   Music,
   Image as ImageIcon,
 } from 'lucide-react';
+import BentoGridView from '@/components/BentoGridView';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,10 +43,25 @@ import { hexToHsl } from '@/lib/colors';
 import { useAuth } from '@/context/AuthContext';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import DOMPurify from 'dompurify';
-import { isRichHtml, wishMessageHtmlWithQuotes, stripHtml } from '@/lib/wish-utils';
+import { isRichHtml, sanitizeWishHtmlForDisplay, stripHtml, wishMessageHtmlWithQuotes } from '@/lib/wish-utils';
 import { visualThemeConfig, fontClassMap } from '@/lib/themes';
 
 const themeConfig = visualThemeConfig;
+
+const STICKER_EMOJI_MAP: Record<string, string> = {
+  balloon: '🎈',
+  heart: '❤️',
+  cake: '🎂',
+  party: '🎉',
+  star: '⭐',
+  gift: '🎁',
+  fireworks: '🎆',
+  sparkles: '✨',
+  crown: '👑',
+  unicorn: '🦄',
+  pizza: '🍕',
+  icecream: '🍦',
+};
 
 interface BirthdayPageData {
   id: string;
@@ -525,6 +543,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [revealPhase, setRevealPhase] = useState<RevealPhase>('idle');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'forward' | 'back'>('forward');
+  const [viewMode, setViewMode] = useState<'story' | 'bento'>('story');
   const [activeWishAudioId, setActiveWishAudioId] = useState<string | null>(null);
   const soundtrackAudioRef = useRef<HTMLAudioElement | null>(null);
   const presetControllerRef = useRef<SoundtrackController | null>(null);
@@ -1630,7 +1649,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </div>
       )}
 
-      <section className="relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden">
+      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', viewMode === 'bento' && 'hidden')}>
         <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-28">
           <div className="story-scroll-reveal flex items-start justify-between gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
             <div>
@@ -1878,7 +1897,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   transform: `translate(-50%, -50%) rotate(${sticker.rotation}deg) scale(${sticker.scale})`,
                                 }}
                               >
-                                {sticker.sticker_type}
+                                {STICKER_EMOJI_MAP[sticker.sticker_type] ?? sticker.sticker_type}
                               </div>
                             ))}
                           </div>
@@ -1988,7 +2007,38 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </div>
       </section>
 
-      <section className="relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block">
+      {/* Bento grid — mobile (below sm breakpoint, shown when viewMode=bento) */}
+      {viewMode === 'bento' && messages.length > 0 && (
+        <section className="relative min-h-[100dvh] overflow-y-auto px-0 py-4 sm:hidden">
+          <BentoGridView
+            page={page}
+            messages={messages}
+            theme={theme}
+            isDarkExperience={isDarkExperience}
+            keepsakePaperClass={keepsakePaperClass}
+            keepsakeSoftClass={keepsakeSoftClass}
+            birthdayDate={birthdayDate}
+          />
+        </section>
+      )}
+
+      {/* Desktop: bento grid view */}
+      {viewMode === 'bento' && messages.length > 0 && (
+        <section className="relative hidden h-[100dvh] overflow-y-auto px-3 py-4 sm:px-5 sm:py-5 sm:block">
+          <BentoGridView
+            page={page}
+            messages={messages}
+            theme={theme}
+            isDarkExperience={isDarkExperience}
+            keepsakePaperClass={keepsakePaperClass}
+            keepsakeSoftClass={keepsakeSoftClass}
+            birthdayDate={birthdayDate}
+          />
+        </section>
+      )}
+
+      {/* Desktop: story (slide) view */}
+      <section className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', viewMode === 'bento' && '!hidden')}>
         <div className="mx-auto flex h-full max-w-6xl flex-col">
           <div className="flex items-start gap-4">
             <div className="flex flex-1 gap-2">
@@ -2434,7 +2484,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                         transform: `translate(-50%, -50%) rotate(${sticker.rotation}deg) scale(${sticker.scale})`,
                                       }}
                                     >
-                                      {sticker.sticker_type}
+                                      {STICKER_EMOJI_MAP[sticker.sticker_type] ?? sticker.sticker_type}
                                     </div>
                                   ))}
                                 </div>
