@@ -26,6 +26,10 @@ function getCookieOptions(maxAgeMs: number) {
     ? configuredSameSite
     : "strict";
   const secure = readBooleanEnv(process.env.COOKIE_SECURE, sameSite === "none" || inProduction);
+  // When COOKIE_DOMAIN is explicitly set, honour it (e.g. ".example.com" for production).
+  // Otherwise leave domain undefined so the browser scopes the cookie to the request's
+  // own origin — this lets Vercel preview deployments (*.vercel.app) authenticate against
+  // the Railway backend without needing a per-preview COOKIE_DOMAIN update.
   const domain = process.env.COOKIE_DOMAIN?.trim() || undefined;
 
   return {
