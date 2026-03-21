@@ -7,14 +7,31 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import type { Response } from "express";
 import * as Sentry from "@sentry/node";
-import { clearSessionCookie, hashPassword, readSession, requireAdmin, requireAuth, setSessionCookie, signSession, verifyPassword } from "./auth";
+import {
+  clearSessionCookie,
+  getActiveSession,
+  hashPassword,
+  issueAuthSession,
+  requireAdmin,
+  requireAuth,
+  revokeAllSessionsForUser,
+  revokeCurrentSession,
+  verifyPassword,
+} from "./auth";
 import { initializeDatabase, sql } from "./db";
 import type { AuthedRequest, SessionUser } from "./types";
 import { avatarUpload, coverUpload, fileUrl, messageUpload, pageAudioUpload, removeFileByUrl, uploadsRoot, wishAudioUpload, themeIconUpload, ensureUploadDirs } from "./uploads";
 import sanitizeHtml from "sanitize-html";
 import { isMailerConfigured, sendTransactionalEmail } from "./mailer";
 import { consumeEmailToken, issueEmailToken, revokeOutstandingEmailTokens } from "./emailTokens";
-import { sendBirthdayRecipientEmail, sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "./emailFlows";
+import {
+  sendBirthdayRecipientEmail,
+  sendBirthdayReminderEmail,
+  sendNewMessageAlertEmail,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+  sendWelcomeEmail,
+} from "./emailFlows";
 
 const app = express();
 const port = Number(process.env.PORT || process.env.API_PORT || 3001);
@@ -172,9 +189,8 @@ function sanitizeEmail(value: unknown) {
   return trimmed;
 }
 
-function sendAuth(response: Response, user: SessionUser) {
-  const token = signSession(user);
-  setSessionCookie(response, token);
+async function sendAuth(response: Response, user: SessionUser, rememberMe = false) {
+  await issueAuthSession(response, user, rememberMe);
   response.json({ user });
 }
 
@@ -200,6 +216,9 @@ function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
     defaultAllowPhotos: Boolean(row.default_allow_photos ?? true),
     defaultAllowAudio: Boolean(row.default_allow_audio ?? true),
     defaultRequireNames: Boolean(row.default_require_names ?? true),
+    emailNotifications: Boolean(row.email_notifications ?? true),
+    newMessageNotifications: Boolean(row.new_message_notifications ?? true),
+    birthdayReminders: Boolean(row.birthday_reminders ?? true),
   };
 }
 
@@ -562,7 +581,10 @@ async function sendBirthdayNotifications(targetDate: string | null) {
       bp.birthday_date,
       bp.birthday_notified_year,
       COUNT(bm.id)::int AS message_count,
-      u.email AS owner_email
+      u.email AS owner_email,
+      u.email_notifications,
+      u.birthday_reminders,
+      u.display_name AS owner_display_name
     FROM birthday_pages bp
     INNER JOIN users u ON u.id = bp.user_id
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
@@ -590,6 +612,20 @@ async function sendBirthdayNotifications(targetDate: string | null) {
     }
 
     try {
+      const ownerEmail = sanitizeEmail(row.owner_email);
+      const ownerCanReceiveNotifications = Boolean(row.email_notifications ?? true) && Boolean(row.birthday_reminders ?? true);
+
+      if (ownerEmail && ownerCanReceiveNotifications) {
+        await sendBirthdayReminderEmail({
+          to: ownerEmail,
+          recipientName: String(row.recipient_name),
+          publicCode: String(row.public_code),
+          messageCount: Number(row.message_count || 0),
+          birthdayDate: String(row.birthday_date),
+          ownerName: typeof row.owner_display_name === "string" ? row.owner_display_name : null,
+        });
+      }
+
       await sendBirthdayRecipientEmail({
         to: toEmail,
         recipientName: String(row.recipient_name),
@@ -657,14 +693,14 @@ app.post("/api/system/notify-birthdays/cron", rateLimit("system-birthday-notify-
 });
 
 app.get("/api/auth/session", async (request, response) => {
-  const session = readSession(request as AuthedRequest);
+  const session = await getActiveSession(request as AuthedRequest, response);
   if (!session) {
     response.json({ user: null });
     return;
   }
 
   const rows = await sql`
-    SELECT id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    SELECT id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
     FROM users
     WHERE id = ${session.id}
     LIMIT 1
@@ -710,7 +746,7 @@ app.post("/api/auth/signup", rateLimit("auth-signup", 6, 15 * 60 * 1000), async 
   const rows = await sql`
     INSERT INTO users (email, password_hash, display_name)
     VALUES (${email}, ${passwordHash}, ${displayName})
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
   `;
   const createdUser = rows[0];
 
@@ -732,6 +768,7 @@ app.post("/api/auth/signup", rateLimit("auth-signup", 6, 15 * 60 * 1000), async 
 app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (request, response) => {
   const email = typeof request.body.email === "string" ? request.body.email.trim().toLowerCase() : "";
   const password = typeof request.body.password === "string" ? request.body.password : "";
+  const rememberMe = Boolean(request.body.rememberMe ?? false);
 
   const clientIp = getRequestIp(request);
   const key = `${email || "unknown"}:${clientIp}`;
@@ -747,7 +784,7 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
   }
 
   const rows = await sql`
-    SELECT id, email, email_verified_at, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    SELECT id, email, email_verified_at, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
     FROM users
     WHERE email = ${email}
     LIMIT 1
@@ -785,10 +822,11 @@ app.post("/api/auth/login", rateLimit("auth-login", 10, 15 * 60 * 1000), async (
   }
 
   loginFailureStore.delete(key);
-  sendAuth(response, sessionUserFromRow(user));
+  await sendAuth(response, sessionUserFromRow(user), rememberMe);
 });
 
-app.post("/api/auth/logout", (_request, response) => {
+app.post("/api/auth/logout", async (request: AuthedRequest, response) => {
+  await revokeCurrentSession(request);
   clearSessionCookie(response);
   response.status(204).end();
 });
@@ -850,7 +888,7 @@ app.post("/api/auth/verify/confirm", rateLimit("auth-verify-confirm", 30, 15 * 6
     UPDATE users
     SET email_verified_at = NOW(), updated_at = NOW()
     WHERE id = ${consumed.userId}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
   `;
 
   if (!rows[0]) {
@@ -875,7 +913,7 @@ app.post("/api/auth/verify/confirm", rateLimit("auth-verify-confirm", 30, 15 * 6
     }
   }
 
-  sendAuth(response, sessionUserFromRow(rows[0]));
+  await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
 app.post("/api/auth/password-reset/request", rateLimit("auth-password-reset-request", 6, 15 * 60 * 1000), async (request, response) => {
@@ -945,7 +983,7 @@ app.post("/api/auth/password-reset/confirm", rateLimit("auth-password-reset-conf
     UPDATE users
     SET password_hash = ${passwordHash}, updated_at = NOW()
     WHERE id = ${consumed.userId}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
   `;
 
   if (!rows[0]) {
@@ -953,7 +991,8 @@ app.post("/api/auth/password-reset/confirm", rateLimit("auth-password-reset-conf
     return;
   }
 
-  sendAuth(response, sessionUserFromRow(rows[0]));
+  await revokeAllSessionsForUser(String(rows[0].id));
+  await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
 app.patch("/api/auth/profile", requireAuth, async (request: AuthedRequest, response) => {
@@ -967,10 +1006,10 @@ app.patch("/api/auth/profile", requireAuth, async (request: AuthedRequest, respo
       avatar_url = ${avatarUrl || null},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
   `;
 
-  sendAuth(response, sessionUserFromRow(rows[0]));
+  await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
 app.patch("/api/auth/preferences", requireAuth, async (request: AuthedRequest, response) => {
@@ -988,10 +1027,29 @@ app.patch("/api/auth/preferences", requireAuth, async (request: AuthedRequest, r
       default_require_names = ${defaultRequireNames},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
   `;
 
-  sendAuth(response, sessionUserFromRow(rows[0]));
+  await sendAuth(response, sessionUserFromRow(rows[0]));
+});
+
+app.patch("/api/auth/notifications", requireAuth, rateLimit("auth-notifications", 12, 15 * 60 * 1000), async (request: AuthedRequest, response) => {
+  const emailNotifications = Boolean(request.body.emailNotifications ?? true);
+  const newMessageNotifications = Boolean(request.body.newMessageNotifications ?? true);
+  const birthdayReminders = Boolean(request.body.birthdayReminders ?? true);
+
+  const rows = await sql`
+    UPDATE users
+    SET
+      email_notifications = ${emailNotifications},
+      new_message_notifications = ${newMessageNotifications},
+      birthday_reminders = ${birthdayReminders},
+      updated_at = NOW()
+    WHERE id = ${request.user!.id}
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+  `;
+
+  await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
 app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async (request: AuthedRequest, response) => {
@@ -1036,6 +1094,8 @@ app.patch("/api/auth/password", requireAuth, async (request: AuthedRequest, resp
     WHERE id = ${request.user!.id}
   `;
 
+  await revokeAllSessionsForUser(request.user!.id);
+  clearSessionCookie(response);
   response.status(204).end();
 });
 
@@ -1811,6 +1871,41 @@ app.post("/api/public/pages/:id/messages", rateLimit("public-message", 24, 10 * 
 
   const messages = await fetchMessagesForPage(String(createdMessage.page_id));
   const messageWithPhotos = messages.find((item) => item.id === createdMessage.id);
+
+  void (async () => {
+    try {
+      const ownerRows = await sql`
+        SELECT
+          u.email,
+          u.display_name,
+          u.email_notifications,
+          u.new_message_notifications
+        FROM birthday_pages bp
+        INNER JOIN users u ON u.id = bp.user_id
+        WHERE bp.id = ${resolvedPageId}
+        LIMIT 1
+      `;
+
+      const owner = ownerRows[0];
+      const ownerEmail = owner ? sanitizeEmail(owner.email) : null;
+      const canNotify = Boolean(owner?.email_notifications ?? true) && Boolean(owner?.new_message_notifications ?? true);
+
+      if (ownerEmail && canNotify) {
+        await sendNewMessageAlertEmail({
+          to: ownerEmail,
+          ownerName: typeof owner.display_name === "string" ? owner.display_name : null,
+          recipientName: String(page.recipient_name),
+          pageCode: String(page.public_code),
+          senderName: senderName || "Anonymous",
+          messageCount: Number(page.message_count || 0) + 1,
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "new-message-email-send-failed";
+      logRequestFailure("new-message-alert", { pageId: resolvedPageId, message });
+    }
+  })();
+
   response.status(201).json(messageWithPhotos || createdMessage);
 });
 

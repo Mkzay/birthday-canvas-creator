@@ -93,7 +93,11 @@ const SettingsPage = () => {
       setAvatarUrl(profile.avatar_url || '');
       setDefaultTheme(profile.default_theme || 'elegant');
       setDefaultAllowPhotos(profile.default_allow_photos ?? true);
+      setDefaultAllowAudio(profile.default_allow_audio ?? true);
       setDefaultRequireNames(profile.default_require_names ?? true);
+      setEmailNotifications(profile.email_notifications ?? true);
+      setNewMessageNotifications(profile.new_message_notifications ?? true);
+      setBirthdayReminders(profile.birthday_reminders ?? true);
     }
   }, [profile]);
 
@@ -136,6 +140,29 @@ const SettingsPage = () => {
       toast.success('Default page settings saved');
     } catch (error) {
       toast.error('Failed to update default settings');
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      await apiFetch('/auth/notifications', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          emailNotifications,
+          newMessageNotifications,
+          birthdayReminders,
+        }),
+      });
+      await refreshSession();
+      toast.success('Notification settings saved');
+    } catch (error) {
+      toast.error('Failed to update notification settings');
       console.error(error);
     } finally {
       setSaving(false);
@@ -201,9 +228,11 @@ const SettingsPage = () => {
           password: newPassword,
         }),
       });
-      toast.success('Password changed successfully');
+      await signOut();
+      toast.success('Password changed. Please sign in again.');
       setNewPassword('');
       setConfirmPassword('');
+      navigate('/auth');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to change password';
       toast.error(message);
@@ -244,8 +273,7 @@ const SettingsPage = () => {
           <span className="eyebrow-chip">Workspace settings</span>
           <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-4xl">Tune the account behind the surprises</h1>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Profile details are live. Notification and default-page preferences are intentionally visible but read-only
-            until those systems are wired through end to end.
+            Profile details, notification preferences, and default page settings all save directly to your account.
           </p>
         </section>
 
@@ -331,7 +359,6 @@ const SettingsPage = () => {
               <Switch 
                 checked={emailNotifications} 
                 onCheckedChange={setEmailNotifications}
-                disabled
               />
             </div>
 
@@ -345,7 +372,6 @@ const SettingsPage = () => {
               <Switch 
                 checked={newMessageNotifications} 
                 onCheckedChange={setNewMessageNotifications}
-                disabled
               />
             </div>
 
@@ -359,14 +385,14 @@ const SettingsPage = () => {
               <Switch 
                 checked={birthdayReminders} 
                 onCheckedChange={setBirthdayReminders}
-                disabled
               />
             </div>
           </div>
 
-          <p className="rounded-2xl bg-amber-50 px-4 py-3 text-xs text-amber-700 mt-4 italic">
-            Notification preferences are not live yet, so these controls are intentionally read-only.
-          </p>
+          <Button onClick={handleSaveNotifications} disabled={saving} className="mt-4 gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save notification settings
+          </Button>
         </section>
 
         {/* Default Page Settings */}

@@ -25,6 +25,9 @@ export async function initializeDatabase() {
       default_allow_photos BOOLEAN NOT NULL DEFAULT TRUE,
       default_allow_audio BOOLEAN NOT NULL DEFAULT TRUE,
       default_require_names BOOLEAN NOT NULL DEFAULT TRUE,
+      email_notifications BOOLEAN NOT NULL DEFAULT TRUE,
+      new_message_notifications BOOLEAN NOT NULL DEFAULT TRUE,
+      birthday_reminders BOOLEAN NOT NULL DEFAULT TRUE,
       last_welcome_email_at TIMESTAMPTZ,
       last_birthday_notification_year INTEGER,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -43,6 +46,20 @@ export async function initializeDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       metadata JSONB,
       CONSTRAINT email_tokens_purpose_check CHECK (purpose IN ('verify_email', 'password_reset'))
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      refresh_token_hash TEXT NOT NULL UNIQUE,
+      remember_me BOOLEAN NOT NULL DEFAULT FALSE,
+      issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      absolute_expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ
     );
   `;
 
@@ -108,6 +125,21 @@ export async function initializeDatabase() {
   await sql`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS default_require_names BOOLEAN NOT NULL DEFAULT TRUE;
+  `;
+
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS email_notifications BOOLEAN NOT NULL DEFAULT TRUE;
+  `;
+
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS new_message_notifications BOOLEAN NOT NULL DEFAULT TRUE;
+  `;
+
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS birthday_reminders BOOLEAN NOT NULL DEFAULT TRUE;
   `;
 
   await sql`
@@ -237,6 +269,19 @@ export async function initializeDatabase() {
 
   await sql`
     CREATE INDEX IF NOT EXISTS idx_email_tokens_user_id ON email_tokens(user_id);
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id);
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_refresh_token_hash ON auth_sessions(refresh_token_hash);
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
+  `;
+  await sql`
+    ALTER TABLE auth_sessions
+    ADD COLUMN IF NOT EXISTS remember_me BOOLEAN NOT NULL DEFAULT FALSE;
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_email_tokens_purpose_expires_at ON email_tokens(purpose, expires_at);

@@ -300,3 +300,72 @@ export async function sendBirthdayRecipientEmail(params: {
     tags: [{ name: "type", value: "birthday-recipient" }],
   });
 }
+
+export async function sendNewMessageAlertEmail(params: {
+  to: string;
+  ownerName?: string | null;
+  recipientName: string;
+  pageCode: string;
+  senderName: string;
+  messageCount: number;
+}) {
+  const safeOwnerName = escapeHtml(params.ownerName?.trim() || "there");
+  const safeRecipientName = escapeHtml(params.recipientName.trim() || "your birthday page");
+  const safeSenderName = escapeHtml(params.senderName.trim() || "Someone");
+  const pageUrl = `${getSiteBaseUrl()}/preview/${params.pageCode}`;
+
+  const inner = hero("ðŸ’¬", "New wish received", `A message arrived for ${safeRecipientName}`) +
+    body(`
+      ${p(`Hi ${safeOwnerName},`)}
+      ${p(`${safeSenderName} just left a new wish on ${highlight(escapeHtml(params.recipientName))}.`)}
+      ${p(`You now have ${highlight(String(params.messageCount))} total ${params.messageCount === 1 ? "wish" : "wishes"} collected.`)}
+      ${p("Open your dashboard to review the new message and keep the celebration moving.")}
+    `,
+    { label: "View birthday page", href: pageUrl },
+    "You can turn off these alerts from your notification settings."
+  );
+
+  const html = shell(inner, `A new birthday wish just came in for ${params.recipientName}.`);
+
+  await sendTransactionalEmail({
+    to: params.to,
+    subject: `New wish for ${params.recipientName}`,
+    html,
+    text: `${params.senderName} just left a new wish for ${params.recipientName}. Open: ${pageUrl}`,
+    tags: [{ name: "type", value: "new-message-alert" }],
+  });
+}
+
+export async function sendBirthdayReminderEmail(params: {
+  to: string;
+  ownerName?: string | null;
+  recipientName: string;
+  publicCode: string;
+  messageCount: number;
+  birthdayDate: string;
+}) {
+  const safeOwnerName = escapeHtml(params.ownerName?.trim() || "there");
+  const safeRecipientName = escapeHtml(params.recipientName.trim() || "your page");
+  const pageUrl = `${getSiteBaseUrl()}/preview/${params.publicCode}`;
+
+  const inner = hero("ðŸŽ‚", "Birthday reminder", `Today is ${safeRecipientName}'s day`) +
+    body(`
+      ${p(`Hi ${safeOwnerName},`)}
+      ${p(`Today is the birthday you set for ${highlight(escapeHtml(params.recipientName))}.`)}
+      ${p(`You’ve collected ${highlight(String(params.messageCount))} ${params.messageCount === 1 ? "wish" : "wishes"} so far.`)}
+      ${p("Open the page now to review everything before you share the reveal.")}
+    `,
+    { label: "Open the birthday page", href: pageUrl },
+    `Birthday date: ${escapeHtml(params.birthdayDate)}`
+  );
+
+  const html = shell(inner, `Birthday reminder for ${params.recipientName}.`);
+
+  await sendTransactionalEmail({
+    to: params.to,
+    subject: `Birthday reminder for ${params.recipientName}`,
+    html,
+    text: `Reminder: today is ${params.recipientName}'s birthday. Open: ${pageUrl}`,
+    tags: [{ name: "type", value: "birthday-reminder" }],
+  });
+}

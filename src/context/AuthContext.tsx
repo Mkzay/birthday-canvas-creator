@@ -11,6 +11,9 @@ interface AuthUser {
   defaultAllowPhotos: boolean;
   defaultAllowAudio: boolean;
   defaultRequireNames: boolean;
+  emailNotifications: boolean;
+  newMessageNotifications: boolean;
+  birthdayReminders: boolean;
 }
 
 interface Profile {
@@ -22,6 +25,9 @@ interface Profile {
   default_allow_photos: boolean;
   default_allow_audio: boolean;
   default_require_names: boolean;
+  email_notifications: boolean;
+  new_message_notifications: boolean;
+  birthday_reminders: boolean;
 }
 
 interface AuthContextType {
@@ -35,7 +41,7 @@ interface AuthContextType {
     requiresVerification: boolean;
     message: string | null;
   }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null; code: string | null }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null; code: string | null }>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -54,6 +60,9 @@ function mapProfile(user: AuthUser | null): Profile | null {
     default_allow_photos: user.defaultAllowPhotos,
     default_allow_audio: user.defaultAllowAudio,
     default_require_names: user.defaultRequireNames,
+    email_notifications: user.emailNotifications,
+    new_message_notifications: user.newMessageNotifications,
+    birthday_reminders: user.birthdayReminders,
   };
 }
 
@@ -93,11 +102,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe = false) => {
     try {
       const data = await apiFetch<{ user: AuthUser }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
       setUser(data.user);
       return { error: null, code: null };

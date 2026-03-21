@@ -10,6 +10,9 @@ export interface SessionUser {
   defaultAllowPhotos: boolean;
   defaultAllowAudio: boolean;
   defaultRequireNames: boolean;
+  emailNotifications: boolean;
+  newMessageNotifications: boolean;
+  birthdayReminders: boolean;
 }
 
 export interface AuthedRequest extends Request {

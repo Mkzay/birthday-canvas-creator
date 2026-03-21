@@ -75,6 +75,8 @@ const AuthPage = () => {
   const [forgotMode, setForgotMode] = useState(false);
   const [verificationBusy, setVerificationBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
+  const [showVerificationResend, setShowVerificationResend] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const pendingSavePageId = searchParams.get('page');
@@ -100,6 +102,8 @@ const AuthPage = () => {
     setConfirmPassword('');
     setShowPassword(false);
     setShowConfirmPassword(false);
+    setShowVerificationResend(false);
+    setRememberMe(false);
   };
 
   const handleResendVerification = async () => {
@@ -116,6 +120,7 @@ const AuthPage = () => {
         body: JSON.stringify({ email }),
       });
       toast.success('Verification email sent.');
+      setShowVerificationResend(false);
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : 'Could not send verification email.';
@@ -211,10 +216,11 @@ const AuthPage = () => {
 
     try {
       if (isLogin) {
-        const { error, code } = await signIn(email, password);
+        const { error, code } = await signIn(email, password, rememberMe);
         if (error) {
           if (code === 'EMAIL_NOT_VERIFIED') {
             toast.error('Please verify your email before signing in.');
+            setShowVerificationResend(true);
           } else if (error.message.includes('Invalid')) {
             toast.error('Invalid email or password');
           } else {
@@ -422,6 +428,23 @@ const AuthPage = () => {
                     onToggleVisibility={() => setShowPassword((current) => !current)}
                   />
 
+                  {isLogin && (
+                    <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-gradient-to-r from-muted/30 to-background px-4 py-3 text-sm text-foreground shadow-sm transition-colors hover:border-primary/25">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(event) => setRememberMe(event.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span className="leading-snug">
+                        <span className="block font-medium">Remember me</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          Keep this device signed in a little longer.
+                        </span>
+                      </span>
+                    </label>
+                  )}
+
                   {!isLogin && (
                     <PasswordField
                       id="confirmPassword"
@@ -456,23 +479,32 @@ const AuthPage = () => {
                         {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
                       </button>
                       {isLogin && (
-                        <div className="mt-3 flex items-center justify-center gap-3 text-xs">
-                          <button
-                            type="button"
-                            onClick={() => setForgotMode(true)}
-                            className="text-foreground/80 transition-opacity hover:opacity-75"
-                          >
-                            Forgot password?
-                          </button>
-                          <span>•</span>
-                          <button
-                            type="button"
-                            onClick={() => void handleResendVerification()}
-                            className="text-foreground/80 transition-opacity hover:opacity-75"
-                            disabled={verificationBusy}
-                          >
-                            {verificationBusy ? 'Sending...' : 'Resend verification'}
-                          </button>
+                        <div className="mt-3 space-y-3 text-xs">
+                          <div className="flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setForgotMode(true)}
+                              className="text-foreground/80 transition-opacity hover:opacity-75"
+                            >
+                              Forgot password?
+                            </button>
+                          </div>
+
+                          {showVerificationResend && (
+                            <div className="flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-muted/35 px-4 py-3 text-center">
+                              <p className="text-foreground/80">
+                                Your account still needs verification. We can resend the email to {email || 'your inbox'}.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => void handleResendVerification()}
+                                className="font-medium text-foreground transition-opacity hover:opacity-75"
+                                disabled={verificationBusy}
+                              >
+                                {verificationBusy ? 'Sending...' : 'Resend verification email'}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </>
