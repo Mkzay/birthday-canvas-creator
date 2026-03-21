@@ -7,7 +7,6 @@ import {
   Edit,
   Eye,
   FileText,
-  Loader2,
   MessageSquare,
   MoreVertical,
   Palette,
@@ -24,6 +23,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Header from '@/components/Header';
+import WishCanvasLoader from '@/components/WishCanvasLoader';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -301,11 +301,7 @@ const Dashboard = () => {
   };
 
   if (authLoading || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <WishCanvasLoader />;
   }
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
@@ -599,11 +595,14 @@ const Dashboard = () => {
                   <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Archived & Past</h3>
                   <span className="text-xs text-muted-foreground">{filteredArchivedPages.length} completed</span>
                 </div>
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid gap-5 md:grid-cols-2 mb-6">
               {filteredArchivedPages.map((page) => {
                 const theme = getThemeDisplay(page.theme);
                 const status = { label: 'Revealed', className: 'bg-slate-900/8 text-slate-700' };
-                const collectionCloses = page.close_date ? format(parseLocalDate(page.close_date), 'MMM d') : 'Birthday date';
+                const birthdayLabel = format(parseLocalDate(page.birthday_date), 'MMM d, yyyy');
+                const closeDate = page.close_date ? parseLocalDate(page.close_date) : parseLocalDate(page.birthday_date);
+                const closesLabel = format(closeDate, 'MMM d, yyyy');
+                const daysLeft = differenceInDays(closeDate, new Date());
 
                 return (
                   <article
@@ -611,113 +610,112 @@ const Dashboard = () => {
                     className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
                     style={{ borderColor: `${theme.accent}30` }}
                   >
-                    {/* existing card body unchanged */}
-                    {/* We reuse the same layout for archived pages */}
-                    <div className="relative h-48 overflow-hidden">
+                    <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-stretch">
                       {page.cover_photo_url ? (
-                        <>
+                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                           <img
-                            src={page.cover_photo_url}
-                            alt=""
-                            aria-hidden="true"
-                            className="absolute inset-0 h-full w-full object-cover opacity-35 blur-xl transition-transform duration-500 group-hover:scale-105"
+                            src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
+                            alt={`${page.recipient_name}'s cover`}
+                            className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
+                            loading="lazy"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-br from-slate-950/30 via-slate-950/10 to-black/30" />
-                          <div className="absolute inset-x-4 bottom-4 top-4 overflow-hidden rounded-[1.35rem] border border-white/18 bg-black/18 shadow-[0_20px_55px_rgba(15,23,42,0.28)] backdrop-blur-[2px]">
-                            <img
-                              src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
-                              alt={`${page.recipient_name}'s cover`}
-                              className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
-                              loading="lazy"
-                            />
-                          </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/58 via-black/12 to-transparent" />
-                        </>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-transparent" />
+                        </div>
                       ) : theme.isCustom ? (
-                        <div
-                          className="h-full w-full"
-                          style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
-                        />
+                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                          <div
+                            className="h-full w-full"
+                            style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent" />
+                        </div>
                       ) : (
-                        <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
+                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                          <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent" />
+                        </div>
                       )}
 
-                      <div className="absolute left-5 top-5 flex items-center gap-2">
-                        <span className="rounded-full bg-white/18 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                          {theme.emoji} {theme.name}
-                        </span>
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
-                          {status.label}
-                        </span>
-                      </div>
-
-                      <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4">
-                        <div>
-                          <h3 className="text-2xl font-bold text-white">{page.recipient_name}&apos;s Birthday</h3>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm transition-colors hover:bg-black/40"
-                              aria-label={`Open actions for ${page.recipient_name}`}
-                              type="button"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => copyLink(page.public_code, 'contribute')}>
-                              <Share2 className="mr-2 h-4 w-4" />
-                              Copy contribution link
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => copyLink(page.public_code, 'birthday')}>
-                              <Share2 className="mr-2 h-4 w-4" />
-                              Copy birthday link
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => setPagePendingDelete(page)}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete page
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    <div className="p-5">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                            <CalendarDays className="h-3.5 w-3.5" />
-                            Birthday
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="truncate text-xl font-bold text-foreground">{page.recipient_name}&apos;s Birthday</h3>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                                {theme.emoji} {theme.name}
+                              </span>
+                              <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${status.className}`}>
+                                {status.label}
+                              </span>
+                            </div>
                           </div>
-                          <p className="mt-2 text-sm font-semibold text-foreground">
-                            {format(parseLocalDate(page.birthday_date), 'MMM d, yyyy')}
-                          </p>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/70 text-foreground transition-colors hover:bg-background"
+                                aria-label={`Open actions for ${page.recipient_name}`}
+                                type="button"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => copyLink(page.public_code, 'contribute')}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                Copy contribution link
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => copyLink(page.public_code, 'birthday')}>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                Copy birthday link
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive" onClick={() => setPagePendingDelete(page)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete page
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                        <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                            <MessageSquare className="h-3.5 w-3.5" />
-                            Wishes
+
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                              <CalendarDays className="h-4 w-4" />
+                              <span>Birthday</span>
+                            </div>
+                            <p className="mt-2 text-sm font-semibold text-foreground">{birthdayLabel}</p>
                           </div>
-                          <p className="mt-2 text-sm font-semibold text-foreground">
-                            {page.message_count || 0} collected
-                          </p>
+                          <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                              <MessageSquare className="h-4 w-4" />
+                              <span>Wishes</span>
+                            </div>
+                            <p className="mt-2 text-sm font-semibold text-foreground">{page.message_count || 0} collected</p>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="mt-3 rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Collection closed</p>
-                        <p className="mt-2 text-sm font-medium text-foreground">Closed {collectionCloses}</p>
-                      </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                            <p className="text-xs font-semibold text-muted-foreground">Collection closed</p>
+                            <p className="mt-2 text-sm font-semibold text-foreground">{closesLabel}</p>
+                          </div>
+                          <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                            <p className="text-xs font-semibold text-muted-foreground">Countdown</p>
+                            <p className="mt-2 text-sm font-semibold text-foreground">
+                              {daysLeft > 0 ? `${daysLeft} day${daysLeft === 1 ? '' : 's'}` : 'Closed'}
+                            </p>
+                          </div>
+                        </div>
 
-                      <div className="mt-5 flex gap-2">
-                        <Link to={`/preview/${page.public_code}`} className="flex-1">
-                          <Button variant="outline" size="sm" className="w-full gap-2">
-                            <Eye className="h-4 w-4" />
-                            Preview
-                          </Button>
-                        </Link>
+                        <div className="mt-5 flex gap-2">
+                          <Link to={`/preview/${page.public_code}`} className="flex-1">
+                            <Button variant="outline" size="sm" className="w-full gap-2">
+                              <Eye className="h-4 w-4" />
+                              Preview
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   </article>
