@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
+import sharp from "sharp";
 
 const configuredUploadsRoot = process.env.UPLOADS_ROOT?.trim();
 
@@ -27,9 +28,19 @@ export async function ensureUploadDirs() {
   );
 }
 
+function normalizeExtension(extension: string) {
+  const trimmed = extension.trim().toLowerCase();
+  if (!trimmed) return ".jpg";
+  return trimmed.startsWith(".") ? trimmed : `.${trimmed}`;
+}
+
+function buildFilenameWithExtension(extension: string) {
+  return `${crypto.randomUUID()}${normalizeExtension(extension)}`;
+}
+
 function buildFilename(originalName: string) {
   const extension = path.extname(originalName).toLowerCase() || ".jpg";
-  return `${crypto.randomUUID()}${extension}`;
+  return buildFilenameWithExtension(extension);
 }
 
 function imageFileFilter(
@@ -134,6 +145,36 @@ export const wishAudioUpload = multer({
 
 export function fileUrl(relativePath: string) {
   return `/uploads/${relativePath.replaceAll("\\", "/")}`;
+}
+
+export async function normalizeCoverUpload(filePath: string) {
+  const normalizedFilename = buildFilenameWithExtension(".jpg");
+  const normalizedPath = path.join(coversRoot, normalizedFilename);
+
+  try {
+    await sharp(filePath)
+      .rotate()
+      .resize({
+        width: 2400,
+        height: 2400,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .flatten({ background: "#ffffff" })
+      .jpeg({
+        quality: 88,
+        progressive: false,
+        mozjpeg: true,
+      })
+      .toFile(normalizedPath);
+  } finally {
+    await fs.promises.rm(filePath, { force: true });
+  }
+
+  return {
+    filePath: normalizedPath,
+    url: fileUrl(path.join("covers", normalizedFilename)),
+  };
 }
 
 export async function removeFileByUrl(url?: string | null) {
