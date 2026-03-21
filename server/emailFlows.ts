@@ -88,18 +88,18 @@ function shell(innerHtml: string, preheader: string) {
 function hero(icon: string, eyebrow: string, title: string) {
   return `
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-    <tr><td class="hero" style="background:linear-gradient(135deg,${CORAL} 0%,${CORAL_MID} 50%,#D4845A 100%);padding:40px 36px 32px;border-radius:24px 24px 0 0;position:relative;">
+    <tr><td class="hero" style="background:linear-gradient(135deg,${CORAL} 0%,${CORAL_MID} 50%,#D4845A 100%);padding:24px 36px 20px;border-radius:24px 24px 0 0;position:relative;">
       <!-- blob decoration -->
-      <div style="position:absolute;bottom:0;left:0;width:160px;height:100px;background:rgba(255,255,255,0.06);border-radius:0 60% 0 0;"></div>
-      <div style="position:absolute;top:0;right:0;width:120px;height:80px;background:rgba(255,255,255,0.05);border-radius:0 24px 0 60%;"></div>
+      <div style="position:absolute;bottom:0;left:0;width:120px;height:60px;background:rgba(255,255,255,0.06);border-radius:0 60% 0 0;"></div>
+      <div style="position:absolute;top:0;right:0;width:90px;height:50px;background:rgba(255,255,255,0.05);border-radius:0 24px 0 60%;"></div>
 
-      <div style="font-size:36px;margin-bottom:12px;">${icon}</div>
+      <div style="font-size:32px;margin-bottom:8px;">${icon}</div>
 
-      <div class="pill" style="display:inline-block;margin-bottom:14px;padding:5px 12px;border-radius:9999px;background:rgba(255,255,255,0.18);color:#fff;font-family:Georgia,serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">
+      <div class="pill" style="display:inline-block;margin-bottom:10px;padding:4px 10px;border-radius:9999px;background:rgba(255,255,255,0.18);color:#fff;font-family:Georgia,serif;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;">
         ${escapeHtml(eyebrow)}
       </div>
 
-      <h1 style="margin:0;font-family:Georgia,serif;font-size:30px;line-height:1.2;color:#ffffff;letter-spacing:-0.01em;">
+      <h1 style="margin:0;font-family:Georgia,serif;font-size:26px;line-height:1.2;color:#ffffff;letter-spacing:-0.01em;">
         ${escapeHtml(title)}
       </h1>
     </td></tr>
@@ -314,7 +314,7 @@ export async function sendNewMessageAlertEmail(params: {
   const safeSenderName = escapeHtml(params.senderName.trim() || "Someone");
   const pageUrl = `${getSiteBaseUrl()}/preview/${params.pageCode}`;
 
-  const inner = hero("ðŸ’¬", "New wish received", `A message arrived for ${safeRecipientName}`) +
+  const inner = hero("💬", "New wish received", `A message arrived for ${safeRecipientName}`) +
     body(`
       ${p(`Hi ${safeOwnerName},`)}
       ${p(`${safeSenderName} just left a new wish on ${highlight(escapeHtml(params.recipientName))}.`)}
@@ -348,7 +348,7 @@ export async function sendBirthdayReminderEmail(params: {
   const safeRecipientName = escapeHtml(params.recipientName.trim() || "your page");
   const pageUrl = `${getSiteBaseUrl()}/preview/${params.publicCode}`;
 
-  const inner = hero("ðŸŽ‚", "Birthday reminder", `Today is ${safeRecipientName}'s day`) +
+  const inner = hero("🎂", "Birthday reminder", `Today is ${safeRecipientName}'s day`) +
     body(`
       ${p(`Hi ${safeOwnerName},`)}
       ${p(`Today is the birthday you set for ${highlight(escapeHtml(params.recipientName))}.`)}

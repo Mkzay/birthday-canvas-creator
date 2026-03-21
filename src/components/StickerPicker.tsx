@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, RotateCw, Maximize2, Minimize2, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { isRichHtml, wishMessageHtmlWithQuotes } from '@/lib/wish-utils';
+import { isRichHtml, sanitizeWishHtmlForDisplay } from '@/lib/wish-utils';
 import { visualThemeConfig } from '@/lib/themes';
 import DOMPurify from 'dompurify';
 
@@ -20,7 +20,7 @@ interface StickerPickerProps {
   onChange: (stickers: StickerData[]) => void;
   className?: string;
   message?: string;
-  photos?: File[];
+  senderName?: string;
   themeId?: string;
 }
 
@@ -44,22 +44,21 @@ const StickerPicker: React.FC<StickerPickerProps> = ({
   onChange, 
   className, 
   message, 
-  photos = [],
+  senderName,
   themeId = 'elegant'
 }) => {
   const [activeStickerId, setActiveStickerId] = useState<string | null>(null);
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const theme = visualThemeConfig[themeId as keyof typeof visualThemeConfig] || visualThemeConfig.elegant;
+  const isDarkExperience = themeId === 'cosmic' || themeId === 'midnight';
+  const keepsakePaperClass = isDarkExperience
+    ? 'border-white/18 bg-[linear-gradient(180deg,rgba(34,36,56,0.94),rgba(18,20,34,0.88))] shadow-[0_30px_90px_rgba(2,6,23,0.44)]'
+    : 'border-white/85 bg-[linear-gradient(180deg,rgba(255,252,247,0.99),rgba(255,244,235,0.96))] shadow-[0_34px_86px_rgba(183,133,83,0.16),0_18px_34px_rgba(15,23,42,0.08)]';
+
   const isDraggingRef = useRef(false);
   const startPosRef = useRef({ x: 0, y: 0 });
 
-  useEffect(() => {
-    const urls = photos.map(file => URL.createObjectURL(file));
-    setPhotoUrls(urls);
-    return () => urls.forEach(url => URL.revokeObjectURL(url));
-  }, [photos]);
 
   const addSticker = (type: string, emoji: string) => {
     const newSticker: StickerData = {
@@ -172,39 +171,36 @@ const StickerPicker: React.FC<StickerPickerProps> = ({
       <div 
         ref={containerRef}
         className={cn(
-          "relative w-full aspect-[4/3] rounded-2xl border-2 border-dashed border-border overflow-hidden touch-none p-6",
-          theme.heroClass
+          "relative w-full rounded-[1.6rem] border overflow-hidden p-4 sm:rounded-[2rem] sm:p-6 lg:p-7 touch-none aspect-[4/3] sm:aspect-auto sm:min-h-[400px]",
+          keepsakePaperClass,
+          className
         )}
         onClick={() => setActiveStickerId(null)}
       >
         {/* Preview Background */}
-        <div className={cn("absolute inset-0 pointer-events-none p-6 flex flex-col gap-4", theme.font)}>
+        <div className={cn("absolute inset-0 pointer-events-none p-4 sm:p-6 lg:p-7 flex flex-col", theme.font)}>
+          <div className="flex items-start justify-between gap-4 mb-4 opacity-60">
+            <div>
+              <p className={cn('text-[10px] sm:text-xs font-semibold uppercase tracking-[0.24em]', theme.text)}>
+                Letter
+              </p>
+              <h2 className={cn('mt-2 text-xl sm:text-3xl font-bold leading-[0.96]', theme.titleClass, theme.font)}>
+                {senderName || 'Your Name'}
+              </h2>
+            </div>
+          </div>
+          
           {message && (
             <div className="flex-1 overflow-hidden">
               {isRichHtml(message) ? (
                 <div 
-                  className={cn("wish-rich-text text-lg sm:text-2xl font-medium line-clamp-6", theme.text)}
-                  dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(message) }}
+                  className={cn("wish-rich-text mt-2 sm:mt-4 text-[1.05rem] sm:text-[1.15rem] leading-[1.6] line-clamp-[8]", theme.text)}
+                  dangerouslySetInnerHTML={{ __html: sanitizeWishHtmlForDisplay(message) }}
                 />
               ) : (
-                <p className={cn("text-lg sm:text-2xl font-medium line-clamp-6 italic", theme.text)}>
+                <p className={cn("mt-2 sm:mt-4 text-[1.05rem] sm:text-[1.15rem] leading-[1.6] line-clamp-[8]", theme.text)}>
                   &quot;{message}&quot;
                 </p>
-              )}
-            </div>
-          )}
-          
-          {photoUrls.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 h-[45%] mt-auto">
-              {photoUrls.slice(0, 2).map((url, i) => (
-                <div key={i} className={cn("relative rounded-xl overflow-hidden border aspect-square", theme.cardClass)}>
-                  <img src={url} className="absolute inset-0 w-full h-full object-cover" alt="" />
-                </div>
-              ))}
-              {photoUrls.length > 2 && (
-                <div className="absolute bottom-10 right-10 bg-black/50 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-full">
-                  +{photoUrls.length - 2} more
-                </div>
               )}
             </div>
           )}

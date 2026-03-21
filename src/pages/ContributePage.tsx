@@ -777,7 +777,7 @@ const ContributePage = () => {
                     onChange={setStickers}
                     className={!page.can_contribute ? "pointer-events-none opacity-60" : ""}
                     message={message}
-                    photos={selectedPhotos.map(p => p.file)}
+                    senderName={senderName}
                     themeId={page.theme}
                   />
                 </div>
