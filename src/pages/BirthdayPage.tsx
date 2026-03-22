@@ -1808,7 +1808,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
               <div className="relative z-10">
                 {slide.kind === 'cover' && (
-                  <div className={cn('space-y-4', coverPhotoSrc && 'min-[420px]:grid min-[420px]:grid-cols-[1.02fr_0.98fr] min-[420px]:items-start min-[420px]:gap-3 min-[420px]:space-y-0')}>
+                  <div className="space-y-4">
                     <div className="space-y-4">
                       <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(30, getStoryMotionDuration(slide))}>
                         <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>First page out of the envelope</p>
@@ -1841,10 +1841,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     </div>
 
                     {coverPhotoSrc && (
-                      <article className={cn('story-stage-reveal-soft relative overflow-hidden rounded-[1.4rem] border min-[420px]:h-full', keepsakeSoftClass)} style={getStoryDelayStyle(130, 760)}>
+                      <article className={cn('story-stage-reveal-soft relative overflow-hidden rounded-[1.4rem] border', keepsakeSoftClass)} style={getStoryDelayStyle(130, 760)}>
                         <button
                           type="button"
-                          className="relative block h-full min-h-[12rem] w-full"
+                          className="relative block h-[46dvh] min-h-[16rem] max-h-[30rem] w-full"
                           onClick={() => setExpandedPhoto({
                             url: coverPhotoSrc,
                             caption: `${page.recipient_name}'s birthday cover`,
