@@ -26,5 +26,10 @@ uploads/
 *.sln
 *.sw?
 
-#other
-.agents
+# other
+.agents/
+.claude/
+.jules/
+docs/
+tasks/
+uploads/

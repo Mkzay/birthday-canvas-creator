@@ -475,7 +475,7 @@ const Dashboard = () => {
                         style={{ borderColor: `${theme.accent}30` }}
                       >
                         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-stretch">
-                          <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                          <div className="relative h-[42dvh] min-h-[14rem] max-h-[24rem] w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                             {page.cover_photo_url ? (
                               <img
                                 src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
@@ -612,7 +612,7 @@ const Dashboard = () => {
                   >
                     <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-stretch">
                       {page.cover_photo_url ? (
-                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                        <div className="relative h-[42dvh] min-h-[14rem] max-h-[24rem] w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                           <img
                             src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
                             alt={`${page.recipient_name}'s cover`}
@@ -622,7 +622,7 @@ const Dashboard = () => {
                           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-transparent" />
                         </div>
                       ) : theme.isCustom ? (
-                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                        <div className="relative h-[42dvh] min-h-[14rem] max-h-[24rem] w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                           <div
                             className="h-full w-full"
                             style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
@@ -630,7 +630,7 @@ const Dashboard = () => {
                           <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent" />
                         </div>
                       ) : (
-                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                        <div className="relative h-[42dvh] min-h-[14rem] max-h-[24rem] w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                           <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent" />
                         </div>
