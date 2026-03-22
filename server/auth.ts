@@ -71,6 +71,7 @@ function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
   return {
     id: String(row.id),
     email: String(row.email),
+    isAdmin: isAdminEmail(String(row.email)),
     planTier: row.plan_tier === "pro" ? "pro" : "free",
     emailVerifiedAt: typeof row.email_verified_at === "string" ? row.email_verified_at : null,
     displayName: typeof row.display_name === "string" ? row.display_name : null,
@@ -277,7 +278,10 @@ async function refreshFromAccess(request: AuthedRequest, response?: Response) {
   }
 
   const { sessionId: _sessionId, ...user } = session;
-  return user;
+  return {
+    ...user,
+    isAdmin: isAdminEmail(String(user.email)),
+  };
 }
 
 async function refreshFromRefreshToken(request: AuthedRequest, response?: Response) {
@@ -361,6 +365,12 @@ function getAdminEmails() {
     .filter(Boolean);
 }
 
+export function isAdminEmail(email: string) {
+  const adminEmails = getAdminEmails();
+  if (!adminEmails.length) return false;
+  return adminEmails.includes(String(email).toLowerCase());
+}
+
 export async function requireAdmin(request: AuthedRequest, response: Response, next: NextFunction) {
   const session = await getActiveSession(request, response);
   if (!session) {
@@ -374,7 +384,7 @@ export async function requireAdmin(request: AuthedRequest, response: Response, n
     return;
   }
 
-  if (!adminEmails.includes(String(session.email).toLowerCase())) {
+  if (!isAdminEmail(String(session.email))) {
     response.status(403).json({ error: "Forbidden" });
     return;
   }

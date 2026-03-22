@@ -3,6 +3,7 @@ import type { Request } from "express";
 export interface SessionUser {
   id: string;
   email: string;
+  isAdmin: boolean;
   planTier: "free" | "pro";
   emailVerifiedAt: string | null;
   displayName: string | null;

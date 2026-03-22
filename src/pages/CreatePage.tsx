@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { apiFetch, apiForm } from '@/lib/api';
+import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import Header from '@/components/Header';
 
 type Theme = string;
@@ -42,6 +42,13 @@ const themeConfig = {
   candyland: { name: 'Candyland', emoji: '🍭', primary: 'from-pink-400 to-purple-500' },
   midnight: { name: 'Midnight', emoji: '🌙', primary: 'from-indigo-500 to-violet-600' },
 };
+
+function toIsoDatetime(value: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
 
 const CreatePage = () => {
   const navigate = useNavigate();
@@ -74,6 +81,11 @@ const CreatePage = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
   const [createdPublicCode, setCreatedPublicCode] = useState<string | null>(null);
+  const [publicCodeInput, setPublicCodeInput] = useState('');
+  const [publicCodeError, setPublicCodeError] = useState<string | null>(null);
+  const [revealAtInput, setRevealAtInput] = useState('');
+  const [revealPinInput, setRevealPinInput] = useState('');
+  const isProUser = user?.planTier === 'pro';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -184,6 +196,14 @@ const CreatePage = () => {
     
     if (step === 2) {
       setSaving(true);
+      setPublicCodeError(null);
+      const normalizedPublicCode = publicCodeInput.trim().toLowerCase();
+      if (isProUser && normalizedPublicCode && !/^[a-z0-9](?:[a-z0-9-]{4,38}[a-z0-9])$/.test(normalizedPublicCode)) {
+        setPublicCodeError('Use 6-40 chars with lowercase letters, numbers, and hyphens.');
+        setSaving(false);
+        return;
+      }
+
       try {
         const data = await apiFetch<{ id: string; public_code: string }>('/pages', {
           method: 'POST',
@@ -199,6 +219,9 @@ const CreatePage = () => {
             allowAudio,
             requireNames,
             closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate!, 'yyyy-MM-dd'),
+            revealAt: isProUser ? toIsoDatetime(revealAtInput) : undefined,
+            revealPin: isProUser && revealPinInput.trim() ? revealPinInput.trim() : undefined,
+            publicCode: isProUser && normalizedPublicCode ? normalizedPublicCode : undefined,
           }),
         });
 
@@ -215,6 +238,11 @@ const CreatePage = () => {
         toast.success('Birthday page created!');
       } catch (error) {
         setSaving(false);
+        if (error instanceof ApiError && error.status === 409) {
+          setPublicCodeError('That custom link is already taken. Try another one.');
+          toast.error('Custom link already taken');
+          return;
+        }
         toast.error('Failed to create page');
         console.error(error);
         return;
@@ -507,6 +535,77 @@ const CreatePage = () => {
                   onChangeCustomAudioUrl={handleCustomAudioUrlChange}
                 />
               </div>
+            </div>
+
+            <div className="panel-inset mt-4 p-4 sm:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-bold text-foreground">Pro controls</h3>
+                <span className={cn(
+                  'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                  isProUser ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+                )}>
+                  {isProUser ? 'Pro active' : 'Pro required'}
+                </span>
+              </div>
+              {isProUser ? (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <Label htmlFor="publicCode" className="text-foreground">Custom public link (optional)</Label>
+                    <Input
+                      id="publicCode"
+                      value={publicCodeInput}
+                      onChange={(event) => {
+                        setPublicCodeInput(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+                        setPublicCodeError(null);
+                      }}
+                      className="mt-2"
+                      placeholder="e.g. ada-birthday-2026"
+                    />
+                    {publicCodeError && (
+                      <p className="mt-2 text-xs font-medium text-destructive">{publicCodeError}</p>
+                    )}
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Leave empty to auto-generate a random link.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="revealAt" className="text-foreground">Scheduled reveal date and time (optional)</Label>
+                    <Input
+                      id="revealAt"
+                      type="datetime-local"
+                      value={revealAtInput}
+                      onChange={(event) => setRevealAtInput(event.target.value)}
+                      className="mt-2"
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Leave empty to reveal automatically on the birthday date. Set a future date/time for timed unlock.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="revealPin" className="text-foreground">Secret reveal PIN (optional)</Label>
+                    <Input
+                      id="revealPin"
+                      value={revealPinInput}
+                      onChange={(event) => setRevealPinInput(event.target.value.replace(/\D/g, '').slice(0, 12))}
+                      className="mt-2"
+                      inputMode="numeric"
+                      placeholder="4 to 12 digit PIN"
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Anyone opening the birthday link will need this PIN before they can view wishes.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    Custom links, scheduled reveal, and secret PIN unlock are available on Pro.
+                  </p>
+                  <Button type="button" variant="outline" className="mt-3" onClick={() => navigate('/upgrade')}>
+                    Upgrade to Pro
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}
