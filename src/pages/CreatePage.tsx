@@ -288,7 +288,7 @@ const CreatePage = () => {
 
   return (
     <div className="min-h-screen app-shell">
-      <Header backTo={{ label: 'Dashboard', href: '/dashboard' }} />
+      <Header backTo={{ label: 'Back', useHistory: true, href: '/dashboard' }} />
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-24 pb-6 sm:pt-28 sm:pb-10">
         <div className="panel-card mb-6 overflow-hidden p-6 sm:p-8">
@@ -443,11 +443,20 @@ const CreatePage = () => {
                 
                 {coverPhotoPreview ? (
                   <div className="relative mt-2 overflow-hidden rounded-2xl border border-border bg-muted/20">
-                    <img 
-                      src={coverPhotoPreview} 
-                      alt="Cover preview" 
-                      className="aspect-[16/10] max-h-[28rem] w-full object-cover"
-                    />
+                    <div className="relative h-[58vw] min-h-[13rem] max-h-[32rem] sm:h-[24rem]">
+                      <img
+                        src={coverPhotoPreview}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl opacity-45"
+                      />
+                      <div aria-hidden="true" className="absolute inset-0 bg-black/5" />
+                      <img
+                        src={coverPhotoPreview}
+                        alt="Cover preview"
+                        className="relative z-10 h-full w-full object-contain"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={removeCoverPhoto}
@@ -464,7 +473,7 @@ const CreatePage = () => {
                   >
                     <Image className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">Click to upload a cover photo</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Shown as a wide hero image on the final page</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Preview shows the full image so you can frame it better</p>
                   </div>
                 )}
               </div>

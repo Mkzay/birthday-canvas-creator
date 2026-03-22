@@ -25,7 +25,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
-  ArrowLeft,
   User,
   Bell,
   Settings,
@@ -266,16 +265,9 @@ const SettingsPage = () => {
 
   return (
     <div className="min-h-screen app-shell">
-      <Header />
+      <Header backTo={{ label: 'Back', useHistory: true, href: '/dashboard' }} />
 
       <main className="max-w-5xl mx-auto px-4 pb-6 pt-24 sm:px-6 sm:pb-8 sm:pt-28 space-y-8">
-        <div>
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate('/dashboard')}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to dashboard
-          </Button>
-        </div>
-
         <section className="panel-card p-6 sm:p-8">
           <span className="eyebrow-chip">Workspace settings</span>
           <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-4xl">Tune the account behind the surprises</h1>

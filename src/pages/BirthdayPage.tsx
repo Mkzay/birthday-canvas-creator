@@ -143,6 +143,17 @@ function formatMediaTime(seconds: number) {
   return `${m}:${String(r).padStart(2, '0')}`;
 }
 
+function normalizeHexColor(value?: string | null) {
+  if (!value) return null;
+  const normalized = value.trim();
+  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(normalized) ? normalized : null;
+}
+
+function mixHue(a: number, b: number) {
+  const delta = ((b - a + 540) % 360) - 180;
+  return (a + delta / 2 + 360) % 360;
+}
+
 function MobileVoiceNoteControl({
   messageId,
   getAudioEl,
@@ -1037,18 +1048,30 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         style: undefined,
       };
 
-  const baseHex =
-    page?.letter_color?.trim() ||
-    (isCustomTheme ? page?.theme_gradient_from || undefined : undefined) ||
+  const [rawLetterFrom, rawLetterTo] = (page?.letter_color || '').split(',');
+  const letterColorFromHex =
+    normalizeHexColor(rawLetterFrom) ||
+    (isCustomTheme ? normalizeHexColor(page?.theme_gradient_from) : null) ||
     '#ff915a';
+  const letterColorToHex =
+    normalizeHexColor(rawLetterTo) ||
+    (isCustomTheme ? normalizeHexColor(page?.theme_gradient_to) : null) ||
+    letterColorFromHex;
 
-  const { h: letterH, s: letterS, l: letterL } = hexToHsl(baseHex);
+  const { h: letterH, s: letterS, l: letterL } = hexToHsl(letterColorFromHex);
+  const { h: letterH2, s: letterS2, l: letterL2 } = hexToHsl(letterColorToHex);
   const clampedS = Math.min(letterS, 70);
+  const clampedS2 = Math.min(letterS2, 70);
+  const mixedLetterH = mixHue(letterH, letterH2);
 
   const letterThemeStyle = {
     '--letter-h': letterH.toFixed(0),
+    '--letter-h-2': letterH2.toFixed(0),
+    '--letter-h-mix': mixedLetterH.toFixed(0),
     '--letter-s': `${clampedS.toFixed(0)}%`,
+    '--letter-s-2': `${clampedS2.toFixed(0)}%`,
     '--letter-l': `${letterL.toFixed(0)}%`,
+    '--letter-l-2': `${letterL2.toFixed(0)}%`,
     '--letter-bg': 'var(--letter-h) calc(var(--letter-s) * 0.4) 12%',
     '--letter-bg-soft': 'var(--letter-h) var(--letter-s) 22%',
     '--letter-card': 'var(--letter-h) calc(var(--letter-s) * 0.55) 92%',
@@ -1598,9 +1621,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           className="fixed inset-0 z-40 flex items-center justify-center px-4 backdrop-blur-md"
           style={{
             background: [
-              `radial-gradient(circle at 50% 28%, hsl(${letterH} ${clampedS * 0.5}% 85% / 0.30), transparent 18%)`,
-              `radial-gradient(circle at 18% 16%, hsl(${letterH} ${clampedS * 0.6}% 68% / 0.16), transparent 20%)`,
-              `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 18% / 0.72), hsl(${letterH} ${clampedS * 0.3}% 14% / 0.86))`,
+                      `radial-gradient(circle at 50% 28%, hsl(${letterH} ${clampedS * 0.5}% 85% / 0.3), hsl(${letterH2} ${clampedS2 * 0.45}% 76% / 0.22), transparent 32%)`,
+                      `radial-gradient(circle at 18% 16%, hsl(${letterH2} ${clampedS2 * 0.6}% 68% / 0.16), transparent 22%)`,
+                      `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 18% / 0.72), hsl(${letterH2} ${clampedS2 * 0.3}% 14% / 0.86))`,
             ].join(', '),
           }}
         >
@@ -1615,10 +1638,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             </button>
 
             <div className="relative flex min-h-[100dvh] w-full items-center justify-center py-20">
-              <FloatingParticles hue={letterH} saturation={clampedS * 100} />
+                  <FloatingParticles hue={mixedLetterH} saturation={((clampedS + clampedS2) / 2) * 100} />
               <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl" style={{ background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.34), transparent 58%)` }} />
-                <div className="absolute left-1/2 top-[43%] h-[30rem] w-[20rem] -translate-x-1/2 rounded-full blur-3xl" style={{ background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.18), transparent 68%)` }} />
+                    <div className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl" style={{ background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.34), hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.16), transparent 62%)` }} />
+                    <div className="absolute left-1/2 top-[43%] h-[30rem] w-[20rem] -translate-x-1/2 rounded-full blur-3xl" style={{ background: `radial-gradient(circle, hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.2), transparent 68%)` }} />
               </div>
 
               <div className="relative flex w-full max-w-xl flex-col items-center justify-center">
@@ -1664,14 +1687,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     <div
                       className="absolute inset-0 rounded-[2.4rem]"
                       style={{
-                        background: `linear-gradient(145deg, hsl(${letterH} ${clampedS * 0.45}% 95%), hsl(${letterH} ${clampedS * 0.55}% 88%))`,
-                        boxShadow: `0 26px 90px hsl(${letterH} ${clampedS * 0.3}% 20% / 0.22)`,
+                        background: `linear-gradient(145deg, hsl(${letterH} ${clampedS * 0.45}% 95%), hsl(${letterH2} ${clampedS2 * 0.55}% 88%))`,
+                        boxShadow: `0 26px 90px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 20% / 0.22)`,
                       }}
                     />
                     <div className="absolute inset-[1px] rounded-[2.35rem] border border-white/60" />
                     <div
                       className="absolute inset-[1.2rem] rounded-[1.9rem] border opacity-60"
-                      style={{ borderColor: `hsl(${letterH} ${clampedS * 0.4}% 82%)` }}
+                      style={{ borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 82%)` }}
                     />
                     {/* Envelope flap */}
                     <div
@@ -1681,16 +1704,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       )}
                       style={{
                         clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-                        background: `linear-gradient(145deg, hsl(${letterH} ${clampedS * 0.6}% 78%), hsl(${letterH} ${clampedS * 0.5}% 88%))`,
-                        boxShadow: `0 16px 36px hsl(${letterH} ${clampedS * 0.4}% 40% / 0.22)`,
+                        background: `linear-gradient(145deg, hsl(${letterH2} ${clampedS2 * 0.6}% 78%), hsl(${letterH} ${clampedS * 0.5}% 88%))`,
+                        boxShadow: `0 16px 36px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 40% / 0.22)`,
                       }}
                     />
                     {/* Envelope body / inner pocket */}
                     <div
                       className="absolute bottom-[11%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[1.8rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
                       style={{
-                        background: `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.4}% 97%), hsl(${letterH} ${clampedS * 0.55}% 90%))`,
-                        borderColor: `hsl(${letterH} ${clampedS * 0.3}% 85% / 0.7)`,
+                        background: `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.4}% 97%), hsl(${letterH2} ${clampedS2 * 0.55}% 90%))`,
+                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 85% / 0.7)`,
                       }}
                     />
                     {/* Letter card */}
@@ -1701,14 +1724,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         revealPhase === 'burst' ? '-translate-y-10 opacity-0' : '',
                       )}
                       style={{
-                        background: `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 97%), hsl(${letterH} ${clampedS * 0.45}% 93%))`,
-                        borderColor: `hsl(${letterH} ${clampedS * 0.4}% 78% / 0.8)`,
-                        boxShadow: `0 14px 28px hsl(${letterH} ${clampedS * 0.3}% 35% / 0.16)`,
+                        background: `linear-gradient(180deg, hsl(${letterH2} ${clampedS2 * 0.35}% 97%), hsl(${letterH} ${clampedS * 0.45}% 93%))`,
+                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 78% / 0.8)`,
+                        boxShadow: `0 14px 28px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 35% / 0.16)`,
                       }}
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: `hsl(${letterH} 30% 42%)` }}>To</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: `hsl(${mixedLetterH} 30% 42%)` }}>To</p>
                       <p className="mt-2 text-[1.45rem] font-bold leading-none sm:text-[1.7rem]" style={{ color: `hsl(${letterH} 28% 22%)` }}>{page.recipient_name}</p>
-                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] sm:max-w-[10rem]" style={{ color: `hsl(${letterH} 20% 38%)` }}>
+                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] sm:max-w-[10rem]" style={{ color: `hsl(${letterH2} 20% 38%)` }}>
                         Open when ready for the birthday story.
                       </p>
                     </div>
@@ -1716,9 +1739,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     <div
                       className="animate-seal-breathe absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] transition-transform duration-300 group-hover:scale-105"
                       style={{
-                        background: `radial-gradient(circle at 30% 30%, hsl(${letterH} ${clampedS}% 62%), hsl(${letterH} ${clampedS * 0.8}% 48%))`,
-                        borderColor: `hsl(${letterH} ${clampedS * 0.5}% 82%)`,
-                        '--seal-glow': `hsl(${letterH} ${clampedS * 0.6}% 55% / 0.35)`,
+                        background: `radial-gradient(circle at 30% 30%, hsl(${letterH} ${clampedS}% 62%), hsl(${letterH2} ${clampedS2 * 0.8}% 48%))`,
+                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.5}% 82%)`,
+                        '--seal-glow': `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.6}% 55% / 0.35)`,
                       } as React.CSSProperties}
                     >
                       <div className="flex h-full w-full items-center justify-center text-white/90">

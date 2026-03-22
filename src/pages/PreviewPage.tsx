@@ -71,10 +71,20 @@ const PreviewPage = () => {
         <div className="fixed top-0 left-0 right-0 z-50 bg-foreground/90 text-primary-foreground px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link to="/dashboard" className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                    return;
+                  }
+                  navigate('/dashboard');
+                }}
+                className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity"
+              >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Back to Dashboard</span>
-              </Link>
+                <span className="hidden sm:inline">Back</span>
+              </button>
               <span className="text-sm opacity-70">Preview Mode</span>
             </div>
             <div className="flex items-center gap-2">
