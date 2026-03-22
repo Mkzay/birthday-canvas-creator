@@ -8,18 +8,41 @@ import { AuthProvider } from "@/context/AuthContext";
 import { useEffect } from "react";
 import WishCanvasLoader from "@/components/WishCanvasLoader";
 
-const Index = lazy(() => import("./pages/Index"));
-const AuthPage = lazy(() => import("./pages/AuthPage"));
-const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const CreatePage = lazy(() => import("./pages/CreatePage"));
-const EditPage = lazy(() => import("./pages/EditPage"));
-const ContributePage = lazy(() => import("./pages/ContributePage"));
-const BirthdayPage = lazy(() => import("./pages/BirthdayPage"));
-const PreviewPage = lazy(() => import("./pages/PreviewPage"));
-const ThemeBuilderPage = lazy(() => import("./pages/ThemeBuilderPage"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const lazyImport = <T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+  name: string
+) => {
+  return lazy(async () => {
+    try {
+      const component = await factory();
+      window.sessionStorage.removeItem(`vite-chunk-reload-${name}`);
+      return component;
+    } catch (error: unknown) {
+      const key = `vite-chunk-reload-${name}`;
+      const hasReloaded = window.sessionStorage.getItem(key);
+      if (!hasReloaded) {
+        window.sessionStorage.setItem(key, 'true');
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {});
+      }
+      throw error;
+    }
+  });
+};
+
+const Index = lazyImport(() => import("./pages/Index"), "Index");
+const AuthPage = lazyImport(() => import("./pages/AuthPage"), "AuthPage");
+const VerifyEmailPage = lazyImport(() => import("./pages/VerifyEmailPage"), "VerifyEmailPage");
+const Dashboard = lazyImport(() => import("./pages/Dashboard"), "Dashboard");
+const CreatePage = lazyImport(() => import("./pages/CreatePage"), "CreatePage");
+const EditPage = lazyImport(() => import("./pages/EditPage"), "EditPage");
+const ContributePage = lazyImport(() => import("./pages/ContributePage"), "ContributePage");
+const BirthdayPage = lazyImport(() => import("./pages/BirthdayPage"), "BirthdayPage");
+const PreviewPage = lazyImport(() => import("./pages/PreviewPage"), "PreviewPage");
+const ThemeBuilderPage = lazyImport(() => import("./pages/ThemeBuilderPage"), "ThemeBuilderPage");
+const SettingsPage = lazyImport(() => import("./pages/SettingsPage"), "SettingsPage");
+const NotFound = lazyImport(() => import("./pages/NotFound"), "NotFound");
 
 const queryClient = new QueryClient();
 
