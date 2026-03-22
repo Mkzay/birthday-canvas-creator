@@ -629,8 +629,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       };
     }
 
-    const timeoutId = window.setTimeout(() => preloadImages(), 300);
-    return () => window.clearTimeout(timeoutId);
+    const timeoutId = globalThis.setTimeout(() => preloadImages(), 300);
+    return () => globalThis.clearTimeout(timeoutId);
   }, [isCoarsePointerDevice, page, messages]);
 
   const stopSoundtrack = useCallback(() => {

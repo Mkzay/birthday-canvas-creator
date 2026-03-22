@@ -4,10 +4,10 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Image as ImageIcon, Loader2, Palette, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import { Crown, Image as ImageIcon, Loader2, Lock, Palette, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { apiFetch, apiForm } from '@/lib/api';
+import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import Header from '@/components/Header';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 
@@ -49,6 +49,9 @@ const ANGLE_OPTIONS = [
   { value: 270, label: '←' },
   { value: 315, label: '↖' },
 ];
+
+const FREE_THEME_LIMIT = 3;
+const PREMIUM_THEME_FONTS = new Set(['caveat', 'sora', 'cormorant', 'space-grotesk', 'dm-serif']);
 
 function normalizeHex(input: string): string {
   const trimmed = input.trim();
@@ -92,6 +95,8 @@ const ThemeBuilderPage = () => {
   const [font, setFont] = useState('jakarta');
   const [showForm, setShowForm] = useState(false);
   const [iconUrl, setIconUrl] = useState<string | null>(null);
+  const isProPlan = user?.planTier === 'pro';
+  const isFreeThemeLimitReached = !isProPlan && !editingId && themes.length >= FREE_THEME_LIMIT;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -154,6 +159,26 @@ const ThemeBuilderPage = () => {
       return;
     }
 
+    if (!editingId && !isProPlan && themes.length >= FREE_THEME_LIMIT) {
+      toast.error(`Free plan supports up to ${FREE_THEME_LIMIT} custom themes. Upgrade to Pro for unlimited themes.`);
+      return;
+    }
+
+    if (!isProPlan && gradientMid) {
+      toast.error('Midpoint gradients are available on Pro.');
+      return;
+    }
+
+    if (!isProPlan && PREMIUM_THEME_FONTS.has(font)) {
+      toast.error('That font is part of Pro themes.');
+      return;
+    }
+
+    if (!isProPlan && iconUrl) {
+      toast.error('Theme icon upload is available on Pro.');
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
@@ -178,7 +203,7 @@ const ThemeBuilderPage = () => {
         void fetchThemes();
         resetForm();
       } catch (error) {
-        toast.error('Failed to update theme');
+        toast.error(error instanceof ApiError ? error.message : 'Failed to update theme');
         console.error(error);
       }
     } else {
@@ -191,7 +216,7 @@ const ThemeBuilderPage = () => {
         void fetchThemes();
         resetForm();
       } catch (error) {
-        toast.error('Failed to create theme');
+        toast.error(error instanceof ApiError ? error.message : 'Failed to create theme');
         console.error(error);
       }
     }
@@ -215,6 +240,12 @@ const ThemeBuilderPage = () => {
   const previewGradient = buildGradient(gradientFrom, gradientTo, gradientMid || null, gradientAngle);
 
   const handleIconFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isProPlan) {
+      toast.error('Theme icon upload is available on Pro.');
+      event.target.value = '';
+      return;
+    }
+
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -230,7 +261,7 @@ const ThemeBuilderPage = () => {
       toast.success('Theme icon uploaded');
     } catch (error) {
       console.error(error);
-      toast.error('Failed to upload icon');
+      toast.error(error instanceof ApiError ? error.message : 'Failed to upload icon');
     } finally {
       event.target.value = '';
     }
@@ -252,11 +283,38 @@ const ThemeBuilderPage = () => {
               Theme Builder
             </h1>
             <p className="text-muted-foreground text-sm mt-1">Create and manage your custom themes</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-medium',
+                  isProPlan
+                    ? 'border-emerald-300/60 bg-emerald-100/70 text-emerald-800'
+                    : 'border-amber-300/60 bg-amber-100/70 text-amber-800',
+                )}
+              >
+                {isProPlan ? <Crown className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                {isProPlan ? 'Pro plan' : `Free plan: ${themes.length}/${FREE_THEME_LIMIT} themes`}
+              </span>
+              {!isProPlan && (
+                <>
+                  <span className="text-muted-foreground">Upgrade for midpoint gradients, premium fonts, icons, and unlimited themes.</span>
+                  <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => navigate('/upgrade')}>
+                    Upgrade to Pro
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
           {!showForm && (
-            <Button variant="hero" onClick={() => setShowForm(true)} className="gap-2">
+            <Button
+              variant="hero"
+              onClick={() => setShowForm(true)}
+              className="gap-2"
+              disabled={isFreeThemeLimitReached}
+              title={isFreeThemeLimitReached ? `Free plan supports up to ${FREE_THEME_LIMIT} themes` : undefined}
+            >
               <Plus className="w-4 h-4" />
-              New Theme
+              {isFreeThemeLimitReached ? 'Limit Reached' : 'New Theme'}
             </Button>
           )}
         </div>
@@ -374,9 +432,11 @@ const ThemeBuilderPage = () => {
                   <button
                     type="button"
                     onClick={() => setGradientMid('#a855f7')}
-                    className="mt-2 text-xs text-muted-foreground hover:text-primary transition-colors"
+                    className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!isProPlan}
                   >
-                    + Add midpoint color
+                    {!isProPlan && <Lock className="h-3 w-3" />}
+                    {!isProPlan ? 'Midpoint color is Pro only' : '+ Add midpoint color'}
                   </button>
                 )}
               </div>
@@ -437,24 +497,40 @@ const ThemeBuilderPage = () => {
               <div>
                 <Label className="text-foreground">Font Style</Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                  {FONT_OPTIONS.map((f) => (
-                    <button
-                      key={f.value}
-                      type="button"
-                      onClick={() => setFont(f.value)}
-                      className={cn(
-                        "py-3 px-3 rounded-xl border-2 transition-all text-left",
-                        font === f.value
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      )}
-                    >
-                      <span className={cn("block text-lg font-bold leading-tight text-foreground", f.className)}>
-                        {f.sample}
-                      </span>
-                      <span className="block text-[11px] text-muted-foreground mt-1">{f.label}</span>
-                    </button>
-                  ))}
+                  {FONT_OPTIONS.map((f) => {
+                    const isPremiumFont = PREMIUM_THEME_FONTS.has(f.value);
+                    const isLocked = !isProPlan && isPremiumFont;
+
+                    return (
+                      <button
+                        key={f.value}
+                        type="button"
+                        onClick={() => {
+                          if (isLocked) {
+                            toast.error('This font is available on Pro.');
+                            return;
+                          }
+                          setFont(f.value);
+                        }}
+                        className={cn(
+                          'py-3 px-3 rounded-xl border-2 transition-all text-left',
+                          isLocked && 'opacity-60',
+                          font === f.value
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/50'
+                        )}
+                        disabled={isLocked}
+                      >
+                        <span className={cn('block text-lg font-bold leading-tight text-foreground', f.className)}>
+                          {f.sample}
+                        </span>
+                        <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                          {f.label}
+                          {isPremiumFont && <Lock className="h-3 w-3" />}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -496,7 +572,9 @@ const ThemeBuilderPage = () => {
               <div>
                 <Label className="text-foreground">Theme icon (optional)</Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Shown in theme pickers and cards instead of the emoji.
+                  {isProPlan
+                    ? 'Shown in theme pickers and cards instead of the emoji.'
+                    : 'Theme icon upload is available on Pro.'}
                 </p>
                 <div className="mt-2 flex items-center gap-3">
                   <div className="relative h-12 w-12 overflow-hidden rounded-xl border border-border/70 bg-muted/60 flex items-center justify-center">
@@ -519,6 +597,7 @@ const ThemeBuilderPage = () => {
                     size="sm"
                     className="gap-1.5"
                     onClick={() => document.getElementById('theme-icon-file')?.click()}
+                    disabled={!isProPlan}
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
                     {iconUrl ? 'Change icon' : 'Upload icon'}
@@ -569,10 +648,17 @@ const ThemeBuilderPage = () => {
             <div className="bg-card rounded-2xl p-8 border border-border text-center">
               <Palette className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">No custom themes yet</p>
-              <Button variant="outline" onClick={() => setShowForm(true)} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Create Your First Theme
-              </Button>
+              {isFreeThemeLimitReached ? (
+                <Button variant="outline" onClick={() => navigate('/upgrade')} className="gap-2">
+                  <Crown className="w-4 h-4" />
+                  Upgrade to Create More
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => setShowForm(true)} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Create Your First Theme
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid gap-4">

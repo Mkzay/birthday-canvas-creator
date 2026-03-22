@@ -4,6 +4,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 interface AuthUser {
   id: string;
   email: string;
+  planTier: 'free' | 'pro';
   emailVerifiedAt: string | null;
   displayName: string | null;
   avatarUrl: string | null;

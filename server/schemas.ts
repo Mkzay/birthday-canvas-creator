@@ -82,6 +82,14 @@ export const themeCreateBodySchema = z.object({
 
 export const themePatchBodySchema = themeCreateBodySchema.partial();
 
+export const paystackInitializeBodySchema = z.object({
+  callbackPath: z.string().max(200).optional(),
+});
+
+export const paystackVerifyBodySchema = z.object({
+  reference: z.string().min(6).max(120).transform((s) => s.trim()),
+});
+
 export const pageCreateBodySchema = z.object({
   recipientEmail: z.union([z.string().email().max(320), z.literal(""), z.null()]).optional(),
   recipientName: z.string().max(200).optional(),
