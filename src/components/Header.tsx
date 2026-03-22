@@ -15,12 +15,21 @@ import {
 
 interface HeaderProps {
   showDashboardLabel?: boolean;
-  backTo?: { label: string; href: string };
+  backTo?: { label: string; href?: string; useHistory?: boolean };
 }
 
 const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const handleBackClick = () => {
+    if (!backTo) return;
+    if (backTo.useHistory && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(backTo.href || '/dashboard');
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -41,20 +50,42 @@ const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
           )}
           {backTo && (
             <div className="hidden border-l border-border/60 pl-3 sm:block">
-              <Link to={backTo.href} className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-                <ArrowLeft className="h-3.5 w-3.5" />
-                {backTo.label}
-              </Link>
+              {backTo.useHistory ? (
+                <button
+                  type="button"
+                  onClick={handleBackClick}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {backTo.label}
+                </button>
+              ) : (
+                <Link to={backTo.href || '/dashboard'} className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {backTo.label}
+                </Link>
+              )}
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-3">
           {backTo && (
-            <Link to={backTo.href} className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground sm:hidden">
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back</span>
-            </Link>
+            backTo.useHistory ? (
+              <button
+                type="button"
+                onClick={handleBackClick}
+                className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground sm:hidden"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back</span>
+              </button>
+            ) : (
+              <Link to={backTo.href || '/dashboard'} className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground sm:hidden">
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back</span>
+              </Link>
+            )
           )}
           {user ? (
             <DropdownMenu>

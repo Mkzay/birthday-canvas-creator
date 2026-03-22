@@ -71,6 +71,7 @@ function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
   return {
     id: String(row.id),
     email: String(row.email),
+    planTier: row.plan_tier === "pro" ? "pro" : "free",
     emailVerifiedAt: typeof row.email_verified_at === "string" ? row.email_verified_at : null,
     displayName: typeof row.display_name === "string" ? row.display_name : null,
     avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
@@ -86,7 +87,7 @@ function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
 
 async function loadSessionUser(userId: string) {
   const rows = await sql`
-    SELECT id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    SELECT id, email, plan_tier, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
     FROM users
     WHERE id = ${userId}
     LIMIT 1

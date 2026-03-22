@@ -27,6 +27,8 @@ JWT_SECRET=...
 API_PORT=3001
 CLIENT_URL=http://localhost:8080
 VITE_API_ORIGIN=http://localhost:3001
+PAYSTACK_SECRET_KEY=...
+PAYSTACK_PRO_AMOUNT_KOBO=500000
 ```
 
 3. Start the client and API together:
@@ -61,6 +63,8 @@ ALLOW_VERCEL_PREVIEWS=true
 COOKIE_SAME_SITE=none
 COOKIE_SECURE=true
 # Same-site deployments can omit these (defaults: SameSite=Strict, Secure in production)
+PAYSTACK_SECRET_KEY=...
+PAYSTACK_PRO_AMOUNT_KOBO=500000
 UPLOADS_ROOT=/data/uploads
 ```
 
@@ -69,6 +73,7 @@ Notes:
 - Railway provides `PORT` automatically.
 - If you use file uploads in production, mount a Railway volume and point `UPLOADS_ROOT` at that mounted path. Without persistent storage, uploaded photos and audio will be lost on redeploy or restart.
 - `CLIENT_URLS` accepts a comma-separated list of allowed frontend origins.
+- Configure a Paystack webhook to `POST` to `/api/billing/paystack/webhook` on your API domain. Example: `https://your-railway-service.up.railway.app/api/billing/paystack/webhook`.
 
 ### Vercel
 

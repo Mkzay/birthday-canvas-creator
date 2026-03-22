@@ -15,6 +15,7 @@ import {
   Sparkles,
   Trash2,
   Search,
+  SlidersHorizontal,
   Users,
 } from 'lucide-react';
 import { differenceInDays, format } from 'date-fns';
@@ -114,6 +115,7 @@ const Dashboard = () => {
   const [systemStatus, setSystemStatus] = useState<SystemStatusPayload | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [pageFilter, setPageFilter] = useState<'all' | 'live' | 'archived'>('all');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -189,21 +191,27 @@ const Dashboard = () => {
 
   const filteredLivePages = useMemo(() => {
     const query = (searchQuery || '').toLowerCase();
+    const showLive = pageFilter === 'all' || pageFilter === 'live';
+    if (!showLive) return [];
+
     return pages.filter((page) => {
       const name = page.recipient_name || '';
       const matchesSearch = name.toLowerCase().includes(query);
       return matchesSearch && !isArchivedPage(page);
     });
-  }, [pages, searchQuery]);
+  }, [pageFilter, pages, searchQuery]);
 
   const filteredArchivedPages = useMemo(() => {
     const query = (searchQuery || '').toLowerCase();
+    const showArchived = pageFilter === 'all' || pageFilter === 'archived';
+    if (!showArchived) return [];
+
     return pages.filter((page) => {
       const name = page.recipient_name || '';
       const matchesSearch = name.toLowerCase().includes(query);
       return matchesSearch && isArchivedPage(page);
     });
-  }, [pages, searchQuery]);
+  }, [pageFilter, pages, searchQuery]);
 
   const getThemeDisplay = useCallback(
     (themeKey: string): ThemeDisplay => {
@@ -424,6 +432,20 @@ const Dashboard = () => {
                   className="w-full pr-9 sm:w-72"
                 />
               </div>
+
+              <div className="relative">
+                <SlidersHorizontal className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <select
+                  aria-label="Filter pages by status"
+                  value={pageFilter}
+                  onChange={(event) => setPageFilter(event.target.value as 'all' | 'live' | 'archived')}
+                  className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-48"
+                >
+                  <option value="all">All pages</option>
+                  <option value="live">Live only</option>
+                  <option value="archived">Archived only</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -447,7 +469,7 @@ const Dashboard = () => {
               <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
                 We couldn&apos;t find any pages matching your search and filter criteria.
               </p>
-              <Button variant="outline" className="mt-6" onClick={() => { setSearchQuery(''); }}>
+              <Button variant="outline" className="mt-6" onClick={() => { setSearchQuery(''); setPageFilter('all'); }}>
                 Clear filters
               </Button>
             </div>
@@ -475,7 +497,7 @@ const Dashboard = () => {
                         style={{ borderColor: `${theme.accent}30` }}
                       >
                         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-stretch">
-                          <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                          <div className="relative h-[42dvh] min-h-[14rem] max-h-[24rem] w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                             {page.cover_photo_url ? (
                               <img
                                 src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
@@ -612,7 +634,7 @@ const Dashboard = () => {
                   >
                     <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-stretch">
                       {page.cover_photo_url ? (
-                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                        <div className="relative h-[42dvh] min-h-[14rem] max-h-[24rem] w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                           <img
                             src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
                             alt={`${page.recipient_name}'s cover`}
@@ -622,7 +644,7 @@ const Dashboard = () => {
                           <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-transparent" />
                         </div>
                       ) : theme.isCustom ? (
-                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                        <div className="relative h-[42dvh] min-h-[14rem] max-h-[24rem] w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                           <div
                             className="h-full w-full"
                             style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
@@ -630,7 +652,7 @@ const Dashboard = () => {
                           <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent" />
                         </div>
                       ) : (
-                        <div className="relative h-44 w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
+                        <div className="relative h-[42dvh] min-h-[14rem] max-h-[24rem] w-full overflow-hidden rounded-[1.5rem] sm:h-auto sm:w-56 sm:min-w-56">
                           <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-transparent" />
                         </div>

@@ -164,11 +164,14 @@ export async function normalizeCoverUpload(filePath: string) {
       .jpeg({
         quality: 88,
         progressive: false,
-        mozjpeg: true,
       })
       .toFile(normalizedPath);
-  } finally {
+
     await fs.promises.rm(filePath, { force: true });
+  } catch (error) {
+    await fs.promises.rm(normalizedPath, { force: true });
+    await fs.promises.rm(filePath, { force: true });
+    throw error;
   }
 
   return {

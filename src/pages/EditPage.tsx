@@ -52,6 +52,33 @@ const steps = [
   { number: 3, label: 'Share' },
 ] as const;
 
+const DEFAULT_LETTER_START = '#f5f0e8';
+const DEFAULT_LETTER_END = '#eadfce';
+
+function normalizeHexColor(value: string, fallback: string) {
+  const trimmed = value.trim();
+  return /^#[0-9a-f]{6}$/i.test(trimmed) ? trimmed : fallback;
+}
+
+function normalizePastedHex(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  const shortMatch = withHash.match(/^#([0-9a-f]{3})$/i);
+  if (shortMatch) {
+    const [r, g, b] = shortMatch[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return /^#[0-9a-f]{6}$/i.test(withHash) ? withHash.toLowerCase() : null;
+}
+
+function parseLetterGradientValue(value: string) {
+  const [startRaw, endRaw] = value.split(',').map((part) => part.trim());
+  const start = normalizeHexColor(startRaw || '', DEFAULT_LETTER_START);
+  const end = normalizeHexColor(endRaw || start, start);
+  return { start, end };
+}
+
 const EditPage = () => {
   const { pageId } = useParams();
   const navigate = useNavigate();
@@ -67,6 +94,10 @@ const EditPage = () => {
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
   const [letterColor, setLetterColor] = useState<string>('');
+  const [letterGradientStart, setLetterGradientStart] = useState(DEFAULT_LETTER_START);
+  const [letterGradientEnd, setLetterGradientEnd] = useState(DEFAULT_LETTER_END);
+  const [letterStartHexInput, setLetterStartHexInput] = useState(DEFAULT_LETTER_START);
+  const [letterEndHexInput, setLetterEndHexInput] = useState(DEFAULT_LETTER_END);
   const [allowPhotos, setAllowPhotos] = useState(true);
   const [allowAudio, setAllowAudio] = useState(true);
   const [requireNames, setRequireNames] = useState(true);
@@ -129,6 +160,18 @@ const EditPage = () => {
       setCreatorMessage(data.creator_message || '');
       setSelectedTheme(data.theme as Theme);
       setLetterColor(data.letter_color || '');
+      if (data.letter_color) {
+        const parsed = parseLetterGradientValue(data.letter_color);
+        setLetterGradientStart(parsed.start);
+        setLetterGradientEnd(parsed.end);
+        setLetterStartHexInput(parsed.start);
+        setLetterEndHexInput(parsed.end);
+      } else {
+        setLetterGradientStart(DEFAULT_LETTER_START);
+        setLetterGradientEnd(DEFAULT_LETTER_END);
+        setLetterStartHexInput(DEFAULT_LETTER_START);
+        setLetterEndHexInput(DEFAULT_LETTER_END);
+      }
       setSelectedSoundtrackId(data.soundtrack_id || 'golden-hour');
       setAllowPhotos(data.allow_photos);
       setAllowAudio(data.allow_audio);
@@ -164,6 +207,14 @@ const EditPage = () => {
       }
     };
   }, [coverPhotoPreview]);
+
+  useEffect(() => {
+    setLetterStartHexInput(letterGradientStart);
+  }, [letterGradientStart]);
+
+  useEffect(() => {
+    setLetterEndHexInput(letterGradientEnd);
+  }, [letterGradientEnd]);
 
   const handleCoverPhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -307,7 +358,7 @@ const EditPage = () => {
 
   return (
     <div className="min-h-screen app-shell">
-      <Header backTo={{ label: 'Dashboard', href: '/dashboard' }} />
+      <Header backTo={{ label: 'Back', useHistory: true, href: '/dashboard' }} />
 
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-8 sm:px-6 sm:pt-28 sm:pb-10">
         <div className="panel-card mb-6 overflow-hidden p-6 sm:p-8">
@@ -452,7 +503,16 @@ const EditPage = () => {
 
                 {displayCoverUrl ? (
                   <div className="relative mt-2 overflow-hidden rounded-2xl border border-border bg-muted/20">
-                    <img src={displayCoverUrl} alt="Cover preview" className="aspect-[16/10] max-h-[28rem] w-full object-cover" />
+                    <div className="relative h-[58vw] min-h-[13rem] max-h-[32rem] sm:h-[24rem]">
+                      <img
+                        src={displayCoverUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl opacity-45"
+                      />
+                      <div aria-hidden="true" className="absolute inset-0 bg-black/5" />
+                      <img src={displayCoverUrl} alt="Cover preview" className="relative z-10 h-full w-full object-contain" />
+                    </div>
                     <button
                       type="button"
                       onClick={removeCoverPhoto}
@@ -469,7 +529,7 @@ const EditPage = () => {
                   >
                     <Image className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">Click to upload a cover photo</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Shown as a wide hero image on the final page</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Preview shows the full image so you can frame it better</p>
                   </div>
                 )}
               </div>
@@ -494,46 +554,135 @@ const EditPage = () => {
             <div className="mt-8">
               <Label className="text-foreground">Letter / envelope color</Label>
               <p className="mt-1 text-sm text-muted-foreground">
-                Optional. Sets the paper color of the letter cards in the story. Leave empty to use the theme default.
+                Optional. Use one or two tones for the paper mood. Leave empty to use the theme default.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <input
-                  type="color"
-                  id="letter-color"
-                  value={letterColor || '#f5f0e8'}
-                  onChange={(e) => setLetterColor(e.target.value)}
-                  className="h-10 w-14 cursor-pointer rounded-lg border border-border bg-background"
-                  aria-label="Choose letter color"
-                />
+                <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2">
+                  <Label htmlFor="letter-color-start" className="text-xs text-muted-foreground">Start</Label>
+                  <input
+                    type="color"
+                    id="letter-color-start"
+                    value={letterGradientStart}
+                    onChange={(e) => {
+                      const nextStart = e.target.value;
+                      setLetterGradientStart(nextStart);
+                      setLetterColor(`${nextStart},${letterGradientEnd}`);
+                    }}
+                    className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background"
+                    aria-label="Choose letter gradient start color"
+                  />
+                </div>
                 <Input
-                  type="text"
+                  value={letterStartHexInput}
+                  onChange={(event) => setLetterStartHexInput(event.target.value)}
+                  onBlur={() => {
+                    const normalized = normalizePastedHex(letterStartHexInput);
+                    if (!normalized) {
+                      setLetterStartHexInput(letterGradientStart);
+                      return;
+                    }
+                    setLetterGradientStart(normalized);
+                    setLetterColor(`${normalized},${letterGradientEnd}`);
+                  }}
                   placeholder="#f5f0e8"
-                  value={letterColor}
-                  onChange={(e) => setLetterColor(e.target.value)}
-                  className="max-w-[10rem] font-mono text-sm"
+                  className="h-10 w-[8.5rem] font-mono text-xs"
+                  aria-label="Paste letter gradient start color code"
+                />
+                <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2">
+                  <Label htmlFor="letter-color-end" className="text-xs text-muted-foreground">End</Label>
+                  <input
+                    type="color"
+                    id="letter-color-end"
+                    value={letterGradientEnd}
+                    onChange={(e) => {
+                      const nextEnd = e.target.value;
+                      setLetterGradientEnd(nextEnd);
+                      setLetterColor(`${letterGradientStart},${nextEnd}`);
+                    }}
+                    className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background"
+                    aria-label="Choose letter gradient end color"
+                  />
+                </div>
+                <Input
+                  value={letterEndHexInput}
+                  onChange={(event) => setLetterEndHexInput(event.target.value)}
+                  onBlur={() => {
+                    const normalized = normalizePastedHex(letterEndHexInput);
+                    if (!normalized) {
+                      setLetterEndHexInput(letterGradientEnd);
+                      return;
+                    }
+                    setLetterGradientEnd(normalized);
+                    setLetterColor(`${letterGradientStart},${normalized}`);
+                  }}
+                  placeholder="#eadfce"
+                  className="h-10 w-[8.5rem] font-mono text-xs"
+                  aria-label="Paste letter gradient end color code"
                 />
                 {letterColor && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setLetterColor('')}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setLetterColor('');
+                      setLetterGradientStart(DEFAULT_LETTER_START);
+                      setLetterGradientEnd(DEFAULT_LETTER_END);
+                      setLetterStartHexInput(DEFAULT_LETTER_START);
+                      setLetterEndHexInput(DEFAULT_LETTER_END);
+                    }}
+                  >
                     Use default
                   </Button>
                 )}
               </div>
-              <div className="mt-4 inline-flex items-center gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 pr-4">
-                <div
-                  className="relative h-16 w-28 rounded-2xl border border-border/60 bg-gradient-to-b from-white/96 to-white/86 shadow-card-sm"
-                  style={{
-                    background: letterColor
-                      ? `linear-gradient(180deg, ${letterColor} 0%, ${letterColor} 100%)`
-                      : undefined,
-                  }}
-                >
-                  <div className="absolute inset-x-2 top-2 h-4 rounded-xl border border-border/60 bg-white/82" />
-                  <div className="absolute inset-x-3 bottom-3 h-2 rounded-full bg-black/5" />
+              <p className="mt-2 text-xs text-muted-foreground">You can paste hex values like #f5f0e8, f5f0e8, or #abc.</p>
+              <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
+                <div className="order-2 relative h-36 w-52 overflow-hidden rounded-[1.35rem] border border-border/60 bg-gradient-to-br from-white to-muted/50 p-3 shadow-card-sm sm:order-1">
+                  <div className="relative h-full w-full">
+                    <div
+                      className="absolute inset-0 rounded-[1rem]"
+                      style={{
+                        background: `linear-gradient(145deg, ${letterGradientStart}, ${letterGradientEnd})`,
+                        boxShadow: '0 14px 26px rgba(15, 23, 42, 0.16)',
+                      }}
+                    />
+                    <div className="absolute inset-[1px] rounded-[0.95rem] border border-white/60" />
+                    <div
+                      className="absolute left-1/2 top-0 h-[52%] w-[92%] -translate-x-1/2 origin-top rounded-[0.9rem]"
+                      style={{
+                        clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+                        background: `linear-gradient(145deg, ${letterGradientEnd}, ${letterGradientStart})`,
+                      }}
+                    />
+                    <div
+                      className="absolute bottom-[10%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[0.85rem] border border-black/10"
+                      style={{
+                        background: `linear-gradient(180deg, ${letterGradientStart}, ${letterGradientEnd})`,
+                      }}
+                    />
+                    <div
+                      className="absolute left-1/2 top-[24%] h-[40%] w-[74%] -translate-x-1/2 rounded-[0.7rem] border border-black/10 px-2.5 py-2 text-left"
+                      style={{
+                        background: `linear-gradient(180deg, ${letterGradientEnd}, ${letterGradientStart})`,
+                      }}
+                    >
+                      <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-foreground/65">To</p>
+                      <p className="mt-1 line-clamp-1 text-xs font-bold text-foreground">{recipientName || 'Birthday Star'}</p>
+                      <p className="mt-1 line-clamp-1 text-[9px] text-foreground/70">Open when ready for the story.</p>
+                    </div>
+                    <div
+                      className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/65 shadow-sm"
+                      style={{
+                        background: `radial-gradient(circle at 30% 30%, ${letterGradientStart}, ${letterGradientEnd})`,
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-0.5 text-xs">
+                <div className="order-1 space-y-0.5 text-xs sm:order-2">
                   <p className="font-semibold text-foreground">Letter theme preview</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Approximate paper tone for the opening letter and keepsake cards.
+                    Mirrors the opening envelope layout used on the birthday page.
                   </p>
                 </div>
               </div>

@@ -2,9 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, RotateCw, Maximize2, Minimize2, Move } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { isRichHtml, sanitizeWishHtmlForDisplay } from '@/lib/wish-utils';
+import { isRichHtml, wishMessageHtmlWithQuotes } from '@/lib/wish-utils';
 import { visualThemeConfig } from '@/lib/themes';
-import DOMPurify from 'dompurify';
 
 export interface StickerData {
   id: string;
@@ -55,6 +54,9 @@ const StickerPicker: React.FC<StickerPickerProps> = ({
   const keepsakePaperClass = isDarkExperience
     ? 'border-white/18 bg-[linear-gradient(180deg,rgba(34,36,56,0.94),rgba(18,20,34,0.88))] shadow-[0_30px_90px_rgba(2,6,23,0.44)]'
     : 'border-white/85 bg-[linear-gradient(180deg,rgba(255,252,247,0.99),rgba(255,244,235,0.96))] shadow-[0_34px_86px_rgba(183,133,83,0.16),0_18px_34px_rgba(15,23,42,0.08)]';
+  const keepsakeSoftClass = isDarkExperience
+    ? 'border-white/14 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04))]'
+    : 'border-white/80 bg-[linear-gradient(180deg,rgba(255,250,244,0.93),rgba(255,243,233,0.84))]';
 
   const isDraggingRef = useRef(false);
   const startPosRef = useRef({ x: 0, y: 0 });
@@ -168,54 +170,52 @@ const StickerPicker: React.FC<StickerPickerProps> = ({
         ))}
       </div>
 
-      <div 
-        ref={containerRef}
+      <div
         className={cn(
-          "relative w-full rounded-[1.6rem] border overflow-hidden p-4 sm:rounded-[2rem] sm:p-6 lg:p-7 touch-none aspect-[4/3] sm:aspect-auto sm:min-h-[400px]",
-          keepsakePaperClass,
-          className
+          'relative w-full rounded-[1.6rem] border border-border/70 bg-background/35 p-3 sm:rounded-[2rem] sm:p-4 touch-none',
+          className,
         )}
         onClick={() => setActiveStickerId(null)}
       >
-        {/* Preview Background */}
-        <div className={cn("absolute inset-0 pointer-events-none p-4 sm:p-6 lg:p-7 flex flex-col", theme.font)}>
-          <div className="flex items-start justify-between gap-4 mb-4 opacity-60">
+        <article
+          ref={containerRef}
+          className={cn('relative min-h-[17.5rem] overflow-hidden rounded-[1.85rem] border p-5 sm:min-h-[23rem] sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass)}
+        >
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <p className={cn('text-[10px] sm:text-xs font-semibold uppercase tracking-[0.24em]', theme.text)}>
-                Letter
+              <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
+                Letter Preview
               </p>
-              <h2 className={cn('mt-2 text-xl sm:text-3xl font-bold leading-[0.96]', theme.titleClass, theme.font)}>
+              <h2 className={cn('mt-3 text-3xl font-bold leading-[0.98] sm:text-5xl', theme.titleClass, theme.font)}>
                 {senderName || 'Your Name'}
               </h2>
             </div>
+            <div className={cn('hidden rounded-[1.25rem] border px-4 py-3 sm:block', keepsakeSoftClass)}>
+              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wish no.</p>
+              <p className={cn('mt-1 text-xl font-semibold', theme.text)}>01</p>
+            </div>
           </div>
-          
-          {message && (
-            <div className="flex-1 overflow-hidden">
-              {isRichHtml(message) ? (
-                <div 
-                  className={cn("wish-rich-text mt-2 sm:mt-4 text-[1.05rem] sm:text-[1.15rem] leading-[1.6] line-clamp-[8]", theme.text)}
-                  dangerouslySetInnerHTML={{ __html: sanitizeWishHtmlForDisplay(message) }}
-                />
-              ) : (
-                <p className={cn("mt-2 sm:mt-4 text-[1.05rem] sm:text-[1.15rem] leading-[1.6] line-clamp-[8]", theme.text)}>
-                  &quot;{message}&quot;
-                </p>
-              )}
+
+          {message ? (
+            isRichHtml(message)
+              ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(message) }} />
+              : <p className={cn('mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)}>&quot;{message}&quot;</p>
+          ) : (
+            <p className={cn('mt-4 text-lg leading-relaxed opacity-60 sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)}>
+              &quot;Your birthday message preview appears here.&quot;
+            </p>
+          )}
+
+          {stickers.length === 0 && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 flex flex-col items-center text-center text-muted-foreground">
+              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-muted/40">
+                <Move className="h-5 w-5" />
+              </div>
+              <p className="text-xs font-medium">Add stickers, then drag and position them on this exact card layout</p>
             </div>
           )}
-        </div>
-        {stickers.length === 0 && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-              <Move className="w-6 h-6" />
-            </div>
-            <p className="text-sm font-medium">Click an emoji above to decorate your card</p>
-            <p className="text-xs mt-1">Drag to position, tap to rotate or resize</p>
-          </div>
-        )}
 
-        {stickers.map((s) => {
+          {stickers.map((s) => {
           const config = AVAILABLE_STICKERS.find(a => a.type === s.stickerType);
           const isActive = activeStickerId === s.id;
 
@@ -276,7 +276,8 @@ const StickerPicker: React.FC<StickerPickerProps> = ({
               )}
             </div>
           );
-        })}
+          })}
+        </article>
       </div>
     </div>
   );

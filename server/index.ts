@@ -49,6 +49,8 @@ import {
   passwordChangeBodySchema,
   themeCreateBodySchema,
   themePatchBodySchema,
+  paystackInitializeBodySchema,
+  paystackVerifyBodySchema,
   pageCreateBodySchema,
   pagePatchBodySchema,
   publicMessageBodySchema,
@@ -83,6 +85,203 @@ import {
 
 const app = express();
 const port = Number(process.env.PORT || process.env.API_PORT || 3001);
+const FREE_THEME_LIMIT = 3;
+const PREMIUM_THEME_FONTS = new Set(["caveat", "sora", "cormorant", "space-grotesk", "dm-serif"]);
+const PAYSTACK_BASE_URL = "https://api.paystack.co";
+const PRO_AMOUNT_KOBO_DEFAULT = 500000;
+
+function hasProThemeAccess(user: SessionUser) {
+  return user.planTier === "pro";
+}
+
+function getPaystackSecretKey() {
+  return process.env.PAYSTACK_SECRET_KEY?.trim() || "";
+}
+
+function isValidPaystackSignature(rawBody: string, signature: string, secretKey: string) {
+  if (!rawBody || !signature || !secretKey) return false;
+
+  const expected = crypto.createHmac("sha512", secretKey).update(rawBody).digest("hex");
+  const expectedBuffer = Buffer.from(expected, "hex");
+  const actualBuffer = Buffer.from(signature, "hex");
+
+  if (expectedBuffer.length !== actualBuffer.length) return false;
+  return crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+}
+
+function getProAmountKobo() {
+  const raw = Number(process.env.PAYSTACK_PRO_AMOUNT_KOBO || PRO_AMOUNT_KOBO_DEFAULT);
+  if (!Number.isFinite(raw)) return PRO_AMOUNT_KOBO_DEFAULT;
+  return Math.max(100, Math.round(raw));
+}
+
+function getClientOriginForRequest(request: express.Request) {
+  const requestOrigin = typeof request.headers.origin === "string"
+    ? normalizeOrigin(request.headers.origin)
+    : null;
+
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+
+  return allowedOrigins[0] || "http://localhost:8080";
+}
+
+async function paystackRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const secretKey = getPaystackSecretKey();
+  if (!secretKey) {
+    throw new Error("PAYSTACK_NOT_CONFIGURED");
+  }
+
+  const response = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${secretKey}`,
+      ...(init?.headers || {}),
+    },
+  });
+
+  const payload = await response.json() as {
+    status?: boolean;
+    message?: string;
+    data?: T;
+  };
+
+  if (!response.ok || !payload.status || payload.data == null) {
+    throw new Error(payload.message || "PAYSTACK_REQUEST_FAILED");
+  }
+
+  return payload.data;
+}
+
+type PaystackPaymentData = {
+  status: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  customer?: { email?: string };
+  metadata?: { userId?: string; planTier?: string };
+};
+
+type ProcessPaystackPaymentResult = {
+  status: "upgraded" | "already-pro" | "ignored" | "conflict" | "user-not-found";
+  userId: string | null;
+};
+
+async function processPaystackSuccessfulPayment(
+  payment: PaystackPaymentData,
+  options: {
+    source: "verify-endpoint" | "webhook";
+    expectedUserId?: string;
+    expectedUserEmail?: string;
+    rawPayload: unknown;
+  },
+): Promise<ProcessPaystackPaymentResult> {
+  const expectedAmount = getProAmountKobo();
+  const paidAmount = Number(payment.amount || 0);
+  if (payment.status !== "success" || paidAmount < expectedAmount) {
+    return { status: "ignored", userId: null };
+  }
+
+  const normalizedEmail = typeof payment.customer?.email === "string"
+    ? payment.customer.email.trim().toLowerCase()
+    : "";
+  const metadataUserId = typeof payment.metadata?.userId === "string"
+    ? payment.metadata.userId
+    : "";
+
+  if (options.expectedUserEmail && normalizedEmail && normalizedEmail !== options.expectedUserEmail.toLowerCase()) {
+    return { status: "conflict", userId: null };
+  }
+
+  if (options.expectedUserId && metadataUserId && metadataUserId !== options.expectedUserId) {
+    return { status: "conflict", userId: null };
+  }
+
+  let targetUserId = options.expectedUserId || metadataUserId;
+  if (!targetUserId && normalizedEmail) {
+    const rows = await sql`
+      SELECT id
+      FROM users
+      WHERE LOWER(email) = ${normalizedEmail}
+      LIMIT 1
+    `;
+    targetUserId = rows[0] ? String(rows[0].id) : "";
+  }
+
+  if (!targetUserId) {
+    return { status: "user-not-found", userId: null };
+  }
+
+  const paymentRows = await sql`
+    INSERT INTO billing_payments (
+      provider,
+      provider_reference,
+      user_id,
+      email,
+      amount_kobo,
+      currency,
+      status,
+      payment_event,
+      raw_payload,
+      verified_at,
+      updated_at
+    )
+    VALUES (
+      'paystack',
+      ${payment.reference},
+      ${targetUserId},
+      ${normalizedEmail || null},
+      ${paidAmount},
+      ${String(payment.currency || "NGN")},
+      ${payment.status},
+      ${options.source},
+      ${JSON.stringify(options.rawPayload)}::jsonb,
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (provider_reference)
+    DO UPDATE
+      SET
+        user_id = CASE
+          WHEN billing_payments.user_id IS NULL OR billing_payments.user_id = EXCLUDED.user_id
+            THEN EXCLUDED.user_id
+          ELSE billing_payments.user_id
+        END,
+        email = CASE
+          WHEN billing_payments.user_id IS NULL OR billing_payments.user_id = EXCLUDED.user_id
+            THEN EXCLUDED.email
+          ELSE billing_payments.email
+        END,
+        amount_kobo = GREATEST(billing_payments.amount_kobo, EXCLUDED.amount_kobo),
+        currency = EXCLUDED.currency,
+        status = EXCLUDED.status,
+        payment_event = EXCLUDED.payment_event,
+        raw_payload = EXCLUDED.raw_payload,
+        verified_at = NOW(),
+        updated_at = NOW()
+    RETURNING user_id
+  `;
+
+  const persistedUserId = paymentRows[0]?.user_id ? String(paymentRows[0].user_id) : null;
+  if (!persistedUserId || persistedUserId !== targetUserId) {
+    return { status: "conflict", userId: persistedUserId };
+  }
+
+  const rows = await sql`
+    UPDATE users
+    SET plan_tier = 'pro', updated_at = NOW()
+    WHERE id = ${persistedUserId}
+      AND plan_tier <> 'pro'
+    RETURNING id
+  `;
+
+  return {
+    status: rows[0] ? "upgraded" : "already-pro",
+    userId: persistedUserId,
+  };
+}
 
 if (process.env.TRUST_PROXY === "true" || process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
@@ -211,6 +410,82 @@ app.use((request, response, next) => {
 
   next();
 });
+
+app.post("/api/billing/paystack/webhook", express.raw({ type: "application/json" }), async (request, response) => {
+  const secretKey = getPaystackSecretKey();
+  if (!secretKey) {
+    response.status(503).json({ error: "Paystack is not configured on the server." });
+    return;
+  }
+
+  const signature = typeof request.headers["x-paystack-signature"] === "string"
+    ? request.headers["x-paystack-signature"]
+    : "";
+
+  const rawBody = Buffer.isBuffer(request.body)
+    ? request.body.toString("utf8")
+    : "";
+
+  if (!isValidPaystackSignature(rawBody, signature, secretKey)) {
+    response.status(401).json({ error: "Invalid Paystack signature." });
+    return;
+  }
+
+  type PaystackWebhookEvent = {
+    event?: string;
+    data?: PaystackPaymentData;
+  };
+
+  let eventPayload: PaystackWebhookEvent;
+  try {
+    eventPayload = JSON.parse(rawBody) as PaystackWebhookEvent;
+  } catch {
+    response.status(400).json({ error: "Invalid webhook payload." });
+    return;
+  }
+
+  if (eventPayload.event !== "charge.success") {
+    response.json({ ok: true, ignored: true });
+    return;
+  }
+
+  const eventData = eventPayload.data;
+  if (!eventData || eventData.status !== "success") {
+    response.json({ ok: true, ignored: true });
+    return;
+  }
+
+  try {
+    const result = await processPaystackSuccessfulPayment(eventData, {
+      source: "webhook",
+      rawPayload: eventPayload,
+    });
+
+    if (result.status === "conflict") {
+      logRequestFailure("paystack-webhook-conflict", {
+        reference: eventData.reference || "",
+      });
+      response.status(409).json({ error: "Payment reference conflict." });
+      return;
+    }
+
+    if (result.status === "user-not-found" || result.status === "ignored") {
+      response.json({ ok: true, ignored: true });
+      return;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "paystack-webhook-db-update-failed";
+    logRequestFailure("paystack-webhook", {
+      reference: eventData.reference || "",
+      message,
+    });
+    response.status(500).json({ error: "Could not process webhook." });
+    return;
+  }
+
+  response.json({ ok: true });
+});
+
 app.use(express.json({ limit: "2mb" }));
 app.use("/api", createGlobalApiLimiter());
 // Removed duplicate static serving moved up for security bypass
@@ -274,6 +549,7 @@ function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
   return {
     id: String(row.id),
     email: String(row.email),
+    planTier: row.plan_tier === "pro" ? "pro" : "free",
     emailVerifiedAt: typeof row.email_verified_at === "string" ? row.email_verified_at : null,
     displayName: typeof row.display_name === "string" ? row.display_name : null,
     avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
@@ -789,7 +1065,7 @@ app.get("/api/auth/session", authSessionLimiter, async (request, response) => {
   }
 
   const rows = await sql`
-    SELECT id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    SELECT id, email, plan_tier, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
     FROM users
     WHERE id = ${session.id}
     LIMIT 1
@@ -825,7 +1101,7 @@ app.post("/api/auth/signup", authSignupLimiter, validateBody(signupBodySchema), 
   const rows = await sql`
     INSERT INTO users (email, password_hash, display_name)
     VALUES (${email}, ${passwordHash}, ${displayName})
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    RETURNING id, email, plan_tier, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
   `;
   const createdUser = rows[0];
 
@@ -863,7 +1139,7 @@ app.post("/api/auth/login", authLoginLimiter, validateBody(loginBodySchema), asy
   }
 
   const rows = await sql`
-    SELECT id, email, email_verified_at, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    SELECT id, email, plan_tier, email_verified_at, password_hash, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
     FROM users
     WHERE email = ${email}
     LIMIT 1
@@ -959,7 +1235,7 @@ app.post("/api/auth/verify/confirm", authVerifyConfirmLimiter, validateBody(toke
     UPDATE users
     SET email_verified_at = NOW(), updated_at = NOW()
     WHERE id = ${consumed.userId}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders, plan_tier
   `;
 
   if (!rows[0]) {
@@ -1040,7 +1316,7 @@ app.post("/api/auth/password-reset/confirm", authPasswordResetConfirmLimiter, va
     UPDATE users
     SET password_hash = ${passwordHash}, updated_at = NOW()
     WHERE id = ${consumed.userId}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders, plan_tier
   `;
 
   if (!rows[0]) {
@@ -1063,7 +1339,7 @@ app.patch("/api/auth/profile", requireAuth, validateBody(profilePatchBodySchema)
       avatar_url = ${avatarUrl || null},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders, plan_tier
   `;
 
   await sendAuth(response, sessionUserFromRow(rows[0]));
@@ -1084,7 +1360,7 @@ app.patch("/api/auth/preferences", requireAuth, validateBody(preferencesPatchBod
       default_require_names = ${defaultRequireNames},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders, plan_tier
   `;
 
   await sendAuth(response, sessionUserFromRow(rows[0]));
@@ -1103,10 +1379,119 @@ app.patch("/api/auth/notifications", requireAuth, authNotificationsLimiter, vali
       birthday_reminders = ${birthdayReminders},
       updated_at = NOW()
     WHERE id = ${request.user!.id}
-    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+    RETURNING id, email, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders, plan_tier
   `;
 
   await sendAuth(response, sessionUserFromRow(rows[0]));
+});
+
+app.post("/api/billing/paystack/initialize", requireAuth, validateBody(paystackInitializeBodySchema), async (request: AuthedRequest, response) => {
+  const user = request.user!;
+  if (user.planTier === "pro") {
+    response.json({
+      alreadyPro: true,
+      authorizationUrl: null,
+      message: "Account is already on Pro.",
+    });
+    return;
+  }
+
+  try {
+    const callbackPath = typeof request.body.callbackPath === "string" && request.body.callbackPath.startsWith("/")
+      ? request.body.callbackPath
+      : "/upgrade";
+
+    const callbackUrl = `${getClientOriginForRequest(request)}${callbackPath}`;
+    const amount = getProAmountKobo();
+
+    const data = await paystackRequest<{ authorization_url: string; reference: string }>("/transaction/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        email: user.email,
+        amount,
+        callback_url: callbackUrl,
+        metadata: {
+          userId: user.id,
+          planTier: "pro",
+        },
+      }),
+    });
+
+    response.json({
+      authorizationUrl: data.authorization_url,
+      reference: data.reference,
+      amount,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "paystack-initialize-failed";
+    logRequestFailure("paystack-initialize", { userId: user.id, message });
+
+    if (message === "PAYSTACK_NOT_CONFIGURED") {
+      response.status(500).json({ error: "Paystack is not configured on the server." });
+      return;
+    }
+
+    response.status(502).json({ error: "Could not initialize payment right now." });
+  }
+});
+
+app.post("/api/billing/paystack/verify", requireAuth, validateBody(paystackVerifyBodySchema), async (request: AuthedRequest, response) => {
+  const user = request.user!;
+  if (user.planTier === "pro") {
+    response.json({ verified: true, alreadyPro: true, user });
+    return;
+  }
+
+  const reference = String(request.body.reference);
+
+  try {
+    const data = await paystackRequest<PaystackPaymentData>(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const result = await processPaystackSuccessfulPayment(data, {
+      source: "verify-endpoint",
+      expectedUserId: user.id,
+      expectedUserEmail: user.email,
+      rawPayload: data,
+    });
+
+    if (result.status === "ignored") {
+      response.status(400).json({ error: "Payment was not completed.", code: "PAYMENT_NOT_SUCCESS" });
+      return;
+    }
+
+    if (result.status === "conflict") {
+      response.status(403).json({ error: "Payment reference does not belong to this user.", code: "PAYMENT_ACCOUNT_MISMATCH" });
+      return;
+    }
+
+    if (result.status === "user-not-found" || !result.userId) {
+      response.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    const rows = await sql`
+      SELECT id, email, plan_tier, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
+      FROM users
+      WHERE id = ${result.userId}
+      LIMIT 1
+    `;
+
+    if (!rows[0]) {
+      response.status(404).json({ error: "User not found." });
+      return;
+    }
+
+    await sendAuth(response, sessionUserFromRow(rows[0]));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "paystack-verify-failed";
+    logRequestFailure("paystack-verify", { userId: user.id, reference, message });
+
+    if (message === "PAYSTACK_NOT_CONFIGURED") {
+      response.status(500).json({ error: "Paystack is not configured on the server." });
+      return;
+    }
+
+    response.status(502).json({ error: "Could not verify payment right now." });
+  }
 });
 
 app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async (request: AuthedRequest, response) => {
@@ -1210,10 +1595,57 @@ app.get("/api/themes", requireAuth, async (request: AuthedRequest, response) => 
 });
 
 app.post("/api/themes", requireAuth, validateBody(themeCreateBodySchema), async (request: AuthedRequest, response) => {
+  const user = request.user!;
+  const isPro = hasProThemeAccess(user);
+  const requestedFont = String(request.body.font || "sans");
+  const hasGradientMid = typeof request.body.gradientMid === "string" && request.body.gradientMid.trim().length > 0;
+  const hasIconUrl = typeof request.body.iconUrl === "string" && request.body.iconUrl.trim().length > 0;
+
+  if (!isPro) {
+    const themeCountRows = await sql`
+      SELECT COUNT(*)::int AS count
+      FROM custom_themes
+      WHERE user_id = ${user.id}
+    `;
+    const themeCount = Number(themeCountRows[0]?.count || 0);
+
+    if (themeCount >= FREE_THEME_LIMIT) {
+      response.status(403).json({
+        error: `Free plan supports up to ${FREE_THEME_LIMIT} custom themes. Upgrade to Pro for unlimited themes.`,
+        code: "THEME_LIMIT_REACHED",
+      });
+      return;
+    }
+
+    if (hasGradientMid) {
+      response.status(403).json({
+        error: "Midpoint gradients are a Pro feature.",
+        code: "FEATURE_PRO_ONLY",
+      });
+      return;
+    }
+
+    if (PREMIUM_THEME_FONTS.has(requestedFont)) {
+      response.status(403).json({
+        error: "This font is a Pro feature.",
+        code: "FEATURE_PRO_ONLY",
+      });
+      return;
+    }
+
+    if (hasIconUrl) {
+      response.status(403).json({
+        error: "Theme icon uploads are a Pro feature.",
+        code: "FEATURE_PRO_ONLY",
+      });
+      return;
+    }
+  }
+
   const rows = await sql`
     INSERT INTO custom_themes (user_id, name, emoji, gradient_from, gradient_to, gradient_mid, gradient_angle, accent_color, font, icon_url)
     VALUES (
-      ${request.user!.id},
+      ${user.id},
       ${String(request.body.name || "").trim()},
       ${String(request.body.emoji || "🎨")},
       ${String(request.body.gradientFrom || "#f472b6")},
@@ -1231,6 +1663,43 @@ app.post("/api/themes", requireAuth, validateBody(themeCreateBodySchema), async 
 });
 
 app.patch("/api/themes/:id", requireAuth, validateParams(themeIdParamSchema), validateBody(themePatchBodySchema), async (request: AuthedRequest, response) => {
+  const user = request.user!;
+
+  if (!hasProThemeAccess(user)) {
+    if (Object.prototype.hasOwnProperty.call(request.body, "gradientMid")) {
+      const requestedMid = request.body.gradientMid;
+      if (typeof requestedMid === "string" && requestedMid.trim().length > 0) {
+        response.status(403).json({
+          error: "Midpoint gradients are a Pro feature.",
+          code: "FEATURE_PRO_ONLY",
+        });
+        return;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(request.body, "font")) {
+      const requestedFont = String(request.body.font || "");
+      if (PREMIUM_THEME_FONTS.has(requestedFont)) {
+        response.status(403).json({
+          error: "This font is a Pro feature.",
+          code: "FEATURE_PRO_ONLY",
+        });
+        return;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(request.body, "iconUrl")) {
+      const requestedIconUrl = request.body.iconUrl;
+      if (typeof requestedIconUrl === "string" && requestedIconUrl.trim().length > 0) {
+        response.status(403).json({
+          error: "Theme icon uploads are a Pro feature.",
+          code: "FEATURE_PRO_ONLY",
+        });
+        return;
+      }
+    }
+  }
+
   const rows = await sql`
     UPDATE custom_themes
     SET
@@ -1245,7 +1714,7 @@ app.patch("/api/themes/:id", requireAuth, validateParams(themeIdParamSchema), va
       icon_url = ${request.body.iconUrl || null},
       updated_at = NOW()
     WHERE id = ${request.params.id}
-      AND user_id = ${request.user!.id}
+      AND user_id = ${user.id}
     RETURNING *
   `;
 
@@ -1262,6 +1731,19 @@ app.post("/api/uploads/theme-icon", requireAuth, themeIconUpload.single("file"),
 
   if (!file) {
     response.status(400).json({ error: "Missing icon upload" });
+    return;
+  }
+
+  if (!hasProThemeAccess(request.user!)) {
+    try {
+      await fs.unlink(file.path);
+    } catch {
+      // Best-effort cleanup for rejected uploads.
+    }
+    response.status(403).json({
+      error: "Theme icon uploads are a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
     return;
   }
 
@@ -2150,7 +2632,7 @@ app.use((error: Error, _request: express.Request, response: express.Response, _n
 initializeDatabase()
   .then(async () => {
     await ensureUploadDirs();
-    app.listen(port, () => {
+    app.listen(port, "0.0.0.0", () => {
       console.log(`WishCanvas API listening on port ${port}`);
     });
   })
