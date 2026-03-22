@@ -561,6 +561,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const ignoreTouchNavigationRef = useRef(false);
   const mobileRevealRef = useRef<HTMLDivElement | null>(null);
   const [isDesktopReveal, setIsDesktopReveal] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 640));
+  const isCoarsePointerDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
@@ -568,31 +569,58 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   useEffect(() => {
     if (!page) return;
-    const preloadSet = new Set<string>();
+
+    const preloadList: string[] = [];
+    const preloadLimit = isCoarsePointerDevice ? 4 : 12;
 
     if (page.cover_photo_url) {
       const url = resolveAssetUrl(page.cover_photo_url);
-      if (url) preloadSet.add(url);
+      if (url) preloadList.push(url);
     }
 
-    messages.forEach((msg) => {
-      if (msg.photo_url) {
-        const url = resolveAssetUrl(msg.photo_url);
-        if (url) preloadSet.add(url);
-      }
-      if (msg.photos) {
-        msg.photos.forEach((p) => {
-          const url = resolveAssetUrl(p.photo_url);
-          if (url) preloadSet.add(url);
-        });
-      }
-    });
+    for (const message of messages) {
+      if (preloadList.length >= preloadLimit) break;
 
-    preloadSet.forEach((url) => {
-      const img = new Image();
-      img.src = url;
-    });
-  }, [page, messages]);
+      if (message.photo_url) {
+        const url = resolveAssetUrl(message.photo_url);
+        if (url) preloadList.push(url);
+      }
+
+      if (message.photos?.length) {
+        for (const photo of message.photos) {
+          if (preloadList.length >= preloadLimit) break;
+          const url = resolveAssetUrl(photo.photo_url);
+          if (url) preloadList.push(url);
+        }
+      }
+    }
+
+    const uniquePreloads = Array.from(new Set(preloadList));
+    if (!uniquePreloads.length) return;
+
+    const preloadImages = () => {
+      uniquePreloads.forEach((url) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = url;
+      });
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const idleId = (window as typeof window & { requestIdleCallback: (callback: IdleRequestCallback) => number }).requestIdleCallback(() => {
+        preloadImages();
+      });
+
+      return () => {
+        if ('cancelIdleCallback' in window) {
+          (window as typeof window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    const timeoutId = window.setTimeout(() => preloadImages(), 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [isCoarsePointerDevice, page, messages]);
 
   const stopSoundtrack = useCallback(() => {
     userPausedSoundtrackRef.current = true;
@@ -621,6 +649,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         setStartYoutube(true);
         if (youtubeIframeRef.current?.contentWindow) {
            youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+           youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [isCoarsePointerDevice ? 85 : 65] }), '*');
         }
         return;
       }
@@ -633,7 +662,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         }
 
         soundtrackAudioRef.current.loop = withLoop;
-        soundtrackAudioRef.current.volume = 0.45;
+        soundtrackAudioRef.current.volume = isCoarsePointerDevice ? 0.78 : 0.45;
 
         try {
           await soundtrackAudioRef.current.play();
@@ -644,10 +673,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       }
 
       if (page.soundtrack_id && soundtrackMap[page.soundtrack_id]) {
-        presetControllerRef.current = playPresetSoundtrack(page.soundtrack_id, { loop: withLoop, volume: 0.12 });
+        presetControllerRef.current = playPresetSoundtrack(page.soundtrack_id, { loop: withLoop, volume: isCoarsePointerDevice ? 0.2 : 0.12 });
       }
     },
-    [page, ytId],
+    [isCoarsePointerDevice, page, ytId],
   );
 
   const pauseSoundtrackForWishAudio = useCallback(() => {
@@ -804,11 +833,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   useEffect(() => {
     if (showRevealIntro && shouldShowRevealExperience) {
-      // Avoid autoplay attempts on touch/mobile devices (will be blocked anyway).
-      if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) return;
-      void startSoundtrack(true);
+      if (!isCoarsePointerDevice) {
+        void startSoundtrack(true);
+        return;
+      }
+
+      const unlockAudio = () => {
+        if (userPausedSoundtrackRef.current) return;
+        void startSoundtrack(true);
+      };
+
+      window.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
+      window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+
+      return () => {
+        window.removeEventListener('pointerdown', unlockAudio);
+        window.removeEventListener('touchstart', unlockAudio);
+      };
     }
-  }, [shouldShowRevealExperience, showRevealIntro, startSoundtrack]);
+  }, [isCoarsePointerDevice, shouldShowRevealExperience, showRevealIntro, startSoundtrack]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1219,7 +1262,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const activeSlide = revealSlides[currentSlide];
   const currentSlideDuration = useMemo(() => getSlideDuration(activeSlide), [activeSlide]);
   const coverHintLabel =
-    typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+    isCoarsePointerDevice
       ? 'Tap to enlarge'
       : 'Click to enlarge';
 
@@ -1323,7 +1366,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const renderWishAudioPlayer = useCallback((message: Message, className?: string) => {
     const src = resolveAssetUrl(message.audio_url) || undefined;
     if (!src) return null;
-    const isCoarsePointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+    const isCoarsePointer = isCoarsePointerDevice;
 
     return (
       <div
@@ -1367,7 +1410,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </audio>
       </div>
     );
-  }, [handleWishAudioPlay, handleWishAudioStop, pauseSoundtrackForWishAudio]);
+  }, [handleWishAudioPlay, handleWishAudioStop, isCoarsePointerDevice, pauseSoundtrackForWishAudio]);
 
   useEffect(() => {
     // This effect is only valid for the desktop "activeSlide" reveal experience.
@@ -1393,7 +1436,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     }
 
     // On touch/mobile devices, rely on the user's tap to start audio
-    if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) {
+    if (isCoarsePointerDevice) {
       return;
     }
 
@@ -1416,7 +1459,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       .catch((error) => {
         console.error('Wish audio autoplay blocked', error);
       });
-  }, [activeSlide, activeWishAudioId, handleWishAudioStop, isDesktopReveal]);
+  }, [activeSlide, activeWishAudioId, handleWishAudioStop, isCoarsePointerDevice, isDesktopReveal]);
 
   useEffect(() => {
     if (!isDesktopReveal || !activeSlide) return;

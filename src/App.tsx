@@ -31,18 +31,80 @@ const lazyImport = <T extends React.ComponentType<any>>(
   });
 };
 
-const Index = lazyImport(() => import("./pages/Index"), "Index");
-const AuthPage = lazyImport(() => import("./pages/AuthPage"), "AuthPage");
-const VerifyEmailPage = lazyImport(() => import("./pages/VerifyEmailPage"), "VerifyEmailPage");
-const Dashboard = lazyImport(() => import("./pages/Dashboard"), "Dashboard");
-const CreatePage = lazyImport(() => import("./pages/CreatePage"), "CreatePage");
-const EditPage = lazyImport(() => import("./pages/EditPage"), "EditPage");
-const ContributePage = lazyImport(() => import("./pages/ContributePage"), "ContributePage");
-const BirthdayPage = lazyImport(() => import("./pages/BirthdayPage"), "BirthdayPage");
-const PreviewPage = lazyImport(() => import("./pages/PreviewPage"), "PreviewPage");
-const ThemeBuilderPage = lazyImport(() => import("./pages/ThemeBuilderPage"), "ThemeBuilderPage");
-const SettingsPage = lazyImport(() => import("./pages/SettingsPage"), "SettingsPage");
-const NotFound = lazyImport(() => import("./pages/NotFound"), "NotFound");
+const routeModuleLoaders = {
+  Index: () => import("./pages/Index"),
+  AuthPage: () => import("./pages/AuthPage"),
+  VerifyEmailPage: () => import("./pages/VerifyEmailPage"),
+  Dashboard: () => import("./pages/Dashboard"),
+  CreatePage: () => import("./pages/CreatePage"),
+  EditPage: () => import("./pages/EditPage"),
+  ContributePage: () => import("./pages/ContributePage"),
+  BirthdayPage: () => import("./pages/BirthdayPage"),
+  PreviewPage: () => import("./pages/PreviewPage"),
+  ThemeBuilderPage: () => import("./pages/ThemeBuilderPage"),
+  SettingsPage: () => import("./pages/SettingsPage"),
+  NotFound: () => import("./pages/NotFound"),
+};
+
+type RouteModuleKey = keyof typeof routeModuleLoaders;
+const prefetchedRouteModules = new Set<RouteModuleKey>();
+
+const canPrefetchOnCurrentConnection = () => {
+  if (typeof navigator === "undefined") return false;
+
+  const navWithConnection = navigator as Navigator & {
+    connection?: {
+      saveData?: boolean;
+      effectiveType?: string;
+    };
+  };
+
+  const connection = navWithConnection.connection;
+  if (!connection) return true;
+  if (connection.saveData) return false;
+  if (connection.effectiveType === "slow-2g" || connection.effectiveType === "2g") return false;
+
+  return true;
+};
+
+const prefetchRouteModule = (moduleKey: RouteModuleKey) => {
+  if (!canPrefetchOnCurrentConnection()) return;
+  if (prefetchedRouteModules.has(moduleKey)) return;
+
+  prefetchedRouteModules.add(moduleKey);
+  void routeModuleLoaders[moduleKey]().catch(() => {
+    prefetchedRouteModules.delete(moduleKey);
+  });
+};
+
+const moduleKeyFromPathname = (pathname: string): RouteModuleKey | null => {
+  if (pathname === "/") return "Index";
+  if (pathname === "/auth") return "AuthPage";
+  if (pathname === "/verify-email") return "VerifyEmailPage";
+  if (pathname === "/dashboard") return "Dashboard";
+  if (pathname === "/create") return "CreatePage";
+  if (pathname === "/themes") return "ThemeBuilderPage";
+  if (pathname === "/settings") return "SettingsPage";
+  if (pathname.startsWith("/edit/")) return "EditPage";
+  if (pathname.startsWith("/contribute/")) return "ContributePage";
+  if (pathname.startsWith("/birthday/")) return "BirthdayPage";
+  if (pathname.startsWith("/preview/")) return "PreviewPage";
+
+  return null;
+};
+
+const Index = lazyImport(routeModuleLoaders.Index, "Index");
+const AuthPage = lazyImport(routeModuleLoaders.AuthPage, "AuthPage");
+const VerifyEmailPage = lazyImport(routeModuleLoaders.VerifyEmailPage, "VerifyEmailPage");
+const Dashboard = lazyImport(routeModuleLoaders.Dashboard, "Dashboard");
+const CreatePage = lazyImport(routeModuleLoaders.CreatePage, "CreatePage");
+const EditPage = lazyImport(routeModuleLoaders.EditPage, "EditPage");
+const ContributePage = lazyImport(routeModuleLoaders.ContributePage, "ContributePage");
+const BirthdayPage = lazyImport(routeModuleLoaders.BirthdayPage, "BirthdayPage");
+const PreviewPage = lazyImport(routeModuleLoaders.PreviewPage, "PreviewPage");
+const ThemeBuilderPage = lazyImport(routeModuleLoaders.ThemeBuilderPage, "ThemeBuilderPage");
+const SettingsPage = lazyImport(routeModuleLoaders.SettingsPage, "SettingsPage");
+const NotFound = lazyImport(routeModuleLoaders.NotFound, "NotFound");
 
 const queryClient = new QueryClient();
 
@@ -158,6 +220,86 @@ const SeoController = () => {
   return null;
 };
 
+const RoutePrefetchController = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!canPrefetchOnCurrentConnection()) return;
+
+    const pathname = location.pathname;
+    const targets: RouteModuleKey[] = [];
+
+    if (pathname === "/") {
+      targets.push("AuthPage");
+    } else if (pathname === "/auth" || pathname === "/verify-email") {
+      targets.push("Dashboard", "CreatePage");
+    } else if (pathname === "/dashboard") {
+      targets.push("CreatePage", "ThemeBuilderPage", "SettingsPage");
+    } else if (pathname.startsWith("/birthday/")) {
+      targets.push("ContributePage");
+    } else if (pathname.startsWith("/preview/")) {
+      targets.push("EditPage");
+    }
+
+    if (!targets.length) return;
+
+    const doPrefetch = () => targets.forEach((target) => prefetchRouteModule(target));
+
+    if ("requestIdleCallback" in window) {
+      const idleId = (window as Window & { requestIdleCallback: (callback: IdleRequestCallback) => number }).requestIdleCallback(() => {
+        doPrefetch();
+      });
+
+      return () => {
+        if ("cancelIdleCallback" in window) {
+          (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    const timeoutId = window.setTimeout(doPrefetch, 700);
+    return () => window.clearTimeout(timeoutId);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!canPrefetchOnCurrentConnection()) return;
+
+    const prefetchFromEvent = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const anchor = target.closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+
+      let pathname = "";
+      try {
+        pathname = new URL(anchor.href, window.location.origin).pathname;
+      } catch {
+        return;
+      }
+
+      const moduleKey = moduleKeyFromPathname(pathname);
+      if (!moduleKey) return;
+
+      prefetchRouteModule(moduleKey);
+    };
+
+    window.addEventListener("pointerover", prefetchFromEvent, { passive: true });
+    window.addEventListener("focusin", prefetchFromEvent, { passive: true });
+    window.addEventListener("touchstart", prefetchFromEvent, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointerover", prefetchFromEvent);
+      window.removeEventListener("focusin", prefetchFromEvent);
+      window.removeEventListener("touchstart", prefetchFromEvent);
+    };
+  }, []);
+
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -166,6 +308,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <SeoController />
+          <RoutePrefetchController />
           <Suspense fallback={<RouteLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
