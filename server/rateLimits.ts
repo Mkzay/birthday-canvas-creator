@@ -1,6 +1,7 @@
 import rateLimit from "express-rate-limit";
 
 const window15m = 15 * 60 * 1000;
+const strictAuthMax = Number(process.env.AUTH_STRICT_RATE_LIMIT_MAX || 10);
 
 const jsonMessage = { error: "Too many requests. Please try again shortly." };
 
@@ -27,7 +28,7 @@ export function createGlobalApiLimiter() {
 
 export const authSignupLimiter = rateLimit({
   windowMs: window15m,
-  max: 6,
+  max: strictAuthMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: jsonMessage,
@@ -35,7 +36,7 @@ export const authSignupLimiter = rateLimit({
 
 export const authLoginLimiter = rateLimit({
   windowMs: window15m,
-  max: 10,
+  max: strictAuthMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: jsonMessage,
@@ -60,7 +61,7 @@ export const authLogoutLimiter = rateLimit({
 
 export const authVerifySendLimiter = rateLimit({
   windowMs: window15m,
-  max: 6,
+  max: strictAuthMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: jsonMessage,
@@ -68,7 +69,7 @@ export const authVerifySendLimiter = rateLimit({
 
 export const authVerifyConfirmLimiter = rateLimit({
   windowMs: window15m,
-  max: 30,
+  max: strictAuthMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: jsonMessage,
@@ -76,7 +77,7 @@ export const authVerifyConfirmLimiter = rateLimit({
 
 export const authPasswordResetRequestLimiter = rateLimit({
   windowMs: window15m,
-  max: 6,
+  max: strictAuthMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: jsonMessage,
@@ -84,10 +85,18 @@ export const authPasswordResetRequestLimiter = rateLimit({
 
 export const authPasswordResetConfirmLimiter = rateLimit({
   windowMs: window15m,
-  max: 15,
+  max: strictAuthMax,
   standardHeaders: true,
   legacyHeaders: false,
   message: jsonMessage,
+});
+
+export const paystackWebhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.PAYSTACK_WEBHOOK_RATE_LIMIT_MAX || 60),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many webhook requests. Please retry shortly." },
 });
 
 export const authNotificationsLimiter = rateLimit({

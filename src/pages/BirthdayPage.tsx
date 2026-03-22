@@ -10,6 +10,7 @@ import {
   Music4,
   GalleryHorizontal,
   Share2,
+  Download,
   SkipForward,
   Sparkles,
   Volume2,
@@ -33,7 +34,7 @@ import {
 import BirthdayCountdown from '@/components/BirthdayCountdown';
 import FloatingParticles from '@/components/FloatingParticles';
 import BirthdayShareCard from '@/components/BirthdayShareCard';
-import { apiFetch, resolveAssetUrl } from '@/lib/api';
+import { ApiError, apiFetch, getApiOrigin, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { toast } from 'sonner';
 import { playPresetSoundtrack, soundtrackMap, type SoundtrackController } from '@/lib/soundtracks';
@@ -84,6 +85,9 @@ interface BirthdayPageData {
   allow_photos?: boolean;
   require_names?: boolean;
   is_revealed?: boolean;
+  requires_unlock?: boolean;
+  is_unlocked?: boolean;
+  owner_plan_tier?: 'free' | 'pro';
   message_count?: number;
 }
 
@@ -575,6 +579,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const isCoarsePointerDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
+  const [unlockPin, setUnlockPin] = useState('');
+  const [unlocking, setUnlocking] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const slideTimerStartedAtRef = useRef<number | null>(null);
 
@@ -775,6 +782,44 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     }
   }, [isSaved, pageId]);
 
+  const handleDownloadKeepsake = useCallback(async () => {
+    if (!pageId) return;
+
+    setDownloadingPdf(true);
+    try {
+      const response = await fetch(`${getApiOrigin()}/api/public/pages/${pageId}/export`, {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: 'Download failed' }));
+        throw new ApiError(payload.error || 'Download failed', response.status, payload.code);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const slug = (page?.recipient_name || 'birthday-page').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'birthday-page';
+      anchor.href = url;
+      anchor.download = `${slug}-wishcanvas-keepsake.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      toast.success('Download started');
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'PIN_REQUIRED') {
+        toast.error('Unlock this page with the PIN first');
+      } else if (error instanceof ApiError && error.code === 'FEATURE_PRO_ONLY') {
+        toast.info('This is a Pro feature. Upgrade to unlock keepsake downloads.');
+      } else {
+        toast.error('Could not download keepsake');
+      }
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [page?.recipient_name, pageId]);
+
   const fetchData = useCallback(async () => {
     if (!pageId) return;
 
@@ -790,6 +835,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         setPage({
           ...pageData,
           is_revealed: true,
+          is_unlocked: true,
+          requires_unlock: false,
+          owner_plan_tier: user?.planTier === 'pro' ? 'pro' : 'free',
           message_count: messagesData.length,
         });
         setMessages(messagesData);
@@ -804,9 +852,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         navigate(`/birthday/${publicPage.public_code}`, { replace: true });
       }
 
-      if (publicPage.is_revealed) {
-        const messagesData = await apiFetch<Message[]>(`/public/pages/${pageId}/messages`);
-        setMessages(messagesData);
+      if (publicPage.is_revealed && publicPage.is_unlocked !== false) {
+        try {
+          const messagesData = await apiFetch<Message[]>(`/public/pages/${pageId}/messages`);
+          setMessages(messagesData);
+        } catch (error) {
+          if (error instanceof ApiError && error.code === 'PIN_REQUIRED') {
+            setMessages([]);
+          } else {
+            throw error;
+          }
+        }
       } else {
         setMessages([]);
       }
@@ -829,6 +885,32 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       setLoading(false);
     }
   }, [isPreview, navigate, pageId, user]);
+
+  const handleUnlock = useCallback(async () => {
+    if (!pageId || !unlockPin.trim()) {
+      toast.error('Enter your PIN to unlock this page');
+      return;
+    }
+
+    setUnlocking(true);
+    try {
+      await apiFetch<{ unlocked: boolean }>(`/public/pages/${pageId}/unlock`, {
+        method: 'POST',
+        body: JSON.stringify({ pin: unlockPin.trim() }),
+      });
+      toast.success('Birthday page unlocked');
+      setUnlockPin('');
+      await fetchData();
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'PIN_INVALID') {
+        toast.error('Incorrect PIN. Please try again.');
+      } else {
+        toast.error('Could not unlock this page right now');
+      }
+    } finally {
+      setUnlocking(false);
+    }
+  }, [fetchData, pageId, unlockPin]);
 
   useEffect(() => {
     void fetchData();
@@ -1083,6 +1165,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   } as React.CSSProperties;
 
   const birthdayDate = parseLocalDate(page?.birthday_date);
+  const requiresUnlock = !isPreview && Boolean(page?.requires_unlock);
+  const isUnlocked = isPreview || !requiresUnlock || Boolean(page?.is_unlocked);
+  const canShowKeepsakeDownload = Boolean(page?.is_revealed && isUnlocked);
   const isBeforeBirthday = !isPreview && page?.is_revealed === false;
   const isDarkExperience = page?.theme === 'cosmic' || page?.theme === 'midnight';
   const experiencePanelClass = isDarkExperience
@@ -1559,6 +1644,40 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     );
   }
 
+  if (requiresUnlock && !isUnlocked) {
+    return (
+      <div className={`relative min-h-screen overflow-hidden ${theme.heroClass}`} style={theme.style}>
+        <DecorativeLayer colors={theme.colors} />
+        <AnimatedBackground />
+        <div className="relative z-10 mx-auto flex min-h-screen max-w-xl items-center px-4 py-10">
+          <div className="w-full rounded-[2rem] border border-white/65 bg-white/88 p-6 shadow-card-lg backdrop-blur-md sm:p-8">
+            <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>Protected birthday page</p>
+            <h1 className={cn('mt-3 text-3xl font-bold leading-tight', theme.titleClass, theme.font)}>
+              Enter PIN to unlock {page.recipient_name}&apos;s wishes
+            </h1>
+            <p className={cn('mt-3 text-sm leading-relaxed opacity-80', theme.text)}>
+              The creator added a secret PIN so only invited people can open this birthday keepsake.
+            </p>
+
+            <div className="mt-6 space-y-3">
+              <input
+                type="password"
+                inputMode="numeric"
+                value={unlockPin}
+                onChange={(event) => setUnlockPin(event.target.value.replace(/\D/g, '').slice(0, 12))}
+                className="h-12 w-full rounded-xl border border-border bg-background px-4 text-base"
+                placeholder="Enter 4-12 digit PIN"
+              />
+              <Button variant="hero" size="lg" className="w-full" onClick={() => void handleUnlock()} disabled={unlocking || unlockPin.length < 4}>
+                {unlocking ? 'Unlocking...' : 'Unlock birthday page'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isBeforeBirthday) {
     return (
       <div className={`relative min-h-screen overflow-hidden ${theme.heroClass}`} style={theme.style}>
@@ -1631,7 +1750,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             <button
               type="button"
               onClick={() => void skipReveal()}
-              className="absolute right-0 top-0 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/18"
+              className="absolute right-0 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/18 sm:top-6"
             >
               <SkipForward className="h-4 w-4" />
               Skip intro
@@ -1831,6 +1950,23 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   <Volume2 className="h-4 w-4" />
                   Pause
                 </button>
+                {canShowKeepsakeDownload && (
+                  <>
+                    <div className={cn('h-7 w-px', isDarkExperience ? 'bg-white/15' : 'bg-black/10')} />
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadKeepsake()}
+                      disabled={downloadingPdf}
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                        isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                      )}
+                    >
+                      <Download className="h-4 w-4" />
+                      {downloadingPdf ? 'Preparing' : 'Download'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -2203,6 +2339,20 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 <Volume2 className="h-4 w-4" />
                 Pause
               </button>
+              {canShowKeepsakeDownload && (
+                <button
+                  type="button"
+                  onClick={() => void handleDownloadKeepsake()}
+                  disabled={downloadingPdf}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                    isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
+                  )}
+                >
+                  <Download className="h-4 w-4" />
+                  {downloadingPdf ? 'Preparing' : 'Download PDF'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {

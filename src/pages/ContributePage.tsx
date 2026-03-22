@@ -9,7 +9,7 @@ import RichTextEditor from '@/components/RichTextEditor';
 import { toast } from 'sonner';
 import Confetti from '@/components/Confetti';
 import { parseLocalDate } from '@/lib/date';
-import { apiFetch, apiForm } from '@/lib/api';
+import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import BrandLogo from '@/components/BrandLogo';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import StickerPicker, { StickerData } from '@/components/StickerPicker';
@@ -485,6 +485,10 @@ const ContributePage = () => {
 
       setTimeout(() => setShowConfetti(false), 5000);
     } catch (error) {
+      if (error instanceof ApiError && error.code === 'CONTRIBUTOR_LIMIT_REACHED') {
+        toast.error('This page has reached the free contributor limit. Ask the creator to upgrade to Pro for more contributions.');
+        return;
+      }
       const messageText = error instanceof Error ? error.message : 'Failed to add message';
       toast.error(messageText);
       console.error(error);

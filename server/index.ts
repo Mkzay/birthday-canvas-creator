@@ -8,10 +8,13 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import type { Response } from "express";
 import * as Sentry from "@sentry/node";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import sharp from "sharp";
 import {
   clearSessionCookie,
   getActiveSession,
   hashPassword,
+  isAdminEmail,
   issueAuthSession,
   requireAdmin,
   requireAuth,
@@ -53,6 +56,7 @@ import {
   paystackVerifyBodySchema,
   pageCreateBodySchema,
   pagePatchBodySchema,
+  publicUnlockBodySchema,
   publicMessageBodySchema,
   uploadPageIdBodySchema,
   systemTestEmailBodySchema,
@@ -81,6 +85,7 @@ import {
   publicAudioUploadLimiter,
   publicMessageLimiter,
   healthEndpointLimiter,
+  paystackWebhookLimiter,
 } from "./rateLimits";
 
 const app = express();
@@ -88,10 +93,70 @@ const port = Number(process.env.PORT || process.env.API_PORT || 3001);
 const FREE_THEME_LIMIT = 3;
 const PREMIUM_THEME_FONTS = new Set(["caveat", "sora", "cormorant", "space-grotesk", "dm-serif"]);
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
-const PRO_AMOUNT_KOBO_DEFAULT = 500000;
+const PRO_ONE_TIME_AMOUNT_KOBO = 500000;
+const PRO_OFFER_CURRENCY = "NGN";
+const PRO_OFFER_PURCHASE_TYPE = "one_time";
+const FREE_CONTRIBUTOR_LIMIT = 6;
+const PUBLIC_UNLOCK_COOKIE_NAME = "wishcanvas_public_unlock";
+const PRO_OFFER_FEATURES = [
+  { id: "scheduled-delivery", title: "Scheduled delivery automation", status: "live" },
+  { id: "advanced-reveal-effects", title: "Advanced reveal effects", status: "coming-soon" },
+  { id: "privacy-controls", title: "Private and secure options", status: "coming-soon" },
+  { id: "creator-analytics", title: "Creator analytics", status: "live" },
+  { id: "vanity-links-branding", title: "Custom branding and vanity links", status: "live" },
+  { id: "team-collaboration", title: "Team collaboration", status: "coming-soon" },
+  { id: "keepsake-export", title: "Export and keepsake features", status: "live" },
+  { id: "priority-support", title: "Priority support and recovery", status: "coming-soon" },
+] as const;
 
 function hasProThemeAccess(user: SessionUser) {
   return user.planTier === "pro";
+}
+
+function getPublicUnlockSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+  return secret;
+}
+
+function buildPublicUnlockToken(pageId: string, revealPinHash: string) {
+  return crypto.createHmac("sha256", getPublicUnlockSecret()).update(`${pageId}:${revealPinHash}`).digest("hex");
+}
+
+function hasValidPublicUnlock(request: express.Request, pageId: string, revealPinHash: string | null | undefined) {
+  if (!revealPinHash) return true;
+
+  const rawCookie = request.cookies?.[PUBLIC_UNLOCK_COOKIE_NAME];
+  if (typeof rawCookie !== "string" || !rawCookie.includes(".")) {
+    return false;
+  }
+
+  const [cookiePageId, providedToken] = rawCookie.split(".");
+  if (!cookiePageId || !providedToken || cookiePageId !== pageId) {
+    return false;
+  }
+
+  const expectedToken = buildPublicUnlockToken(pageId, revealPinHash);
+  const providedBuffer = Buffer.from(providedToken, "hex");
+  const expectedBuffer = Buffer.from(expectedToken, "hex");
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+function setPublicUnlockCookie(response: Response, pageId: string, revealPinHash: string) {
+  const inProduction = process.env.NODE_ENV === "production";
+  const token = buildPublicUnlockToken(pageId, revealPinHash);
+  response.cookie(PUBLIC_UNLOCK_COOKIE_NAME, `${pageId}.${token}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: inProduction,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
 }
 
 function getPaystackSecretKey() {
@@ -110,9 +175,7 @@ function isValidPaystackSignature(rawBody: string, signature: string, secretKey:
 }
 
 function getProAmountKobo() {
-  const raw = Number(process.env.PAYSTACK_PRO_AMOUNT_KOBO || PRO_AMOUNT_KOBO_DEFAULT);
-  if (!Number.isFinite(raw)) return PRO_AMOUNT_KOBO_DEFAULT;
-  return Math.max(100, Math.round(raw));
+  return PRO_ONE_TIME_AMOUNT_KOBO;
 }
 
 function getClientOriginForRequest(request: express.Request) {
@@ -234,7 +297,7 @@ async function processPaystackSuccessfulPayment(
       ${targetUserId},
       ${normalizedEmail || null},
       ${paidAmount},
-      ${String(payment.currency || "NGN")},
+      ${String(payment.currency || PRO_OFFER_CURRENCY)},
       ${payment.status},
       ${options.source},
       ${JSON.stringify(options.rawPayload)}::jsonb,
@@ -411,7 +474,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.post("/api/billing/paystack/webhook", express.raw({ type: "application/json" }), async (request, response) => {
+app.post("/api/billing/paystack/webhook", paystackWebhookLimiter, express.raw({ type: "application/json" }), async (request, response) => {
   const secretKey = getPaystackSecretKey();
   if (!secretKey) {
     response.status(503).json({ error: "Paystack is not configured on the server." });
@@ -529,6 +592,14 @@ function sanitizeEmail(value: unknown) {
   return trimmed;
 }
 
+function sanitizePublicCode(value: unknown) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (!/^[a-z0-9](?:[a-z0-9-]{4,38}[a-z0-9])$/.test(normalized)) return null;
+  return normalized;
+}
+
 async function sendAuth(response: Response, user: SessionUser, rememberMe = false) {
   await issueAuthSession(response, user, rememberMe);
   response.json({ user });
@@ -549,6 +620,7 @@ function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
   return {
     id: String(row.id),
     email: String(row.email),
+    isAdmin: isAdminEmail(String(row.email)),
     planTier: row.plan_tier === "pro" ? "pro" : "free",
     emailVerifiedAt: typeof row.email_verified_at === "string" ? row.email_verified_at : null,
     displayName: typeof row.display_name === "string" ? row.display_name : null,
@@ -765,6 +837,197 @@ async function fetchMessagesForPage(pageId: string) {
   });
 }
 
+function wrapPdfText(text: string, maxCharsPerLine: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  words.forEach((word) => {
+    if (!current.length) {
+      current = word;
+      return;
+    }
+
+    const next = `${current} ${word}`;
+    if (next.length > maxCharsPerLine) {
+      lines.push(current);
+      current = word;
+      return;
+    }
+
+    current = next;
+  });
+
+  if (current.length) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+async function buildBrandedPagePdf(page: Record<string, unknown>, messages: Array<Record<string, unknown>>) {
+  const doc = await PDFDocument.create();
+  let currentPage = doc.addPage([595, 842]);
+  const { width, height } = currentPage.getSize();
+  const margin = 44;
+  const lineHeight = 16;
+  const titleFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  const bodyFont = await doc.embedFont(StandardFonts.Helvetica);
+  const smallFont = await doc.embedFont(StandardFonts.HelveticaOblique);
+
+  const recipientName = String(page.recipient_name || "Someone special");
+  const creatorMessage = typeof page.creator_message === "string" ? page.creator_message.trim() : "";
+  const birthdayDateLabel = (() => {
+    const raw = String(page.birthday_date || "");
+    const parsed = raw ? new Date(raw) : null;
+    if (!parsed || Number.isNaN(parsed.getTime())) return raw || "-";
+    return parsed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  })();
+
+  const uniqueContributors = Array.from(new Set(messages.map((message) => String(message.sender_name || "Anonymous").trim().toLowerCase())));
+  const totalPhotos = messages.reduce((count, message) => {
+    if (Array.isArray(message.photos) && message.photos.length) {
+      return count + message.photos.length;
+    }
+    return count + (message.photo_url ? 1 : 0);
+  }, 0);
+  const totalAudio = messages.reduce((count, message) => count + (message.audio_url ? 1 : 0), 0);
+
+  let pageNumber = 0;
+
+  const startNewPage = () => {
+    if (pageNumber > 0) {
+      currentPage = doc.addPage([595, 842]);
+    }
+    pageNumber += 1;
+    currentPage.drawRectangle({ x: 0, y: 0, width, height, color: rgb(0.996, 0.989, 0.978) });
+    currentPage.drawRectangle({ x: 0, y: height - 118, width, height: 118, color: rgb(0.972, 0.627, 0.125) });
+    currentPage.drawRectangle({ x: 0, y: height - 104, width, height: 104, color: rgb(0.902, 0.298, 0.235), opacity: 0.19 });
+  };
+
+  const drawHeader = () => {
+    startNewPage();
+    currentPage.drawText("WishCanvas Birthday Keepsake", {
+      x: margin,
+      y: height - 68,
+      size: 20,
+      font: titleFont,
+      color: rgb(1, 1, 1),
+    });
+    currentPage.drawText(`For ${recipientName}`, {
+      x: margin,
+      y: height - 92,
+      size: 12,
+      font: bodyFont,
+      color: rgb(1, 1, 1),
+    });
+    currentPage.drawText(`Slide export · ${new Date().toLocaleString()}`, {
+      x: margin,
+      y: height - 111,
+      size: 9,
+      font: smallFont,
+      color: rgb(1, 1, 1),
+    });
+    currentPage.drawText(`${pageNumber}`, {
+      x: width - margin - 8,
+      y: 20,
+      size: 10,
+      font: bodyFont,
+      color: rgb(0.47, 0.39, 0.31),
+    });
+  };
+
+  let cursorY = height - 160;
+
+  const ensureSpace = (requiredHeight: number) => {
+    if (cursorY - requiredHeight > margin) {
+      return;
+    }
+    drawHeader();
+    cursorY = height - 160;
+  };
+
+  const drawLine = (text: string, size = 11, bold = false) => {
+    ensureSpace(lineHeight + 2);
+    currentPage.drawText(text, {
+      x: margin,
+      y: cursorY,
+      size,
+      font: bold ? titleFont : bodyFont,
+      color: rgb(0.13, 0.15, 0.2),
+    });
+    cursorY -= lineHeight;
+  };
+
+  const drawSectionTitle = (title: string, subtitle?: string) => {
+    drawHeader();
+    cursorY = height - 168;
+    drawLine(title, 18, true);
+    if (subtitle) {
+      drawLine(subtitle, 11, false);
+    }
+    drawLine("");
+  };
+
+  drawSectionTitle("Slide 1 · Cover", `Happy Birthday, ${recipientName}`);
+  drawLine(`Birthday date: ${birthdayDateLabel}`);
+  if (creatorMessage) {
+    drawLine("");
+    drawLine("Creator note", 12, true);
+    wrapPdfText(creatorMessage, 88).slice(0, 8).forEach((line) => drawLine(line));
+  }
+  drawLine("");
+
+  drawSectionTitle("Slide 2 · The shape of the celebration");
+  drawLine(`Wishes collected: ${messages.length}`);
+  drawLine(`Contributors: ${uniqueContributors.length}`);
+  drawLine(`Photos attached: ${totalPhotos}`);
+  drawLine(`Voice notes attached: ${totalAudio}`);
+  drawLine("");
+
+  if (creatorMessage) {
+    drawSectionTitle("Slide 3 · Organizer", "A note from the organizer");
+    wrapPdfText(creatorMessage, 88).slice(0, 12).forEach((line) => drawLine(line));
+    drawLine("");
+  }
+
+  messages.forEach((message, index) => {
+    const senderName = String(message.sender_name || "Anonymous");
+    const plainMessage = sanitizeHtml(String(message.message || ""), { allowedTags: [], allowedAttributes: {} }).replace(/\s+/g, " ").trim();
+    const photoCount = Array.isArray(message.photos) ? message.photos.length : (message.photo_url ? 1 : 0);
+    const hasAudio = Boolean(message.audio_url);
+
+    drawSectionTitle(`Slide ${index + 4} · Wish`, `${senderName}'s message`);
+    const lines = wrapPdfText(plainMessage || "(No message text)", 88);
+    lines.slice(0, 22).forEach((line) => drawLine(line));
+    drawLine("");
+    drawLine(`Attachments: ${photoCount} photo${photoCount === 1 ? "" : "s"}${hasAudio ? " · voice note" : ""}`, 10, false);
+    if (Array.isArray(message.photos) && message.photos.length) {
+      const captions = message.photos
+        .map((photo) => (typeof photo.caption === "string" ? photo.caption.trim() : ""))
+        .filter(Boolean)
+        .slice(0, 3);
+      captions.forEach((caption, captionIndex) => drawLine(`Photo note ${captionIndex + 1}: ${caption}`, 10, false));
+    }
+    drawLine("");
+  });
+
+  drawSectionTitle(`Slide ${messages.length + (creatorMessage ? 4 : 3)} · Closing`, `Keep this close, ${recipientName}.`);
+  drawLine(`Total wishes: ${messages.length}`);
+  drawLine(`Contributors: ${uniqueContributors.length}`);
+  drawLine(`Photos: ${totalPhotos}`);
+  drawLine(`Voice notes: ${totalAudio}`);
+
+  const contributorSample = Array.from(new Set(messages.map((message) => String(message.sender_name || "Anonymous").trim()))).filter(Boolean);
+  if (contributorSample.length) {
+    drawLine("");
+    drawLine("Signed by", 11, true);
+    drawLine(contributorSample.slice(0, 12).join(", "), 10, false);
+  }
+
+  return doc.save();
+}
+
 function publicPageQuery(pageId: string) {
   return sql`
     SELECT
@@ -781,23 +1044,29 @@ function publicPageQuery(pageId: string) {
       ct.gradient_angle AS theme_gradient_angle,
       ct.accent_color AS theme_accent_color,
       ct.font AS theme_font,
-      CASE WHEN CURRENT_DATE >= bp.birthday_date THEN bp.creator_message ELSE NULL END AS creator_message,
+      CASE WHEN NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) THEN bp.creator_message ELSE NULL END AS creator_message,
       bp.cover_photo_url,
       bp.soundtrack_id,
       bp.custom_audio_url,
+      bp.reveal_at,
+      bp.reveal_pin_hash,
+      bp.view_count,
       bp.allow_photos,
       bp.allow_audio,
       bp.require_names,
       bp.close_date,
-      CURRENT_DATE >= bp.birthday_date AS is_revealed,
+      u.plan_tier AS owner_plan_tier,
+      bp.reveal_pin_hash IS NOT NULL AS requires_unlock,
+      NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) AS is_revealed,
       CURRENT_DATE <= COALESCE(bp.close_date, bp.birthday_date) AND bp.status = 'active' AS can_contribute,
       COUNT(bm.id)::int AS message_count
     FROM birthday_pages bp
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
     LEFT JOIN custom_themes ct ON bp.theme = CONCAT('custom_', ct.id::text)
+    INNER JOIN users u ON u.id = bp.user_id
     WHERE bp.id = ${pageId}
       AND bp.status = 'active'
-    GROUP BY bp.id, ct.id
+    GROUP BY bp.id, ct.id, u.id
   `;
 }
 
@@ -805,6 +1074,7 @@ function privatePageQuery(pageId: string, userId: string) {
   return sql`
     SELECT
       bp.*,
+      bp.reveal_pin_hash IS NOT NULL AS reveal_pin_set,
       ct.emoji AS theme_emoji,
       ct.gradient_from AS theme_gradient_from,
       ct.gradient_to AS theme_gradient_to,
@@ -878,10 +1148,24 @@ app.get("/api/health", healthEndpointLimiter, async (_request, response) => {
 
 app.get("/api/system/status", requireAdmin, async (_request, response) => {
   const payload = await buildHealthPayload();
+  const statsRows = await sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM users) AS total_users,
+      (SELECT COUNT(*)::int FROM birthday_pages WHERE COALESCE(owner_deleted, FALSE) = FALSE) AS total_pages,
+      (SELECT COALESCE(SUM(view_count), 0)::int FROM birthday_pages WHERE COALESCE(owner_deleted, FALSE) = FALSE) AS total_visitors
+  `;
+
+  const stats = statsRows[0] || { total_users: 0, total_pages: 0, total_visitors: 0 };
+
   response.status(payload.ok ? 200 : 503).json({
     ...payload,
     meta: {
       node_env: process.env.NODE_ENV || "development",
+    },
+    stats: {
+      total_users: Number(stats.total_users || 0),
+      total_pages: Number(stats.total_pages || 0),
+      total_visitors: Number(stats.total_visitors || 0),
     },
   });
 });
@@ -1385,6 +1669,15 @@ app.patch("/api/auth/notifications", requireAuth, authNotificationsLimiter, vali
   await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
+app.get("/api/billing/pro-offer", async (_request, response) => {
+  response.json({
+    amountKobo: PRO_ONE_TIME_AMOUNT_KOBO,
+    currency: PRO_OFFER_CURRENCY,
+    purchaseType: PRO_OFFER_PURCHASE_TYPE,
+    features: PRO_OFFER_FEATURES,
+  });
+});
+
 app.post("/api/billing/paystack/initialize", requireAuth, validateBody(paystackInitializeBodySchema), async (request: AuthedRequest, response) => {
   const user = request.user!;
   if (user.planTier === "pro") {
@@ -1413,6 +1706,8 @@ app.post("/api/billing/paystack/initialize", requireAuth, validateBody(paystackI
         metadata: {
           userId: user.id,
           planTier: "pro",
+          purchaseType: PRO_OFFER_PURCHASE_TYPE,
+          offerAmountKobo: amount,
         },
       }),
     });
@@ -1799,43 +2094,90 @@ app.get("/api/pages/saved", requireAuth, async (request: AuthedRequest, response
 });
 
 app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (request: AuthedRequest, response) => {
-  const publicCode = await createUniquePublicCode();
+  const nextPublicCode = sanitizePublicCode(request.body.publicCode);
+  const revealPin = typeof request.body.revealPin === "string" ? request.body.revealPin.trim() : null;
+
+  if (request.body.revealAt && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Scheduled reveal is a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  if (typeof request.body.publicCode === "string" && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Custom public links are a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  if (revealPin && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Secret reveal PIN is a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  if (typeof request.body.publicCode === "string" && !nextPublicCode) {
+    response.status(400).json({ error: "Public code must be 6-40 chars and use lowercase letters, numbers, and hyphens." });
+    return;
+  }
+
+  const publicCode = nextPublicCode || await createUniquePublicCode();
+  const revealPinHash = revealPin ? await hashPassword(revealPin) : null;
   const recipientEmail = sanitizeEmail(request.body.recipientEmail);
-  const rows = await sql`
-    INSERT INTO birthday_pages (
-      user_id,
-      public_code,
-      recipient_name,
-      recipient_email,
-      birthday_date,
-      theme,
-      creator_message,
-      soundtrack_id,
-      allow_photos,
-      allow_audio,
-      require_names,
-      close_date,
-      status,
-      custom_audio_url
-    )
-    VALUES (
-      ${request.user!.id},
-      ${publicCode},
-      ${String(request.body.recipientName || "").trim()},
-      ${recipientEmail},
-      ${String(request.body.birthdayDate)},
-      ${String(request.body.theme || "elegant")},
-      ${sanitizeDisplayName(request.body.creatorMessage)},
-      ${String(request.body.soundtrackId || "golden-hour")},
-      ${Boolean(request.body.allowPhotos ?? true)},
-      ${Boolean(request.body.allowAudio ?? true)},
-      ${Boolean(request.body.requireNames ?? true)},
-      ${String(request.body.closeDate || request.body.birthdayDate)},
-      'active',
-      ${request.body.pageCustomAudioUrl || null}
-    )
-    RETURNING *
-  `;
+  let rows: Array<Record<string, unknown>> = [];
+  try {
+    rows = await sql`
+      INSERT INTO birthday_pages (
+        user_id,
+        public_code,
+        recipient_name,
+        recipient_email,
+        birthday_date,
+        theme,
+        creator_message,
+        soundtrack_id,
+        allow_photos,
+        allow_audio,
+        require_names,
+        close_date,
+        reveal_at,
+        reveal_pin_hash,
+        status,
+        custom_audio_url
+      )
+      VALUES (
+        ${request.user!.id},
+        ${publicCode},
+        ${String(request.body.recipientName || "").trim()},
+        ${recipientEmail},
+        ${String(request.body.birthdayDate)},
+        ${String(request.body.theme || "elegant")},
+        ${sanitizeDisplayName(request.body.creatorMessage)},
+        ${String(request.body.soundtrackId || "golden-hour")},
+        ${Boolean(request.body.allowPhotos ?? true)},
+        ${Boolean(request.body.allowAudio ?? true)},
+        ${Boolean(request.body.requireNames ?? true)},
+        ${String(request.body.closeDate || request.body.birthdayDate)},
+        ${request.body.revealAt || null},
+        ${revealPinHash},
+        'active',
+        ${request.body.pageCustomAudioUrl || null}
+      )
+      RETURNING *
+    `;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "page-create-failed";
+    if (message.includes("idx_birthday_pages_public_code_unique") || message.includes("birthday_pages_public_code_key")) {
+      response.status(409).json({ error: "That public link is already taken." });
+      return;
+    }
+    throw error;
+  }
 
   response.status(201).json(rows[0]);
 });
@@ -2046,6 +2388,49 @@ app.delete("/api/pages/:id/messages/photos/:photoId", requireAuth, validateParam
 app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), validateBody(pagePatchBodySchema), async (request: AuthedRequest, response) => {
   const hasCoverPhotoUrl = Object.prototype.hasOwnProperty.call(request.body, "coverPhotoUrl");
   const hasCustomAudioUrl = Object.prototype.hasOwnProperty.call(request.body, "pageCustomAudioUrl");
+  const hasPublicCode = Object.prototype.hasOwnProperty.call(request.body, "publicCode");
+  const hasRevealAt = Object.prototype.hasOwnProperty.call(request.body, "revealAt");
+  const hasRevealPin = Object.prototype.hasOwnProperty.call(request.body, "revealPin");
+  const revealPin = typeof request.body.revealPin === "string" ? request.body.revealPin.trim() : null;
+  const nextPublicCode = request.body.publicCode === null ? null : sanitizePublicCode(request.body.publicCode);
+
+  if (hasRevealAt && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Scheduled reveal is a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  if (hasPublicCode && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Custom public links are a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  if (hasRevealPin && revealPin && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Secret reveal PIN is a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  if (hasPublicCode && request.body.publicCode === null) {
+    response.status(400).json({ error: "Public code cannot be empty." });
+    return;
+  }
+
+  if (hasPublicCode && request.body.publicCode !== null && !nextPublicCode) {
+    response.status(400).json({ error: "Public code must be 6-40 chars and use lowercase letters, numbers, and hyphens." });
+    return;
+  }
+
+  const revealPinHash = hasRevealPin
+    ? (revealPin ? await hashPassword(revealPin) : null)
+    : null;
 
   if (hasCustomAudioUrl) {
     const existingRows = await sql`
@@ -2067,47 +2452,64 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
     }
   }
 
-  const rows = hasCoverPhotoUrl || hasCustomAudioUrl
-    ? await sql`
-        UPDATE birthday_pages
-        SET
-          recipient_name = ${String(request.body.recipientName || "").trim()},
-          recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
-          birthday_date = ${String(request.body.birthdayDate)},
-          theme = ${String(request.body.theme || "elegant")},
-          creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
-          soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
-          allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
-          allow_audio = ${Boolean(request.body.allowAudio ?? true)},
-          require_names = ${Boolean(request.body.requireNames ?? true)},
-          close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
-          cover_photo_url = ${request.body.coverPhotoUrl || null},
-          custom_audio_url = ${request.body.pageCustomAudioUrl || null},
-          letter_color = ${request.body.letterColor ?? null},
-          updated_at = NOW()
-        WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-          AND user_id = ${request.user!.id}
-        RETURNING *
-      `
-    : await sql`
-        UPDATE birthday_pages
-        SET
-          recipient_name = ${String(request.body.recipientName || "").trim()},
-          recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
-          birthday_date = ${String(request.body.birthdayDate)},
-          theme = ${String(request.body.theme || "elegant")},
-          creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
-          soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
-          allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
-          allow_audio = ${Boolean(request.body.allowAudio ?? true)},
-          require_names = ${Boolean(request.body.requireNames ?? true)},
-          close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
-          letter_color = ${request.body.letterColor ?? null},
-          updated_at = NOW()
-        WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-          AND user_id = ${request.user!.id}
-        RETURNING *
-      `;
+  let rows: Array<Record<string, unknown>> = [];
+
+  try {
+    rows = hasCoverPhotoUrl || hasCustomAudioUrl
+      ? await sql`
+          UPDATE birthday_pages
+          SET
+            recipient_name = ${String(request.body.recipientName || "").trim()},
+            recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
+            birthday_date = ${String(request.body.birthdayDate)},
+            theme = ${String(request.body.theme || "elegant")},
+            creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
+            soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
+            allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
+            allow_audio = ${Boolean(request.body.allowAudio ?? true)},
+            require_names = ${Boolean(request.body.requireNames ?? true)},
+            close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
+            reveal_at = CASE WHEN ${hasRevealAt} THEN ${request.body.revealAt || null} ELSE reveal_at END,
+            reveal_pin_hash = CASE WHEN ${hasRevealPin} THEN ${revealPinHash} ELSE reveal_pin_hash END,
+            public_code = CASE WHEN ${hasPublicCode} THEN ${nextPublicCode} ELSE public_code END,
+            cover_photo_url = ${request.body.coverPhotoUrl || null},
+            custom_audio_url = ${request.body.pageCustomAudioUrl || null},
+            letter_color = ${request.body.letterColor ?? null},
+            updated_at = NOW()
+          WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
+            AND user_id = ${request.user!.id}
+          RETURNING *
+        `
+      : await sql`
+          UPDATE birthday_pages
+          SET
+            recipient_name = ${String(request.body.recipientName || "").trim()},
+            recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
+            birthday_date = ${String(request.body.birthdayDate)},
+            theme = ${String(request.body.theme || "elegant")},
+            creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
+            soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
+            allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
+            allow_audio = ${Boolean(request.body.allowAudio ?? true)},
+            require_names = ${Boolean(request.body.requireNames ?? true)},
+            close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
+            reveal_at = CASE WHEN ${hasRevealAt} THEN ${request.body.revealAt || null} ELSE reveal_at END,
+            reveal_pin_hash = CASE WHEN ${hasRevealPin} THEN ${revealPinHash} ELSE reveal_pin_hash END,
+            public_code = CASE WHEN ${hasPublicCode} THEN ${nextPublicCode} ELSE public_code END,
+            letter_color = ${request.body.letterColor ?? null},
+            updated_at = NOW()
+          WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
+            AND user_id = ${request.user!.id}
+          RETURNING *
+        `;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "page-update-failed";
+    if (message.includes("idx_birthday_pages_public_code_unique") || message.includes("birthday_pages_public_code_key")) {
+      response.status(409).json({ error: "That public link is already taken." });
+      return;
+    }
+    throw error;
+  }
 
   if (!rows[0]) {
     response.status(404).json({ error: "Page not found" });
@@ -2115,6 +2517,114 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
   }
 
   response.json(rows[0]);
+});
+
+app.get("/api/pages/:id/analytics", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  if (!hasProThemeAccess(request.user!)) {
+    response.status(403).json({ error: "Page analytics are a Pro feature.", code: "FEATURE_PRO_ONLY" });
+    return;
+  }
+
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageId = String(pageRows[0].id);
+  const metricsRows = await sql`
+    SELECT
+      bp.view_count::int AS view_count,
+      COUNT(DISTINCT bm.id)::int AS message_count,
+      COUNT(DISTINCT NULLIF(TRIM(bm.sender_name), ''))::int AS contributor_count,
+      COUNT(DISTINCT CASE WHEN bm.photo_url IS NOT NULL OR bmp.id IS NOT NULL THEN bm.id END)::int AS photo_message_count,
+      COUNT(DISTINCT CASE WHEN bm.audio_url IS NOT NULL THEN bm.id END)::int AS audio_message_count,
+      MAX(bm.created_at) AS last_contribution_at
+    FROM birthday_pages bp
+    LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
+    LEFT JOIN birthday_message_photos bmp ON bmp.message_id = bm.id
+    WHERE bp.id = ${pageId}
+    GROUP BY bp.id
+  `;
+
+  response.json(metricsRows[0] || {
+    view_count: 0,
+    message_count: 0,
+    contributor_count: 0,
+    photo_message_count: 0,
+    audio_message_count: 0,
+    last_contribution_at: null,
+  });
+});
+
+app.get("/api/pages/:id/export", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  if (!hasProThemeAccess(request.user!)) {
+    response.status(403).json({ error: "Page export is a Pro feature.", code: "FEATURE_PRO_ONLY" });
+    return;
+  }
+
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const page = serializePageDates(pageRows[0]);
+  const messages = await fetchMessagesForPage(String(pageRows[0].id));
+
+  const requestedFormat = typeof request.query.format === "string" ? request.query.format.toLowerCase() : "pdf";
+  if (requestedFormat === "json") {
+    response.json({
+      exportType: "wishcanvas-page-v1",
+      exportedAt: new Date().toISOString(),
+      page,
+      messages,
+    });
+    return;
+  }
+
+  const pdfBytes = await buildBrandedPagePdf(pageRows[0], messages);
+  const slug = String(page.recipient_name || "birthday-page").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "birthday-page";
+  response.setHeader("Content-Type", "application/pdf");
+  response.setHeader("Content-Disposition", `attachment; filename="${slug}-wishcanvas-keepsake.pdf"`);
+  response.send(Buffer.from(pdfBytes));
+});
+
+app.get("/api/public/pages/:id/export", validateParams(pageIdParamSchema), async (request, response) => {
+  const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageRows = await publicPageQuery(resolvedPageId);
+  const page = pageRows[0];
+  if (!page) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  if (String(page.owner_plan_tier || "free") !== "pro") {
+    response.status(403).json({ error: "Download is available when the page creator is on Pro.", code: "FEATURE_PRO_ONLY" });
+    return;
+  }
+
+  if (!page.is_revealed) {
+    response.status(403).json({ error: "Birthday wishes are not available yet" });
+    return;
+  }
+
+  if (!hasValidPublicUnlock(request, resolvedPageId, typeof page.reveal_pin_hash === "string" ? page.reveal_pin_hash : null)) {
+    response.status(423).json({ error: "PIN unlock required", code: "PIN_REQUIRED" });
+    return;
+  }
+
+  const messages = await fetchMessagesForPage(resolvedPageId);
+  const pdfBytes = await buildBrandedPagePdf(page, messages);
+  const slug = String(page.recipient_name || "birthday-page").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "birthday-page";
+  response.setHeader("Content-Type", "application/pdf");
+  response.setHeader("Content-Disposition", `attachment; filename="${slug}-wishcanvas-keepsake.pdf"`);
+  response.send(Buffer.from(pdfBytes));
 });
 
 app.delete("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
@@ -2232,6 +2742,38 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
   response.json({ url });
 });
 
+app.post("/api/public/pages/:id/unlock", validateParams(pageIdParamSchema), validateBody(publicUnlockBodySchema), async (request, response) => {
+  const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const rows = await sql`
+    SELECT reveal_pin_hash
+    FROM birthday_pages
+    WHERE id = ${resolvedPageId}
+      AND status = 'active'
+      AND owner_deleted IS NOT TRUE
+    LIMIT 1
+  `;
+
+  const revealPinHash = typeof rows[0]?.reveal_pin_hash === "string" ? rows[0].reveal_pin_hash : null;
+  if (!revealPinHash) {
+    response.json({ unlocked: true });
+    return;
+  }
+
+  const isValid = await verifyPassword(String(request.body.pin), revealPinHash);
+  if (!isValid) {
+    response.status(401).json({ error: "Incorrect PIN", code: "PIN_INVALID" });
+    return;
+  }
+
+  setPublicUnlockCookie(response, resolvedPageId, revealPinHash);
+  response.json({ unlocked: true });
+});
+
 app.get("/api/public/pages/:id", validateParams(pageIdParamSchema), async (request, response) => {
   const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
   if (!resolvedPageId) {
@@ -2245,7 +2787,21 @@ app.get("/api/public/pages/:id", validateParams(pageIdParamSchema), async (reque
     return;
   }
 
-  response.json(serializePageDates(rows[0]));
+  await sql`
+    UPDATE birthday_pages
+    SET view_count = view_count + 1
+    WHERE id = ${resolvedPageId}
+  `;
+
+  const row = rows[0];
+  const unlocked = hasValidPublicUnlock(request, resolvedPageId, typeof row.reveal_pin_hash === "string" ? row.reveal_pin_hash : null);
+  const { reveal_pin_hash: _revealPinHash, ...safeRow } = row;
+
+  response.json({
+    ...serializePageDates(safeRow),
+    requires_unlock: Boolean(row.requires_unlock),
+    is_unlocked: unlocked,
+  });
 });
 
 app.get("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), async (request, response) => {
@@ -2260,6 +2816,11 @@ app.get("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), asy
 
   if (!page) {
     response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  if (!hasValidPublicUnlock(request, resolvedPageId, typeof page.reveal_pin_hash === "string" ? page.reveal_pin_hash : null)) {
+    response.status(423).json({ error: "PIN unlock required", code: "PIN_REQUIRED" });
     return;
   }
 
@@ -2361,6 +2922,28 @@ app.post("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), pu
   }
 
   const senderName = sanitizeDisplayName(request.body.senderName);
+  const contributorKey = (senderName || "Anonymous").trim().toLowerCase();
+
+  if (String(page.owner_plan_tier || "free") !== "pro") {
+    const contributorRows = await sql`
+      SELECT
+        COUNT(DISTINCT LOWER(TRIM(sender_name)))::int AS contributor_count,
+        BOOL_OR(LOWER(TRIM(sender_name)) = ${contributorKey}) AS has_sender
+      FROM birthday_messages
+      WHERE page_id = ${resolvedPageId}
+    `;
+
+    const contributorCount = Number(contributorRows[0]?.contributor_count || 0);
+    const hasSenderAlready = Boolean(contributorRows[0]?.has_sender);
+    if (contributorCount >= FREE_CONTRIBUTOR_LIMIT && !hasSenderAlready) {
+      response.status(403).json({
+        error: `This page has reached the free plan limit of ${FREE_CONTRIBUTOR_LIMIT} contributors. Upgrade to Pro for unlimited contributors.`,
+        code: "CONTRIBUTOR_LIMIT_REACHED",
+      });
+      return;
+    }
+  }
+
   const rawMessage = typeof request.body.message === "string" ? request.body.message.trim() : "";
   const message = sanitizeHtml(rawMessage, {
     allowedTags: ["b", "i", "u", "strong", "em", "ul", "ol", "li", "br", "p"],
@@ -2517,6 +3100,39 @@ function resolveThemeColors(page: Record<string, unknown>): [string, string] {
   return themeGradientColors[theme] || themeGradientColors.elegant;
 }
 
+app.get("/api/og-image-app", async (_request, response) => {
+  try {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="45%" stop-color="#f97316" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+    <linearGradient id="overlay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(0,0,0,0.05)" />
+      <stop offset="100%" stop-color="rgba(0,0,0,0.35)" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <rect width="1200" height="630" fill="url(#overlay)" />
+  <circle cx="180" cy="120" r="170" fill="rgba(255,255,255,0.12)" />
+  <circle cx="1020" cy="530" r="230" fill="rgba(255,255,255,0.08)" />
+  <text x="98" y="214" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="28" font-weight="700" letter-spacing="6" fill="rgba(255,255,255,0.85)">WISHCANVAS</text>
+  <text x="98" y="318" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="78" font-weight="800" fill="white">Collaborative</text>
+  <text x="98" y="402" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="78" font-weight="800" fill="white">Birthday Stories</text>
+  <text x="98" y="494" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" fill="rgba(255,255,255,0.9)">Collect wishes, photos, and voice notes in one beautiful reveal.</text>
+</svg>`;
+
+    const pngBuffer = await sharp(Buffer.from(svg)).png({ quality: 94 }).toBuffer();
+    response.setHeader("Content-Type", "image/png");
+    response.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+    response.send(pngBuffer);
+  } catch {
+    response.status(500).send("Error generating image");
+  }
+});
+
 app.get("/api/og-image/:id", validateParams(pageIdParamSchema), async (request, response) => {
   try {
     const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
@@ -2554,9 +3170,10 @@ app.get("/api/og-image/:id", validateParams(pageIdParamSchema), async (request, 
   <text x="100" y="580" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" letter-spacing="3" fill="rgba(255,255,255,0.5)">WISHCANVAS</text>
 </svg>`;
 
-    response.setHeader("Content-Type", "image/svg+xml");
+    const pngBuffer = await sharp(Buffer.from(svg)).png({ quality: 92 }).toBuffer();
+    response.setHeader("Content-Type", "image/png");
     response.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
-    response.send(svg);
+    response.send(pngBuffer);
   } catch {
     response.status(500).send("Error generating image");
   }
@@ -2576,14 +3193,25 @@ app.get("/api/og/:id", validateParams(pageIdParamSchema), async (request, respon
     const publicCode = String(page.public_code || resolvedPageId);
     const apiBase = process.env.API_URL || `${request.protocol}://${request.get("host")}`;
     const siteBase = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "https://wishcanvas.app").split(",")[0].trim();
+    const previewMode = request.query.view === "contribute" ? "contribute" : "birthday";
 
-    const title = `Happy Birthday, ${name}!`;
-    const description = `${count} birthday ${count === 1 ? "wish has" : "wishes have"} been collected. Open the letter to start the birthday story.`;
-    const pageUrl = `${siteBase}/birthday/${publicCode}`;
-    const imageUrl = `${apiBase}/api/og-image/${publicCode}`;
+    const title = previewMode === "contribute"
+      ? `Add your wish for ${name}`
+      : `Happy Birthday, ${name}!`;
+    const description = previewMode === "contribute"
+      ? `Join the birthday page and leave a wish, photo, or voice note for ${name}.`
+      : `${count} birthday ${count === 1 ? "wish has" : "wishes have"} been collected. Open the letter to start the birthday story.`;
+    const pageUrl = `${siteBase}/${previewMode === "contribute" ? "contribute" : "birthday"}/${publicCode}`;
+    const coverPhoto = typeof page.cover_photo_url === "string" ? page.cover_photo_url : "";
+    const normalizedCover = coverPhoto && !/^https?:\/\//i.test(coverPhoto)
+      ? `${apiBase}${coverPhoto.startsWith("/") ? "" : "/"}${coverPhoto}`
+      : coverPhoto;
+    const imageUrl = normalizedCover || `${apiBase}/api/og-image/${publicCode}`;
 
     const escapedTitle = escapeHtml(title);
     const escapedDesc = escapeHtml(description);
+    const escapedImage = escapeHtml(imageUrl);
+    const escapedPageUrl = escapeHtml(pageUrl);
 
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
@@ -2593,21 +3221,24 @@ app.get("/api/og/:id", validateParams(pageIdParamSchema), async (request, respon
   <meta charset="utf-8" />
   <title>${escapedTitle}</title>
   <meta name="description" content="${escapedDesc}" />
+  <meta property="og:site_name" content="WishCanvas" />
   <meta property="og:title" content="${escapedTitle}" />
   <meta property="og:description" content="${escapedDesc}" />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="${pageUrl}" />
-  <meta property="og:image" content="${imageUrl}" />
+  <meta property="og:url" content="${escapedPageUrl}" />
+  <meta property="og:image" content="${escapedImage}" />
+  <meta property="og:image:secure_url" content="${escapedImage}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapedTitle}" />
   <meta name="twitter:description" content="${escapedDesc}" />
-  <meta name="twitter:image" content="${imageUrl}" />
-  <meta http-equiv="refresh" content="0;url=${pageUrl}" />
+  <meta name="twitter:image" content="${escapedImage}" />
+  <meta name="twitter:image:alt" content="Birthday preview for ${escapeHtml(name)}" />
+  <meta http-equiv="refresh" content="0;url=${escapedPageUrl}" />
 </head>
 <body>
-  <p>Redirecting to <a href="${pageUrl}">${escapedTitle}</a></p>
+  <p>Redirecting to <a href="${escapedPageUrl}">${escapedTitle}</a></p>
 </body>
 </html>`);
   } catch {
