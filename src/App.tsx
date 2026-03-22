@@ -42,6 +42,7 @@ const routeModuleLoaders = {
   BirthdayPage: () => import("./pages/BirthdayPage"),
   PreviewPage: () => import("./pages/PreviewPage"),
   ThemeBuilderPage: () => import("./pages/ThemeBuilderPage"),
+  UpgradePage: () => import("./pages/UpgradePage"),
   SettingsPage: () => import("./pages/SettingsPage"),
   NotFound: () => import("./pages/NotFound"),
 };
@@ -84,6 +85,7 @@ const moduleKeyFromPathname = (pathname: string): RouteModuleKey | null => {
   if (pathname === "/dashboard") return "Dashboard";
   if (pathname === "/create") return "CreatePage";
   if (pathname === "/themes") return "ThemeBuilderPage";
+  if (pathname === "/upgrade") return "UpgradePage";
   if (pathname === "/settings") return "SettingsPage";
   if (pathname.startsWith("/edit/")) return "EditPage";
   if (pathname.startsWith("/contribute/")) return "ContributePage";
@@ -103,6 +105,7 @@ const ContributePage = lazyImport(routeModuleLoaders.ContributePage, "Contribute
 const BirthdayPage = lazyImport(routeModuleLoaders.BirthdayPage, "BirthdayPage");
 const PreviewPage = lazyImport(routeModuleLoaders.PreviewPage, "PreviewPage");
 const ThemeBuilderPage = lazyImport(routeModuleLoaders.ThemeBuilderPage, "ThemeBuilderPage");
+const UpgradePage = lazyImport(routeModuleLoaders.UpgradePage, "UpgradePage");
 const SettingsPage = lazyImport(routeModuleLoaders.SettingsPage, "SettingsPage");
 const NotFound = lazyImport(routeModuleLoaders.NotFound, "NotFound");
 
@@ -235,7 +238,7 @@ const RoutePrefetchController = () => {
     } else if (pathname === "/auth" || pathname === "/verify-email") {
       targets.push("Dashboard", "CreatePage");
     } else if (pathname === "/dashboard") {
-      targets.push("CreatePage", "ThemeBuilderPage", "SettingsPage");
+      targets.push("CreatePage", "ThemeBuilderPage", "UpgradePage", "SettingsPage");
     } else if (pathname.startsWith("/birthday/")) {
       targets.push("ContributePage");
     } else if (pathname.startsWith("/preview/")) {
@@ -258,8 +261,8 @@ const RoutePrefetchController = () => {
       };
     }
 
-    const timeoutId = window.setTimeout(doPrefetch, 700);
-    return () => window.clearTimeout(timeoutId);
+    const timeoutId = globalThis.setTimeout(doPrefetch, 700);
+    return () => globalThis.clearTimeout(timeoutId);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -321,6 +324,7 @@ const App = () => (
               <Route path="/birthday/:pageId" element={<BirthdayPage />} />
               <Route path="/preview/:pageId" element={<PreviewPage />} />
               <Route path="/themes" element={<ThemeBuilderPage />} />
+              <Route path="/upgrade" element={<UpgradePage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -78,6 +78,25 @@ export async function initializeDatabase() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS billing_payments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider TEXT NOT NULL,
+      provider_reference TEXT NOT NULL UNIQUE,
+      user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      email TEXT,
+      amount_kobo INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'NGN',
+      status TEXT NOT NULL,
+      payment_event TEXT,
+      raw_payload JSONB,
+      verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT billing_payments_provider_check CHECK (provider IN ('paystack'))
+    );
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS birthday_pages (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -125,6 +144,26 @@ export async function initializeDatabase() {
   await sql`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS default_require_names BOOLEAN NOT NULL DEFAULT TRUE;
+  `;
+
+  await sql`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'free';
+  `;
+
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'users_plan_tier_check'
+      ) THEN
+        ALTER TABLE users
+        ADD CONSTRAINT users_plan_tier_check
+        CHECK (plan_tier IN ('free', 'pro'));
+      END IF;
+    END $$;
   `;
 
   await sql`
@@ -291,6 +330,12 @@ export async function initializeDatabase() {
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_custom_themes_user_id ON custom_themes(user_id);
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_billing_payments_user_id ON billing_payments(user_id);
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_billing_payments_provider_reference ON billing_payments(provider_reference);
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_birthday_pages_user_id ON birthday_pages(user_id);
