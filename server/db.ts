@@ -229,6 +229,16 @@ export async function initializeDatabase() {
   `;
 
   await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS reveal_at TIMESTAMPTZ;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;
+  `;
+
+  await sql`
     ALTER TABLE birthday_messages
     ADD COLUMN IF NOT EXISTS audio_url TEXT;
   `;

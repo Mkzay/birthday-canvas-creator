@@ -88,7 +88,19 @@ const port = Number(process.env.PORT || process.env.API_PORT || 3001);
 const FREE_THEME_LIMIT = 3;
 const PREMIUM_THEME_FONTS = new Set(["caveat", "sora", "cormorant", "space-grotesk", "dm-serif"]);
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
-const PRO_AMOUNT_KOBO_DEFAULT = 500000;
+const PRO_ONE_TIME_AMOUNT_KOBO = 500000;
+const PRO_OFFER_CURRENCY = "NGN";
+const PRO_OFFER_PURCHASE_TYPE = "one_time";
+const PRO_OFFER_FEATURES = [
+  { id: "scheduled-delivery", title: "Scheduled delivery automation", status: "live" },
+  { id: "advanced-reveal-effects", title: "Advanced reveal effects", status: "coming-soon" },
+  { id: "privacy-controls", title: "Private and secure options", status: "coming-soon" },
+  { id: "creator-analytics", title: "Creator analytics", status: "live" },
+  { id: "vanity-links-branding", title: "Custom branding and vanity links", status: "live" },
+  { id: "team-collaboration", title: "Team collaboration", status: "coming-soon" },
+  { id: "keepsake-export", title: "Export and keepsake features", status: "live" },
+  { id: "priority-support", title: "Priority support and recovery", status: "coming-soon" },
+] as const;
 
 function hasProThemeAccess(user: SessionUser) {
   return user.planTier === "pro";
@@ -110,9 +122,7 @@ function isValidPaystackSignature(rawBody: string, signature: string, secretKey:
 }
 
 function getProAmountKobo() {
-  const raw = Number(process.env.PAYSTACK_PRO_AMOUNT_KOBO || PRO_AMOUNT_KOBO_DEFAULT);
-  if (!Number.isFinite(raw)) return PRO_AMOUNT_KOBO_DEFAULT;
-  return Math.max(100, Math.round(raw));
+  return PRO_ONE_TIME_AMOUNT_KOBO;
 }
 
 function getClientOriginForRequest(request: express.Request) {
@@ -234,7 +244,7 @@ async function processPaystackSuccessfulPayment(
       ${targetUserId},
       ${normalizedEmail || null},
       ${paidAmount},
-      ${String(payment.currency || "NGN")},
+      ${String(payment.currency || PRO_OFFER_CURRENCY)},
       ${payment.status},
       ${options.source},
       ${JSON.stringify(options.rawPayload)}::jsonb,
@@ -529,6 +539,14 @@ function sanitizeEmail(value: unknown) {
   return trimmed;
 }
 
+function sanitizePublicCode(value: unknown) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (!/^[a-z0-9](?:[a-z0-9-]{4,38}[a-z0-9])$/.test(normalized)) return null;
+  return normalized;
+}
+
 async function sendAuth(response: Response, user: SessionUser, rememberMe = false) {
   await issueAuthSession(response, user, rememberMe);
   response.json({ user });
@@ -781,15 +799,17 @@ function publicPageQuery(pageId: string) {
       ct.gradient_angle AS theme_gradient_angle,
       ct.accent_color AS theme_accent_color,
       ct.font AS theme_font,
-      CASE WHEN CURRENT_DATE >= bp.birthday_date THEN bp.creator_message ELSE NULL END AS creator_message,
+      CASE WHEN NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) THEN bp.creator_message ELSE NULL END AS creator_message,
       bp.cover_photo_url,
       bp.soundtrack_id,
       bp.custom_audio_url,
+      bp.reveal_at,
+      bp.view_count,
       bp.allow_photos,
       bp.allow_audio,
       bp.require_names,
       bp.close_date,
-      CURRENT_DATE >= bp.birthday_date AS is_revealed,
+      NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) AS is_revealed,
       CURRENT_DATE <= COALESCE(bp.close_date, bp.birthday_date) AND bp.status = 'active' AS can_contribute,
       COUNT(bm.id)::int AS message_count
     FROM birthday_pages bp
@@ -1385,6 +1405,15 @@ app.patch("/api/auth/notifications", requireAuth, authNotificationsLimiter, vali
   await sendAuth(response, sessionUserFromRow(rows[0]));
 });
 
+app.get("/api/billing/pro-offer", async (_request, response) => {
+  response.json({
+    amountKobo: PRO_ONE_TIME_AMOUNT_KOBO,
+    currency: PRO_OFFER_CURRENCY,
+    purchaseType: PRO_OFFER_PURCHASE_TYPE,
+    features: PRO_OFFER_FEATURES,
+  });
+});
+
 app.post("/api/billing/paystack/initialize", requireAuth, validateBody(paystackInitializeBodySchema), async (request: AuthedRequest, response) => {
   const user = request.user!;
   if (user.planTier === "pro") {
@@ -1413,6 +1442,8 @@ app.post("/api/billing/paystack/initialize", requireAuth, validateBody(paystackI
         metadata: {
           userId: user.id,
           planTier: "pro",
+          purchaseType: PRO_OFFER_PURCHASE_TYPE,
+          offerAmountKobo: amount,
         },
       }),
     });
@@ -1815,6 +1846,7 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
       allow_audio,
       require_names,
       close_date,
+      reveal_at,
       status,
       custom_audio_url
     )
@@ -1831,6 +1863,7 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
       ${Boolean(request.body.allowAudio ?? true)},
       ${Boolean(request.body.requireNames ?? true)},
       ${String(request.body.closeDate || request.body.birthdayDate)},
+      ${request.body.revealAt || null},
       'active',
       ${request.body.pageCustomAudioUrl || null}
     )
@@ -2046,6 +2079,27 @@ app.delete("/api/pages/:id/messages/photos/:photoId", requireAuth, validateParam
 app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), validateBody(pagePatchBodySchema), async (request: AuthedRequest, response) => {
   const hasCoverPhotoUrl = Object.prototype.hasOwnProperty.call(request.body, "coverPhotoUrl");
   const hasCustomAudioUrl = Object.prototype.hasOwnProperty.call(request.body, "pageCustomAudioUrl");
+  const hasPublicCode = Object.prototype.hasOwnProperty.call(request.body, "publicCode");
+  const hasRevealAt = Object.prototype.hasOwnProperty.call(request.body, "revealAt");
+  const nextPublicCode = request.body.publicCode === null ? null : sanitizePublicCode(request.body.publicCode);
+
+  if (hasPublicCode && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Custom public links are a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  if (hasPublicCode && request.body.publicCode === null) {
+    response.status(400).json({ error: "Public code cannot be empty." });
+    return;
+  }
+
+  if (hasPublicCode && request.body.publicCode !== null && !nextPublicCode) {
+    response.status(400).json({ error: "Public code must be 6-40 chars and use lowercase letters, numbers, and hyphens." });
+    return;
+  }
 
   if (hasCustomAudioUrl) {
     const existingRows = await sql`
@@ -2067,47 +2121,62 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
     }
   }
 
-  const rows = hasCoverPhotoUrl || hasCustomAudioUrl
-    ? await sql`
-        UPDATE birthday_pages
-        SET
-          recipient_name = ${String(request.body.recipientName || "").trim()},
-          recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
-          birthday_date = ${String(request.body.birthdayDate)},
-          theme = ${String(request.body.theme || "elegant")},
-          creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
-          soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
-          allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
-          allow_audio = ${Boolean(request.body.allowAudio ?? true)},
-          require_names = ${Boolean(request.body.requireNames ?? true)},
-          close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
-          cover_photo_url = ${request.body.coverPhotoUrl || null},
-          custom_audio_url = ${request.body.pageCustomAudioUrl || null},
-          letter_color = ${request.body.letterColor ?? null},
-          updated_at = NOW()
-        WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-          AND user_id = ${request.user!.id}
-        RETURNING *
-      `
-    : await sql`
-        UPDATE birthday_pages
-        SET
-          recipient_name = ${String(request.body.recipientName || "").trim()},
-          recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
-          birthday_date = ${String(request.body.birthdayDate)},
-          theme = ${String(request.body.theme || "elegant")},
-          creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
-          soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
-          allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
-          allow_audio = ${Boolean(request.body.allowAudio ?? true)},
-          require_names = ${Boolean(request.body.requireNames ?? true)},
-          close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
-          letter_color = ${request.body.letterColor ?? null},
-          updated_at = NOW()
-        WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-          AND user_id = ${request.user!.id}
-        RETURNING *
-      `;
+  let rows: Array<Record<string, unknown>> = [];
+
+  try {
+    rows = hasCoverPhotoUrl || hasCustomAudioUrl
+      ? await sql`
+          UPDATE birthday_pages
+          SET
+            recipient_name = ${String(request.body.recipientName || "").trim()},
+            recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
+            birthday_date = ${String(request.body.birthdayDate)},
+            theme = ${String(request.body.theme || "elegant")},
+            creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
+            soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
+            allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
+            allow_audio = ${Boolean(request.body.allowAudio ?? true)},
+            require_names = ${Boolean(request.body.requireNames ?? true)},
+            close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
+            reveal_at = CASE WHEN ${hasRevealAt} THEN ${request.body.revealAt || null} ELSE reveal_at END,
+            public_code = CASE WHEN ${hasPublicCode} THEN ${nextPublicCode} ELSE public_code END,
+            cover_photo_url = ${request.body.coverPhotoUrl || null},
+            custom_audio_url = ${request.body.pageCustomAudioUrl || null},
+            letter_color = ${request.body.letterColor ?? null},
+            updated_at = NOW()
+          WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
+            AND user_id = ${request.user!.id}
+          RETURNING *
+        `
+      : await sql`
+          UPDATE birthday_pages
+          SET
+            recipient_name = ${String(request.body.recipientName || "").trim()},
+            recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
+            birthday_date = ${String(request.body.birthdayDate)},
+            theme = ${String(request.body.theme || "elegant")},
+            creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
+            soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
+            allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
+            allow_audio = ${Boolean(request.body.allowAudio ?? true)},
+            require_names = ${Boolean(request.body.requireNames ?? true)},
+            close_date = ${String(request.body.closeDate || request.body.birthdayDate)},
+            reveal_at = CASE WHEN ${hasRevealAt} THEN ${request.body.revealAt || null} ELSE reveal_at END,
+            public_code = CASE WHEN ${hasPublicCode} THEN ${nextPublicCode} ELSE public_code END,
+            letter_color = ${request.body.letterColor ?? null},
+            updated_at = NOW()
+          WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
+            AND user_id = ${request.user!.id}
+          RETURNING *
+        `;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "page-update-failed";
+    if (message.includes("idx_birthday_pages_public_code_unique") || message.includes("birthday_pages_public_code_key")) {
+      response.status(409).json({ error: "That public link is already taken." });
+      return;
+    }
+    throw error;
+  }
 
   if (!rows[0]) {
     response.status(404).json({ error: "Page not found" });
@@ -2115,6 +2184,67 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
   }
 
   response.json(rows[0]);
+});
+
+app.get("/api/pages/:id/analytics", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  if (!hasProThemeAccess(request.user!)) {
+    response.status(403).json({ error: "Page analytics are a Pro feature.", code: "FEATURE_PRO_ONLY" });
+    return;
+  }
+
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageId = String(pageRows[0].id);
+  const metricsRows = await sql`
+    SELECT
+      bp.view_count::int AS view_count,
+      COUNT(DISTINCT bm.id)::int AS message_count,
+      COUNT(DISTINCT NULLIF(TRIM(bm.sender_name), ''))::int AS contributor_count,
+      COUNT(DISTINCT CASE WHEN bm.photo_url IS NOT NULL OR bmp.id IS NOT NULL THEN bm.id END)::int AS photo_message_count,
+      COUNT(DISTINCT CASE WHEN bm.audio_url IS NOT NULL THEN bm.id END)::int AS audio_message_count,
+      MAX(bm.created_at) AS last_contribution_at
+    FROM birthday_pages bp
+    LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
+    LEFT JOIN birthday_message_photos bmp ON bmp.message_id = bm.id
+    WHERE bp.id = ${pageId}
+    GROUP BY bp.id
+  `;
+
+  response.json(metricsRows[0] || {
+    view_count: 0,
+    message_count: 0,
+    contributor_count: 0,
+    photo_message_count: 0,
+    audio_message_count: 0,
+    last_contribution_at: null,
+  });
+});
+
+app.get("/api/pages/:id/export", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  if (!hasProThemeAccess(request.user!)) {
+    response.status(403).json({ error: "Page export is a Pro feature.", code: "FEATURE_PRO_ONLY" });
+    return;
+  }
+
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const page = serializePageDates(pageRows[0]);
+  const messages = await fetchMessagesForPage(String(pageRows[0].id));
+
+  response.json({
+    exportType: "wishcanvas-page-v1",
+    exportedAt: new Date().toISOString(),
+    page,
+    messages,
+  });
 });
 
 app.delete("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
@@ -2244,6 +2374,12 @@ app.get("/api/public/pages/:id", validateParams(pageIdParamSchema), async (reque
     response.status(404).json({ error: "Page not found" });
     return;
   }
+
+  await sql`
+    UPDATE birthday_pages
+    SET view_count = view_count + 1
+    WHERE id = ${resolvedPageId}
+  `;
 
   response.json(serializePageDates(rows[0]));
 });

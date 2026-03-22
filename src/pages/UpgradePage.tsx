@@ -9,11 +9,21 @@ import { ApiError, apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-const PRO_FEATURES = [
-  'Unlimited custom themes',
-  'Midpoint gradient control',
-  'Premium font collection',
-  'Custom theme icon uploads',
+type ProFeature = {
+  id: string;
+  title: string;
+  status: 'live' | 'coming-soon';
+};
+
+const DEFAULT_FEATURES: ProFeature[] = [
+  { id: 'scheduled-delivery', title: 'Scheduled delivery automation', status: 'live' },
+  { id: 'advanced-reveal-effects', title: 'Advanced reveal effects', status: 'coming-soon' },
+  { id: 'privacy-controls', title: 'Private and secure options', status: 'coming-soon' },
+  { id: 'creator-analytics', title: 'Creator analytics', status: 'live' },
+  { id: 'vanity-links-branding', title: 'Custom branding and vanity links', status: 'live' },
+  { id: 'team-collaboration', title: 'Team collaboration', status: 'coming-soon' },
+  { id: 'keepsake-export', title: 'Export and keepsake features', status: 'live' },
+  { id: 'priority-support', title: 'Priority support and recovery', status: 'coming-soon' },
 ];
 
 type VerifyState = 'idle' | 'verifying' | 'success' | 'failed';
@@ -26,6 +36,9 @@ const UpgradePage = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [verifyState, setVerifyState] = useState<VerifyState>('idle');
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
+  const [offerLoading, setOfferLoading] = useState(true);
+  const [priceLabel, setPriceLabel] = useState('N5,000 one-time');
+  const [features, setFeatures] = useState<ProFeature[]>(DEFAULT_FEATURES);
 
   const paystackReference = useMemo(() => {
     return searchParams.get('reference') || searchParams.get('trxref');
@@ -36,6 +49,32 @@ const UpgradePage = () => {
       navigate('/auth');
     }
   }, [authLoading, navigate, user]);
+
+  useEffect(() => {
+    const loadOffer = async () => {
+      try {
+        const offer = await apiFetch<{
+          amountKobo: number;
+          currency: string;
+          purchaseType: string;
+          features: ProFeature[];
+        }>('/billing/pro-offer');
+
+        const amountNaira = Math.round((offer.amountKobo || 0) / 100);
+        const formatted = new Intl.NumberFormat('en-NG').format(amountNaira);
+        setPriceLabel(`N${formatted} one-time`);
+        if (Array.isArray(offer.features) && offer.features.length) {
+          setFeatures(offer.features);
+        }
+      } catch {
+        setFeatures(DEFAULT_FEATURES);
+      } finally {
+        setOfferLoading(false);
+      }
+    };
+
+    void loadOffer();
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -121,18 +160,19 @@ const UpgradePage = () => {
             </span>
 
             <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-3xl">
-              Unlock the full Theme Builder
+              Unlock WishCanvas Pro forever
             </h1>
             <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-              Power your birthday pages with richer gradients, premium typography, custom icons, and unlimited themes.
+              One payment, lifetime Pro. No subscription.
             </p>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {PRO_FEATURES.map((feature) => (
-                <div key={feature} className="rounded-xl border border-border/70 bg-background/70 p-3">
+              {features.map((feature) => (
+                <div key={feature.id} className="rounded-xl border border-border/70 bg-background/70 p-3">
                   <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    <Check className="h-4 w-4 text-emerald-500" />
-                    {feature}
+                    {feature.status === 'live' ? <Check className="h-4 w-4 text-emerald-500" /> : <Lock className="h-4 w-4 text-amber-600" />}
+                    {feature.title}
+                    {feature.status === 'coming-soon' && <span className="text-[10px] uppercase tracking-wide text-amber-700">Soon</span>}
                   </p>
                 </div>
               ))}
@@ -141,10 +181,10 @@ const UpgradePage = () => {
             <div className="mt-7 rounded-2xl border border-border/70 bg-background/70 p-4">
               <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Plan</p>
               <div className="mt-1 flex items-end gap-2">
-                <p className="text-2xl font-bold text-foreground">Pro</p>
-                <p className="pb-1 text-sm text-muted-foreground">Paystack checkout</p>
+                <p className="text-2xl font-bold text-foreground">{offerLoading ? 'Loading...' : priceLabel}</p>
+                <p className="pb-1 text-sm text-muted-foreground">Paystack one-time checkout</p>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">Secure payment redirect. Your plan updates automatically after successful payment verification.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Secure payment redirect. Your account upgrades to Pro after payment verification.</p>
             </div>
 
             {verifyMessage && (
