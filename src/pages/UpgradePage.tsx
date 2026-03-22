@@ -15,6 +15,11 @@ type ProFeature = {
   status: 'live' | 'coming-soon';
 };
 
+type FeatureDetails = {
+  summary: string;
+  value: string;
+};
+
 const DEFAULT_FEATURES: ProFeature[] = [
   { id: 'scheduled-delivery', title: 'Scheduled delivery automation', status: 'live' },
   { id: 'advanced-reveal-effects', title: 'Advanced reveal effects', status: 'coming-soon' },
@@ -25,6 +30,41 @@ const DEFAULT_FEATURES: ProFeature[] = [
   { id: 'keepsake-export', title: 'Export and keepsake features', status: 'live' },
   { id: 'priority-support', title: 'Priority support and recovery', status: 'coming-soon' },
 ];
+
+const FEATURE_DETAILS: Record<string, FeatureDetails> = {
+  'scheduled-delivery': {
+    summary: 'Pick an exact future reveal date and time for each birthday page.',
+    value: 'No manual midnight publish. Every reveal can be timed precisely.',
+  },
+  'advanced-reveal-effects': {
+    summary: 'More immersive reveal transitions and storytelling presentation.',
+    value: 'Stronger emotional moment when the birthday page opens.',
+  },
+  'privacy-controls': {
+    summary: 'Protect reveal pages with private access controls like PIN unlock.',
+    value: 'Only invited recipients can open sensitive birthday memories.',
+  },
+  'creator-analytics': {
+    summary: 'View page traffic and contributor activity from your dashboard.',
+    value: 'See performance at a glance without guessing engagement.',
+  },
+  'vanity-links-branding': {
+    summary: 'Use custom public links that match the event and person.',
+    value: 'Cleaner, shareable links that feel personalized and premium.',
+  },
+  'team-collaboration': {
+    summary: 'Multi-admin workflows for planning larger birthday campaigns.',
+    value: 'Coordinate with helpers without sharing one account login.',
+  },
+  'keepsake-export': {
+    summary: 'Generate branded keepsake PDF exports from birthday pages.',
+    value: 'Recipients can download a lasting archive of wishes and memories.',
+  },
+  'priority-support': {
+    summary: 'Faster support and improved recovery help when issues happen.',
+    value: 'Less downtime and quicker resolution for important events.',
+  },
+};
 
 type VerifyState = 'idle' | 'verifying' | 'success' | 'failed';
 
@@ -43,6 +83,9 @@ const UpgradePage = () => {
   const paystackReference = useMemo(() => {
     return searchParams.get('reference') || searchParams.get('trxref');
   }, [searchParams]);
+
+  const liveFeatures = useMemo(() => features.filter((feature) => feature.status === 'live'), [features]);
+  const upcomingFeatures = useMemo(() => features.filter((feature) => feature.status === 'coming-soon'), [features]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -163,19 +206,74 @@ const UpgradePage = () => {
               Unlock WishCanvas Pro forever
             </h1>
             <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-              One payment, lifetime Pro. No subscription.
+              One payment, lifetime Pro. No subscription. Everything below is what your payment unlocks.
             </p>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {features.map((feature) => (
-                <div key={feature.id} className="rounded-xl border border-border/70 bg-background/70 p-3">
-                  <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                    {feature.status === 'live' ? <Check className="h-4 w-4 text-emerald-500" /> : <Lock className="h-4 w-4 text-amber-600" />}
-                    {feature.title}
-                    {feature.status === 'coming-soon' && <span className="text-[10px] uppercase tracking-wide text-amber-700">Soon</span>}
-                  </p>
+            <div className="mt-6 space-y-4">
+              <div className="rounded-2xl border border-emerald-300/40 bg-emerald-50/60 p-4 sm:p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-900/80">Included today</p>
+                <div className="mt-3 grid gap-3">
+                  {liveFeatures.map((feature) => {
+                    const details = FEATURE_DETAILS[feature.id];
+                    return (
+                      <div key={feature.id} className="rounded-xl border border-emerald-200/70 bg-white/85 p-3">
+                        <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <Check className="h-4 w-4 text-emerald-600" />
+                          {feature.title}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">{details?.summary || 'Pro feature included in your plan.'}</p>
+                        <p className="mt-1 text-xs font-medium text-emerald-800">{details?.value || 'Immediate value on every birthday page.'}</p>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              </div>
+
+              {!!upcomingFeatures.length && (
+                <div className="rounded-2xl border border-amber-300/45 bg-amber-50/55 p-4 sm:p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-900/80">On the Pro roadmap</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {upcomingFeatures.map((feature) => {
+                      const details = FEATURE_DETAILS[feature.id];
+                      return (
+                        <div key={feature.id} className="rounded-xl border border-amber-200/70 bg-white/85 p-3">
+                          <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                            <Lock className="h-4 w-4 text-amber-700" />
+                            {feature.title}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">{details?.summary || 'Planned Pro enhancement.'}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-border/70 bg-background/70 p-4">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Free vs Pro at a glance</p>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                  <p className="font-medium text-foreground">Contributors per birthday page</p>
+                  <p className="text-right text-muted-foreground">Free: 6 max · Pro: unlimited</p>
+                </div>
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                  <p className="font-medium text-foreground">Page link control</p>
+                  <p className="text-right text-muted-foreground">Free: auto link · Pro: custom public link</p>
+                </div>
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                  <p className="font-medium text-foreground">Reveal control</p>
+                  <p className="text-right text-muted-foreground">Free: birthday date · Pro: schedule + secret PIN</p>
+                </div>
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                  <p className="font-medium text-foreground">Analytics and keepsake export</p>
+                  <p className="text-right text-muted-foreground">Free: not included · Pro: dashboard analytics + branded PDF</p>
+                </div>
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                  <p className="font-medium text-foreground">Custom themes</p>
+                  <p className="text-right text-muted-foreground">Free: up to 3 themes · Pro: unlimited + premium options</p>
+                </div>
+              </div>
             </div>
 
             <div className="mt-7 rounded-2xl border border-border/70 bg-background/70 p-4">
@@ -215,9 +313,6 @@ const UpgradePage = () => {
               >
                 {(checkoutLoading || verifyState === 'verifying') && <Loader2 className="h-4 w-4 animate-spin" />}
                 {user?.planTier === 'pro' ? 'You are on Pro' : 'Upgrade with Paystack'}
-              </Button>
-              <Button variant="outline" size="lg" onClick={() => navigate('/themes')}>
-                Back to Theme Builder
               </Button>
             </div>
           </div>

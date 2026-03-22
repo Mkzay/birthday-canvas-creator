@@ -143,6 +143,7 @@ const SeoController = () => {
     const origin = window.location.origin;
     const pathname = location.pathname;
     const url = `${origin}${pathname}`;
+    const routePageId = pathname.split("/").filter(Boolean)[1] || "";
 
     if (pathname === "/") {
       setTitle("Create collaborative birthday surprises");
@@ -152,11 +153,11 @@ const SeoController = () => {
       upsertMeta('meta[property="og:description"]', "property", "og:description", "Create a collaborative birthday page with wishes, photos, and voice notes.");
       upsertMeta('meta[property="og:url"]', "property", "og:url", `${origin}/`);
       upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
-      upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/api/og-image-app`);
       upsertMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
       upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", `Create collaborative birthday surprises | ${APP_NAME}`);
       upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", "Create a collaborative birthday page with wishes, photos, and voice notes.");
-      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/api/og-image-app`);
       return;
     }
 
@@ -168,11 +169,11 @@ const SeoController = () => {
       upsertMeta('meta[property="og:description"]', "property", "og:description", "Add a wish, photo, or voice note to the birthday story.");
       upsertMeta('meta[property="og:url"]', "property", "og:url", url);
       upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
-      upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[property="og:image"]', "property", "og:image", routePageId ? `${origin}/api/og-image/${routePageId}` : `${origin}/api/og-image-app`);
       upsertMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
       upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", `Add your birthday wish | ${APP_NAME}`);
       upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", "Add a wish, photo, or voice note to the birthday story.");
-      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", routePageId ? `${origin}/api/og-image/${routePageId}` : `${origin}/api/og-image-app`);
       return;
     }
 
@@ -184,11 +185,11 @@ const SeoController = () => {
       upsertMeta('meta[property="og:description"]', "property", "og:description", "Open the birthday story: wishes, photos, and voice notes in one replayable link.");
       upsertMeta('meta[property="og:url"]', "property", "og:url", url);
       upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
-      upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[property="og:image"]', "property", "og:image", routePageId ? `${origin}/api/og-image/${routePageId}` : `${origin}/api/og-image-app`);
       upsertMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
       upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", `Happy Birthday! | ${APP_NAME}`);
       upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", "Open the birthday story: wishes, photos, and voice notes in one replayable link.");
-      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/wish-canvas-logo.png`);
+      upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", routePageId ? `${origin}/api/og-image/${routePageId}` : `${origin}/api/og-image-app`);
       return;
     }
 
@@ -213,11 +214,11 @@ const SeoController = () => {
     upsertMeta('meta[property="og:description"]', "property", "og:description", "Birthday wishes, photos, and voice notes—beautifully delivered.");
     upsertMeta('meta[property="og:url"]', "property", "og:url", url);
     upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
-    upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/wish-canvas-logo.png`);
+    upsertMeta('meta[property="og:image"]', "property", "og:image", `${origin}/api/og-image-app`);
     upsertMeta('meta[name="twitter:card"]', "name", "twitter:card", "summary_large_image");
     upsertMeta('meta[name="twitter:title"]', "name", "twitter:title", `${APP_NAME}`);
     upsertMeta('meta[name="twitter:description"]', "name", "twitter:description", "Birthday wishes, photos, and voice notes—beautifully delivered.");
-    upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/wish-canvas-logo.png`);
+    upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", `${origin}/api/og-image-app`);
   }, [location.pathname]);
 
   return null;

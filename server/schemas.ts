@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const dateYmd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format");
 const slugPattern = /^[a-z0-9](?:[a-z0-9-]{4,38}[a-z0-9])$/;
+const revealPinPattern = /^\d{4,12}$/;
 
 /** Public page id (UUID) or public_code — length bound only; value is parameterized in SQL. */
 export const pageIdParamSchema = z.object({
@@ -104,6 +105,8 @@ export const pageCreateBodySchema = z.object({
   requireNames: z.boolean().optional(),
   closeDate: dateYmd.optional(),
   revealAt: z.union([z.string().datetime(), z.null()]).optional(),
+  revealPin: z.union([z.string().regex(revealPinPattern, "PIN must be 4-12 digits."), z.null()]).optional(),
+  publicCode: z.string().regex(slugPattern, "Public code must be 6-40 chars and use lowercase letters, numbers, and hyphens.").optional(),
 });
 
 export const pagePatchBodySchema = z.object({
@@ -118,10 +121,15 @@ export const pagePatchBodySchema = z.object({
   requireNames: z.boolean().optional(),
   closeDate: dateYmd.optional(),
   revealAt: z.union([z.string().datetime(), z.null()]).optional(),
+  revealPin: z.union([z.string().regex(revealPinPattern, "PIN must be 4-12 digits."), z.null()]).optional(),
   publicCode: z.union([z.string().regex(slugPattern, "Public code must be 6-40 chars and use lowercase letters, numbers, and hyphens."), z.null()]).optional(),
   coverPhotoUrl: z.union([z.string().max(2000), z.null()]).optional(),
   pageCustomAudioUrl: z.union([z.string().max(2000), z.null()]).optional(),
   letterColor: z.union([z.string().max(32), z.null()]).optional(),
+});
+
+export const publicUnlockBodySchema = z.object({
+  pin: z.string().regex(revealPinPattern, "PIN must be 4-12 digits."),
 });
 
 const contributionPhotoSchema = z.object({

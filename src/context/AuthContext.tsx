@@ -4,6 +4,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 interface AuthUser {
   id: string;
   email: string;
+  isAdmin: boolean;
   planTier: 'free' | 'pro';
   emailVerifiedAt: string | null;
   displayName: string | null;
@@ -47,7 +48,16 @@ interface AuthContextType {
   refreshSession: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+declare global {
+  interface Window {
+    __wishcanvasAuthContext?: React.Context<AuthContextType | undefined>;
+  }
+}
+
+const AuthContext =
+  window.__wishcanvasAuthContext || createContext<AuthContextType | undefined>(undefined);
+
+window.__wishcanvasAuthContext = AuthContext;
 
 function mapProfile(user: AuthUser | null): Profile | null {
   if (!user) return null;

@@ -26,7 +26,7 @@ import SocialShareButtons from '@/components/SocialShareButtons';
 import SoundtrackSelector from '@/components/SoundtrackSelector';
 import ThemeSelector from '@/components/ThemeSelector';
 import Header from '@/components/Header';
-import { apiFetch, apiForm } from '@/lib/api';
+import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
@@ -79,6 +79,21 @@ function parseLetterGradientValue(value: string) {
   return { start, end };
 }
 
+function toDatetimeLocalValue(value: string | null | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toIsoDatetime(value: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
 const EditPage = () => {
   const { pageId } = useParams();
   const navigate = useNavigate();
@@ -114,6 +129,12 @@ const EditPage = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
   const [publicCode, setPublicCode] = useState('');
+  const [publicCodeInput, setPublicCodeInput] = useState('');
+  const [publicCodeError, setPublicCodeError] = useState<string | null>(null);
+  const [revealAtInput, setRevealAtInput] = useState('');
+  const [revealPinInput, setRevealPinInput] = useState('');
+  const [hasRevealPin, setHasRevealPin] = useState(false);
+  const isProUser = user?.planTier === 'pro';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -152,6 +173,8 @@ const EditPage = () => {
         close_date: string | null;
         cover_photo_url: string | null;
         public_code: string;
+        reveal_at: string | null;
+        reveal_pin_set?: boolean;
       }>(`/pages/${pageId}`);
 
       setRecipientName(data.recipient_name);
@@ -180,6 +203,10 @@ const EditPage = () => {
       setCurrentCoverUrl(data.cover_photo_url);
       setPageCustomAudioUrl(data.custom_audio_url);
       setPublicCode(data.public_code);
+      setPublicCodeInput(data.public_code);
+      setRevealAtInput(toDatetimeLocalValue(data.reveal_at));
+      setHasRevealPin(Boolean(data.reveal_pin_set));
+      setRevealPinInput('');
       setLoading(false);
 
       // If we are using a UUID but have a public code, redirect to use the public code in the URL
@@ -299,6 +326,14 @@ const EditPage = () => {
       return;
     }
 
+    setPublicCodeError(null);
+    const normalizedPublicCode = publicCodeInput.trim().toLowerCase();
+    if (isProUser && !/^[a-z0-9](?:[a-z0-9-]{4,38}[a-z0-9])$/.test(normalizedPublicCode)) {
+      setPublicCodeError('Use 6-40 chars with lowercase letters, numbers, and hyphens.');
+      setSaving(false);
+      return;
+    }
+
     setSaving(true);
 
     let coverUrl = currentCoverUrl;
@@ -323,10 +358,20 @@ const EditPage = () => {
           closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate, 'yyyy-MM-dd'),
           coverPhotoUrl: coverUrl,
           pageCustomAudioUrl,
+          revealAt: isProUser ? toIsoDatetime(revealAtInput) : undefined,
+          revealPin: isProUser
+            ? (revealPinInput.trim() ? revealPinInput.trim() : (hasRevealPin ? undefined : null))
+            : undefined,
+          publicCode: isProUser ? normalizedPublicCode : undefined,
         }),
       });
     } catch (error) {
       setSaving(false);
+      if (error instanceof ApiError && error.status === 409) {
+        setPublicCodeError('That custom link is already taken. Try another one.');
+        toast.error('Custom link already taken');
+        return;
+      }
       toast.error('Failed to save changes');
       console.error(error);
       return;
@@ -744,6 +789,97 @@ const EditPage = () => {
                   recipientName={recipientName}
                 />
               </div>
+            </div>
+
+            <div className="panel-inset mb-4 p-4 sm:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-bold text-foreground">Pro controls</h3>
+                <span className={cn(
+                  'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                  isProUser ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+                )}>
+                  {isProUser ? 'Pro active' : 'Pro required'}
+                </span>
+              </div>
+              {isProUser ? (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <Label htmlFor="publicCode" className="text-foreground">Custom public link</Label>
+                    <Input
+                      id="publicCode"
+                      value={publicCodeInput}
+                      onChange={(event) => {
+                        setPublicCodeInput(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+                        setPublicCodeError(null);
+                      }}
+                      className="mt-2"
+                      placeholder="e.g. ada-birthday-2026"
+                    />
+                    {publicCodeError && (
+                      <p className="mt-2 text-xs font-medium text-destructive">{publicCodeError}</p>
+                    )}
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Used for both contribution and birthday links. 6-40 chars, lowercase letters, numbers, and hyphens.
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="revealAt" className="text-foreground">Scheduled reveal date and time</Label>
+                    <Input
+                      id="revealAt"
+                      type="datetime-local"
+                      value={revealAtInput}
+                      onChange={(event) => setRevealAtInput(event.target.value)}
+                      className="mt-2"
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Leave empty to reveal automatically on the birthday date. Set a future date/time for timed unlock.
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="revealPin" className="text-foreground">Secret reveal PIN</Label>
+                    <Input
+                      id="revealPin"
+                      value={revealPinInput}
+                      onChange={(event) => setRevealPinInput(event.target.value.replace(/\D/g, '').slice(0, 12))}
+                      className="mt-2"
+                      inputMode="numeric"
+                      placeholder={hasRevealPin ? 'Leave blank to keep current PIN' : '4 to 12 digit PIN'}
+                    />
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {hasRevealPin
+                          ? 'A PIN is currently active for this page.'
+                          : 'Set a PIN to require unlock before wishes are shown.'}
+                      </p>
+                      {hasRevealPin && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-2 py-1 text-xs"
+                          onClick={() => {
+                            setRevealPinInput('');
+                            setHasRevealPin(false);
+                          }}
+                        >
+                          Remove PIN
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    Custom links, scheduled reveal, and secret PIN unlock are available on Pro.
+                  </p>
+                  <Button type="button" variant="outline" className="mt-3" onClick={() => navigate('/upgrade')}>
+                    Upgrade to Pro
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="panel-inset p-4 sm:p-6">

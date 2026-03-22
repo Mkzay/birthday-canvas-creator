@@ -51,6 +51,17 @@
       "destination": "https://api.wishcanvas.app/api/og/:pageId"
     },
     {
+      "source": "/contribute/:pageId",
+      "has": [
+        {
+          "type": "header",
+          "key": "User-Agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
+        }
+      ],
+      "destination": "https://api.wishcanvas.app/api/og/:pageId?view=contribute"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

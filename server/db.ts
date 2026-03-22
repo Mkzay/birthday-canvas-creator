@@ -235,6 +235,11 @@ export async function initializeDatabase() {
 
   await sql`
     ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS reveal_pin_hash TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
     ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;
   `;
 

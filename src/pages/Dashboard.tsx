@@ -4,6 +4,8 @@ import {
   Activity,
   AlertTriangle,
   CalendarDays,
+  Crown,
+  Download,
   Edit,
   Eye,
   FileText,
@@ -32,7 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ApiError, apiFetch, resolveAssetUrl } from '@/lib/api';
+import { ApiError, apiFetch, getApiOrigin, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { builtInThemeMap } from '@/lib/themes';
 import {
@@ -58,6 +60,16 @@ interface BirthdayPage {
   created_at: string;
   cover_photo_url?: string | null;
   message_count?: number;
+  view_count?: number;
+}
+
+interface PageAnalytics {
+  view_count: number;
+  message_count: number;
+  contributor_count: number;
+  photo_message_count: number;
+  audio_message_count: number;
+  last_contribution_at: string | null;
 }
 
 interface CustomTheme {
@@ -77,6 +89,11 @@ type SystemStatusPayload = {
   ts: string;
   latency_ms: number;
   meta?: { node_env?: string };
+  stats?: {
+    total_users: number;
+    total_pages: number;
+    total_visitors: number;
+  };
 };
 
 type ThemeDisplay = {
@@ -113,9 +130,14 @@ const Dashboard = () => {
   const [pagePendingDelete, setPagePendingDelete] = useState<BirthdayPage | null>(null);
   const [savedPagePendingRemove, setSavedPagePendingRemove] = useState<BirthdayPage | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatusPayload | null>(null);
+  const [systemStatusError, setSystemStatusError] = useState<string | null>(null);
+  const [analyticsByPage, setAnalyticsByPage] = useState<Record<string, PageAnalytics>>({});
+  const [analyticsLoadingPage, setAnalyticsLoadingPage] = useState<string | null>(null);
+  const [exportingPage, setExportingPage] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [pageFilter, setPageFilter] = useState<'all' | 'live' | 'archived'>('all');
+  const isProUser = user?.planTier === 'pro';
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -162,18 +184,25 @@ const Dashboard = () => {
   }, [user]);
 
   const fetchSystemStatus = useCallback(async () => {
-    if (!user) return;
+    if (!user?.isAdmin) {
+      setSystemStatus(null);
+      setSystemStatusError(null);
+      return;
+    }
 
     try {
       const data = await apiFetch<SystemStatusPayload>('/system/status');
       setSystemStatus(data);
+      setSystemStatusError(null);
     } catch (error) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         setSystemStatus(null);
+        setSystemStatusError('Admin permission is required to view system status.');
         return;
       }
       console.error(error);
       setSystemStatus(null);
+      setSystemStatusError('Unable to load system status right now. Please try again in a moment.');
     }
   }, [user]);
 
@@ -212,6 +241,20 @@ const Dashboard = () => {
       return matchesSearch && isArchivedPage(page);
     });
   }, [pageFilter, pages, searchQuery]);
+
+  const filteredSavedPages = useMemo(() => {
+    const query = (searchQuery || '').toLowerCase();
+
+    return savedPages.filter((page) => {
+      const name = page.recipient_name || '';
+      const matchesSearch = name.toLowerCase().includes(query);
+      if (!matchesSearch) return false;
+
+      if (pageFilter === 'all') return true;
+      const archived = isArchivedPage(page);
+      return pageFilter === 'archived' ? archived : !archived;
+    });
+  }, [pageFilter, savedPages, searchQuery]);
 
   const getThemeDisplay = useCallback(
     (themeKey: string): ThemeDisplay => {
@@ -300,6 +343,62 @@ const Dashboard = () => {
       toast.success(type === 'contribute' ? 'Contribution link copied' : 'Birthday link copied');
     } catch {
       window.prompt('Copy this link:', link);
+    }
+  };
+
+  const handleAnalytics = async (pageCode: string) => {
+    if (!isProUser) {
+      toast.info('Creator analytics is available on Pro.');
+      navigate('/upgrade');
+      return;
+    }
+
+    setAnalyticsLoadingPage(pageCode);
+    try {
+      const data = await apiFetch<PageAnalytics>(`/pages/${pageCode}/analytics`);
+      setAnalyticsByPage((current) => ({ ...current, [pageCode]: data }));
+      toast.success('Analytics updated');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to load analytics');
+    } finally {
+      setAnalyticsLoadingPage(null);
+    }
+  };
+
+  const handleExport = async (pageCode: string, recipientName: string) => {
+    if (!isProUser) {
+      toast.info('Page export is available on Pro.');
+      navigate('/upgrade');
+      return;
+    }
+
+    setExportingPage(pageCode);
+    try {
+      const response = await fetch(`${getApiOrigin()}/api/pages/${pageCode}/export`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: 'Export failed' }));
+        throw new ApiError(payload.error || 'Export failed', response.status, payload.code);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const slug = recipientName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'birthday-page';
+      anchor.href = url;
+      anchor.download = `${slug}-wishcanvas-keepsake.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      toast.success('PDF export downloaded');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to export page');
+    } finally {
+      setExportingPage(null);
     }
   };
 
@@ -395,20 +494,58 @@ const Dashboard = () => {
               </article>
             ))}
 
-            {systemStatus && (
+            {user?.isAdmin && (
               <div className="rounded-[1.35rem] border border-border/60 bg-card/80 px-5 py-4 shadow-card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">System</p>
                     <p className="mt-1 text-sm font-semibold text-foreground">
-                      {systemStatus.ok ? 'All systems operational' : 'Degraded'}
+                      {systemStatus
+                        ? (systemStatus.ok ? 'All systems operational' : 'Degraded')
+                        : 'Status unavailable'}
                     </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      DB {systemStatus.checks.db.ok ? 'OK' : 'FAIL'} • Uploads {systemStatus.checks.uploads.ok ? 'OK' : 'FAIL'}
-                    </p>
+                    {systemStatus ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        DB {systemStatus.checks.db.ok ? 'OK' : 'FAIL'} • Uploads {systemStatus.checks.uploads.ok ? 'OK' : 'FAIL'}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {systemStatusError || 'System status has not been loaded yet.'}
+                      </p>
+                    )}
                   </div>
-                  <div className={systemStatus.ok ? 'flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700' : 'flex h-11 w-11 items-center justify-center rounded-2xl bg-destructive/10 text-destructive'}>
-                    {systemStatus.ok ? <Activity className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+                  <div className={systemStatus?.ok ? 'flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700' : 'flex h-11 w-11 items-center justify-center rounded-2xl bg-destructive/10 text-destructive'}>
+                    {systemStatus?.ok ? <Activity className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {user?.isAdmin && (
+              <div className="rounded-[1.35rem] border border-border/60 bg-card/80 px-5 py-4 shadow-card">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Platform totals</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">Audience and content overview</p>
+                    <p className="mt-2 text-xs text-muted-foreground">Live aggregate counts across all active pages.</p>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Users className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Users</p>
+                    <p className="mt-1 text-base font-semibold text-foreground">{systemStatus?.stats?.total_users ?? '—'}</p>
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Visitors</p>
+                    <p className="mt-1 text-base font-semibold text-foreground">{systemStatus?.stats?.total_visitors ?? '—'}</p>
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Pages</p>
+                    <p className="mt-1 text-base font-semibold text-foreground">{systemStatus?.stats?.total_pages ?? '—'}</p>
                   </div>
                 </div>
               </div>
@@ -449,6 +586,21 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {!isProUser && (
+            <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-[linear-gradient(120deg,rgba(255,255,255,0.96),rgba(255,247,239,0.96),rgba(255,236,228,0.94))] px-4 py-3 shadow-card">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Unlock creator analytics and keepsake PDF export</p>
+                <p className="text-xs text-muted-foreground">Track page views, contributor growth, and download branded birthday keepsakes.</p>
+              </div>
+              <Link to="/upgrade" className="shrink-0">
+                <Button variant="hero" size="sm" className="gap-2">
+                  <Crown className="h-4 w-4" />
+                  Upgrade
+                </Button>
+              </Link>
+            </div>
+          )}
+
           {pages.length === 0 ? (
             <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-3xl">🎂</div>
@@ -462,7 +614,7 @@ const Dashboard = () => {
                 </Button>
               </Link>
             </div>
-          ) : filteredLivePages.length === 0 && filteredArchivedPages.length === 0 ? (
+          ) : filteredLivePages.length === 0 && filteredArchivedPages.length === 0 && filteredSavedPages.length === 0 ? (
             <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-muted text-3xl">🔍</div>
               <h3 className="mt-5 text-xl font-bold text-foreground">No matching pages</h3>
@@ -602,6 +754,42 @@ const Dashboard = () => {
                                 </Button>
                               </Link>
                             </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => void handleAnalytics(page.public_code)}
+                                disabled={analyticsLoadingPage === page.public_code}
+                              >
+                                <Activity className="h-4 w-4" />
+                                {analyticsLoadingPage === page.public_code ? 'Loading...' : 'Analytics'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => void handleExport(page.public_code, page.recipient_name)}
+                                disabled={exportingPage === page.public_code}
+                              >
+                                <Download className="h-4 w-4" />
+                                {exportingPage === page.public_code ? 'Exporting...' : 'Export PDF'}
+                              </Button>
+                            </div>
+
+                            {analyticsByPage[page.public_code] && (
+                              <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-border/60 bg-background/70 p-3">
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Views</p>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">{analyticsByPage[page.public_code].view_count}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Contributors</p>
+                                  <p className="mt-1 text-sm font-semibold text-foreground">{analyticsByPage[page.public_code].contributor_count}</p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </article>
@@ -738,6 +926,42 @@ const Dashboard = () => {
                             </Button>
                           </Link>
                         </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => void handleAnalytics(page.public_code)}
+                            disabled={analyticsLoadingPage === page.public_code}
+                          >
+                            <Activity className="h-4 w-4" />
+                            {analyticsLoadingPage === page.public_code ? 'Loading...' : 'Analytics'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => void handleExport(page.public_code, page.recipient_name)}
+                            disabled={exportingPage === page.public_code}
+                          >
+                            <Download className="h-4 w-4" />
+                            {exportingPage === page.public_code ? 'Exporting...' : 'Export PDF'}
+                          </Button>
+                        </div>
+
+                        {analyticsByPage[page.public_code] && (
+                          <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-border/60 bg-background/70 p-3">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Views</p>
+                              <p className="mt-1 text-sm font-semibold text-foreground">{analyticsByPage[page.public_code].view_count}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Contributors</p>
+                              <p className="mt-1 text-sm font-semibold text-foreground">{analyticsByPage[page.public_code].contributor_count}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </article>
@@ -750,7 +974,7 @@ const Dashboard = () => {
           )}
         </section>
 
-        {savedPages.length > 0 && (
+        {filteredSavedPages.length > 0 && (
           <section className="mt-10 border-t border-border/60 pt-8">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -759,7 +983,7 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {savedPages.map((page) => {
+              {filteredSavedPages.map((page) => {
                 const theme = getThemeDisplay(page.theme);
                 const status = getStatusBadge(page);
                 const birthdayLabel = format(parseLocalDate(page.birthday_date), 'MMM d, yyyy');
@@ -770,16 +994,23 @@ const Dashboard = () => {
                     className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
                     style={{ borderColor: `${theme.accent}30` }}
                   >
-                    <div className="relative h-40 overflow-hidden">
+                    <div className="relative h-44 overflow-hidden sm:h-48">
                       {page.cover_photo_url ? (
                         <>
                           <img
                             src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
                             alt={`${page.recipient_name}'s cover`}
-                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                            className="absolute inset-0 h-full w-full scale-110 object-cover object-center blur-xl transition-transform duration-500 group-hover:scale-[1.12]"
+                            aria-hidden="true"
                             loading="lazy"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                          <img
+                            src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
+                            alt={`${page.recipient_name}'s cover`}
+                            className="absolute inset-0 h-full w-full object-contain object-center p-2 transition-transform duration-500 group-hover:scale-[1.02]"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
                         </>
                       ) : theme.isCustom ? (
                         <div
@@ -820,7 +1051,7 @@ const Dashboard = () => {
                           variant="outline"
                           size="sm"
                           className="text-xs"
-                          onClick={() => copyLink(page.public_code, 'birthday')}
+                          onClick={() => navigate(`/birthday/${page.public_code}`)}
                         >
                           Open
                         </Button>
