@@ -17,6 +17,7 @@ import {
   Trash2,
   Music,
   Image as ImageIcon,
+  Video,
 } from 'lucide-react';
 import BentoGridView from '@/components/BentoGridView';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -156,6 +157,127 @@ function normalizeHexColor(value?: string | null) {
 function mixHue(a: number, b: number) {
   const delta = ((b - a + 540) % 360) - 180;
   return (a + delta / 2 + 360) % 360;
+}
+
+function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      current = word;
+    } else {
+      lines.push(word);
+      current = '';
+    }
+
+    if (lines.length >= maxLines) break;
+  }
+
+  if (lines.length < maxLines && current) {
+    lines.push(current);
+  }
+
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+  }
+
+  if (words.length && lines.length === maxLines) {
+    const consumed = lines.join(' ').trim();
+    const original = words.join(' ');
+    if (consumed.length < original.length) {
+      const lastLineIndex = lines.length - 1;
+      lines[lastLineIndex] = `${lines[lastLineIndex].replace(/[.]{3}$/g, '').trimEnd()}...`;
+    }
+  }
+
+  return lines;
+}
+
+function resolveVideoMimeType() {
+  if (typeof MediaRecorder === 'undefined') return null;
+
+  const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || null;
+}
+
+async function loadImageForVideo(url: string) {
+  return await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Image failed to load'));
+    image.src = url;
+  });
+}
+
+function schedulePresetSoundtrackForVideo(
+  context: AudioContext,
+  destination: MediaStreamAudioDestinationNode,
+  soundtrackId: string,
+  totalDurationMs: number,
+) {
+  const soundtrack = soundtrackMap[soundtrackId];
+  if (!soundtrack) return false;
+
+  const masterGain = context.createGain();
+  masterGain.gain.value = 0.32;
+  masterGain.connect(destination);
+
+  let cursor = context.currentTime + 0.04;
+  const cutoff = context.currentTime + totalDurationMs / 1000 + 0.2;
+
+  while (cursor < cutoff) {
+    for (const note of soundtrack.notes) {
+      if (cursor >= cutoff) break;
+
+      const oscillator = context.createOscillator();
+      const noteGain = context.createGain();
+      const gainValue = note.gain ?? 0.08;
+      const duration = note.duration;
+
+      oscillator.type = note.type || 'triangle';
+      oscillator.frequency.setValueAtTime(note.frequency, cursor);
+
+      noteGain.gain.setValueAtTime(0.0001, cursor);
+      noteGain.gain.exponentialRampToValueAtTime(gainValue, cursor + 0.04);
+      noteGain.gain.exponentialRampToValueAtTime(0.0001, cursor + duration);
+
+      oscillator.connect(noteGain);
+      noteGain.connect(masterGain);
+      oscillator.start(cursor);
+      oscillator.stop(cursor + duration + 0.06);
+
+      cursor += duration + 0.08;
+    }
+  }
+
+  return true;
 }
 
 function MobileVoiceNoteControl({
@@ -565,7 +687,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [slideRemainingMs, setSlideRemainingMs] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'forward' | 'back'>('forward');
-  const [viewMode, setViewMode] = useState<'story' | 'bento'>('story');
+  const [viewMode, setViewMode] = useState<'story' | 'freeform' | 'bento'>('story');
   const [activeWishAudioId, setActiveWishAudioId] = useState<string | null>(null);
   const soundtrackAudioRef = useRef<HTMLAudioElement | null>(null);
   const presetControllerRef = useRef<SoundtrackController | null>(null);
@@ -587,8 +709,35 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [unlockPin, setUnlockPin] = useState('');
   const [unlocking, setUnlocking] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingVideo, setDownloadingVideo] = useState(false);
+  const [includeSoundtrackInVideo, setIncludeSoundtrackInVideo] = useState(true);
+  const [expandedFreeformCardId, setExpandedFreeformCardId] = useState<string | null>(null);
+  const freeformDesktopContainerRef = useRef<HTMLDivElement | null>(null);
+  const [freeformDesktopWidth, setFreeformDesktopWidth] = useState(800);
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const slideTimerStartedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const node = freeformDesktopContainerRef.current;
+    if (!node) return;
+
+    const measure = () => {
+      setFreeformDesktopWidth(Math.max(320, Math.floor(node.offsetWidth || 800)));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => {
+        measure();
+      });
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [viewMode]);
 
   useEffect(() => {
     if (!page) return;
@@ -824,6 +973,292 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       setDownloadingPdf(false);
     }
   }, [page?.recipient_name, pageId]);
+
+  const handleDownloadVideoKeepsake = useCallback(async () => {
+    if (!pageId || !page) return;
+
+    if ((page.owner_plan_tier || 'free') !== 'pro') {
+      toast.info('Video download is a Pro feature. Upgrade to unlock it.');
+      return;
+    }
+
+    if (typeof MediaRecorder === 'undefined') {
+      toast.error('Your browser does not support video export');
+      return;
+    }
+
+    const mimeType = resolveVideoMimeType();
+    if (!mimeType) {
+      toast.error('This browser cannot export WebM video');
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+
+    if (typeof canvas.captureStream !== 'function') {
+      toast.error('Video export is not supported on this device');
+      return;
+    }
+
+    setDownloadingVideo(true);
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setDownloadingVideo(false);
+      toast.error('Could not initialize video renderer');
+      return;
+    }
+
+    const stream = canvas.captureStream(30);
+    const stopTrackFns: Array<() => void> = [];
+    let exportAudioContext: AudioContext | null = null;
+    let exportAudioElement: HTMLAudioElement | null = null;
+    const recorder = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 6_000_000,
+    });
+    const chunks: BlobPart[] = [];
+    let rafId = 0;
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    };
+
+    try {
+      let coverImage: HTMLImageElement | null = null;
+      const coverUrl = resolveAssetUrl(page.cover_photo_url);
+      if (coverUrl) {
+        try {
+          coverImage = await loadImageForVideo(coverUrl);
+        } catch {
+          coverImage = null;
+        }
+      }
+
+      const storyMessages = messages
+        .map((message) => ({
+          sender: (message.sender_name || 'Someone').trim(),
+          content: stripHtml(message.message || '').replace(/\s+/g, ' ').trim(),
+        }))
+        .filter((entry) => entry.content.length > 0)
+        .slice(0, 5);
+
+      const slides = [
+        {
+          title: `${page.recipient_name}'s Birthday`,
+          subtitle: `${messages.length} wishes collected`,
+          body: 'A keepsake reel from WishCanvas',
+        },
+        ...storyMessages.map((entry, index) => ({
+          title: `Wish ${index + 1}`,
+          subtitle: `From ${entry.sender || 'Someone'}`,
+          body: entry.content,
+        })),
+        {
+          title: 'Happy Birthday!',
+          subtitle: `Made for ${page.recipient_name}`,
+          body: 'Thanks to everyone who shared a memory.',
+        },
+      ];
+
+      const totalDurationMs = Math.max(9000, slides.length * 1800);
+      const perSlideMs = totalDurationMs / slides.length;
+      const gradientFrom = normalizeHexColor(page.theme_gradient_from) || '#ff8a5b';
+      const gradientTo = normalizeHexColor(page.theme_gradient_to) || '#7c3aed';
+      const gradientMid = normalizeHexColor(page.theme_gradient_mid) || '#f59e0b';
+
+      if (includeSoundtrackInVideo) {
+        const AudioContextConstructor =
+          window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+        if (!AudioContextConstructor) {
+          toast.info('Video created without audio: this browser cannot capture soundtrack audio.');
+        } else if (ytId) {
+          toast.info('Video created without audio: YouTube tracks cannot be captured in export.');
+        } else {
+          const destinationSetupContext = new AudioContextConstructor();
+          exportAudioContext = destinationSetupContext;
+          await exportAudioContext.resume();
+          const destination = exportAudioContext.createMediaStreamDestination();
+
+          if (page.custom_audio_url) {
+            const customAudioUrl = resolveAssetUrl(page.custom_audio_url);
+            if (customAudioUrl) {
+              const audioEl = new Audio(customAudioUrl);
+              audioEl.crossOrigin = 'anonymous';
+              audioEl.preload = 'auto';
+              audioEl.loop = true;
+              audioEl.currentTime = 0;
+
+              const source = exportAudioContext.createMediaElementSource(audioEl);
+              const gain = exportAudioContext.createGain();
+              gain.gain.value = 0.9;
+              source.connect(gain);
+              gain.connect(destination);
+
+              destination.stream.getAudioTracks().forEach((track) => {
+                stream.addTrack(track);
+                stopTrackFns.push(() => track.stop());
+              });
+
+              await audioEl.play();
+              exportAudioElement = audioEl;
+              stopTrackFns.push(() => {
+                source.disconnect();
+                gain.disconnect();
+              });
+            }
+          } else if (page.soundtrack_id && soundtrackMap[page.soundtrack_id]) {
+            const hasPresetTrack = schedulePresetSoundtrackForVideo(exportAudioContext, destination, page.soundtrack_id, totalDurationMs);
+            if (hasPresetTrack) {
+              destination.stream.getAudioTracks().forEach((track) => {
+                stream.addTrack(track);
+                stopTrackFns.push(() => track.stop());
+              });
+            }
+          } else {
+            toast.info('Video created without audio: no soundtrack selected for this page.');
+          }
+        }
+      }
+
+      const stopped = new Promise<void>((resolve, reject) => {
+        recorder.onstop = () => resolve();
+        recorder.onerror = () => reject(new Error('Video recording failed'));
+      });
+
+      const render = (now: number, startAt: number) => {
+        const elapsed = now - startAt;
+        const cappedElapsed = Math.min(elapsed, totalDurationMs);
+        const slideIndex = Math.min(slides.length - 1, Math.floor(cappedElapsed / perSlideMs));
+        const currentSlide = slides[slideIndex];
+        const localProgress = (cappedElapsed - slideIndex * perSlideMs) / perSlideMs;
+        const fadeIn = Math.min(1, localProgress / 0.16);
+        const fadeOut = Math.min(1, (1 - localProgress) / 0.16);
+        const alpha = Math.max(0, Math.min(fadeIn, fadeOut));
+
+        const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, gradientFrom);
+        gradient.addColorStop(0.45, gradientMid);
+        gradient.addColorStop(1, gradientTo);
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        const pulse = 0.12 + Math.sin(cappedElapsed / 620) * 0.08;
+        context.save();
+        context.globalAlpha = 0.2 + pulse;
+        const glow = context.createRadialGradient(canvas.width * 0.8, canvas.height * 0.2, 80, canvas.width * 0.8, canvas.height * 0.2, 680);
+        glow.addColorStop(0, '#ffffff');
+        glow.addColorStop(1, 'rgba(255,255,255,0)');
+        context.fillStyle = glow;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.restore();
+
+        if (coverImage) {
+          context.save();
+          context.globalAlpha = 0.22;
+          const coverScale = Math.max(canvas.width / coverImage.width, canvas.height / coverImage.height);
+          const drawWidth = coverImage.width * coverScale;
+          const drawHeight = coverImage.height * coverScale;
+          const dx = (canvas.width - drawWidth) / 2;
+          const dy = (canvas.height - drawHeight) / 2;
+          context.drawImage(coverImage, dx, dy, drawWidth, drawHeight);
+          context.restore();
+        }
+
+        context.save();
+        context.globalAlpha = 0.35;
+        drawRoundedRect(context, 72, 72, canvas.width - 144, canvas.height - 144, 60);
+        context.fillStyle = 'rgba(0, 0, 0, 0.26)';
+        context.fill();
+        context.restore();
+
+        context.save();
+        context.globalAlpha = alpha;
+        drawRoundedRect(context, 120, 420, canvas.width - 240, 1080, 42);
+        context.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        context.fill();
+
+        context.fillStyle = '#0f172a';
+        context.font = '700 72px Georgia, "Times New Roman", serif';
+        context.textAlign = 'left';
+        context.fillText(currentSlide.title, 170, 560);
+
+        context.fillStyle = '#475569';
+        context.font = '500 38px "Trebuchet MS", sans-serif';
+        context.fillText(currentSlide.subtitle, 170, 622);
+
+        context.fillStyle = '#111827';
+        context.font = '400 48px "Trebuchet MS", sans-serif';
+        const lines = wrapCanvasText(context, currentSlide.body, canvas.width - 340, 8);
+        lines.forEach((line, index) => {
+          context.fillText(line, 170, 736 + index * 62);
+        });
+
+        context.fillStyle = 'rgba(15, 23, 42, 0.45)';
+        context.font = '600 30px "Trebuchet MS", sans-serif';
+        context.fillText('wishcanvas.app', 170, 1400);
+        context.restore();
+
+        const progress = Math.max(0, Math.min(1, cappedElapsed / totalDurationMs));
+        drawRoundedRect(context, 170, 1450, canvas.width - 340, 16, 8);
+        context.fillStyle = 'rgba(255,255,255,0.28)';
+        context.fill();
+
+        drawRoundedRect(context, 170, 1450, (canvas.width - 340) * progress, 16, 8);
+        context.fillStyle = '#ffffff';
+        context.fill();
+
+        if (elapsed >= totalDurationMs) {
+          if (recorder.state === 'recording') {
+            recorder.stop();
+          }
+          return;
+        }
+
+        rafId = window.requestAnimationFrame((time) => render(time, startAt));
+      };
+
+      recorder.start(100);
+      rafId = window.requestAnimationFrame((time) => render(time, time));
+      await stopped;
+
+      const blob = new Blob(chunks, { type: mimeType });
+      if (!blob.size) {
+        throw new Error('Empty video output');
+      }
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const slug = (page.recipient_name || 'birthday-page').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'birthday-page';
+      anchor.href = url;
+      anchor.download = `${slug}-wishcanvas-reel.webm`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      toast.success('Video download started');
+    } catch (error) {
+      console.error(error);
+      toast.error('Could not export video');
+    } finally {
+      window.cancelAnimationFrame(rafId);
+      if (exportAudioElement) {
+        exportAudioElement.pause();
+        exportAudioElement.src = '';
+      }
+      stopTrackFns.forEach((stop) => stop());
+      if (exportAudioContext) {
+        void exportAudioContext.close();
+      }
+      stream.getTracks().forEach((track) => track.stop());
+      setDownloadingVideo(false);
+    }
+  }, [includeSoundtrackInVideo, messages, page, pageId, ytId]);
 
   const fetchData = useCallback(async () => {
     if (!pageId) return;
@@ -1194,7 +1629,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const birthdayDate = parseLocalDate(page?.birthday_date);
   const requiresUnlock = !isPreview && Boolean(page?.requires_unlock);
   const isUnlocked = isPreview || !requiresUnlock || Boolean(page?.is_unlocked);
-  const canShowKeepsakeDownload = Boolean(page?.is_revealed && isUnlocked);
+  const canShowKeepsakeDownload = false;
   const isBeforeBirthday = !isPreview && page?.is_revealed === false;
   const isDarkExperience = page?.theme === 'cosmic' || page?.theme === 'midnight';
   const experiencePanelClass = isDarkExperience
@@ -1396,6 +1831,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const activeSlide = revealSlides[currentSlide];
   const currentSlideDuration = useMemo(() => getSlideDuration(activeSlide), [activeSlide]);
+  const hasMessages = messages.length > 0;
   const coverHintLabel =
     isCoarsePointerDevice
       ? 'Tap to enlarge'
@@ -1912,7 +2348,78 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </div>
       )}
 
-      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', viewMode === 'bento' && 'hidden')}>
+      {!showRevealIntro && (
+        <div
+          className={cn(
+            'pointer-events-none z-40 mx-auto flex w-full max-w-6xl justify-center px-3 sm:px-5',
+            viewMode === 'freeform' ? 'fixed left-0 right-0 top-3 sm:top-4' : 'sticky top-3 sm:top-4',
+          )}
+        >
+          <div
+            className={cn(
+              'pointer-events-auto inline-flex items-center gap-1 rounded-full border px-1.5 py-1 shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur-xl',
+              isDarkExperience ? 'border-white/16 bg-white/8 text-white' : 'border-white/75 bg-white/84 text-foreground',
+            )}
+            data-no-nav="true"
+          >
+            <button
+              type="button"
+              onClick={() => setViewMode('story')}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors sm:px-4',
+                viewMode === 'story'
+                  ? isDarkExperience
+                    ? 'bg-white/16 text-white'
+                    : 'bg-white text-foreground shadow-sm'
+                  : isDarkExperience
+                    ? 'text-white/78 hover:bg-white/10'
+                    : 'text-foreground/72 hover:bg-white/70',
+              )}
+            >
+              <GalleryHorizontal className="h-4 w-4" />
+              Story
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('freeform')}
+              disabled={!hasMessages}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors sm:px-4 disabled:cursor-not-allowed disabled:opacity-45',
+                viewMode === 'freeform'
+                  ? isDarkExperience
+                    ? 'bg-white/16 text-white'
+                    : 'bg-white text-foreground shadow-sm'
+                  : isDarkExperience
+                    ? 'text-white/78 hover:bg-white/10'
+                    : 'text-foreground/72 hover:bg-white/70',
+              )}
+            >
+              <ImageIcon className="h-4 w-4" />
+              Freeform
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('bento')}
+              disabled={!hasMessages}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors sm:px-4 disabled:cursor-not-allowed disabled:opacity-45',
+                viewMode === 'bento'
+                  ? isDarkExperience
+                    ? 'bg-white/16 text-white'
+                    : 'bg-white text-foreground shadow-sm'
+                  : isDarkExperience
+                    ? 'text-white/78 hover:bg-white/10'
+                    : 'text-foreground/72 hover:bg-white/70',
+              )}
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Bento
+            </button>
+          </div>
+        </div>
+      )}
+
+      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', viewMode !== 'story' && 'hidden')}>
         <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-28">
           <div className="story-scroll-reveal flex items-start justify-between gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
             <div>
@@ -1931,69 +2438,94 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           {!showRevealIntro && (
             <div
               className={cn(
-                'fixed inset-x-0 bottom-4 z-50 mx-auto flex w-full max-w-2xl items-center justify-center px-3',
+                'fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.45rem)] z-50 mx-auto flex w-full max-w-2xl items-center justify-center px-2',
                 'pointer-events-none',
               )}
               aria-hidden="true"
             >
               <div
+                className="pointer-events-auto w-fit max-w-[calc(100vw-0.75rem)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                data-no-nav="true"
+              >
+                <div
                 className={cn(
-                'pointer-events-auto flex items-center gap-2 rounded-full border px-2.5 py-0.5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl',
+                'inline-flex w-max items-center gap-1.5 rounded-2xl border px-1.5 py-1.5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl',
                   isDarkExperience ? 'border-white/18 bg-white/10 text-white' : 'border-white/70 bg-white/80 text-foreground',
                 )}
-                data-no-nav="true"
               >
                 <button
                   type="button"
                   onClick={() => setShowShareCard(true)}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-semibold transition-colors',
+                    'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
                     isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                   )}
                 >
-                  <Share2 className="h-4 w-4" />
+                  <Share2 className="h-3.5 w-3.5" />
                   Share
                 </button>
-                <div className={cn('h-7 w-px', isDarkExperience ? 'bg-white/15' : 'bg-black/10')} />
                 <button
                   type="button"
                   onClick={handlePlayControl}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-semibold transition-colors',
+                    'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
                     isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                   )}
                 >
-                  <Music4 className="h-4 w-4" />
+                  <Music4 className="h-3.5 w-3.5" />
                   Play
                 </button>
                 <button
                   type="button"
                   onClick={handlePauseControl}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-semibold transition-colors',
+                    'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
                     isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                   )}
                 >
-                  <Volume2 className="h-4 w-4" />
+                  <Volume2 className="h-3.5 w-3.5" />
                   Pause
                 </button>
                 {canShowKeepsakeDownload && (
                   <>
-                    <div className={cn('h-7 w-px', isDarkExperience ? 'bg-white/15' : 'bg-black/10')} />
                     <button
                       type="button"
                       onClick={() => void handleDownloadKeepsake()}
                       disabled={downloadingPdf}
                       className={cn(
-                        'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
                         isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                       )}
                     >
-                      <Download className="h-4 w-4" />
-                      {downloadingPdf ? 'Preparing' : 'Download'}
+                      <Download className="h-3.5 w-3.5" />
+                      {downloadingPdf ? 'Preparing' : 'PDF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIncludeSoundtrackInVideo((current) => !current)}
+                      className={cn(
+                        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
+                        isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                      )}
+                    >
+                      <Music className="h-3.5 w-3.5" />
+                      {includeSoundtrackInVideo ? 'Sound on' : 'Sound off'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadVideoKeepsake()}
+                      disabled={downloadingVideo}
+                      className={cn(
+                        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                        isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
+                      )}
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      {downloadingVideo ? 'Rendering' : 'Video'}
                     </button>
                   </>
                 )}
+                </div>
               </div>
             </div>
           )}
@@ -2309,8 +2841,341 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </section>
       )}
 
+      {viewMode === 'freeform' && hasMessages && (
+        <section className="relative min-h-[100dvh] overflow-y-auto bg-[#EDEAE3] px-3 py-4 sm:px-5 sm:pb-5 sm:pt-0">
+          <div className="mx-auto w-full max-w-6xl pb-20 pt-10 sm:pt-12">
+            <div className="mb-5 sm:mb-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8E8797] md:block">Freeform view</p>
+                  <h2 className={cn('mt-2 text-2xl font-bold leading-tight sm:text-3xl', theme.titleClass, theme.font)}>
+                    {page.recipient_name}&apos;s story board
+                  </h2>
+                  <p className="mt-1 text-[11px] text-[#A09880]">
+                    {messages.length} wishes · {totalPhotos} photos · {totalAudioWishes} voice notes
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {(() => {
+              const freeformCardPalette = [
+                { bg: '#FFFBEA', border: '#E8D98A', text: '#4F4120' },
+                { bg: '#FDF0F2', border: '#E5B6BE', text: '#4F2F35' },
+                { bg: '#EDF4FF', border: '#B4CCE9', text: '#1A3F70' },
+                { bg: '#ECF8F3', border: '#AFD7C8', text: '#1F5D4A' },
+                { bg: '#F2EEFF', border: '#C0B5E8', text: '#352C73' },
+              ] as const;
+              const boardMessages = messages;
+
+              return (
+                <>
+                  <div className="space-y-4 md:hidden">
+                    {boardMessages.map((message, index) => {
+                      const isExpanded = expandedFreeformCardId === message.id;
+                      const baseRotation = ((index * 7) % 11 - 5) * 0.6;
+                      const rotation = Math.max(-1.5, Math.min(1.5, baseRotation));
+                      const tone = freeformCardPalette[index % freeformCardPalette.length];
+                      const photos = getMessagePhotos(message);
+                      const photoCount = photos.length;
+                      const voiceCount = message.audio_url ? 1 : 0;
+                      const compactMessage = stripHtml(message.message || '').trim();
+                      const shownPhotos = photos.slice(0, 3);
+                      const overflowPhotos = Math.max(0, photos.length - 3);
+
+                      return (
+                        <article
+                          key={message.id}
+                          className="relative rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all duration-300 ease-out"
+                          style={{
+                            marginLeft: `${index % 2 === 0 ? 4 : 14}px`,
+                            width: 'calc(100% - 20px)',
+                            transform: `rotate(${rotation}deg)`,
+                            backgroundColor: tone.bg,
+                            borderColor: isExpanded ? '#EDA45D' : tone.border,
+                            color: tone.text,
+                          }}
+                        >
+                          {index % 2 === 0 ? (
+                            <span
+                              aria-hidden="true"
+                              className="pointer-events-none absolute"
+                              style={{
+                                width: '36px',
+                                height: '13px',
+                                borderRadius: '2px',
+                                top: '-7px',
+                                left: '50%',
+                                transform: 'translateX(-50%) rotate(-1.5deg)',
+                                backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                              }}
+                            />
+                          ) : (
+                            <span
+                              aria-hidden="true"
+                              className="pointer-events-none absolute"
+                              style={{
+                                width: '9px',
+                                height: '9px',
+                                borderRadius: '999px',
+                                top: '-5px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                backgroundColor: '#E35252',
+                              }}
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setExpandedFreeformCardId((current) => (current === message.id ? null : message.id))}
+                            className="block w-full text-left"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-65">{message.sender_name || 'Someone'}</p>
+                              {isExpanded && (
+                                <span className="rounded-full bg-[#f3e5d2] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9b6a35]">
+                                  Tap to close
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-2 line-clamp-3 text-[1.02rem] leading-snug">{compactMessage || 'A birthday wish.'}</p>
+
+                            {(photoCount > 0 || voiceCount > 0) && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {photoCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
+                                    <ImageIcon className="h-3.5 w-3.5" />
+                                    {photoCount} photo{photoCount === 1 ? '' : 's'}
+                                  </span>
+                                )}
+                                {voiceCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
+                                    <Music className="h-3.5 w-3.5" />
+                                    {voiceCount} voice note{voiceCount === 1 ? '' : 's'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="mt-3 border-t border-black/10 pt-2 text-center text-xs font-medium opacity-45">Tap to open</div>
+                          </button>
+
+                          <div className={cn('grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 ease-out', isExpanded ? 'mt-3 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0')}>
+                            <div className="overflow-hidden">
+                              {isRichHtml(message.message)
+                                ? <div className="wish-rich-text text-[1.02rem] leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeWishHtmlForDisplay(message.message) }} />
+                                : <p className="text-[1.02rem] leading-relaxed">{message.message}</p>
+                              }
+
+                              {photoCount > 0 && (
+                                <div className="mt-3 grid grid-cols-3 gap-2">
+                                  {shownPhotos.map((photo, photoIndex) => {
+                                    const resolvedPhotoUrl = resolveAssetUrl(photo.photo_url) || photo.photo_url;
+                                    const shouldShowOverflowTile = overflowPhotos > 0 && photoIndex === 2;
+
+                                    return (
+                                      <button
+                                        key={photo.id}
+                                        type="button"
+                                        className="relative aspect-square overflow-hidden rounded-lg border border-white/45 bg-white/35"
+                                        onClick={() =>
+                                          setExpandedPhoto({
+                                            url: resolvedPhotoUrl,
+                                            caption: photo.caption,
+                                            senderName: message.sender_name,
+                                          })
+                                        }
+                                      >
+                                        {renderStoryImage(resolvedPhotoUrl, `Photo from ${message.sender_name}`, { disableParallax: true })}
+                                        {shouldShowOverflowTile && (
+                                          <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-base font-semibold text-white">+{overflowPhotos}</div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {voiceCount > 0 && <div className="mt-3 space-y-2">{renderWishAudioPlayer(message, 'w-full')}</div>}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <div className="hidden md:block">
+                    {(() => {
+                      const desktopRows = Math.max(1, Math.ceil(boardMessages.length / 3));
+
+                      return (
+                    <div
+                      ref={freeformDesktopContainerRef}
+                      className="relative"
+                      style={{ minHeight: `${Math.max(760, desktopRows * 270 + 220)}px` }}
+                    >
+
+                    {boardMessages.map((message, index) => {
+                      const isExpanded = expandedFreeformCardId === message.id;
+                      const rotation = ((index * 7) % 11 - 5) * 0.6;
+                      const tone = freeformCardPalette[index % freeformCardPalette.length];
+                      const photos = getMessagePhotos(message);
+                      const photoCount = photos.length;
+                      const voiceCount = message.audio_url ? 1 : 0;
+                      const compactMessage = stripHtml(message.message || '').trim();
+                      const shownPhotos = photos.slice(0, 3);
+                      const overflowPhotos = Math.max(0, photos.length - 3);
+                      const containerWidth = freeformDesktopWidth || 800;
+                      const cardWidth = Math.min(320, Math.max(260, Math.floor(containerWidth * 0.33)));
+                      const row = Math.floor(index / 3);
+                      const column = index % 3;
+                      const columnWidth = Math.max(220, (containerWidth - 40) / 3);
+                      const jitterX = ((index * 31) % 28) - 14;
+                      const jitterY = ((index * 19) % 20) - 10;
+                      const minLeft = 20;
+                      const maxLeft = Math.max(minLeft, containerWidth - cardWidth - 20);
+                      const baseX = 20 + column * columnWidth + jitterX;
+                      const x = Math.max(minLeft, Math.min(maxLeft, baseX));
+                      const y = 36 + row * 248 + jitterY;
+
+                      return (
+                        <article
+                          key={message.id}
+                          className="absolute rounded-[1.2rem] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)] transition-all duration-300 ease-out"
+                          style={{
+                            left: `${x}px`,
+                            top: `${y}px`,
+                            width: `${cardWidth}px`,
+                            transform: `rotate(${rotation}deg)`,
+                            backgroundColor: tone.bg,
+                            borderColor: isExpanded ? '#EDA45D' : tone.border,
+                            color: tone.text,
+                            zIndex: isExpanded ? 30 : 10 + index,
+                          }}
+                        >
+                          {index % 2 === 0 ? (
+                            <span
+                              aria-hidden="true"
+                              className="pointer-events-none absolute"
+                              style={{
+                                width: '36px',
+                                height: '13px',
+                                borderRadius: '2px',
+                                top: '-7px',
+                                left: '50%',
+                                transform: 'translateX(-50%) rotate(-1.5deg)',
+                                backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                              }}
+                            />
+                          ) : (
+                            <span
+                              aria-hidden="true"
+                              className="pointer-events-none absolute"
+                              style={{
+                                width: '9px',
+                                height: '9px',
+                                borderRadius: '999px',
+                                top: '-5px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                backgroundColor: '#E35252',
+                              }}
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setExpandedFreeformCardId((current) => (current === message.id ? null : message.id))}
+                            className="block w-full text-left"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-65">{message.sender_name || 'Someone'}</p>
+                              {isExpanded && (
+                                <span className="rounded-full bg-[#f3e5d2] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9b6a35]">
+                                  Tap to close
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-2 line-clamp-3 text-[1.02rem] leading-snug">{compactMessage || 'A birthday wish.'}</p>
+
+                            {(photoCount > 0 || voiceCount > 0) && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {photoCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
+                                    <ImageIcon className="h-3.5 w-3.5" />
+                                    {photoCount} photo{photoCount === 1 ? '' : 's'}
+                                  </span>
+                                )}
+                                {voiceCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
+                                    <Music className="h-3.5 w-3.5" />
+                                    {voiceCount} voice note{voiceCount === 1 ? '' : 's'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="mt-3 border-t border-black/10 pt-2 text-center text-xs font-medium opacity-45">Tap to open</div>
+                          </button>
+
+                          <div className={cn('grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 ease-out', isExpanded ? 'mt-3 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0')}>
+                            <div className="overflow-hidden">
+                              {isRichHtml(message.message)
+                                ? <div className="wish-rich-text text-[1.02rem] leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeWishHtmlForDisplay(message.message) }} />
+                                : <p className="text-[1.02rem] leading-relaxed">{message.message}</p>
+                              }
+
+                              {photoCount > 0 && (
+                                <div className="mt-3 grid grid-cols-3 gap-2">
+                                  {shownPhotos.map((photo, photoIndex) => {
+                                    const resolvedPhotoUrl = resolveAssetUrl(photo.photo_url) || photo.photo_url;
+                                    const shouldShowOverflowTile = overflowPhotos > 0 && photoIndex === 2;
+
+                                    return (
+                                      <button
+                                        key={photo.id}
+                                        type="button"
+                                        className="relative aspect-square overflow-hidden rounded-lg border border-white/45 bg-white/35"
+                                        onClick={() =>
+                                          setExpandedPhoto({
+                                            url: resolvedPhotoUrl,
+                                            caption: photo.caption,
+                                            senderName: message.sender_name,
+                                          })
+                                        }
+                                      >
+                                        {renderStoryImage(resolvedPhotoUrl, `Photo from ${message.sender_name}`, { disableParallax: true })}
+                                        {shouldShowOverflowTile && (
+                                          <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-base font-semibold text-white">+{overflowPhotos}</div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {voiceCount > 0 && <div className="mt-3 space-y-2">{renderWishAudioPlayer(message, 'w-full')}</div>}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                      );
+                    })()}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </section>
+      )}
+
       {/* Desktop: story (slide) view */}
-      <section className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', viewMode === 'bento' && '!hidden')}>
+      <section className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', viewMode !== 'story' && '!hidden')}>
         <div className="mx-auto flex h-full max-w-6xl flex-col">
           <div className="flex items-start gap-4">
             <div className="flex flex-1 gap-2">
@@ -2367,18 +3232,43 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 Pause
               </button>
               {canShowKeepsakeDownload && (
-                <button
-                  type="button"
-                  onClick={() => void handleDownloadKeepsake()}
-                  disabled={downloadingPdf}
-                  className={cn(
-                    'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                    isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-                  )}
-                >
-                  <Download className="h-4 w-4" />
-                  {downloadingPdf ? 'Preparing' : 'Download PDF'}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadKeepsake()}
+                    disabled={downloadingPdf}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                      isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
+                    )}
+                  >
+                    <Download className="h-4 w-4" />
+                    {downloadingPdf ? 'Preparing' : 'Download PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIncludeSoundtrackInVideo((current) => !current)}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
+                      isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
+                    )}
+                  >
+                    <Music className="h-4 w-4" />
+                    {includeSoundtrackInVideo ? 'Video sound on' : 'Video sound off'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadVideoKeepsake()}
+                    disabled={downloadingVideo}
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                      isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
+                    )}
+                  >
+                    <Video className="h-4 w-4" />
+                    {downloadingVideo ? 'Rendering video' : 'Download video'}
+                  </button>
+                </>
               )}
               <button
                 type="button"
