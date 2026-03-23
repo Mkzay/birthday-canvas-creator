@@ -3118,10 +3118,10 @@ app.get("/api/og-image-app", async (_request, response) => {
   <rect width="1200" height="630" fill="url(#overlay)" />
   <circle cx="180" cy="120" r="170" fill="rgba(255,255,255,0.12)" />
   <circle cx="1020" cy="530" r="230" fill="rgba(255,255,255,0.08)" />
-  <text x="98" y="214" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="28" font-weight="700" letter-spacing="6" fill="rgba(255,255,255,0.85)">WISHCANVAS</text>
-  <text x="98" y="318" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="78" font-weight="800" fill="white">Collaborative</text>
-  <text x="98" y="402" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="78" font-weight="800" fill="white">Birthday Stories</text>
-  <text x="98" y="494" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" fill="rgba(255,255,255,0.9)">Collect wishes, photos, and voice notes in one beautiful reveal.</text>
+  <rect x="98" y="198" width="420" height="16" rx="8" fill="rgba(255,255,255,0.82)" />
+  <rect x="98" y="250" width="760" height="72" rx="18" fill="rgba(255,255,255,0.92)" />
+  <rect x="98" y="338" width="680" height="72" rx="18" fill="rgba(255,255,255,0.88)" />
+  <rect x="98" y="448" width="860" height="20" rx="10" fill="rgba(255,255,255,0.64)" />
 </svg>`;
 
     const pngBuffer = await sharp(Buffer.from(svg)).png({ quality: 94 }).toBuffer();
@@ -3163,11 +3163,11 @@ app.get("/api/og-image/:id", validateParams(pageIdParamSchema), async (request, 
   <rect width="1200" height="630" fill="url(#overlay)" />
   <circle cx="200" cy="130" r="180" fill="rgba(255,255,255,0.08)" />
   <circle cx="1000" cy="500" r="220" fill="rgba(255,255,255,0.06)" />
-  <text x="100" y="260" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="600" letter-spacing="6" fill="rgba(255,255,255,0.7)" text-transform="uppercase">BIRTHDAY POST</text>
-  <text x="100" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="white">Happy Birthday,</text>
-  <text x="100" y="420" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="white">${escapedName}.</text>
-  <text x="100" y="500" font-family="system-ui, -apple-system, sans-serif" font-size="26" fill="rgba(255,255,255,0.8)">${count} birthday ${count === 1 ? "wish" : "wishes"} waiting inside</text>
-  <text x="100" y="580" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" letter-spacing="3" fill="rgba(255,255,255,0.5)">WISHCANVAS</text>
+  <rect x="100" y="236" width="360" height="14" rx="7" fill="rgba(255,255,255,0.72)" />
+  <rect x="100" y="286" width="670" height="72" rx="18" fill="rgba(255,255,255,0.9)" />
+  <rect x="100" y="374" width="520" height="72" rx="18" fill="rgba(255,255,255,0.84)" />
+  <rect x="100" y="480" width="760" height="20" rx="10" fill="rgba(255,255,255,0.62)" />
+  <rect x="100" y="560" width="260" height="12" rx="6" fill="rgba(255,255,255,0.5)" />
 </svg>`;
 
     const pngBuffer = await sharp(Buffer.from(svg)).png({ quality: 92 }).toBuffer();
