@@ -21,27 +21,42 @@ type FeatureDetails = {
 };
 
 const DEFAULT_FEATURES: ProFeature[] = [
+  { id: 'unlimited-contributors', title: 'Unlimited contributors per page', status: 'live' },
   { id: 'scheduled-delivery', title: 'Scheduled delivery automation', status: 'live' },
+  { id: 'advanced-view-modes', title: 'Advanced page view modes', status: 'live' },
+  { id: 'advanced-custom-themes', title: 'Advanced custom theme tools', status: 'live' },
   { id: 'advanced-reveal-effects', title: 'Advanced reveal effects', status: 'coming-soon' },
   { id: 'privacy-controls', title: 'Private and secure options', status: 'coming-soon' },
   { id: 'creator-analytics', title: 'Creator analytics', status: 'live' },
   { id: 'vanity-links-branding', title: 'Custom branding and vanity links', status: 'live' },
   { id: 'team-collaboration', title: 'Team collaboration', status: 'coming-soon' },
-  { id: 'keepsake-export', title: 'Export and keepsake features', status: 'live' },
+  { id: 'keepsake-export', title: 'Export and keepsake features', status: 'coming-soon' },
   { id: 'priority-support', title: 'Priority support and recovery', status: 'coming-soon' },
 ];
 
 const FEATURE_DETAILS: Record<string, FeatureDetails> = {
+  'unlimited-contributors': {
+    summary: 'Collect wishes from as many friends and family as you want.',
+    value: 'No free-tier contributor cap on your birthday pages.',
+  },
   'scheduled-delivery': {
     summary: 'Pick an exact future reveal date and time for each birthday page.',
     value: 'No manual midnight publish. Every reveal can be timed precisely.',
+  },
+  'advanced-view-modes': {
+    summary: 'Choose Story, Freeform, or Bento page views as the organizer.',
+    value: 'Shape the final viewing style instead of using one fixed layout.',
+  },
+  'advanced-custom-themes': {
+    summary: 'Unlock premium theme controls like midpoint gradients, premium fonts, and theme icons.',
+    value: 'Create richer visual styles without free-plan theme restrictions.',
   },
   'advanced-reveal-effects': {
     summary: 'More immersive reveal transitions and storytelling presentation.',
     value: 'Stronger emotional moment when the birthday page opens.',
   },
   'privacy-controls': {
-    summary: 'Protect reveal pages with private access controls like PIN unlock.',
+    summary: 'Protect reveal pages with private access controls and audience restrictions.',
     value: 'Only invited recipients can open sensitive birthday memories.',
   },
   'creator-analytics': {
@@ -57,8 +72,8 @@ const FEATURE_DETAILS: Record<string, FeatureDetails> = {
     value: 'Coordinate with helpers without sharing one account login.',
   },
   'keepsake-export': {
-    summary: 'Generate branded keepsake PDF exports from birthday pages.',
-    value: 'Recipients can download a lasting archive of wishes and memories.',
+    summary: 'Keepsake exports are returning soon as a Pro capability.',
+    value: 'This feature is currently incoming and will be re-enabled in a future release.',
   },
   'priority-support': {
     summary: 'Faster support and improved recovery help when issues happen.',
@@ -266,8 +281,12 @@ const UpgradePage = () => {
                   <p className="text-right text-muted-foreground">Free: birthday date · Pro: schedule + secret PIN</p>
                 </div>
                 <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                  <p className="font-medium text-foreground">Page view modes</p>
+                  <p className="text-right text-muted-foreground">Free: Story only · Pro: Story + Freeform + Bento</p>
+                </div>
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
                   <p className="font-medium text-foreground">Analytics and keepsake export</p>
-                  <p className="text-right text-muted-foreground">Free: not included · Pro: dashboard analytics + branded PDF</p>
+                  <p className="text-right text-muted-foreground">Free: not included · Pro: dashboard analytics (keepsake export incoming)</p>
                 </div>
                 <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
                   <p className="font-medium text-foreground">Custom themes</p>

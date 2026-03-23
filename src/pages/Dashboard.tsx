@@ -760,7 +760,7 @@ const Dashboard = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="gap-2"
+                                className="w-full gap-2"
                                 onClick={() => void handleAnalytics(page.public_code)}
                                 disabled={analyticsLoadingPage === page.public_code}
                               >

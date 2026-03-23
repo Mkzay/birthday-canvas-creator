@@ -92,11 +92,14 @@ export const paystackVerifyBodySchema = z.object({
   reference: z.string().min(6).max(120).transform((s) => s.trim()),
 });
 
+const displayModeSchema = z.enum(["story", "freeform", "bento"]);
+
 export const pageCreateBodySchema = z.object({
   recipientEmail: z.union([z.string().email().max(320), z.literal(""), z.null()]).optional(),
   recipientName: z.string().max(200).optional(),
   birthdayDate: dateYmd,
   theme: z.string().max(80).optional(),
+  displayMode: displayModeSchema.optional(),
   creatorMessage: z.union([z.string().max(5000), z.null()]).optional(),
   soundtrackId: z.string().max(64).optional(),
   pageCustomAudioUrl: z.union([z.string().max(2000), z.null()]).optional(),
@@ -114,6 +117,7 @@ export const pagePatchBodySchema = z.object({
   recipientEmail: z.union([z.string().email().max(320), z.literal(""), z.null()]).optional(),
   birthdayDate: dateYmd.optional(),
   theme: z.string().max(80).optional(),
+  displayMode: displayModeSchema.optional(),
   creatorMessage: z.union([z.string().max(5000), z.null()]).optional(),
   soundtrackId: z.string().max(64).optional(),
   allowPhotos: z.boolean().optional(),
