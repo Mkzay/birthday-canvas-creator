@@ -51,12 +51,34 @@
       "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId"
     },
     {
+      "source": "/birthday/:pageId/",
+      "has": [
+        {
+          "type": "header",
+          "key": "User-Agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
+        }
+      ],
+      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId"
+    },
+    {
       "source": "/contribute/:pageId",
       "has": [
         {
           "type": "header",
           "key": "User-Agent",
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
+        }
+      ],
+      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId?view=contribute"
+    },
+    {
+      "source": "/contribute/:pageId/",
+      "has": [
+        {
+          "type": "header",
+          "key": "User-Agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
       "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId?view=contribute"
