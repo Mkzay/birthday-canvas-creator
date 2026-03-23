@@ -3100,28 +3100,98 @@ function resolveThemeColors(page: Record<string, unknown>): [string, string] {
   return themeGradientColors[theme] || themeGradientColors.elegant;
 }
 
+function toAbsoluteAssetUrl(value: string, apiBase: string) {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${apiBase}${value.startsWith("/") ? "" : "/"}${value}`;
+}
+
+async function buildCoverOgImageBuffer(coverUrl: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+
+  try {
+    const result = await fetch(coverUrl, {
+      redirect: "follow",
+      signal: controller.signal,
+    });
+
+    if (!result.ok) {
+      return null;
+    }
+
+    const sourceBuffer = Buffer.from(await result.arrayBuffer());
+
+    const baseImage = await sharp(sourceBuffer)
+      .rotate()
+      .resize(1200, 630, {
+        fit: "cover",
+        position: "attention",
+      })
+      .toBuffer();
+
+    const overlay = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(0,0,0,0.06)" />
+      <stop offset="100%" stop-color="rgba(0,0,0,0.42)" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#shade)" />
+  <rect x="52" y="44" width="1096" height="542" rx="34" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="8" />
+  <circle cx="110" cy="104" r="34" fill="rgba(255,255,255,0.26)" />
+  <circle cx="1060" cy="542" r="52" fill="rgba(255,255,255,0.18)" />
+</svg>`;
+
+    return await sharp(baseImage)
+      .composite([{ input: Buffer.from(overlay), blend: "over" }])
+      .png({ quality: 96 })
+      .toBuffer();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 app.get("/api/og-image-app", async (_request, response) => {
   try {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f59e0b" />
-      <stop offset="45%" stop-color="#f97316" />
-      <stop offset="100%" stop-color="#ec4899" />
+      <stop offset="0%" stop-color="#ea580c" />
+      <stop offset="52%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#8b5cf6" />
     </linearGradient>
-    <linearGradient id="overlay" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(0,0,0,0.05)" />
-      <stop offset="100%" stop-color="rgba(0,0,0,0.35)" />
+    <linearGradient id="cardGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.18)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0.04)" />
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fffaf0" />
+      <stop offset="100%" stop-color="#f4efe6" />
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)" />
-  <rect width="1200" height="630" fill="url(#overlay)" />
-  <circle cx="180" cy="120" r="170" fill="rgba(255,255,255,0.12)" />
-  <circle cx="1020" cy="530" r="230" fill="rgba(255,255,255,0.08)" />
-  <rect x="98" y="198" width="420" height="16" rx="8" fill="rgba(255,255,255,0.82)" />
-  <rect x="98" y="250" width="760" height="72" rx="18" fill="rgba(255,255,255,0.92)" />
-  <rect x="98" y="338" width="680" height="72" rx="18" fill="rgba(255,255,255,0.88)" />
-  <rect x="98" y="448" width="860" height="20" rx="10" fill="rgba(255,255,255,0.64)" />
+  <circle cx="140" cy="116" r="154" fill="rgba(255,255,255,0.18)" />
+  <circle cx="1048" cy="516" r="214" fill="rgba(255,255,255,0.12)" />
+  <rect x="88" y="62" width="1024" height="506" rx="34" fill="url(#cardGlow)" stroke="rgba(255,255,255,0.38)" stroke-width="4" />
+
+  <rect x="126" y="112" width="948" height="400" rx="28" fill="url(#paper)" />
+  <rect x="156" y="146" width="420" height="332" rx="22" fill="#ddd6fe" />
+  <rect x="170" y="160" width="392" height="304" rx="18" fill="#c4b5fd" />
+  <circle cx="338" cy="286" r="82" fill="rgba(255,255,255,0.7)" />
+  <rect x="445" y="360" width="102" height="74" rx="18" fill="rgba(255,255,255,0.58)" />
+
+  <rect x="618" y="162" width="394" height="20" rx="10" fill="#f97316" opacity="0.78" />
+  <rect x="618" y="206" width="356" height="66" rx="16" fill="#fb923c" opacity="0.82" />
+  <rect x="618" y="286" width="316" height="66" rx="16" fill="#ec4899" opacity="0.74" />
+  <rect x="618" y="382" width="394" height="18" rx="9" fill="#6d28d9" opacity="0.6" />
+  <rect x="618" y="418" width="244" height="18" rx="9" fill="#6d28d9" opacity="0.46" />
+
+  <circle cx="958" cy="478" r="18" fill="#f97316" opacity="0.78" />
+  <circle cx="994" cy="478" r="18" fill="#ec4899" opacity="0.72" />
+  <circle cx="1030" cy="478" r="18" fill="#8b5cf6" opacity="0.68" />
 </svg>`;
 
     const pngBuffer = await sharp(Buffer.from(svg)).png({ quality: 94 }).toBuffer();
@@ -3143,10 +3213,19 @@ app.get("/api/og-image/:id", validateParams(pageIdParamSchema), async (request, 
     if (!page) { response.status(404).send("Not found"); return; }
 
     const [colorFrom, colorTo] = resolveThemeColors(page);
-    const name = String(page.recipient_name || "Someone special");
-    const count = Number(page.message_count || 0);
+    const apiBase = process.env.API_URL || `${request.protocol}://${request.get("host")}`;
+    const coverPhoto = typeof page.cover_photo_url === "string" ? page.cover_photo_url : "";
+    const normalizedCover = toAbsoluteAssetUrl(coverPhoto, apiBase);
 
-    const escapedName = escapeHtml(name);
+    if (normalizedCover) {
+      const coverPng = await buildCoverOgImageBuffer(normalizedCover);
+      if (coverPng) {
+        response.setHeader("Content-Type", "image/png");
+        response.setHeader("Cache-Control", "public, max-age=3600, s-maxage=3600");
+        response.send(coverPng);
+        return;
+      }
+    }
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
@@ -3154,20 +3233,37 @@ app.get("/api/og-image/:id", validateParams(pageIdParamSchema), async (request, 
       <stop offset="0%" stop-color="${colorFrom}" />
       <stop offset="100%" stop-color="${colorTo}" />
     </linearGradient>
-    <linearGradient id="overlay" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(0,0,0,0)" />
-      <stop offset="100%" stop-color="rgba(0,0,0,0.35)" />
+    <linearGradient id="sheet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fffaf0" />
+      <stop offset="100%" stop-color="#f5efe3" />
+    </linearGradient>
+    <linearGradient id="vignette" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(0,0,0,0.05)" />
+      <stop offset="100%" stop-color="rgba(0,0,0,0.28)" />
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)" />
-  <rect width="1200" height="630" fill="url(#overlay)" />
-  <circle cx="200" cy="130" r="180" fill="rgba(255,255,255,0.08)" />
-  <circle cx="1000" cy="500" r="220" fill="rgba(255,255,255,0.06)" />
-  <rect x="100" y="236" width="360" height="14" rx="7" fill="rgba(255,255,255,0.72)" />
-  <rect x="100" y="286" width="670" height="72" rx="18" fill="rgba(255,255,255,0.9)" />
-  <rect x="100" y="374" width="520" height="72" rx="18" fill="rgba(255,255,255,0.84)" />
-  <rect x="100" y="480" width="760" height="20" rx="10" fill="rgba(255,255,255,0.62)" />
-  <rect x="100" y="560" width="260" height="12" rx="6" fill="rgba(255,255,255,0.5)" />
+  <rect width="1200" height="630" fill="url(#vignette)" />
+  <circle cx="188" cy="124" r="170" fill="rgba(255,255,255,0.16)" />
+  <circle cx="1028" cy="520" r="208" fill="rgba(255,255,255,0.12)" />
+
+  <rect x="104" y="74" width="992" height="482" rx="36" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.34)" stroke-width="4" />
+  <rect x="140" y="112" width="920" height="406" rx="28" fill="url(#sheet)" />
+
+  <rect x="178" y="152" width="370" height="326" rx="22" fill="#fde68a" opacity="0.58" />
+  <rect x="194" y="168" width="338" height="294" rx="18" fill="#fef3c7" opacity="0.9" />
+  <circle cx="330" cy="288" r="78" fill="rgba(251,146,60,0.35)" />
+  <rect x="432" y="352" width="84" height="84" rx="14" fill="rgba(234,88,12,0.24)" />
+
+  <rect x="580" y="168" width="424" height="18" rx="9" fill="rgba(17,24,39,0.3)" />
+  <rect x="580" y="210" width="396" height="64" rx="16" fill="rgba(17,24,39,0.16)" />
+  <rect x="580" y="288" width="356" height="64" rx="16" fill="rgba(17,24,39,0.14)" />
+  <rect x="580" y="384" width="424" height="18" rx="9" fill="rgba(17,24,39,0.22)" />
+  <rect x="580" y="420" width="258" height="18" rx="9" fill="rgba(17,24,39,0.16)" />
+
+  <circle cx="962" cy="474" r="16" fill="rgba(234,88,12,0.58)" />
+  <circle cx="994" cy="474" r="16" fill="rgba(236,72,153,0.52)" />
+  <circle cx="1026" cy="474" r="16" fill="rgba(124,58,237,0.48)" />
 </svg>`;
 
     const pngBuffer = await sharp(Buffer.from(svg)).png({ quality: 92 }).toBuffer();
@@ -3202,11 +3298,8 @@ app.get("/api/og/:id", validateParams(pageIdParamSchema), async (request, respon
       ? `Join the birthday page and leave a wish, photo, or voice note for ${name}.`
       : `${count} birthday ${count === 1 ? "wish has" : "wishes have"} been collected. Open the letter to start the birthday story.`;
     const pageUrl = `${siteBase}/${previewMode === "contribute" ? "contribute" : "birthday"}/${publicCode}`;
-    const coverPhoto = typeof page.cover_photo_url === "string" ? page.cover_photo_url : "";
-    const normalizedCover = coverPhoto && !/^https?:\/\//i.test(coverPhoto)
-      ? `${apiBase}${coverPhoto.startsWith("/") ? "" : "/"}${coverPhoto}`
-      : coverPhoto;
-    const imageUrl = normalizedCover || `${apiBase}/api/og-image/${publicCode}`;
+    const imageVersion = encodeURIComponent(`${count}-${typeof page.cover_photo_url === "string" && page.cover_photo_url ? "cover" : "nocover"}`);
+    const imageUrl = `${apiBase}/api/og-image/${publicCode}?v=${imageVersion}`;
 
     const escapedTitle = escapeHtml(title);
     const escapedDesc = escapeHtml(description);

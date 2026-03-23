@@ -525,6 +525,11 @@ interface BirthdayPageProps {
   showRevealIntroInPreview?: boolean;
 }
 
+type PendingDeleteAction =
+  | { kind: 'message'; messageId: string; senderName: string }
+  | { kind: 'photo'; photoId: string; messageId: string; senderName: string }
+  | { kind: 'audio'; messageId: string; senderName: string };
+
 function getMessagePhotos(message: Message) {
   if (message.photos?.length) {
     return message.photos;
@@ -551,7 +556,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPhoto, setExpandedPhoto] = useState<ExpandedPhoto>(null);
-  const [messagePendingDelete, setMessagePendingDelete] = useState<Message | null>(null);
+  const [pendingDeleteAction, setPendingDeleteAction] = useState<PendingDeleteAction | null>(null);
   const [showShareCard, setShowShareCard] = useState(false);
   const [showRevealIntro, setShowRevealIntro] = useState(false);
   const [hasTriggeredIntro, setHasTriggeredIntro] = useState(false);
@@ -1253,7 +1258,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }, [currentSlide]);
 
   const handleDeleteMessage = async (messageId: string) => {
-    if (!isPreview || !pageId || !window.confirm('Are you sure you want to delete this message? This cannot be undone.')) {
+    if (!isPreview || !pageId) {
       return;
     }
 
@@ -1270,7 +1275,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   };
 
   const handleDeletePhoto = async (photoId: string, messageId: string) => {
-    if (!isPreview || !pageId || !window.confirm('Are you sure you want to delete this photo?')) {
+    if (!isPreview || !pageId) {
       return;
     }
 
@@ -1299,7 +1304,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   };
 
   const handleDeleteAudio = async (messageId: string) => {
-    if (!isPreview || !pageId || !window.confirm('Are you sure you want to delete this voice note?')) {
+    if (!isPreview || !pageId) {
       return;
     }
 
@@ -2613,7 +2618,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 className="absolute right-3 top-3 z-30 h-8 w-8 rounded-full opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  void handleDeletePhoto(photo.id, activeSlide.message.id);
+                                    setPendingDeleteAction({
+                                      kind: 'photo',
+                                      photoId: photo.id,
+                                      messageId: activeSlide.message.id,
+                                      senderName: activeSlide.message.sender_name,
+                                    });
                                 }}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -2705,7 +2715,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   className="absolute right-4 top-4 gap-1 text-destructive/90 hover:bg-destructive/5 hover:text-destructive"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setMessagePendingDelete(activeSlide.message);
+                                    setPendingDeleteAction({
+                                      kind: 'message',
+                                      messageId: activeSlide.message.id,
+                                      senderName: activeSlide.message.sender_name,
+                                    });
                                   }}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -2784,7 +2798,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     className="absolute right-4 top-4 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      void handleDeleteAudio(activeSlide.message.id);
+                                      setPendingDeleteAction({
+                                        kind: 'audio',
+                                        messageId: activeSlide.message.id,
+                                        senderName: activeSlide.message.sender_name,
+                                      });
                                     }}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -2925,36 +2943,63 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       />
 
       <AlertDialog
-        open={Boolean(messagePendingDelete)}
+        open={Boolean(pendingDeleteAction)}
         onOpenChange={(open) => {
-          if (!open) setMessagePendingDelete(null);
+          if (!open) setPendingDeleteAction(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove this wish from the story?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {pendingDeleteAction?.kind === 'photo'
+                ? 'Remove this photo from the wish?'
+                : pendingDeleteAction?.kind === 'audio'
+                  ? 'Remove this voice note from the wish?'
+                  : 'Remove this wish from the story?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the letter, photos, and audio attached to this wish from the birthday playback.
+              {pendingDeleteAction?.kind === 'photo'
+                ? 'This permanently removes the selected photo from this wish.'
+                : pendingDeleteAction?.kind === 'audio'
+                  ? 'This permanently removes the voice note from this wish.'
+                  : 'This permanently removes the letter, photos, and audio attached to this wish from the birthday playback.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
             <Trash2 className="mt-0.5 h-4 w-4 text-destructive" />
             <span>
-              {messagePendingDelete?.sender_name}&apos;s wish will disappear from this birthday story. This can&apos;t be undone.
+              {pendingDeleteAction?.kind === 'photo'
+                ? `The selected photo from ${pendingDeleteAction.senderName}'s wish will be deleted. This can't be undone.`
+                : pendingDeleteAction?.kind === 'audio'
+                  ? `${pendingDeleteAction.senderName}'s voice note will be deleted. This can't be undone.`
+                  : `${pendingDeleteAction?.senderName ?? 'This'} wish will disappear from this birthday story. This can't be undone.`}
             </span>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setMessagePendingDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPendingDeleteAction(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
-                if (messagePendingDelete) {
-                  void handleDeleteMessage(messagePendingDelete.id);
+                if (!pendingDeleteAction) {
+                  return;
                 }
-                setMessagePendingDelete(null);
+
+                if (pendingDeleteAction.kind === 'message') {
+                  void handleDeleteMessage(pendingDeleteAction.messageId);
+                } else if (pendingDeleteAction.kind === 'photo') {
+                  void handleDeletePhoto(pendingDeleteAction.photoId, pendingDeleteAction.messageId);
+                } else {
+                  void handleDeleteAudio(pendingDeleteAction.messageId);
+                }
+
+                setPendingDeleteAction(null);
               }}
             >
-              Remove wish
+              {pendingDeleteAction?.kind === 'photo'
+                ? 'Remove photo'
+                : pendingDeleteAction?.kind === 'audio'
+                  ? 'Remove voice note'
+                  : 'Remove wish'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
