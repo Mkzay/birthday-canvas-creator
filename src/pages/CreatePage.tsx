@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, ArrowRight, Check, Copy, Eye, QrCode, Calendar, Image, X, Loader2, Palette } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, Eye, QrCode, Calendar, Image, X, Loader2, Palette, Lock } from 'lucide-react';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import QRCodeModal from '@/components/QRCodeModal';
 import ThemeSelector from '@/components/ThemeSelector';
@@ -20,6 +20,7 @@ import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import Header from '@/components/Header';
 
 type Theme = string;
+type DisplayMode = 'story' | 'freeform' | 'bento';
 type Step = 1 | 2 | 3;
 
 interface CustomTheme {
@@ -43,6 +44,83 @@ const themeConfig = {
   midnight: { name: 'Midnight', emoji: '🌙', primary: 'from-indigo-500 to-violet-600' },
 };
 
+const displayModes: Array<{ id: DisplayMode; label: string; description: string }> = [
+  { id: 'story', label: 'Story', description: 'Guided reveal flow' },
+  { id: 'freeform', label: 'Freeform', description: 'Scrapbook-style layout' },
+  { id: 'bento', label: 'Bento', description: 'Structured card grid' },
+];
+
+function ModePreview({ mode }: { mode: DisplayMode }) {
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-muted/35 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Live preview</p>
+        <span className="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-[11px] font-semibold text-foreground">
+          {mode === 'story' ? 'Story flow' : mode === 'freeform' ? 'Freeform board' : 'Bento grid'}
+        </span>
+      </div>
+
+      {mode === 'story' && (
+        <div className="space-y-3">
+          <div className="overflow-hidden rounded-xl border border-border/70 bg-background/80">
+            <div className="flex w-full gap-2 px-2 py-2">
+              <div className="w-[70%] shrink-0 rounded-lg border border-border/60 bg-gradient-to-br from-amber-100/70 to-rose-100/70 p-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/70">Slide 1</p>
+                <p className="mt-1 text-xs font-medium text-foreground">Cover reveal</p>
+              </div>
+              <div className="w-[70%] shrink-0 rounded-lg border border-border/50 bg-background/75 p-2 opacity-80">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/60">Slide 2</p>
+                <p className="mt-1 text-xs text-foreground">Birthday stats</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-4 rounded-full bg-foreground/80" />
+              <span className="h-1.5 w-1.5 rounded-full bg-foreground/35" />
+              <span className="h-1.5 w-1.5 rounded-full bg-foreground/35" />
+              <span className="h-1.5 w-1.5 rounded-full bg-foreground/35" />
+            </div>
+            <p className="text-[11px] font-medium text-muted-foreground">Swipe or next controls</p>
+          </div>
+        </div>
+      )}
+
+      {mode === 'freeform' && (
+        <div className="columns-2 [column-gap:0.5rem]">
+          <article className="relative mb-2 inline-block w-full break-inside-avoid rounded-xl border border-amber-200 bg-amber-50 px-2.5 py-2 text-amber-900 shadow-sm [transform:rotate(-1.5deg)]">
+            <span className="absolute -top-1 left-1/2 h-2 w-8 -translate-x-1/2 rounded-sm bg-amber-200/80" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">Nora</p>
+            <p className="mt-1 text-[11px] leading-snug">You made this year brighter for everyone.</p>
+          </article>
+          <article className="relative mb-2 inline-block w-full break-inside-avoid rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-2 text-rose-900 shadow-sm [transform:rotate(1.2deg)]">
+            <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-rose-400/85" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">Jules</p>
+            <div className="mt-1 grid grid-cols-2 gap-1">
+              <div className="h-7 rounded-md border border-white/65 bg-white/70" />
+              <div className="h-7 rounded-md border border-white/65 bg-white/70" />
+            </div>
+          </article>
+          <article className="relative mb-2 inline-block w-full break-inside-avoid rounded-xl border border-sky-200 bg-sky-50 px-2.5 py-2 text-sky-900 shadow-sm [transform:rotate(-0.8deg)]">
+            <span className="absolute -top-1 left-1/2 h-2 w-8 -translate-x-1/2 rounded-sm bg-sky-200/85" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">Amara</p>
+            <p className="mt-1 text-[11px]">Voice note + message</p>
+          </article>
+        </div>
+      )}
+
+      {mode === 'bento' && (
+        <div className="grid h-32 grid-cols-3 gap-2">
+          <div className="col-span-2 rounded-xl border border-border/70 bg-background/80" />
+          <div className="row-span-2 rounded-xl border border-border/70 bg-background/80" />
+          <div className="rounded-xl border border-border/70 bg-background/75" />
+          <div className="rounded-xl border border-border/70 bg-background/75" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function toIsoDatetime(value: string) {
   if (!value) return null;
   const date = new Date(value);
@@ -64,6 +142,7 @@ const CreatePage = () => {
   const [birthdayDate, setBirthdayDate] = useState<Date>();
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
+  const [selectedDisplayMode, setSelectedDisplayMode] = useState<DisplayMode>('story');
   const [allowPhotos, setAllowPhotos] = useState(user?.defaultAllowPhotos ?? true);
   const [allowAudio, setAllowAudio] = useState(user?.defaultAllowAudio ?? true);
   const [requireNames, setRequireNames] = useState(user?.defaultRequireNames ?? true);
@@ -92,6 +171,12 @@ const CreatePage = () => {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (!isProUser && selectedDisplayMode !== 'story') {
+      setSelectedDisplayMode('story');
+    }
+  }, [isProUser, selectedDisplayMode]);
 
   const fetchCustomThemes = useCallback(async () => {
     if (!user) return;
@@ -212,6 +297,7 @@ const CreatePage = () => {
             recipientEmail: recipientEmail.trim() || null,
             birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
             theme: selectedTheme,
+            displayMode: isProUser ? selectedDisplayMode : 'story',
             creatorMessage: creatorMessage || null,
             soundtrackId: selectedSoundtrackId,
             pageCustomAudioUrl,
@@ -268,6 +354,7 @@ const CreatePage = () => {
           recipientEmail: recipientEmail.trim() || null,
           birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
           theme: selectedTheme,
+          displayMode: isProUser ? selectedDisplayMode : 'story',
           creatorMessage: creatorMessage || null,
           soundtrackId: selectedSoundtrackId,
           allowPhotos: nextAllowPhotos,
@@ -281,7 +368,7 @@ const CreatePage = () => {
       toast.error('Failed to update page settings');
       console.error(error);
     }
-  }, [birthdayDate, closeDate, createdPageId, creatorMessage, pageCustomAudioUrl, recipientEmail, recipientName, selectedSoundtrackId, selectedTheme]);
+  }, [birthdayDate, closeDate, createdPageId, creatorMessage, isProUser, pageCustomAudioUrl, recipientEmail, recipientName, selectedDisplayMode, selectedSoundtrackId, selectedTheme]);
 
   const handleAllowPhotosChange = (checked: boolean) => {
     setAllowPhotos(checked);
@@ -521,6 +608,44 @@ const CreatePage = () => {
               customThemes={customThemes}
               recipientName={recipientName}
             />
+
+            <div className="panel-inset mt-4 p-4 sm:p-6">
+              <h3 className="text-lg font-bold text-foreground">Birthday page view</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {isProUser
+                  ? 'You control how recipients will view this page.'
+                  : 'Free plan uses Story view. Upgrade to Pro to unlock Freeform and Bento.'}
+              </p>
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {displayModes.map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => {
+                      if (!isProUser && mode.id !== 'story') return;
+                      setSelectedDisplayMode(mode.id);
+                    }}
+                    disabled={!isProUser && mode.id !== 'story'}
+                    className={cn(
+                      'rounded-xl border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                      selectedDisplayMode === mode.id
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border/70 bg-background/70 text-foreground hover:border-primary/40',
+                    )}
+                  >
+                    <p className="flex items-center gap-1.5 text-sm font-semibold">
+                      {mode.label}
+                      {!isProUser && mode.id !== 'story' && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{mode.description}</p>
+                    {!isProUser && mode.id !== 'story' && (
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-amber-700">Pro</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <ModePreview mode={selectedDisplayMode} />
+            </div>
 
             <div className="panel-inset mt-8 p-4 sm:p-6">
               <h3 className="text-lg font-bold text-foreground">Opening soundtrack</h3>

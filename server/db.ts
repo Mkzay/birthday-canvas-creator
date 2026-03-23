@@ -105,6 +105,7 @@ export async function initializeDatabase() {
       recipient_email TEXT,
       birthday_date DATE NOT NULL,
       theme TEXT NOT NULL DEFAULT 'elegant',
+      display_mode TEXT NOT NULL DEFAULT 'story',
       creator_message TEXT,
       cover_photo_url TEXT,
       soundtrack_id TEXT NOT NULL DEFAULT 'golden-hour',
@@ -117,7 +118,8 @@ export async function initializeDatabase() {
       birthday_notified_year INTEGER,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      CONSTRAINT birthday_pages_status_check CHECK (status IN ('active', 'delivered', 'draft'))
+      CONSTRAINT birthday_pages_status_check CHECK (status IN ('active', 'delivered', 'draft')),
+      CONSTRAINT birthday_pages_display_mode_check CHECK (display_mode IN ('story', 'freeform', 'bento'))
     );
   `;
 
@@ -241,6 +243,26 @@ export async function initializeDatabase() {
   await sql`
     ALTER TABLE birthday_pages
     ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS display_mode TEXT NOT NULL DEFAULT 'story';
+  `;
+
+  await sql`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'birthday_pages_display_mode_check'
+      ) THEN
+        ALTER TABLE birthday_pages
+        ADD CONSTRAINT birthday_pages_display_mode_check
+        CHECK (display_mode IN ('story', 'freeform', 'bento'));
+      END IF;
+    END $$;
   `;
 
   await sql`

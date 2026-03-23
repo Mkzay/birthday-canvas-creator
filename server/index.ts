@@ -100,13 +100,16 @@ const FREE_CONTRIBUTOR_LIMIT = 6;
 const PUBLIC_UNLOCK_COOKIE_NAME = "wishcanvas_public_unlock";
 const EXPORTS_DISABLED_IN_PRODUCTION = process.env.NODE_ENV === "production";
 const PRO_OFFER_FEATURES = [
+  { id: "unlimited-contributors", title: "Unlimited contributors per page", status: "live" },
   { id: "scheduled-delivery", title: "Scheduled delivery automation", status: "live" },
+  { id: "advanced-view-modes", title: "Advanced page view modes", status: "live" },
+  { id: "advanced-custom-themes", title: "Advanced custom theme tools", status: "live" },
   { id: "advanced-reveal-effects", title: "Advanced reveal effects", status: "coming-soon" },
   { id: "privacy-controls", title: "Private and secure options", status: "coming-soon" },
   { id: "creator-analytics", title: "Creator analytics", status: "live" },
   { id: "vanity-links-branding", title: "Custom branding and vanity links", status: "live" },
   { id: "team-collaboration", title: "Team collaboration", status: "coming-soon" },
-  { id: "keepsake-export", title: "Export and keepsake features", status: "live" },
+  { id: "keepsake-export", title: "Export and keepsake features", status: "coming-soon" },
   { id: "priority-support", title: "Priority support and recovery", status: "coming-soon" },
 ] as const;
 
@@ -1037,6 +1040,7 @@ function publicPageQuery(pageId: string) {
       bp.recipient_name,
       bp.birthday_date,
       bp.theme,
+      bp.display_mode,
       bp.letter_color,
       ct.emoji AS theme_emoji,
       ct.gradient_from AS theme_gradient_from,
@@ -2097,6 +2101,7 @@ app.get("/api/pages/saved", requireAuth, async (request: AuthedRequest, response
 app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (request: AuthedRequest, response) => {
   const nextPublicCode = sanitizePublicCode(request.body.publicCode);
   const revealPin = typeof request.body.revealPin === "string" ? request.body.revealPin.trim() : null;
+  const requestedDisplayMode = String(request.body.displayMode || "story");
 
   if (request.body.revealAt && !hasProThemeAccess(request.user!)) {
     response.status(403).json({
@@ -2122,6 +2127,14 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
     return;
   }
 
+  if (requestedDisplayMode !== "story" && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Freeform and Bento page views are Pro features.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
   if (typeof request.body.publicCode === "string" && !nextPublicCode) {
     response.status(400).json({ error: "Public code must be 6-40 chars and use lowercase letters, numbers, and hyphens." });
     return;
@@ -2140,6 +2153,7 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
         recipient_email,
         birthday_date,
         theme,
+        display_mode,
         creator_message,
         soundtrack_id,
         allow_photos,
@@ -2158,6 +2172,7 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
         ${recipientEmail},
         ${String(request.body.birthdayDate)},
         ${String(request.body.theme || "elegant")},
+        ${requestedDisplayMode},
         ${sanitizeDisplayName(request.body.creatorMessage)},
         ${String(request.body.soundtrackId || "golden-hour")},
         ${Boolean(request.body.allowPhotos ?? true)},
@@ -2393,6 +2408,7 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
   const hasRevealAt = Object.prototype.hasOwnProperty.call(request.body, "revealAt");
   const hasRevealPin = Object.prototype.hasOwnProperty.call(request.body, "revealPin");
   const revealPin = typeof request.body.revealPin === "string" ? request.body.revealPin.trim() : null;
+  const requestedDisplayMode = String(request.body.displayMode || "story");
   const nextPublicCode = request.body.publicCode === null ? null : sanitizePublicCode(request.body.publicCode);
 
   if (hasRevealAt && !hasProThemeAccess(request.user!)) {
@@ -2414,6 +2430,14 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
   if (hasRevealPin && revealPin && !hasProThemeAccess(request.user!)) {
     response.status(403).json({
       error: "Secret reveal PIN is a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  if (requestedDisplayMode !== "story" && !hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Freeform and Bento page views are Pro features.",
       code: "FEATURE_PRO_ONLY",
     });
     return;
@@ -2464,6 +2488,7 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
             recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
             birthday_date = ${String(request.body.birthdayDate)},
             theme = ${String(request.body.theme || "elegant")},
+            display_mode = ${requestedDisplayMode},
             creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
             soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
             allow_photos = ${Boolean(request.body.allowPhotos ?? true)},
@@ -2488,6 +2513,7 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
             recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
             birthday_date = ${String(request.body.birthdayDate)},
             theme = ${String(request.body.theme || "elegant")},
+            display_mode = ${requestedDisplayMode},
             creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
             soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
             allow_photos = ${Boolean(request.body.allowPhotos ?? true)},

@@ -4,11 +4,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
-  LayoutGrid,
   Loader2,
   Mail,
   Music4,
-  GalleryHorizontal,
   Share2,
   Download,
   SkipForward,
@@ -71,6 +69,7 @@ interface BirthdayPageData {
   recipient_name: string;
   birthday_date: string;
   theme: string;
+  display_mode?: 'story' | 'freeform' | 'bento';
   theme_emoji?: string | null;
   theme_gradient_from?: string | null;
   theme_gradient_to?: string | null;
@@ -133,6 +132,8 @@ type RevealSlide =
   | { id: string; kind: 'organizer' }
   | { id: string; kind: 'wish'; message: Message; index: number }
   | { id: string; kind: 'closing' };
+
+type PageDisplayMode = 'story' | 'freeform' | 'bento';
 
 function extractYouTubeId(url: string | null | undefined) {
   if (!url) return null;
@@ -687,7 +688,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [slideRemainingMs, setSlideRemainingMs] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'forward' | 'back'>('forward');
-  const [viewMode, setViewMode] = useState<'story' | 'freeform' | 'bento'>('story');
+  const [viewMode, setViewMode] = useState<PageDisplayMode>('story');
   const [activeWishAudioId, setActiveWishAudioId] = useState<string | null>(null);
   const soundtrackAudioRef = useRef<HTMLAudioElement | null>(null);
   const presetControllerRef = useRef<SoundtrackController | null>(null);
@@ -711,33 +712,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingVideo, setDownloadingVideo] = useState(false);
   const [includeSoundtrackInVideo, setIncludeSoundtrackInVideo] = useState(true);
-  const [expandedFreeformCardId, setExpandedFreeformCardId] = useState<string | null>(null);
-  const freeformDesktopContainerRef = useRef<HTMLDivElement | null>(null);
-  const [freeformDesktopWidth, setFreeformDesktopWidth] = useState(800);
+  const [expandedFreeformCardIds, setExpandedFreeformCardIds] = useState<Set<string>>(() => new Set());
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const slideTimerStartedAtRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const node = freeformDesktopContainerRef.current;
-    if (!node) return;
-
-    const measure = () => {
-      setFreeformDesktopWidth(Math.max(320, Math.floor(node.offsetWidth || 800)));
-    };
-
-    measure();
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => {
-        measure();
-      });
-      observer.observe(node);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [viewMode]);
 
   useEffect(() => {
     if (!page) return;
@@ -1280,12 +1257,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           owner_plan_tier: user?.planTier === 'pro' ? 'pro' : 'free',
           message_count: messagesData.length,
         });
+        setViewMode(pageData.display_mode || 'story');
         setMessages(messagesData);
         return;
       }
 
       const publicPage = await apiFetch<BirthdayPageData>(`/public/pages/${pageId}`);
       setPage(publicPage);
+      setViewMode(publicPage.display_mode || 'story');
       
       // If we are using a UUID but the page has a public code, redirect to use the public code in the URL
       if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && publicPage.public_code) {
@@ -1832,6 +1811,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const activeSlide = revealSlides[currentSlide];
   const currentSlideDuration = useMemo(() => getSlideDuration(activeSlide), [activeSlide]);
   const hasMessages = messages.length > 0;
+  const effectiveViewMode: PageDisplayMode = hasMessages ? viewMode : 'story';
+  const viewModeLabel = effectiveViewMode === 'story' ? 'Story' : effectiveViewMode === 'freeform' ? 'Freeform' : 'Bento';
   const coverHintLabel =
     isCoarsePointerDevice
       ? 'Tap to enlarge'
@@ -2352,74 +2333,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         <div
           className={cn(
             'pointer-events-none z-40 mx-auto flex w-full max-w-6xl justify-center px-3 sm:px-5',
-            viewMode === 'freeform' ? 'fixed left-0 right-0 top-3 sm:top-4' : 'sticky top-3 sm:top-4',
+            effectiveViewMode === 'freeform' ? 'fixed left-0 right-0 top-3 sm:top-4' : 'sticky top-3 sm:top-4',
           )}
         >
           <div
             className={cn(
-              'pointer-events-auto inline-flex items-center gap-1 rounded-full border px-1.5 py-1 shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur-xl',
+              'pointer-events-auto inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur-xl',
               isDarkExperience ? 'border-white/16 bg-white/8 text-white' : 'border-white/75 bg-white/84 text-foreground',
             )}
             data-no-nav="true"
           >
-            <button
-              type="button"
-              onClick={() => setViewMode('story')}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors sm:px-4',
-                viewMode === 'story'
-                  ? isDarkExperience
-                    ? 'bg-white/16 text-white'
-                    : 'bg-white text-foreground shadow-sm'
-                  : isDarkExperience
-                    ? 'text-white/78 hover:bg-white/10'
-                    : 'text-foreground/72 hover:bg-white/70',
-              )}
-            >
-              <GalleryHorizontal className="h-4 w-4" />
-              Story
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('freeform')}
-              disabled={!hasMessages}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors sm:px-4 disabled:cursor-not-allowed disabled:opacity-45',
-                viewMode === 'freeform'
-                  ? isDarkExperience
-                    ? 'bg-white/16 text-white'
-                    : 'bg-white text-foreground shadow-sm'
-                  : isDarkExperience
-                    ? 'text-white/78 hover:bg-white/10'
-                    : 'text-foreground/72 hover:bg-white/70',
-              )}
-            >
-              <ImageIcon className="h-4 w-4" />
-              Freeform
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('bento')}
-              disabled={!hasMessages}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors sm:px-4 disabled:cursor-not-allowed disabled:opacity-45',
-                viewMode === 'bento'
-                  ? isDarkExperience
-                    ? 'bg-white/16 text-white'
-                    : 'bg-white text-foreground shadow-sm'
-                  : isDarkExperience
-                    ? 'text-white/78 hover:bg-white/10'
-                    : 'text-foreground/72 hover:bg-white/70',
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Bento
-            </button>
+            <span>View</span>
+            <span className={cn('rounded-full px-2.5 py-1 text-[10px] tracking-[0.1em]', isDarkExperience ? 'bg-white/14 text-white' : 'bg-white text-foreground')}>
+              {viewModeLabel}
+            </span>
           </div>
         </div>
       )}
 
-      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', viewMode !== 'story' && 'hidden')}>
+      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', effectiveViewMode !== 'story' && 'hidden')}>
         <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-28">
           <div className="story-scroll-reveal flex items-start justify-between gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
             <div>
@@ -2812,7 +2744,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       </section>
 
       {/* Bento grid — mobile (below sm breakpoint, shown when viewMode=bento) */}
-      {viewMode === 'bento' && messages.length > 0 && (
+      {effectiveViewMode === 'bento' && messages.length > 0 && (
         <section className="relative min-h-[100dvh] overflow-y-auto px-0 py-4 sm:hidden">
           <BentoGridView
             page={page}
@@ -2827,7 +2759,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       )}
 
       {/* Desktop: bento grid view */}
-      {viewMode === 'bento' && messages.length > 0 && (
+      {effectiveViewMode === 'bento' && messages.length > 0 && (
         <section className="relative hidden h-[100dvh] overflow-y-auto px-3 py-4 sm:px-5 sm:py-5 sm:block">
           <BentoGridView
             page={page}
@@ -2841,10 +2773,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </section>
       )}
 
-      {viewMode === 'freeform' && hasMessages && (
-        <section className="relative min-h-[100dvh] overflow-y-auto bg-[#EDEAE3] px-3 py-4 sm:px-5 sm:pb-5 sm:pt-0">
-          <div className="mx-auto w-full max-w-6xl pb-20 pt-10 sm:pt-12">
-            <div className="mb-5 sm:mb-7">
+      {effectiveViewMode === 'freeform' && hasMessages && (
+        <section className="relative min-h-[100dvh] overflow-y-auto bg-[#EDEAE3] px-3 py-4 sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0">
+          <div className="mx-auto w-full max-w-[66rem] pb-20 pt-14 sm:pt-16 xl:max-w-[88rem]">
+            <div className="mb-5 w-full sm:mb-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8E8797] md:block">Freeform view</p>
@@ -2857,6 +2789,96 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 </div>
               </div>
             </div>
+
+            {/* Cover Card */}
+            <div className="mb-5 sm:mb-6 md:hidden">
+              <article
+                className="relative mx-auto w-[calc(100%-20px)] max-w-[24rem] rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+                style={{
+                  marginLeft: '8px',
+                  transform: 'rotate(-1.1deg)',
+                  backgroundColor: '#FFFBEA',
+                  borderColor: '#E8D98A',
+                  color: '#4F4120',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute"
+                  style={{
+                    width: '36px',
+                    height: '13px',
+                    borderRadius: '2px',
+                    top: '-7px',
+                    left: '50%',
+                    transform: 'translateX(-50%) rotate(-1.5deg)',
+                    backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                  }}
+                />
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70">First Note off the board</p>
+                <h3 className={cn('mt-2 text-2xl font-bold leading-[0.95]', theme.titleClass, theme.font)}>
+                  Happy Birthday,
+                  <br />
+                  {page.recipient_name}.
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed opacity-80">
+                  Every note, photo, and voice clip inside was chosen to make this feel less like a page and more like a gift being opened.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{messages.length} wishes</span>
+                  <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">Reveal {format(birthdayDate, 'MMM d, yyyy')}</span>
+                </div>
+                {coverPhotoSrc && (
+                  <button
+                    type="button"
+                    className="relative mt-3 block aspect-[4/3] w-full max-h-48 overflow-hidden rounded-lg border border-white/45 bg-white/35"
+                    onClick={() => setExpandedPhoto({
+                      url: coverPhotoSrc,
+                      caption: `${page.recipient_name}'s birthday cover`,
+                      senderName: 'Birthday page',
+                    })}
+                    aria-label={`Expand ${page.recipient_name}'s birthday cover`}
+                  >
+                    {renderStoryImage(coverPhotoSrc, `${page.recipient_name} birthday cover`, { disableParallax: true, eager: true })}
+                  </button>
+                )}
+              </article>
+            </div>
+
+            {/* Organizer Card */}
+            {page.creator_message && (
+              <div className="mb-5 sm:mb-6 md:hidden">
+                <article
+                  className="relative mx-auto w-[calc(100%-20px)] max-w-[22rem] rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+                  style={{
+                    marginLeft: '18px',
+                    transform: 'rotate(1.2deg)',
+                    backgroundColor: '#FDF0F2',
+                    borderColor: '#E5B6BE',
+                    color: '#4F2F35',
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute"
+                    style={{
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '999px',
+                      top: '-5px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: '#E35252',
+                    }}
+                  />
+                  <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/55">
+                    <Heart className="h-4 w-4" />
+                  </div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">A note from the organizer</p>
+                  <p className="mt-2 text-sm italic leading-relaxed">&quot;{page.creator_message}&quot;</p>
+                </article>
+              </div>
+            )}
 
             {(() => {
               const freeformCardPalette = [
@@ -2872,7 +2894,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 <>
                   <div className="space-y-4 md:hidden">
                     {boardMessages.map((message, index) => {
-                      const isExpanded = expandedFreeformCardId === message.id;
+                      const isExpanded = expandedFreeformCardIds.has(message.id);
                       const baseRotation = ((index * 7) % 11 - 5) * 0.6;
                       const rotation = Math.max(-1.5, Math.min(1.5, baseRotation));
                       const tone = freeformCardPalette[index % freeformCardPalette.length];
@@ -2880,8 +2902,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       const photoCount = photos.length;
                       const voiceCount = message.audio_url ? 1 : 0;
                       const compactMessage = stripHtml(message.message || '').trim();
-                      const shownPhotos = photos.slice(0, 3);
-                      const overflowPhotos = Math.max(0, photos.length - 3);
 
                       return (
                         <article
@@ -2928,7 +2948,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                           <button
                             type="button"
-                            onClick={() => setExpandedFreeformCardId((current) => (current === message.id ? null : message.id))}
+                            onClick={() =>
+                              setExpandedFreeformCardIds((current) => {
+                                const next = new Set(current);
+                                if (next.has(message.id)) {
+                                  next.delete(message.id);
+                                } else {
+                                  next.add(message.id);
+                                }
+                                return next;
+                              })
+                            }
                             className="block w-full text-left"
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -2971,9 +3001,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                               {photoCount > 0 && (
                                 <div className="mt-3 grid grid-cols-3 gap-2">
-                                  {shownPhotos.map((photo, photoIndex) => {
+                                  {photos.map((photo) => {
                                     const resolvedPhotoUrl = resolveAssetUrl(photo.photo_url) || photo.photo_url;
-                                    const shouldShowOverflowTile = overflowPhotos > 0 && photoIndex === 2;
 
                                     return (
                                       <button
@@ -2989,9 +3018,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                         }
                                       >
                                         {renderStoryImage(resolvedPhotoUrl, `Photo from ${message.sender_name}`, { disableParallax: true })}
-                                        {shouldShowOverflowTile && (
-                                          <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-base font-semibold text-white">+{overflowPhotos}</div>
-                                        )}
                                       </button>
                                     );
                                   })}
@@ -3008,174 +3034,337 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   <div className="hidden md:block">
                     {(() => {
-                      const desktopRows = Math.max(1, Math.ceil(boardMessages.length / 3));
+                      const pivotIndex = Math.ceil(boardMessages.length / 2);
+                      const desktopBoardCards: Array<
+                        | { type: 'cover' }
+                        | { type: 'organizer' }
+                        | { type: 'closing' }
+                        | { type: 'message'; message: Message }
+                      > = [
+                        { type: 'cover' },
+                        ...boardMessages.slice(0, pivotIndex).map((message) => ({ type: 'message' as const, message })),
+                        ...(page.creator_message ? ([{ type: 'organizer' as const }] as const) : []),
+                        ...boardMessages.slice(pivotIndex).map((message) => ({ type: 'message' as const, message })),
+                        { type: 'closing' },
+                      ];
 
                       return (
-                    <div
-                      ref={freeformDesktopContainerRef}
-                      className="relative"
-                      style={{ minHeight: `${Math.max(760, desktopRows * 270 + 220)}px` }}
-                    >
-
-                    {boardMessages.map((message, index) => {
-                      const isExpanded = expandedFreeformCardId === message.id;
-                      const rotation = ((index * 7) % 11 - 5) * 0.6;
-                      const tone = freeformCardPalette[index % freeformCardPalette.length];
-                      const photos = getMessagePhotos(message);
-                      const photoCount = photos.length;
-                      const voiceCount = message.audio_url ? 1 : 0;
-                      const compactMessage = stripHtml(message.message || '').trim();
-                      const shownPhotos = photos.slice(0, 3);
-                      const overflowPhotos = Math.max(0, photos.length - 3);
-                      const containerWidth = freeformDesktopWidth || 800;
-                      const cardWidth = Math.min(320, Math.max(260, Math.floor(containerWidth * 0.33)));
-                      const row = Math.floor(index / 3);
-                      const column = index % 3;
-                      const columnWidth = Math.max(220, (containerWidth - 40) / 3);
-                      const jitterX = ((index * 31) % 28) - 14;
-                      const jitterY = ((index * 19) % 20) - 10;
-                      const minLeft = 20;
-                      const maxLeft = Math.max(minLeft, containerWidth - cardWidth - 20);
-                      const baseX = 20 + column * columnWidth + jitterX;
-                      const x = Math.max(minLeft, Math.min(maxLeft, baseX));
-                      const y = 36 + row * 248 + jitterY;
-
-                      return (
-                        <article
-                          key={message.id}
-                          className="absolute rounded-[1.2rem] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)] transition-all duration-300 ease-out"
-                          style={{
-                            left: `${x}px`,
-                            top: `${y}px`,
-                            width: `${cardWidth}px`,
-                            transform: `rotate(${rotation}deg)`,
-                            backgroundColor: tone.bg,
-                            borderColor: isExpanded ? '#EDA45D' : tone.border,
-                            color: tone.text,
-                            zIndex: isExpanded ? 30 : 10 + index,
-                          }}
+                        <div
+                          className="relative mx-auto w-full columns-3 [column-gap:1.25rem] [column-fill:balance] xl:columns-4"
                         >
-                          {index % 2 === 0 ? (
-                            <span
-                              aria-hidden="true"
-                              className="pointer-events-none absolute"
-                              style={{
-                                width: '36px',
-                                height: '13px',
-                                borderRadius: '2px',
-                                top: '-7px',
-                                left: '50%',
-                                transform: 'translateX(-50%) rotate(-1.5deg)',
-                                backgroundColor: 'rgba(255, 218, 130, 0.55)',
-                              }}
-                            />
-                          ) : (
-                            <span
-                              aria-hidden="true"
-                              className="pointer-events-none absolute"
-                              style={{
-                                width: '9px',
-                                height: '9px',
-                                borderRadius: '999px',
-                                top: '-5px',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                backgroundColor: '#E35252',
-                              }}
-                            />
-                          )}
+                          {desktopBoardCards.map((card, index) => {
+                            const baseRotation = ((index * 7) % 11 - 5) * 0.6;
+                            const rotation = Math.max(-1.5, Math.min(1.5, baseRotation));
 
-                          <button
-                            type="button"
-                            onClick={() => setExpandedFreeformCardId((current) => (current === message.id ? null : message.id))}
-                            className="block w-full text-left"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-65">{message.sender_name || 'Someone'}</p>
-                              {isExpanded && (
-                                <span className="rounded-full bg-[#f3e5d2] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9b6a35]">
-                                  Tap to close
-                                </span>
-                              )}
-                            </div>
+                            if (card.type !== 'message') {
+                              const metaTone =
+                                card.type === 'cover'
+                                  ? { bg: '#FFFBEA', border: '#E8D98A', text: '#4F4120' }
+                                  : card.type === 'organizer'
+                                    ? { bg: '#FDF0F2', border: '#E5B6BE', text: '#4F2F35' }
+                                    : { bg: '#ECF8F3', border: '#AFD7C8', text: '#1F5D4A' };
 
-                            <p className="mt-2 line-clamp-3 text-[1.02rem] leading-snug">{compactMessage || 'A birthday wish.'}</p>
+                              return (
+                                <article
+                                  key={`meta-${card.type}`}
+                                  className="relative mb-6 inline-block w-full break-inside-avoid rounded-[1.2rem] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)]"
+                                  style={{
+                                    transform: `rotate(${rotation}deg)`,
+                                    backgroundColor: metaTone.bg,
+                                    borderColor: metaTone.border,
+                                    color: metaTone.text,
+                                  }}
+                                >
+                                  {index % 2 === 0 ? (
+                                    <span
+                                      aria-hidden="true"
+                                      className="pointer-events-none absolute"
+                                      style={{
+                                        width: '36px',
+                                        height: '13px',
+                                        borderRadius: '2px',
+                                        top: '-7px',
+                                        left: '50%',
+                                        transform: 'translateX(-50%) rotate(-1.5deg)',
+                                        backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                                      }}
+                                    />
+                                  ) : (
+                                    <span
+                                      aria-hidden="true"
+                                      className="pointer-events-none absolute"
+                                      style={{
+                                        width: '9px',
+                                        height: '9px',
+                                        borderRadius: '999px',
+                                        top: '-5px',
+                                        left: '50%',
+                                        transform: 'translateX(-50%)',
+                                        backgroundColor: '#E35252',
+                                      }}
+                                    />
+                                  )}
 
-                            {(photoCount > 0 || voiceCount > 0) && (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {photoCount > 0 && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
-                                    <ImageIcon className="h-3.5 w-3.5" />
-                                    {photoCount} photo{photoCount === 1 ? '' : 's'}
-                                  </span>
+                                  {card.type === 'cover' && (
+                                    <>
+                                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">First Note off the board</p>
+                                      <h3 className={cn('mt-2 text-2xl font-bold leading-[0.95]', theme.titleClass, theme.font)}>
+                                        Happy Birthday,
+                                        <br />
+                                        {page.recipient_name}.
+                                      </h3>
+                                      <p className="mt-2 text-sm leading-relaxed opacity-80">
+                                        Every note, photo, and voice clip inside was chosen to make this feel less like a page and more like a gift being opened.
+                                      </p>
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{messages.length} wishes</span>
+                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">Reveal {format(birthdayDate, 'MMM d, yyyy')}</span>
+                                      </div>
+                                      {coverPhotoSrc && (
+                                        <button
+                                          type="button"
+                                          className="relative mt-3 block aspect-[4/3] w-full overflow-hidden rounded-lg border border-white/45 bg-white/35"
+                                          onClick={() =>
+                                            setExpandedPhoto({
+                                              url: coverPhotoSrc,
+                                              caption: `${page.recipient_name}'s birthday cover`,
+                                              senderName: 'Birthday page',
+                                            })
+                                          }
+                                          aria-label={`Expand ${page.recipient_name}'s birthday cover`}
+                                        >
+                                          {renderStoryImage(coverPhotoSrc, `${page.recipient_name} birthday cover`, { disableParallax: true, eager: true })}
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {card.type === 'organizer' && (
+                                    <>
+                                      <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/55">
+                                        <Heart className="h-4 w-4" />
+                                      </div>
+                                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">A note from the organizer</p>
+                                      <p className="mt-2 text-sm italic leading-relaxed">&quot;{page.creator_message}&quot;</p>
+                                    </>
+                                  )}
+
+                                  {card.type === 'closing' && (
+                                    <>
+                                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">Final Note</p>
+                                      <h3 className={cn('mt-2 text-2xl font-bold leading-[0.98]', theme.titleClass, theme.font)}>
+                                        Keep this close,
+                                        <br />
+                                        {page.recipient_name}.
+                                      </h3>
+                                      <p className="mt-2 text-sm leading-relaxed opacity-80">
+                                        This is the part worth replaying: every photo, every message, and every voice note gathered into one last birthday page.
+                                      </p>
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{messages.length} wishes</span>
+                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalPhotos} photos</span>
+                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalAudioWishes} voices</span>
+                                      </div>
+                                      <p className="mt-3 border-t border-black/10 pt-2 text-xs leading-relaxed opacity-80">
+                                        Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
+                                      </p>
+                                    </>
+                                  )}
+                                </article>
+                              );
+                            }
+
+                            const message = card.message;
+                            const isExpanded = expandedFreeformCardIds.has(message.id);
+                            const tone = freeformCardPalette[index % freeformCardPalette.length];
+                            const photos = getMessagePhotos(message);
+                            const photoCount = photos.length;
+                            const voiceCount = message.audio_url ? 1 : 0;
+                            const compactMessage = stripHtml(message.message || '').trim();
+
+                            return (
+                              <article
+                                key={message.id}
+                                className="relative mb-6 inline-block w-full break-inside-avoid rounded-[1.2rem] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)] transition-all duration-300 ease-out"
+                                style={{
+                                  transform: `rotate(${rotation}deg)`,
+                                  backgroundColor: tone.bg,
+                                  borderColor: isExpanded ? '#EDA45D' : tone.border,
+                                  color: tone.text,
+                                }}
+                              >
+                                {index % 2 === 0 ? (
+                                  <span
+                                    aria-hidden="true"
+                                    className="pointer-events-none absolute"
+                                    style={{
+                                      width: '36px',
+                                      height: '13px',
+                                      borderRadius: '2px',
+                                      top: '-7px',
+                                      left: '50%',
+                                      transform: 'translateX(-50%) rotate(-1.5deg)',
+                                      backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                                    }}
+                                  />
+                                ) : (
+                                  <span
+                                    aria-hidden="true"
+                                    className="pointer-events-none absolute"
+                                    style={{
+                                      width: '9px',
+                                      height: '9px',
+                                      borderRadius: '999px',
+                                      top: '-5px',
+                                      left: '50%',
+                                      transform: 'translateX(-50%)',
+                                      backgroundColor: '#E35252',
+                                    }}
+                                  />
                                 )}
-                                {voiceCount > 0 && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
-                                    <Music className="h-3.5 w-3.5" />
-                                    {voiceCount} voice note{voiceCount === 1 ? '' : 's'}
-                                  </span>
-                                )}
-                              </div>
-                            )}
 
-                            <div className="mt-3 border-t border-black/10 pt-2 text-center text-xs font-medium opacity-45">Tap to open</div>
-                          </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedFreeformCardIds((current) => {
+                                      const next = new Set(current);
+                                      if (next.has(message.id)) {
+                                        next.delete(message.id);
+                                      } else {
+                                        next.add(message.id);
+                                      }
+                                      return next;
+                                    })
+                                  }
+                                  className="block w-full text-left"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-65">{message.sender_name || 'Someone'}</p>
+                                    {isExpanded && (
+                                      <span className="rounded-full bg-[#f3e5d2] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9b6a35]">
+                                        Tap to close
+                                      </span>
+                                    )}
+                                  </div>
 
-                          <div className={cn('grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 ease-out', isExpanded ? 'mt-3 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0')}>
-                            <div className="overflow-hidden">
-                              {isRichHtml(message.message)
-                                ? <div className="wish-rich-text text-[1.02rem] leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeWishHtmlForDisplay(message.message) }} />
-                                : <p className="text-[1.02rem] leading-relaxed">{message.message}</p>
-                              }
+                                  <p className="mt-2 line-clamp-3 text-[1.02rem] leading-snug">{compactMessage || 'A birthday wish.'}</p>
 
-                              {photoCount > 0 && (
-                                <div className="mt-3 grid grid-cols-3 gap-2">
-                                  {shownPhotos.map((photo, photoIndex) => {
-                                    const resolvedPhotoUrl = resolveAssetUrl(photo.photo_url) || photo.photo_url;
-                                    const shouldShowOverflowTile = overflowPhotos > 0 && photoIndex === 2;
+                                  {(photoCount > 0 || voiceCount > 0) && (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                      {photoCount > 0 && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
+                                          <ImageIcon className="h-3.5 w-3.5" />
+                                          {photoCount} photo{photoCount === 1 ? '' : 's'}
+                                        </span>
+                                      )}
+                                      {voiceCount > 0 && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
+                                          <Music className="h-3.5 w-3.5" />
+                                          {voiceCount} voice note{voiceCount === 1 ? '' : 's'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
 
-                                    return (
-                                      <button
-                                        key={photo.id}
-                                        type="button"
-                                        className="relative aspect-square overflow-hidden rounded-lg border border-white/45 bg-white/35"
-                                        onClick={() =>
-                                          setExpandedPhoto({
-                                            url: resolvedPhotoUrl,
-                                            caption: photo.caption,
-                                            senderName: message.sender_name,
-                                          })
-                                        }
-                                      >
-                                        {renderStoryImage(resolvedPhotoUrl, `Photo from ${message.sender_name}`, { disableParallax: true })}
-                                        {shouldShowOverflowTile && (
-                                          <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-base font-semibold text-white">+{overflowPhotos}</div>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
+                                  <div className="mt-3 border-t border-black/10 pt-2 text-center text-xs font-medium opacity-45">Tap to open</div>
+                                </button>
+
+                                <div className={cn('grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 ease-out', isExpanded ? 'mt-3 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0')}>
+                                  <div className="overflow-hidden">
+                                    {isRichHtml(message.message)
+                                      ? <div className="wish-rich-text text-[1.02rem] leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeWishHtmlForDisplay(message.message) }} />
+                                      : <p className="text-[1.02rem] leading-relaxed">{message.message}</p>
+                                    }
+
+                                    {photoCount > 0 && (
+                                      <div className="mt-3 grid grid-cols-3 gap-2">
+                                        {photos.map((photo) => {
+                                          const resolvedPhotoUrl = resolveAssetUrl(photo.photo_url) || photo.photo_url;
+
+                                          return (
+                                            <button
+                                              key={photo.id}
+                                              type="button"
+                                              className="relative aspect-square overflow-hidden rounded-lg border border-white/45 bg-white/35"
+                                              onClick={() =>
+                                                setExpandedPhoto({
+                                                  url: resolvedPhotoUrl,
+                                                  caption: photo.caption,
+                                                  senderName: message.sender_name,
+                                                })
+                                              }
+                                            >
+                                              {renderStoryImage(resolvedPhotoUrl, `Photo from ${message.sender_name}`, { disableParallax: true })}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+
+                                    {voiceCount > 0 && <div className="mt-3 space-y-2">{renderWishAudioPlayer(message, 'w-full')}</div>}
+                                  </div>
                                 </div>
-                              )}
-
-                              {voiceCount > 0 && <div className="mt-3 space-y-2">{renderWishAudioPlayer(message, 'w-full')}</div>}
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
+                              </article>
+                            );
+                          })}
+                        </div>
                       );
                     })()}
                   </div>
                 </>
               );
             })()}
+
+            {/* Closing Card */}
+            <div className="mt-8 sm:mt-10 md:hidden">
+              <article
+                className="relative mx-auto w-[calc(100%-20px)] max-w-[24rem] rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+                style={{
+                  marginLeft: '10px',
+                  transform: 'rotate(-0.9deg)',
+                  backgroundColor: '#ECF8F3',
+                  borderColor: '#AFD7C8',
+                  color: '#1F5D4A',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute"
+                  style={{
+                    width: '36px',
+                    height: '13px',
+                    borderRadius: '2px',
+                    top: '-7px',
+                    left: '50%',
+                    transform: 'translateX(-50%) rotate(-1.5deg)',
+                    backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                  }}
+                />
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70">Final Note</p>
+                <h3 className={cn('mt-2 text-2xl font-bold leading-[0.98]', theme.titleClass, theme.font)}>
+                  Keep this close,
+                  <br />
+                  {page.recipient_name}.
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed opacity-80">
+                  This is the part worth replaying: every photo, every message, and every voice note gathered into one last birthday page.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{messages.length} wishes</span>
+                  <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalPhotos} photos</span>
+                  <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalAudioWishes} voices</span>
+                </div>
+                <p className="mt-3 border-t border-black/10 pt-2 text-xs leading-relaxed opacity-80">
+                  Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
+                </p>
+              </article>
+            </div>
           </div>
         </section>
       )}
 
       {/* Desktop: story (slide) view */}
-      <section className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', viewMode !== 'story' && '!hidden')}>
+      <section className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', effectiveViewMode !== 'story' && '!hidden')}>
         <div className="mx-auto flex h-full max-w-6xl flex-col">
           <div className="flex items-start gap-4">
             <div className="flex flex-1 gap-2">
