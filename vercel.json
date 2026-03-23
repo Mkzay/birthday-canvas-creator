@@ -48,7 +48,7 @@
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
-      "destination": "https://api.wishcanvas.app/api/og/:pageId"
+      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId"
     },
     {
       "source": "/contribute/:pageId",
@@ -59,7 +59,7 @@
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
-      "destination": "https://api.wishcanvas.app/api/og/:pageId?view=contribute"
+      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId?view=contribute"
     },
     {
       "source": "/(.*)",

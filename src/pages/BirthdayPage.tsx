@@ -948,6 +948,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!isCoarsePointerDevice) return;
+    if (!page?.is_revealed) return;
+    if (showRevealIntro) return;
+
+    const unlockAudio = () => {
+      if (userPausedSoundtrackRef.current) return;
+      void startSoundtrack(true);
+    };
+
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('scroll', unlockAudio, { passive: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('scroll', unlockAudio);
+    };
+  }, [isCoarsePointerDevice, page?.is_revealed, showRevealIntro, startSoundtrack]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     if (!page?.is_revealed) return;
     if (showRevealIntro) return;
 
