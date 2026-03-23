@@ -138,6 +138,7 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [pageFilter, setPageFilter] = useState<'all' | 'live' | 'archived'>('all');
   const isProUser = user?.planTier === 'pro';
+  const canShowExportOptions = !import.meta.env.PROD;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -755,7 +756,7 @@ const Dashboard = () => {
                               </Link>
                             </div>
 
-                            <div className="mt-3 grid grid-cols-2 gap-2">
+                            <div className={canShowExportOptions ? 'mt-3 grid grid-cols-2 gap-2' : 'mt-3'}>
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -766,16 +767,18 @@ const Dashboard = () => {
                                 <Activity className="h-4 w-4" />
                                 {analyticsLoadingPage === page.public_code ? 'Loading...' : 'Analytics'}
                               </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                                onClick={() => void handleExport(page.public_code, page.recipient_name)}
-                                disabled={exportingPage === page.public_code}
-                              >
-                                <Download className="h-4 w-4" />
-                                {exportingPage === page.public_code ? 'Exporting...' : 'Export PDF'}
-                              </Button>
+                              {canShowExportOptions && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-2"
+                                  onClick={() => void handleExport(page.public_code, page.recipient_name)}
+                                  disabled={exportingPage === page.public_code}
+                                >
+                                  <Download className="h-4 w-4" />
+                                  {exportingPage === page.public_code ? 'Exporting...' : 'Export PDF'}
+                                </Button>
+                              )}
                             </div>
 
                             {analyticsByPage[page.public_code] && (
@@ -919,15 +922,15 @@ const Dashboard = () => {
                         </div>
 
                         <div className="mt-5 flex gap-2">
-                          <Link to={`/preview/${page.public_code}`} className="flex-1">
+                          <Link to={`/birthday/${page.public_code}`} className="flex-1">
                             <Button variant="outline" size="sm" className="w-full gap-2">
                               <Eye className="h-4 w-4" />
-                              Preview
+                              View
                             </Button>
                           </Link>
                         </div>
 
-                        <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className={canShowExportOptions ? 'mt-3 grid grid-cols-2 gap-2' : 'mt-3'}>
                           <Button
                             variant="outline"
                             size="sm"
@@ -938,16 +941,18 @@ const Dashboard = () => {
                             <Activity className="h-4 w-4" />
                             {analyticsLoadingPage === page.public_code ? 'Loading...' : 'Analytics'}
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => void handleExport(page.public_code, page.recipient_name)}
-                            disabled={exportingPage === page.public_code}
-                          >
-                            <Download className="h-4 w-4" />
-                            {exportingPage === page.public_code ? 'Exporting...' : 'Export PDF'}
-                          </Button>
+                          {canShowExportOptions && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              onClick={() => void handleExport(page.public_code, page.recipient_name)}
+                              disabled={exportingPage === page.public_code}
+                            >
+                              <Download className="h-4 w-4" />
+                              {exportingPage === page.public_code ? 'Exporting...' : 'Export PDF'}
+                            </Button>
+                          )}
                         </div>
 
                         {analyticsByPage[page.public_code] && (

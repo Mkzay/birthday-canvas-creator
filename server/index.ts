@@ -98,6 +98,7 @@ const PRO_OFFER_CURRENCY = "NGN";
 const PRO_OFFER_PURCHASE_TYPE = "one_time";
 const FREE_CONTRIBUTOR_LIMIT = 6;
 const PUBLIC_UNLOCK_COOKIE_NAME = "wishcanvas_public_unlock";
+const EXPORTS_DISABLED_IN_PRODUCTION = process.env.NODE_ENV === "production";
 const PRO_OFFER_FEATURES = [
   { id: "scheduled-delivery", title: "Scheduled delivery automation", status: "live" },
   { id: "advanced-reveal-effects", title: "Advanced reveal effects", status: "coming-soon" },
@@ -2558,6 +2559,11 @@ app.get("/api/pages/:id/analytics", requireAuth, validateParams(pageIdParamSchem
 });
 
 app.get("/api/pages/:id/export", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  if (EXPORTS_DISABLED_IN_PRODUCTION) {
+    response.status(404).json({ error: "Not found" });
+    return;
+  }
+
   if (!hasProThemeAccess(request.user!)) {
     response.status(403).json({ error: "Page export is a Pro feature.", code: "FEATURE_PRO_ONLY" });
     return;
@@ -2591,6 +2597,11 @@ app.get("/api/pages/:id/export", requireAuth, validateParams(pageIdParamSchema),
 });
 
 app.get("/api/public/pages/:id/export", validateParams(pageIdParamSchema), async (request, response) => {
+  if (EXPORTS_DISABLED_IN_PRODUCTION) {
+    response.status(404).json({ error: "Not found" });
+    return;
+  }
+
   const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });
