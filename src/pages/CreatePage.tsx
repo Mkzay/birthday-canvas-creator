@@ -121,6 +121,21 @@ function ModePreview({ mode }: { mode: DisplayMode }) {
   );
 }
 
+const DEFAULT_LETTER_START = '#f5f0e8';
+const DEFAULT_LETTER_END = '#eadfce';
+
+function normalizePastedHex(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  const shortMatch = withHash.match(/^#([0-9a-f]{3})$/i);
+  if (shortMatch) {
+    const [r, g, b] = shortMatch[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return /^#[0-9a-f]{6}$/i.test(withHash) ? withHash.toLowerCase() : null;
+}
+
 function toIsoDatetime(value: string) {
   if (!value) return null;
   const date = new Date(value);
@@ -143,6 +158,11 @@ const CreatePage = () => {
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
   const [selectedDisplayMode, setSelectedDisplayMode] = useState<DisplayMode>('story');
+  const [letterColor, setLetterColor] = useState<string>('');
+  const [letterGradientStart, setLetterGradientStart] = useState(DEFAULT_LETTER_START);
+  const [letterGradientEnd, setLetterGradientEnd] = useState(DEFAULT_LETTER_END);
+  const [letterStartHexInput, setLetterStartHexInput] = useState(DEFAULT_LETTER_START);
+  const [letterEndHexInput, setLetterEndHexInput] = useState(DEFAULT_LETTER_END);
   const [allowPhotos, setAllowPhotos] = useState(user?.defaultAllowPhotos ?? true);
   const [allowAudio, setAllowAudio] = useState(user?.defaultAllowAudio ?? true);
   const [requireNames, setRequireNames] = useState(user?.defaultRequireNames ?? true);
@@ -177,6 +197,14 @@ const CreatePage = () => {
       setSelectedDisplayMode('story');
     }
   }, [isProUser, selectedDisplayMode]);
+
+  useEffect(() => {
+    setLetterStartHexInput(letterGradientStart);
+  }, [letterGradientStart]);
+
+  useEffect(() => {
+    setLetterEndHexInput(letterGradientEnd);
+  }, [letterGradientEnd]);
 
   const fetchCustomThemes = useCallback(async () => {
     if (!user) return;
@@ -298,6 +326,7 @@ const CreatePage = () => {
             birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
             theme: selectedTheme,
             displayMode: isProUser ? selectedDisplayMode : 'story',
+            letterColor: letterColor || null,
             creatorMessage: creatorMessage || null,
             soundtrackId: selectedSoundtrackId,
             pageCustomAudioUrl,
@@ -355,6 +384,7 @@ const CreatePage = () => {
           birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
           theme: selectedTheme,
           displayMode: isProUser ? selectedDisplayMode : 'story',
+          letterColor: letterColor || null,
           creatorMessage: creatorMessage || null,
           soundtrackId: selectedSoundtrackId,
           allowPhotos: nextAllowPhotos,
@@ -645,6 +675,143 @@ const CreatePage = () => {
                 ))}
               </div>
               <ModePreview mode={selectedDisplayMode} />
+            </div>
+
+            <div className="mt-8">
+              <Label className="text-foreground">Letter / envelope color</Label>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Optional. Use one or two tones for the paper mood. Leave empty to use the theme default.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2">
+                  <Label htmlFor="letter-color-start" className="text-xs text-muted-foreground">Start</Label>
+                  <input
+                    type="color"
+                    id="letter-color-start"
+                    value={letterGradientStart}
+                    onChange={(e) => {
+                      const nextStart = e.target.value;
+                      setLetterGradientStart(nextStart);
+                      setLetterColor(`${nextStart},${letterGradientEnd}`);
+                    }}
+                    className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background"
+                    aria-label="Choose letter gradient start color"
+                  />
+                </div>
+                <Input
+                  value={letterStartHexInput}
+                  onChange={(event) => setLetterStartHexInput(event.target.value)}
+                  onBlur={() => {
+                    const normalized = normalizePastedHex(letterStartHexInput);
+                    if (!normalized) {
+                      setLetterStartHexInput(letterGradientStart);
+                      return;
+                    }
+                    setLetterGradientStart(normalized);
+                    setLetterColor(`${normalized},${letterGradientEnd}`);
+                  }}
+                  placeholder="#f5f0e8"
+                  className="h-10 w-[8.5rem] font-mono text-xs"
+                  aria-label="Paste letter gradient start color code"
+                />
+                <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2">
+                  <Label htmlFor="letter-color-end" className="text-xs text-muted-foreground">End</Label>
+                  <input
+                    type="color"
+                    id="letter-color-end"
+                    value={letterGradientEnd}
+                    onChange={(e) => {
+                      const nextEnd = e.target.value;
+                      setLetterGradientEnd(nextEnd);
+                      setLetterColor(`${letterGradientStart},${nextEnd}`);
+                    }}
+                    className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background"
+                    aria-label="Choose letter gradient end color"
+                  />
+                </div>
+                <Input
+                  value={letterEndHexInput}
+                  onChange={(event) => setLetterEndHexInput(event.target.value)}
+                  onBlur={() => {
+                    const normalized = normalizePastedHex(letterEndHexInput);
+                    if (!normalized) {
+                      setLetterEndHexInput(letterGradientEnd);
+                      return;
+                    }
+                    setLetterGradientEnd(normalized);
+                    setLetterColor(`${letterGradientStart},${normalized}`);
+                  }}
+                  placeholder="#eadfce"
+                  className="h-10 w-[8.5rem] font-mono text-xs"
+                  aria-label="Paste letter gradient end color code"
+                />
+                {letterColor && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setLetterColor('');
+                      setLetterGradientStart(DEFAULT_LETTER_START);
+                      setLetterGradientEnd(DEFAULT_LETTER_END);
+                      setLetterStartHexInput(DEFAULT_LETTER_START);
+                      setLetterEndHexInput(DEFAULT_LETTER_END);
+                    }}
+                  >
+                    Use default
+                  </Button>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">You can paste hex values like #f5f0e8, f5f0e8, or #abc.</p>
+              <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
+                <div className="order-2 relative h-36 w-52 overflow-hidden rounded-[1.35rem] border border-border/60 bg-gradient-to-br from-white to-muted/50 p-3 shadow-card-sm sm:order-1">
+                  <div className="relative h-full w-full">
+                    <div
+                      className="absolute inset-0 rounded-[1rem]"
+                      style={{
+                        background: `linear-gradient(145deg, ${letterGradientStart}, ${letterGradientEnd})`,
+                        boxShadow: '0 14px 26px rgba(15, 23, 42, 0.16)',
+                      }}
+                    />
+                    <div className="absolute inset-[1px] rounded-[0.95rem] border border-white/60" />
+                    <div
+                      className="absolute left-1/2 top-0 h-[52%] w-[92%] -translate-x-1/2 origin-top rounded-[0.9rem]"
+                      style={{
+                        clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+                        background: `linear-gradient(145deg, ${letterGradientEnd}, ${letterGradientStart})`,
+                      }}
+                    />
+                    <div
+                      className="absolute bottom-[10%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[0.85rem] border border-black/10"
+                      style={{
+                        background: `linear-gradient(180deg, ${letterGradientStart}, ${letterGradientEnd})`,
+                      }}
+                    />
+                    <div
+                      className="absolute left-1/2 top-[24%] h-[40%] w-[74%] -translate-x-1/2 rounded-[0.7rem] border border-black/10 px-2.5 py-2 text-left"
+                      style={{
+                        background: `linear-gradient(180deg, ${letterGradientEnd}, ${letterGradientStart})`,
+                      }}
+                    >
+                      <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-foreground/65">To</p>
+                      <p className="mt-1 line-clamp-1 text-xs font-bold text-foreground">{recipientName || 'Birthday Star'}</p>
+                      <p className="mt-1 line-clamp-1 text-[9px] text-foreground/70">Open when ready for the story.</p>
+                    </div>
+                    <div
+                      className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/65 shadow-sm"
+                      style={{
+                        background: `radial-gradient(circle at 30% 30%, ${letterGradientStart}, ${letterGradientEnd})`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="order-1 space-y-0.5 text-xs sm:order-2">
+                  <p className="font-semibold text-foreground">Letter theme preview</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Mirrors the opening envelope layout used on the birthday page.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="panel-inset mt-8 p-4 sm:p-6">
