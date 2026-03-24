@@ -1,0 +1,103 @@
+name: Birthday Notification Monthly Backfill
+
+on:
+  schedule:
+    # Runs on the 1st day of every month at 00:30 UTC
+    - cron: '30 0 1 * *'
+  workflow_dispatch:
+    inputs:
+      days_back:
+        description: 'How many days back to replay (default: 35)'
+        required: false
+        default: '35'
+        type: string
+
+jobs:
+  backfill-birthdays:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required secrets
+        env:
+          BIRTHDAY_NOTIFY_URL: ${{ secrets.BIRTHDAY_NOTIFY_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BIRTHDAY_NOTIFY_URL" ]; then
+            echo "Missing repository secret: BIRTHDAY_NOTIFY_URL"
+            exit 1
+          fi
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Missing repository secret: CRON_SECRET"
+            exit 1
+          fi
+
+      - name: Replay notifications for recent dates
+        env:
+          BIRTHDAY_NOTIFY_URL: ${{ secrets.BIRTHDAY_NOTIFY_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          INPUT_DAYS_BACK: ${{ github.event.inputs.days_back }}
+        run: |
+          DAYS_BACK="${INPUT_DAYS_BACK:-35}"
+
+          if ! [[ "$DAYS_BACK" =~ ^[0-9]+$ ]]; then
+            echo "days_back must be a positive integer"
+            exit 1
+          fi
+
+          echo "Starting monthly backfill for last ${DAYS_BACK} day(s)"
+
+          for ((offset=1; offset<=DAYS_BACK; offset++)); do
+            TARGET_DATE=$(date -u -d "-${offset} day" +%F)
+            BODY=$(printf '{"date":"%s"}' "$TARGET_DATE")
+
+            echo "Processing date: ${TARGET_DATE}"
+            HTTP_CODE=$(curl -sS -o response.json -w "%{http_code}" \
+              -X POST "$BIRTHDAY_NOTIFY_URL" \
+              -H "Content-Type: application/json" \
+              -H "x-cron-secret: $CRON_SECRET" \
+              -d "$BODY")
+
+            echo "HTTP status: $HTTP_CODE"
+            cat response.json
+
+            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+              echo "Backfill failed for date ${TARGET_DATE}"
+              exit 1
+            fi
+          done
+
+  email-on-failure:
+    needs: backfill-birthdays
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send failure alert email (Resend)
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ] || [ -z "$ALERT_EMAIL_TO" ] || [ -z "$ALERT_EMAIL_FROM" ]; then
+            echo "Skipping failure email. Missing one or more secrets: RESEND_API_KEY, ALERT_EMAIL_TO, ALERT_EMAIL_FROM"
+            exit 0
+          fi
+
+          SUBJECT="[WishCanvas] Monthly birthday backfill failed"
+          TEXT="Monthly birthday backfill failed. Repository: ${REPO}. Run details: ${RUN_URL}"
+
+          HTTP_CODE=$(curl -sS -o /tmp/resend-response.json -w "%{http_code}" \
+            -X POST "https://api.resend.com/emails" \
+            -H "Authorization: Bearer ${RESEND_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"from\":\"${ALERT_EMAIL_FROM}\",\"to\":[\"${ALERT_EMAIL_TO}\"],\"subject\":\"${SUBJECT}\",\"text\":\"${TEXT}\"}"
+          )
+
+          echo "Resend HTTP status: ${HTTP_CODE}"
+          cat /tmp/resend-response.json
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Failed to send failure email"
+            exit 1
+          fi
