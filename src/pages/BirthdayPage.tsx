@@ -3111,13 +3111,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       {effectiveViewMode === 'freeform' && hasMessages && (
         <section
           className={cn(
-            'relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0',
+            'relative min-h-[100dvh] overflow-y-auto px-3 py-1 sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0',
             'freeform-reveal board',
             isFreeformBoardEntered && 'enter',
           )}
           style={{ background: freeformThemePalette.boardBackground }}
         >
-          <div className="mx-auto w-full max-w-[66rem] pb-20 pt-14 sm:pt-16 xl:max-w-[88rem]">
+          <div className="mx-auto w-full max-w-[66rem] pb-20 pt-2 sm:pt-16 xl:max-w-[88rem]">
             <div className="mb-5 w-full sm:mb-7">
               <div className="flex items-start justify-between gap-4">
                 <div>

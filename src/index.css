@@ -812,6 +812,22 @@
   animation: cardLand 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* Desktop-only: hover flips the card tilt using the card's --final-r variable */
+@media (hover: hover) and (pointer: fine) {
+  .card-wrap {
+    transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  /* When hovering (or keyboard focusing) reverse the card's rotation sign so
+     a left-tilted card tilts right and vice-versa. Uses !important to override
+     inline transform applied in components (they set transform inline). */
+  .card-wrap:hover,
+  .card-wrap:focus-within {
+    transform: rotate(calc(var(--final-r, 0deg) * -1)) translateY(-6px) scale(1.02) !important;
+    z-index: 20;
+  }
+}
 @keyframes tapePop {
   from {
     opacity: 0;
