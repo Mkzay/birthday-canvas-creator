@@ -79,6 +79,17 @@ Notes:
 	- `POST /api/billing/paystack/verify`
 	- `POST /api/billing/paystack/webhook`
 
+### Birthday email cron with GitHub Actions
+
+This repo includes a scheduled GitHub Actions workflow at `.github/workflows/birthday-notify-cron.yml`.
+
+Set these repository secrets in GitHub:
+
+- `BIRTHDAY_NOTIFY_URL`: your cron endpoint URL, e.g. `https://your-api-domain/api/system/notify-birthdays/cron`
+- `CRON_SECRET`: must match the `CRON_SECRET` env var on your API service
+
+The workflow runs daily at `00:05 UTC` and can also be run manually from the Actions tab.
+
 ### Vercel
 
 1. Create a Vercel project from this repo.

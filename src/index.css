@@ -877,6 +877,37 @@
   animation: polaroidFlip 700ms ease-out forwards;
 }
 
+/* Mobile-only: staggered fall-in animation when scrolling into view. Cards
+   come from alternating sides and the animation is reversible (removes the
+   class when scrolled out so it can play again when scrolled back). */
+@media (max-width: 767px) {
+  @keyframes mobileFallIn {
+    0% {
+      opacity: 0;
+      transform: translateX(var(--start-x, -30%)) translateY(14px) rotate(var(--start-rot, -3deg));
+    }
+    60% {
+      opacity: 1;
+      transform: translateX(calc(var(--start-x, -30%) * 0.12)) translateY(-6px) rotate(calc(var(--start-rot, -3deg) * 0.3));
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0) translateY(0) rotate(0deg);
+    }
+  }
+
+  .mobile-card {
+    opacity: 0;
+    transform: translateX(var(--start-x, -30%)) translateY(12px) rotate(var(--start-rot, -3deg));
+    will-change: transform, opacity;
+  }
+
+  .mobile-card.in-view {
+    animation: mobileFallIn var(--mobile-duration, 600ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--scroll-delay, 0ms);
+  }
+}
+
 .story-photo-board:hover::before {
   opacity: 1;
 }

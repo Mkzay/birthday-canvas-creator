@@ -721,6 +721,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const slideTimerStartedAtRef = useRef<number | null>(null);
   const freeformAnimationTimeoutsRef = useRef<number[]>([]);
+  const mobileCardsContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileObserverRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
     if (!page) return;
@@ -1616,6 +1618,41 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       clearFreeformAnimationTimeouts();
     };
   }, [clearFreeformAnimationTimeouts, freeformAnimationRun, freeformCardAnimationOrder]);
+
+  // Mobile: staggered scroll-triggered fall-in for cards. Uses IntersectionObserver
+  // to add/remove the `in-view` class so the animation can replay when scrolling
+  // back up. Only activates on narrow (mobile) viewports to avoid desktop side-effects.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 767px)');
+    if (!mql.matches) return;
+
+    const container = mobileCardsContainerRef.current;
+    if (!container) return;
+
+    const cards = Array.from(container.querySelectorAll<HTMLElement>('.mobile-card'));
+    if (cards.length === 0) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const el = entry.target as HTMLElement;
+        if (entry.isIntersecting) {
+          el.classList.add('in-view');
+        } else {
+          el.classList.remove('in-view');
+        }
+      });
+    }, { threshold: 0.22 });
+
+    cards.forEach((c) => observer.observe(c));
+    mobileObserverRef.current = observer;
+
+    return () => {
+      observer.disconnect();
+      mobileObserverRef.current = null;
+    };
+  // Re-run when messages change so newly rendered cards get observed.
+  }, [messages.length]);
 
   const beginReveal = async () => {
     if (effectiveViewMode === 'freeform') {
@@ -3230,7 +3267,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
               return (
                 <>
-                  <div className="space-y-4 md:hidden">
+                  <div ref={mobileCardsContainerRef} className="space-y-4 md:hidden">
                     {boardMessages.map((message, index) => {
                       const cardAnimationKey = `mobile-message-${message.id}`;
                       const isExpanded = expandedFreeformCardIds.has(message.id);
@@ -3242,19 +3279,22 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       const voiceCount = message.audio_url ? 1 : 0;
                       const compactMessage = stripHtml(message.message || '').trim();
 
-                      return (
+                        return (
                         <article
                           key={message.id}
-                          className={cn('relative rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all duration-300 ease-out', 'card-wrap', landedFreeformCards.has(cardAnimationKey) && 'landed')}
+                          className={cn('relative rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all duration-300 ease-out mobile-card', 'card-wrap', landedFreeformCards.has(cardAnimationKey) && 'landed')}
                           style={{
                             marginLeft: `${index % 2 === 0 ? 4 : 14}px`,
                             width: 'calc(100% - 20px)',
                             transform: `rotate(${rotation}deg)`,
                             '--final-r': `${rotation}deg`,
+                            '--start-x': `${index % 2 === 0 ? '-30%' : '30%'}`,
+                            '--start-rot': `${rotation * -1}deg`,
+                            '--scroll-delay': `${index * 90}ms`,
                             backgroundColor: tone.bg,
                             borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                             color: tone.text,
-                          }}
+                          } as any}
                         >
                           {index % 2 === 0 ? (
                             <span

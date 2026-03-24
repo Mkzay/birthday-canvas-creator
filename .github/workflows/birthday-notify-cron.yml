@@ -1,0 +1,58 @@
+name: Birthday Notification Cron
+
+on:
+  schedule:
+    # Runs daily at 00:05 UTC
+    - cron: '5 0 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Optional target date (YYYY-MM-DD). Leave blank for today.'
+        required: false
+        type: string
+
+jobs:
+  notify-birthdays:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required secrets
+        env:
+          BIRTHDAY_NOTIFY_URL: ${{ secrets.BIRTHDAY_NOTIFY_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BIRTHDAY_NOTIFY_URL" ]; then
+            echo "Missing repository secret: BIRTHDAY_NOTIFY_URL"
+            exit 1
+          fi
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Missing repository secret: CRON_SECRET"
+            exit 1
+          fi
+
+      - name: Trigger birthday notification endpoint
+        env:
+          BIRTHDAY_NOTIFY_URL: ${{ secrets.BIRTHDAY_NOTIFY_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          INPUT_DATE: ${{ github.event.inputs.date }}
+        run: |
+          if [ -n "$INPUT_DATE" ]; then
+            BODY=$(printf '{"date":"%s"}' "$INPUT_DATE")
+          else
+            BODY='{}'
+          fi
+
+          echo "Calling $BIRTHDAY_NOTIFY_URL"
+          HTTP_CODE=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "$BIRTHDAY_NOTIFY_URL" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -d "$BODY")
+
+          echo "HTTP status: $HTTP_CODE"
+          cat response.json
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Birthday notification cron failed"
+            exit 1
+          fi
