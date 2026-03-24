@@ -713,8 +713,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [downloadingVideo, setDownloadingVideo] = useState(false);
   const [includeSoundtrackInVideo, setIncludeSoundtrackInVideo] = useState(true);
   const [expandedFreeformCardIds, setExpandedFreeformCardIds] = useState<Set<string>>(() => new Set());
+  const [isFreeformIntroExiting, setIsFreeformIntroExiting] = useState(false);
+  const [isFreeformBoardEntered, setIsFreeformBoardEntered] = useState(true);
+  const [freeformAnimationRun, setFreeformAnimationRun] = useState(0);
+  const [landedFreeformCards, setLandedFreeformCards] = useState<Set<string>>(() => new Set());
+  const [poppedFreeformDecorators, setPoppedFreeformDecorators] = useState<Set<string>>(() => new Set());
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const slideTimerStartedAtRef = useRef<number | null>(null);
+  const freeformAnimationTimeoutsRef = useRef<number[]>([]);
+  const mobileCardsContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileObserverRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
     if (!page) return;
@@ -1486,6 +1494,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const totalAudioWishes = useMemo(() => {
     return messages.filter((message) => Boolean(message.audio_url)).length;
   }, [messages]);
+  const hasMessages = messages.length > 0;
+  const effectiveViewMode: PageDisplayMode = hasMessages ? viewMode : 'story';
 
   const contributorNames = useMemo(() => {
     const seen = new Set<string>();
@@ -1516,19 +1526,187 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
   const coverPhotoSrc = resolvedCoverPhotoUrl;
 
+  const freeformCardAnimationOrder = useMemo(() => {
+    const order: string[] = ['mobile-cover'];
+    if (page?.creator_message) {
+      order.push('mobile-organizer');
+    }
+    order.push(...messages.map((message) => `mobile-message-${message.id}`));
+    order.push('mobile-closing');
+
+    const pivotIndex = Math.ceil(messages.length / 2);
+    order.push('desktop-cover');
+    order.push(...messages.slice(0, pivotIndex).map((message) => `desktop-message-${message.id}`));
+    if (page?.creator_message) {
+      order.push('desktop-organizer');
+    }
+    order.push(...messages.slice(pivotIndex).map((message) => `desktop-message-${message.id}`));
+    order.push('desktop-closing');
+
+    return order;
+  }, [messages, page?.creator_message]);
+
+  const clearFreeformAnimationTimeouts = useCallback(() => {
+    freeformAnimationTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    freeformAnimationTimeoutsRef.current = [];
+  }, []);
+
+  const resetFreeformBoard = useCallback(() => {
+    clearFreeformAnimationTimeouts();
+    setIsFreeformBoardEntered(false);
+    setIsFreeformIntroExiting(false);
+    setLandedFreeformCards(new Set());
+    setPoppedFreeformDecorators(new Set());
+  }, [clearFreeformAnimationTimeouts]);
+
+  useEffect(() => {
+    if (effectiveViewMode !== 'freeform') {
+      clearFreeformAnimationTimeouts();
+      setIsFreeformIntroExiting(false);
+      setIsFreeformBoardEntered(true);
+      setLandedFreeformCards(new Set());
+      setPoppedFreeformDecorators(new Set());
+      return;
+    }
+
+    if (showRevealIntro) {
+      // Avoid canceling the in-flight intro->board transition on first click.
+      if (!isFreeformIntroExiting) {
+        resetFreeformBoard();
+      }
+      return;
+    }
+
+    if (!hasTriggeredIntro) {
+      setIsFreeformBoardEntered(true);
+      setLandedFreeformCards(new Set(freeformCardAnimationOrder));
+      setPoppedFreeformDecorators(new Set(freeformCardAnimationOrder));
+    }
+  }, [clearFreeformAnimationTimeouts, effectiveViewMode, freeformCardAnimationOrder, hasTriggeredIntro, isFreeformIntroExiting, resetFreeformBoard, showRevealIntro]);
+
+  useEffect(() => {
+    if (freeformAnimationRun === 0) {
+      return;
+    }
+
+    clearFreeformAnimationTimeouts();
+    setLandedFreeformCards(new Set());
+    setPoppedFreeformDecorators(new Set());
+
+    freeformCardAnimationOrder.forEach((cardId, index) => {
+      const startDelay = index * 80;
+      const landTimeoutId = window.setTimeout(() => {
+        setLandedFreeformCards((current) => {
+          const next = new Set(current);
+          next.add(cardId);
+          return next;
+        });
+      }, startDelay);
+
+      const popTimeoutId = window.setTimeout(() => {
+        setPoppedFreeformDecorators((current) => {
+          const next = new Set(current);
+          next.add(cardId);
+          return next;
+        });
+      }, startDelay + 60);
+
+      freeformAnimationTimeoutsRef.current.push(landTimeoutId, popTimeoutId);
+    });
+
+    return () => {
+      clearFreeformAnimationTimeouts();
+    };
+  }, [clearFreeformAnimationTimeouts, freeformAnimationRun, freeformCardAnimationOrder]);
+
+  // Mobile: staggered scroll-triggered fall-in for cards. Uses IntersectionObserver
+  // to add/remove the `in-view` class so the animation can replay when scrolling
+  // back up. Only activates on narrow (mobile) viewports to avoid desktop side-effects.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 767px)');
+    if (!mql.matches) return;
+
+    const container = mobileCardsContainerRef.current;
+    if (!container) return;
+
+    const cards = Array.from(container.querySelectorAll<HTMLElement>('.mobile-card'));
+    if (cards.length === 0) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const el = entry.target as HTMLElement;
+        if (entry.isIntersecting) {
+          el.classList.add('in-view');
+        } else {
+          el.classList.remove('in-view');
+        }
+      });
+    }, { threshold: 0.22 });
+
+    cards.forEach((c) => observer.observe(c));
+    mobileObserverRef.current = observer;
+
+    return () => {
+      observer.disconnect();
+      mobileObserverRef.current = null;
+    };
+  // Re-run when messages change so newly rendered cards get observed.
+  }, [messages.length]);
+
   const beginReveal = async () => {
+    if (effectiveViewMode === 'freeform') {
+      if (isFreeformIntroExiting) {
+        return;
+      }
+
+      setHasTriggeredIntro(true);
+      setIsFreeformIntroExiting(true);
+      void startSoundtrack(true);
+
+      const boardEnterTimeoutId = window.setTimeout(() => {
+        setShowRevealIntro(false);
+        setRevealPhase('idle');
+        setIsFreeformBoardEntered(true);
+        setIsFreeformIntroExiting(false);
+        setFreeformAnimationRun((current) => current + 1);
+      }, 750);
+      freeformAnimationTimeoutsRef.current.push(boardEnterTimeoutId);
+      return;
+    }
+
     setHasTriggeredIntro(true);
     setRevealPhase('opening');
     await startSoundtrack(true);
 
-    window.setTimeout(() => setRevealPhase('burst'), 520);
+    window.setTimeout(() => setRevealPhase('burst'), 800);
     window.setTimeout(() => {
       setShowRevealIntro(false);
       setRevealPhase('idle');
-    }, 1380);
+    }, 2200);
   };
 
   const skipReveal = async () => {
+    if (effectiveViewMode === 'freeform') {
+      if (isFreeformIntroExiting) {
+        return;
+      }
+
+      setHasTriggeredIntro(true);
+      setIsFreeformIntroExiting(true);
+      void startSoundtrack(true);
+
+      const boardEnterTimeoutId = window.setTimeout(() => {
+        setShowRevealIntro(false);
+        setRevealPhase('idle');
+        setIsFreeformBoardEntered(true);
+        setIsFreeformIntroExiting(false);
+        setFreeformAnimationRun((current) => current + 1);
+      }, 390);
+      freeformAnimationTimeoutsRef.current.push(boardEnterTimeoutId);
+      return;
+    }
+
     setHasTriggeredIntro(true);
     setShowRevealIntro(false);
     setRevealPhase('idle');
@@ -1571,14 +1749,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         style: undefined,
       };
 
-  const [rawLetterFrom, rawLetterTo] = (page?.letter_color || '').split(',');
+  const [rawLetterFrom, rawLetterMid, rawLetterTo] = (page?.letter_color || '').split(',');
   const letterColorFromHex =
     normalizeHexColor(rawLetterFrom) ||
-    (isCustomTheme ? normalizeHexColor(page?.theme_gradient_from) : null) ||
+    theme.colors[0] ||
     '#ff915a';
+  const letterColorMidHex = normalizeHexColor(rawLetterMid) || (theme.colors.length > 2 ? theme.colors[1] : null);
   const letterColorToHex =
-    normalizeHexColor(rawLetterTo) ||
-    (isCustomTheme ? normalizeHexColor(page?.theme_gradient_to) : null) ||
+    normalizeHexColor(rawLetterTo || rawLetterMid) ||
+    theme.colors[theme.colors.length - 1] ||
     letterColorFromHex;
 
   const { h: letterH, s: letterS, l: letterL } = hexToHsl(letterColorFromHex);
@@ -1629,6 +1808,95 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const keepsakePillClass = isDarkExperience
     ? 'border border-white/14 bg-white/10 text-white/82'
     : 'border border-white/70 bg-white/74 text-foreground/78';
+  const freeformThemePalette = useMemo(() => {
+    const colorA = normalizeHexColor(theme.colors[0]) || '#fbbf24';
+    const colorB = normalizeHexColor(theme.colors[1]) || '#f97316';
+    const colorC = normalizeHexColor(theme.colors[2]) || colorA;
+
+    const { h: hA } = hexToHsl(colorA);
+    const { h: hB } = hexToHsl(colorB);
+    const { h: hC } = hexToHsl(colorC);
+    const mixedHue = mixHue(hA, hB);
+
+    const cards = isDarkExperience
+      ? [
+          { bg: `hsl(${hA} 24% 22%)`, border: `hsl(${hA} 34% 38%)`, text: 'hsl(0 0% 96%)' },
+          { bg: `hsl(${hB} 22% 20%)`, border: `hsl(${hB} 32% 36%)`, text: 'hsl(0 0% 96%)' },
+          { bg: `hsl(${hC} 20% 22%)`, border: `hsl(${hC} 30% 38%)`, text: 'hsl(0 0% 96%)' },
+          { bg: `hsl(${mixedHue} 22% 21%)`, border: `hsl(${mixedHue} 32% 37%)`, text: 'hsl(0 0% 96%)' },
+          { bg: `hsl(${mixHue(hB, hC)} 20% 23%)`, border: `hsl(${mixHue(hB, hC)} 30% 39%)`, text: 'hsl(0 0% 96%)' },
+        ]
+      : [
+          { bg: `hsl(${hA} 86% 95%)`, border: `hsl(${hA} 62% 78%)`, text: `hsl(${hA} 34% 24%)` },
+          { bg: `hsl(${hB} 84% 95%)`, border: `hsl(${hB} 58% 79%)`, text: `hsl(${hB} 32% 24%)` },
+          { bg: `hsl(${hC} 84% 95%)`, border: `hsl(${hC} 56% 79%)`, text: `hsl(${hC} 32% 24%)` },
+          { bg: `hsl(${mixedHue} 84% 95%)`, border: `hsl(${mixedHue} 58% 79%)`, text: `hsl(${mixedHue} 32% 24%)` },
+          { bg: `hsl(${mixHue(hB, hC)} 84% 95%)`, border: `hsl(${mixHue(hB, hC)} 58% 79%)`, text: `hsl(${mixHue(hB, hC)} 32% 24%)` },
+        ];
+
+    return {
+      boardBackground: isDarkExperience
+        ? `linear-gradient(165deg, hsl(${mixedHue} 24% 12%), hsl(${hB} 24% 10%) 52%, hsl(${hC} 24% 14%) 100%)`
+        : `linear-gradient(165deg, hsl(${mixedHue} 44% 95%), hsl(${hC} 40% 93%) 56%, hsl(${hA} 42% 91%) 100%)`,
+      eyebrowText: isDarkExperience ? `hsl(${mixedHue} 24% 76%)` : `hsl(${hB} 18% 47%)`,
+      metaText: isDarkExperience ? `hsl(${mixedHue} 18% 78%)` : `hsl(${hB} 14% 45%)`,
+      chipBg: isDarkExperience ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.58)',
+      chipText: isDarkExperience ? 'rgba(255,255,255,0.94)' : `hsl(${hB} 28% 30%)`,
+      accentBorder: isDarkExperience ? `hsl(${hA} 66% 62%)` : `hsl(${hA} 72% 52%)`,
+      tapeColor: isDarkExperience ? `hsla(${hC}, 66%, 72%, 0.34)` : `hsla(${hC}, 82%, 72%, 0.55)`,
+      pinColor: isDarkExperience ? `hsl(${hA} 76% 66%)` : `hsl(${hA} 76% 54%)`,
+      dividerColor: isDarkExperience ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
+      cards,
+    };
+  }, [isDarkExperience, theme.colors]);
+
+  const freeformOpenerPalette = useMemo(() => {
+    const overlayStart = letterColorFromHex;
+    const overlayMid = letterColorMidHex || letterColorToHex;
+    const overlayEnd = letterColorToHex;
+    const { h: hStart, s: sStart, l: lStart } = hexToHsl(overlayStart);
+    const { h: hMid, s: sMid, l: lMid } = hexToHsl(overlayMid);
+    const { h: hEnd, s: sEnd, l: lEnd } = hexToHsl(overlayEnd);
+    const overlayHue = mixHue(hStart, hEnd);
+    const overlaySat = Math.max(18, Math.min((sStart + sEnd) / 2, 72));
+    const overlayLight = Math.max(18, Math.min((lStart + lEnd) / 2, 62));
+    const floatCardBorder = `hsla(${overlayHue}, ${Math.min(overlaySat + 10, 86)}%, ${Math.max(overlayLight - 24, 18)}%, 0.36)`;
+    const floatCardFill = `hsla(${overlayHue}, ${Math.min(overlaySat + 15, 90)}%, ${Math.min(overlayLight + 24, 86)}%, 0.2)`;
+    const paperColor = `hsl(${overlayHue} ${Math.max(18, overlaySat * 0.32)}% ${Math.min(95, Math.max(88, lMid + 22))}%)`;
+
+    return {
+      backdrop: [
+        `radial-gradient(circle at 50% 24%, hsl(${hStart} ${Math.min(84, sStart)}% ${Math.min(84, lStart + 4)}% / 0.46), hsl(${hMid} ${Math.min(82, sMid)}% ${Math.min(78, lMid)}% / 0.32) 54%, hsl(${overlayHue} ${Math.max(28, overlaySat * 0.65)}% ${Math.max(12, overlayLight * 0.42)}% / 0.94) 100%)`,
+        `linear-gradient(180deg, hsl(${hEnd} ${Math.max(24, sEnd * 0.6)}% ${Math.max(12, lEnd * 0.36)}% / 0.78), hsl(${overlayHue} ${Math.max(30, overlaySat * 0.68)}% ${Math.max(10, overlayLight * 0.34)}% / 0.92))`,
+      ].join(', '),
+      textureLayer: [
+        `repeating-linear-gradient(180deg, hsl(${overlayHue} ${Math.max(8, overlaySat * 0.24)}% 96% / 0.035) 0px, hsl(${overlayHue} ${Math.max(8, overlaySat * 0.24)}% 96% / 0.035) 1px, transparent 1px, transparent 4px)`,
+        `linear-gradient(180deg, hsl(${hStart} ${Math.max(22, sStart * 0.58)}% ${Math.max(9, lStart * 0.34)}%), hsl(${hEnd} ${Math.max(22, sEnd * 0.58)}% ${Math.max(9, lEnd * 0.3)}%))`,
+      ].join(', '),
+      halo: `radial-gradient(circle, hsl(${overlayHue} ${Math.max(24, overlaySat * 0.74)}% ${Math.max(26, overlayLight * 0.72)}% / 0.24), transparent 72%)`,
+      tape: `${overlayEnd}cc`,
+      miniCard: `linear-gradient(145deg, ${letterColorMidHex ? `${overlayStart}, ${overlayMid}, ${overlayEnd}` : `${overlayStart}, ${overlayEnd}`})`,
+      floatingCardBorder: floatCardBorder,
+      floatingCardFill: floatCardFill,
+      paper: paperColor,
+      nameText: `hsl(${overlayHue} ${Math.max(24, overlaySat * 0.42)}% ${Math.max(22, overlayLight * 0.48)}%)`,
+      eyebrowText: `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.45)}% ${isDarkExperience ? 78 : 82}% / 0.9)`,
+      textPrimary: isDarkExperience ? 'hsl(0 0% 96%)' : 'hsl(0 0% 94%)',
+      textSecondary: isDarkExperience ? 'hsl(0 0% 83%)' : 'hsl(0 0% 86%)',
+      quoteText: isDarkExperience ? 'hsl(0 0% 85%)' : 'hsl(0 0% 88%)',
+      chipBg: `hsl(${overlayHue} ${Math.max(14, overlaySat * 0.35)}% ${isDarkExperience ? 32 : 97}% / ${isDarkExperience ? 0.38 : 0.24})`,
+      chipBorder: `hsl(${overlayHue} ${Math.max(16, overlaySat * 0.38)}% ${isDarkExperience ? 74 : 66}% / 0.46)`,
+      chipText: isDarkExperience
+        ? `hsl(${overlayHue} ${Math.max(18, overlaySat * 0.36)}% 93%)`
+        : `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.44)}% 25%)`,
+      ctaBorder: `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.5)}% ${isDarkExperience ? 76 : 84}% / 0.64)`,
+      ctaText: isDarkExperience
+        ? `hsl(${overlayHue} ${Math.max(16, overlaySat * 0.35)}% 96%)`
+        : `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.44)}% 98%)`,
+      skipText: isDarkExperience ? 'hsl(0 0% 74%)' : 'hsl(0 0% 78%)',
+      skipTextHover: isDarkExperience ? 'hsl(0 0% 88%)' : 'hsl(0 0% 94%)',
+    };
+  }, [isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
   const interactiveSelector = 'button,a,audio,input,textarea,select,[data-no-nav="true"]';
 
   const revealSlides = useMemo<RevealSlide[]>(() => {
@@ -1810,9 +2078,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
   const activeSlide = revealSlides[currentSlide];
   const currentSlideDuration = useMemo(() => getSlideDuration(activeSlide), [activeSlide]);
-  const hasMessages = messages.length > 0;
-  const effectiveViewMode: PageDisplayMode = hasMessages ? viewMode : 'story';
-  const viewModeLabel = effectiveViewMode === 'story' ? 'Story' : effectiveViewMode === 'freeform' ? 'Freeform' : 'Bento';
   const coverHintLabel =
     isCoarsePointerDevice
       ? 'Tap to enlarge'
@@ -2181,44 +2446,86 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
       {showRevealIntro && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center px-4 backdrop-blur-md"
+          className={cn(
+            'fixed inset-0 z-40 flex items-center justify-center backdrop-blur-md',
+            effectiveViewMode === 'freeform' ? 'px-0' : 'px-4',
+            effectiveViewMode === 'freeform' && 'freeform-intro intro',
+            effectiveViewMode === 'freeform' && isFreeformIntroExiting && 'exit',
+          )}
           style={{
-            background: [
-                      `radial-gradient(circle at 50% 28%, hsl(${letterH} ${clampedS * 0.5}% 85% / 0.3), hsl(${letterH2} ${clampedS2 * 0.45}% 76% / 0.22), transparent 32%)`,
-                      `radial-gradient(circle at 18% 16%, hsl(${letterH2} ${clampedS2 * 0.6}% 68% / 0.16), transparent 22%)`,
-                      `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 18% / 0.72), hsl(${letterH2} ${clampedS2 * 0.3}% 14% / 0.86))`,
-            ].join(', '),
+            background: effectiveViewMode === 'freeform'
+              ? freeformOpenerPalette.backdrop
+              : [
+                  `radial-gradient(circle at 50% 28%, hsl(${letterH} ${clampedS * 0.5}% 85% / 0.3), hsl(${letterH2} ${clampedS2 * 0.45}% 76% / 0.22), transparent 32%)`,
+                  `radial-gradient(circle at 18% 16%, hsl(${letterH2} ${clampedS2 * 0.6}% 68% / 0.16), transparent 22%)`,
+                  `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 18% / 0.72), hsl(${letterH2} ${clampedS2 * 0.3}% 14% / 0.86))`,
+                ].join(', '),
           }}
         >
-          <div className="relative flex w-full max-w-5xl items-center justify-center">
-            <button
-              type="button"
-              onClick={() => void skipReveal()}
-              className="absolute right-0 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/18 sm:top-6"
-            >
-              <SkipForward className="h-4 w-4" />
-              Skip intro
-            </button>
+          <div className={cn('relative flex w-full items-center justify-center', effectiveViewMode !== 'freeform' && 'max-w-5xl')}>
+            {effectiveViewMode !== 'freeform' && (
+              <button
+                type="button"
+                onClick={() => void skipReveal()}
+                className="absolute right-0 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/18 sm:top-6"
+              >
+                <SkipForward className="h-4 w-4" />
+                Skip intro
+              </button>
+            )}
 
             <div className="relative flex min-h-[100dvh] w-full items-center justify-center py-20">
-                  <FloatingParticles hue={mixedLetterH} saturation={((clampedS + clampedS2) / 2) * 100} />
+              {effectiveViewMode !== 'freeform' && (
+                <FloatingParticles hue={mixedLetterH} saturation={((clampedS + clampedS2) / 2) * 100} />
+              )}
               <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl" style={{ background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.34), hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.16), transparent 62%)` }} />
-                    <div className="absolute left-1/2 top-[43%] h-[30rem] w-[20rem] -translate-x-1/2 rounded-full blur-3xl" style={{ background: `radial-gradient(circle, hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.2), transparent 68%)` }} />
+                <div
+                  className="absolute inset-0"
+                  style={
+                    effectiveViewMode === 'freeform'
+                      ? { background: freeformOpenerPalette.textureLayer }
+                      : {
+                          background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.34), hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.16), transparent 62%)`,
+                        }
+                  }
+                />
+                <div
+                  className="absolute left-1/2 top-[43%] h-[30rem] w-[20rem] -translate-x-1/2 rounded-full blur-3xl"
+                  style={
+                    effectiveViewMode === 'freeform'
+                      ? { background: freeformOpenerPalette.halo }
+                      : { background: `radial-gradient(circle, hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.2), transparent 68%)` }
+                  }
+                />
               </div>
 
-              <div className="relative flex w-full max-w-xl flex-col items-center justify-center">
-                <div className="mb-6 text-center text-white">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/68">Birthday post</p>
-                  <p className="mt-3 text-lg font-medium tracking-tight text-white/92">A letter for {page.recipient_name}</p>
+              <div
+                className={cn(
+                  'relative flex w-full flex-col items-center justify-center',
+                  effectiveViewMode === 'freeform' ? 'max-w-none px-3 sm:px-8 lg:px-14' : 'max-w-xl',
+                )}
+              >
+                <div className={cn('mb-6 text-center', effectiveViewMode !== 'freeform' && 'text-white')}>
+                  <p
+                    className={cn('text-[11px] font-semibold uppercase tracking-[0.32em]', effectiveViewMode !== 'freeform' && 'text-white/68')}
+                    style={effectiveViewMode === 'freeform' ? { color: freeformOpenerPalette.eyebrowText } : undefined}
+                  >
+                    Birthday post
+                  </p>
+                  <p
+                    className={cn('mt-3 text-lg font-medium tracking-tight', effectiveViewMode !== 'freeform' && 'text-white/92')}
+                    style={effectiveViewMode === 'freeform' ? { color: freeformOpenerPalette.textSecondary } : undefined}
+                  >
+                    {effectiveViewMode === 'freeform' ? `A board for ${page.recipient_name}` : `A letter for ${page.recipient_name}`}
+                  </p>
                 </div>
 
                 <div className="relative flex h-[26rem] w-full items-center justify-center sm:h-[30rem]">
-                  {burstMessages.map((message, index) => (
+                  {effectiveViewMode !== 'freeform' && burstMessages.map((message, index) => (
                     <div
                       key={message.id}
                       className={cn(
-                        'absolute left-1/2 top-1/2 w-48 rounded-[1.4rem] border border-white/14 bg-white/12 p-4 text-white shadow-[0_20px_70px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-700 ease-out hover:scale-[1.03] hover:shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:w-56',
+                        'absolute left-1/2 top-1/2 w-48 rounded-[1.4rem] border p-4 shadow-[0_20px_70px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-700 ease-out hover:scale-[1.03] hover:shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:w-56',
                         revealPhase === 'burst'
                           ? [
                               '-translate-x-[150%] -translate-y-[165%] rotate-[-14deg]',
@@ -2228,24 +2535,110 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             ][index]
                           : 'opacity-0 scale-75 -translate-x-1/2 -translate-y-1/2',
                       )}
-                      style={{ transitionDelay: `${index * 85}ms` }}
+                      style={{
+                        transitionDelay: `${index * 85}ms`,
+                        borderColor: `hsl(${mixedLetterH} ${Math.max(24, ((clampedS + clampedS2) / 2) * 0.5)}% ${Math.min(80, ((letterL + letterL2) / 2) + 14)}% / 0.36)`,
+                        background: `linear-gradient(150deg, hsl(${letterH} ${Math.max(18, clampedS * 0.68)}% ${Math.max(20, letterL * 0.62)}% / 0.22), hsl(${letterH2} ${Math.max(18, clampedS2 * 0.68)}% ${Math.max(18, letterL2 * 0.56)}% / 0.2))`,
+                        color: 'hsl(0 0% 96%)',
+                      }}
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">Wish {index + 1}</p>
-                      <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/88">&quot;{stripHtml(message.message)}&quot;</p>
-                      <p className="mt-3 text-xs font-semibold text-white/72">{message.sender_name}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/72">Wish {index + 1}</p>
+                      <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/90">&quot;{stripHtml(message.message)}&quot;</p>
+                      <p className="mt-3 text-xs font-semibold text-white/78">{message.sender_name}</p>
                     </div>
                   ))}
 
-                  <button
-                    type="button"
-                    onClick={() => void beginReveal()}
-                    aria-label="Open birthday letter"
-                    className={cn(
-                      'group relative z-10 h-[18rem] w-[20.5rem] transition-all duration-700 ease-out sm:h-[20.5rem] sm:w-[24rem]',
-                      revealPhase === 'opening' && 'scale-[0.98] rotate-[1.5deg]',
-                      revealPhase === 'burst' && 'scale-[0.94] opacity-80',
-                    )}
-                  >
+                  {effectiveViewMode === 'freeform' ? (
+                    <div
+                      className={cn(
+                        'relative z-10 w-full px-2 text-center transition-all duration-700 ease-out sm:px-4',
+                        revealPhase === 'opening' && 'scale-[0.99]',
+                        revealPhase === 'burst' && 'scale-[0.95] opacity-85',
+                      )}
+                    >
+                      <div className="pointer-events-none absolute left-[-2%] top-[10%] h-[6.3rem] w-[12.4rem] rotate-[-6deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute left-[27%] top-[3%] h-[5.2rem] w-[9rem] rotate-[1deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute right-[-2%] top-[9%] h-[6.2rem] w-[11.1rem] rotate-[5deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute left-[4%] top-[71%] h-[7rem] w-[11rem] rotate-[2deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute right-[20%] top-[79%] h-[7rem] w-[9.5rem] rotate-[-3deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute right-[0%] top-[74%] h-[7.4rem] w-[10.1rem] rotate-[-4deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+
+                      <div
+                        className={cn('mx-auto w-fit rounded-md px-4 pb-4 pt-3 shadow-[0_20px_56px_rgba(0,0,0,0.45)] freeform-polaroid', isFreeformIntroExiting && 'flip')}
+                        style={{ backgroundColor: freeformOpenerPalette.paper }}
+                      >
+                        <div className="relative mx-auto h-5 w-14 -translate-y-2 rounded-sm transition-colors duration-500" style={{ backgroundColor: freeformOpenerPalette.tape }} />
+                        <div className="relative h-[12.6rem] w-[13.8rem] overflow-hidden rounded-sm transition-colors duration-500" style={{ background: freeformOpenerPalette.miniCard }}>
+                          {coverPhotoSrc ? (
+                            renderStoryImage(coverPhotoSrc, `${page.recipient_name} cover photo`, { disableParallax: true, eager: true })
+                          ) : (
+                            <div className="flex h-full items-center justify-center" style={{ color: freeformOpenerPalette.textSecondary }}>
+                              <ImageIcon className="h-9 w-9" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="mt-3 text-[1.65rem] leading-none" style={{ fontFamily: '"Lobster", "Pacifico", serif', color: freeformOpenerPalette.nameText }}>{page.recipient_name}</p>
+                      </div>
+
+                      <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: freeformOpenerPalette.eyebrowText }}>A birthday board for</p>
+                      <h2 className="mt-2 text-[3.9rem] font-semibold leading-[0.92] sm:text-[4.6rem]" style={{ fontFamily: '"Playfair Display", Georgia, serif', color: freeformOpenerPalette.textPrimary }}>
+                        {page.recipient_name}
+                      </h2>
+                      <p className="mx-auto mt-4 max-w-[27rem] text-[1.12rem] italic leading-[1.45]" style={{ fontFamily: '"Playfair Display", Georgia, serif', color: freeformOpenerPalette.quoteText }}>
+                        "Every note, photo, and voice here was left just for you."
+                      </p>
+
+                      <div className="mt-7 grid grid-cols-3 gap-3 justify-items-center sm:flex sm:items-center sm:justify-center">
+                        <span aria-label={`${messages.length} wishes`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
+                          <span className="select-none">{messages.length}</span>
+                          <Sparkles className="h-4 w-4" />
+                        </span>
+                        <span aria-label={`${totalPhotos} photos`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
+                          <span className="select-none">{totalPhotos}</span>
+                          <ImageIcon className="h-4 w-4" />
+                        </span>
+                        <span aria-label={`${totalAudioWishes} voices`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
+                          <span className="select-none">{totalAudioWishes}</span>
+                          <Music className="h-4 w-4" />
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void beginReveal()}
+                        className="mt-8 inline-flex items-center rounded-2xl border bg-transparent px-8 py-2.5 text-[1.3rem] font-medium transition-colors hover:bg-white/10"
+                        style={{ borderColor: freeformOpenerPalette.ctaBorder, color: freeformOpenerPalette.ctaText }}
+                        aria-label="Open your board"
+                      >
+                        Open your board
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void skipReveal()}
+                        className="mt-5 block w-full text-[1rem] transition-colors"
+                        style={{ color: freeformOpenerPalette.skipText }}
+                        onMouseEnter={(event) => {
+                          event.currentTarget.style.color = freeformOpenerPalette.skipTextHover;
+                        }}
+                        onMouseLeave={(event) => {
+                          event.currentTarget.style.color = freeformOpenerPalette.skipText;
+                        }}
+                      >
+                        skip intro
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void beginReveal()}
+                      aria-label="Open birthday letter"
+                      className={cn(
+                        'group relative z-10 h-[18rem] w-[20.5rem] transition-all duration-700 ease-out sm:h-[20.5rem] sm:w-[24rem]',
+                        revealPhase === 'opening' && 'scale-[0.98] rotate-[1.5deg]',
+                        revealPhase === 'burst' && 'scale-[0.94] opacity-80',
+                      )}
+                    >
                     {/* Envelope outer shell */}
                     <div
                       className="absolute inset-0 rounded-[2.4rem]"
@@ -2321,32 +2714,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         <span className="h-1.5 w-1.5 rounded-full bg-white/45" />
                       </div>
                     </div>
-                  </button>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {!showRevealIntro && (
-        <div
-          className={cn(
-            'pointer-events-none z-40 mx-auto flex w-full max-w-6xl justify-center px-3 sm:px-5',
-            effectiveViewMode === 'freeform' ? 'fixed left-0 right-0 top-3 sm:top-4' : 'sticky top-3 sm:top-4',
-          )}
-        >
-          <div
-            className={cn(
-              'pointer-events-auto inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur-xl',
-              isDarkExperience ? 'border-white/16 bg-white/8 text-white' : 'border-white/75 bg-white/84 text-foreground',
-            )}
-            data-no-nav="true"
-          >
-            <span>View</span>
-            <span className={cn('rounded-full px-2.5 py-1 text-[10px] tracking-[0.1em]', isDarkExperience ? 'bg-white/14 text-white' : 'bg-white text-foreground')}>
-              {viewModeLabel}
-            </span>
           </div>
         </div>
       )}
@@ -2774,16 +3146,23 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       )}
 
       {effectiveViewMode === 'freeform' && hasMessages && (
-        <section className="relative min-h-[100dvh] overflow-y-auto bg-[#EDEAE3] px-3 py-4 sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0">
-          <div className="mx-auto w-full max-w-[66rem] pb-20 pt-14 sm:pt-16 xl:max-w-[88rem]">
+        <section
+          className={cn(
+            'relative min-h-[100dvh] overflow-y-auto px-3 py-1 sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0',
+            'freeform-reveal board',
+            isFreeformBoardEntered && 'enter',
+          )}
+          style={{ background: freeformThemePalette.boardBackground }}
+        >
+          <div className="mx-auto w-full max-w-[66rem] pb-20 pt-2 sm:pt-16 xl:max-w-[88rem]">
             <div className="mb-5 w-full sm:mb-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8E8797] md:block">Freeform view</p>
+                  <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] md:block" style={{ color: freeformThemePalette.eyebrowText }}>Freeform view</p>
                   <h2 className={cn('mt-2 text-2xl font-bold leading-tight sm:text-3xl', theme.titleClass, theme.font)}>
                     {page.recipient_name}&apos;s story board
                   </h2>
-                  <p className="mt-1 text-[11px] text-[#A09880]">
+                  <p className="mt-1 text-[11px]" style={{ color: freeformThemePalette.metaText }}>
                     {messages.length} wishes · {totalPhotos} photos · {totalAudioWishes} voice notes
                   </p>
                 </div>
@@ -2791,20 +3170,21 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             </div>
 
             {/* Cover Card */}
-            <div className="mb-5 sm:mb-6 md:hidden">
+            <div className={cn('mb-5 sm:mb-6 md:hidden', 'card-wrap', landedFreeformCards.has('mobile-cover') && 'landed')}>
               <article
                 className="relative mx-auto w-[calc(100%-20px)] max-w-[24rem] rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
                 style={{
                   marginLeft: '8px',
                   transform: 'rotate(-1.1deg)',
-                  backgroundColor: '#FFFBEA',
-                  borderColor: '#E8D98A',
-                  color: '#4F4120',
+                  '--final-r': '-1.1deg',
+                  backgroundColor: freeformThemePalette.cards[0].bg,
+                  borderColor: freeformThemePalette.cards[0].border,
+                  color: freeformThemePalette.cards[0].text,
                 }}
               >
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute"
+                  className={cn('pointer-events-none absolute tape-el', poppedFreeformDecorators.has('mobile-cover') && 'pop')}
                   style={{
                     width: '36px',
                     height: '13px',
@@ -2812,7 +3192,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     top: '-7px',
                     left: '50%',
                     transform: 'translateX(-50%) rotate(-1.5deg)',
-                    backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                    backgroundColor: freeformThemePalette.tapeColor,
                   }}
                 />
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70">First Note off the board</p>
@@ -2825,8 +3205,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   Every note, photo, and voice clip inside was chosen to make this feel less like a page and more like a gift being opened.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{messages.length} wishes</span>
-                  <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">Reveal {format(birthdayDate, 'MMM d, yyyy')}</span>
+                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{messages.length} wishes</span>
+                  <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>Reveal {format(birthdayDate, 'MMM d, yyyy')}</span>
                 </div>
                 {coverPhotoSrc && (
                   <button
@@ -2847,20 +3227,21 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
             {/* Organizer Card */}
             {page.creator_message && (
-              <div className="mb-5 sm:mb-6 md:hidden">
+              <div className={cn('mb-5 sm:mb-6 md:hidden', 'card-wrap', landedFreeformCards.has('mobile-organizer') && 'landed')}>
                 <article
                   className="relative mx-auto w-[calc(100%-20px)] max-w-[22rem] rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
                   style={{
                     marginLeft: '18px',
                     transform: 'rotate(1.2deg)',
-                    backgroundColor: '#FDF0F2',
-                    borderColor: '#E5B6BE',
-                    color: '#4F2F35',
+                    '--final-r': '1.2deg',
+                    backgroundColor: freeformThemePalette.cards[1].bg,
+                    borderColor: freeformThemePalette.cards[1].border,
+                    color: freeformThemePalette.cards[1].text,
                   }}
                 >
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute"
+                    className={cn('pointer-events-none absolute pin-dot', poppedFreeformDecorators.has('mobile-organizer') && 'pop')}
                     style={{
                       width: '9px',
                       height: '9px',
@@ -2868,7 +3249,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       top: '-5px',
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      backgroundColor: '#E35252',
+                      backgroundColor: freeformThemePalette.pinColor,
                     }}
                   />
                   <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/55">
@@ -2881,19 +3262,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             )}
 
             {(() => {
-              const freeformCardPalette = [
-                { bg: '#FFFBEA', border: '#E8D98A', text: '#4F4120' },
-                { bg: '#FDF0F2', border: '#E5B6BE', text: '#4F2F35' },
-                { bg: '#EDF4FF', border: '#B4CCE9', text: '#1A3F70' },
-                { bg: '#ECF8F3', border: '#AFD7C8', text: '#1F5D4A' },
-                { bg: '#F2EEFF', border: '#C0B5E8', text: '#352C73' },
-              ] as const;
+              const freeformCardPalette = freeformThemePalette.cards;
               const boardMessages = messages;
 
               return (
                 <>
-                  <div className="space-y-4 md:hidden">
+                  <div ref={mobileCardsContainerRef} className="space-y-4 md:hidden">
                     {boardMessages.map((message, index) => {
+                      const cardAnimationKey = `mobile-message-${message.id}`;
                       const isExpanded = expandedFreeformCardIds.has(message.id);
                       const baseRotation = ((index * 7) % 11 - 5) * 0.6;
                       const rotation = Math.max(-1.5, Math.min(1.5, baseRotation));
@@ -2903,23 +3279,27 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       const voiceCount = message.audio_url ? 1 : 0;
                       const compactMessage = stripHtml(message.message || '').trim();
 
-                      return (
+                        return (
                         <article
                           key={message.id}
-                          className="relative rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all duration-300 ease-out"
+                          className={cn('relative rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition-all duration-300 ease-out mobile-card', 'card-wrap', landedFreeformCards.has(cardAnimationKey) && 'landed')}
                           style={{
                             marginLeft: `${index % 2 === 0 ? 4 : 14}px`,
                             width: 'calc(100% - 20px)',
                             transform: `rotate(${rotation}deg)`,
+                            '--final-r': `${rotation}deg`,
+                            '--start-x': `${index % 2 === 0 ? '-30%' : '30%'}`,
+                            '--start-rot': `${rotation * -1}deg`,
+                            '--scroll-delay': `${index * 90}ms`,
                             backgroundColor: tone.bg,
-                            borderColor: isExpanded ? '#EDA45D' : tone.border,
+                            borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                             color: tone.text,
-                          }}
+                          } as any}
                         >
                           {index % 2 === 0 ? (
                             <span
                               aria-hidden="true"
-                              className="pointer-events-none absolute"
+                              className={cn('pointer-events-none absolute tape-el', poppedFreeformDecorators.has(cardAnimationKey) && 'pop')}
                               style={{
                                 width: '36px',
                                 height: '13px',
@@ -2927,13 +3307,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 top: '-7px',
                                 left: '50%',
                                 transform: 'translateX(-50%) rotate(-1.5deg)',
-                                backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                                backgroundColor: freeformThemePalette.tapeColor,
                               }}
                             />
                           ) : (
                             <span
                               aria-hidden="true"
-                              className="pointer-events-none absolute"
+                              className={cn('pointer-events-none absolute pin-dot', poppedFreeformDecorators.has(cardAnimationKey) && 'pop')}
                               style={{
                                 width: '9px',
                                 height: '9px',
@@ -2941,7 +3321,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 top: '-5px',
                                 left: '50%',
                                 transform: 'translateX(-50%)',
-                                backgroundColor: '#E35252',
+                                backgroundColor: freeformThemePalette.pinColor,
                               }}
                             />
                           )}
@@ -2964,7 +3344,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             <div className="flex items-start justify-between gap-3">
                               <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-65">{message.sender_name || 'Someone'}</p>
                               {isExpanded && (
-                                <span className="rounded-full bg-[#f3e5d2] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9b6a35]">
+                                <span className="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>
                                   Tap to close
                                 </span>
                               )}
@@ -2975,13 +3355,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             {(photoCount > 0 || voiceCount > 0) && (
                               <div className="mt-3 flex flex-wrap gap-2">
                                 {photoCount > 0 && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>
                                     <ImageIcon className="h-3.5 w-3.5" />
                                     {photoCount} photo{photoCount === 1 ? '' : 's'}
                                   </span>
                                 )}
                                 {voiceCount > 0 && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-white/55 px-2 py-1 text-[11px] font-semibold opacity-85">
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>
                                     <Music className="h-3.5 w-3.5" />
                                     {voiceCount} voice note{voiceCount === 1 ? '' : 's'}
                                   </span>
@@ -2989,7 +3369,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                               </div>
                             )}
 
-                            <div className="mt-3 border-t border-black/10 pt-2 text-center text-xs font-medium opacity-45">Tap to open</div>
+                            <div className="mt-3 border-t pt-2 text-center text-xs font-medium opacity-45" style={{ borderColor: freeformThemePalette.dividerColor }}>Tap to open</div>
                           </button>
 
                           <div className={cn('grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 ease-out', isExpanded ? 'mt-3 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0')}>
@@ -3057,19 +3437,25 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             const rotation = Math.max(-1.5, Math.min(1.5, baseRotation));
 
                             if (card.type !== 'message') {
+                              const cardAnimationKey = card.type === 'cover'
+                                ? 'desktop-cover'
+                                : card.type === 'organizer'
+                                  ? 'desktop-organizer'
+                                  : 'desktop-closing';
                               const metaTone =
                                 card.type === 'cover'
-                                  ? { bg: '#FFFBEA', border: '#E8D98A', text: '#4F4120' }
+                                  ? freeformThemePalette.cards[0]
                                   : card.type === 'organizer'
-                                    ? { bg: '#FDF0F2', border: '#E5B6BE', text: '#4F2F35' }
-                                    : { bg: '#ECF8F3', border: '#AFD7C8', text: '#1F5D4A' };
+                                    ? freeformThemePalette.cards[1]
+                                    : freeformThemePalette.cards[3];
 
                               return (
                                 <article
                                   key={`meta-${card.type}`}
-                                  className="relative mb-6 inline-block w-full break-inside-avoid rounded-[1.2rem] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)]"
+                                  className={cn('relative mb-6 inline-block w-full break-inside-avoid rounded-[1.2rem] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)]', 'card-wrap', landedFreeformCards.has(cardAnimationKey) && 'landed')}
                                   style={{
                                     transform: `rotate(${rotation}deg)`,
+                                    '--final-r': `${rotation}deg`,
                                     backgroundColor: metaTone.bg,
                                     borderColor: metaTone.border,
                                     color: metaTone.text,
@@ -3078,7 +3464,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   {index % 2 === 0 ? (
                                     <span
                                       aria-hidden="true"
-                                      className="pointer-events-none absolute"
+                                      className={cn('pointer-events-none absolute tape-el', poppedFreeformDecorators.has(cardAnimationKey) && 'pop')}
                                       style={{
                                         width: '36px',
                                         height: '13px',
@@ -3086,13 +3472,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                         top: '-7px',
                                         left: '50%',
                                         transform: 'translateX(-50%) rotate(-1.5deg)',
-                                        backgroundColor: 'rgba(255, 218, 130, 0.55)',
+                                        backgroundColor: freeformThemePalette.tapeColor,
                                       }}
                                     />
                                   ) : (
                                     <span
                                       aria-hidden="true"
-                                      className="pointer-events-none absolute"
+                                      className={cn('pointer-events-none absolute pin-dot', poppedFreeformDecorators.has(cardAnimationKey) && 'pop')}
                                       style={{
                                         width: '9px',
                                         height: '9px',
@@ -3100,7 +3486,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                         top: '-5px',
                                         left: '50%',
                                         transform: 'translateX(-50%)',
-                                        backgroundColor: '#E35252',
+                                        backgroundColor: freeformThemePalette.pinColor,
                                       }}
                                     />
                                   )}
@@ -3117,8 +3503,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                         Every note, photo, and voice clip inside was chosen to make this feel less like a page and more like a gift being opened.
                                       </p>
                                       <div className="mt-3 flex flex-wrap gap-2">
-                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{messages.length} wishes</span>
-                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">Reveal {format(birthdayDate, 'MMM d, yyyy')}</span>
+                                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{messages.length} wishes</span>
+                                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>Reveal {format(birthdayDate, 'MMM d, yyyy')}</span>
                                       </div>
                                       {coverPhotoSrc && (
                                         <button
@@ -3161,11 +3547,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                         This is the part worth replaying: every photo, every message, and every voice note gathered into one last birthday page.
                                       </p>
                                       <div className="mt-3 flex flex-wrap gap-2">
-                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{messages.length} wishes</span>
-                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalPhotos} photos</span>
-                                        <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalAudioWishes} voices</span>
+                                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{messages.length} wishes</span>
+                                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{totalPhotos} photos</span>
+                                        <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{totalAudioWishes} voices</span>
                                       </div>
-                                      <p className="mt-3 border-t border-black/10 pt-2 text-xs leading-relaxed opacity-80">
+                                      <p className="mt-3 border-t pt-2 text-xs leading-relaxed opacity-80" style={{ borderColor: freeformThemePalette.dividerColor }}>
                                         Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                                       </p>
                                     </>
@@ -3175,6 +3561,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             }
 
                             const message = card.message;
+                            const cardAnimationKey = `desktop-message-${message.id}`;
                             const isExpanded = expandedFreeformCardIds.has(message.id);
                             const tone = freeformCardPalette[index % freeformCardPalette.length];
                             const photos = getMessagePhotos(message);
@@ -3185,18 +3572,19 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             return (
                               <article
                                 key={message.id}
-                                className="relative mb-6 inline-block w-full break-inside-avoid rounded-[1.2rem] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)] transition-all duration-300 ease-out"
+                                className={cn('relative mb-6 inline-block w-full break-inside-avoid rounded-[1.2rem] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.10)] transition-all duration-300 ease-out', 'card-wrap', landedFreeformCards.has(cardAnimationKey) && 'landed')}
                                 style={{
                                   transform: `rotate(${rotation}deg)`,
+                                  '--final-r': `${rotation}deg`,
                                   backgroundColor: tone.bg,
-                                  borderColor: isExpanded ? '#EDA45D' : tone.border,
+                                  borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                                   color: tone.text,
                                 }}
                               >
                                 {index % 2 === 0 ? (
                                   <span
                                     aria-hidden="true"
-                                    className="pointer-events-none absolute"
+                                    className={cn('pointer-events-none absolute tape-el', poppedFreeformDecorators.has(cardAnimationKey) && 'pop')}
                                     style={{
                                       width: '36px',
                                       height: '13px',
@@ -3210,7 +3598,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 ) : (
                                   <span
                                     aria-hidden="true"
-                                    className="pointer-events-none absolute"
+                                    className={cn('pointer-events-none absolute pin-dot', poppedFreeformDecorators.has(cardAnimationKey) && 'pop')}
                                     style={{
                                       width: '9px',
                                       height: '9px',
@@ -3316,12 +3704,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             })()}
 
             {/* Closing Card */}
-            <div className="mt-8 sm:mt-10 md:hidden">
+            <div className={cn('mt-8 sm:mt-10 md:hidden', 'card-wrap', landedFreeformCards.has('mobile-closing') && 'landed')}>
               <article
                 className="relative mx-auto w-[calc(100%-20px)] max-w-[24rem] rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
                 style={{
                   marginLeft: '10px',
                   transform: 'rotate(-0.9deg)',
+                  '--final-r': '-0.9deg',
                   backgroundColor: '#ECF8F3',
                   borderColor: '#AFD7C8',
                   color: '#1F5D4A',
@@ -3329,7 +3718,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
               >
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute"
+                  className={cn('pointer-events-none absolute tape-el', poppedFreeformDecorators.has('mobile-closing') && 'pop')}
                   style={{
                     width: '36px',
                     height: '13px',

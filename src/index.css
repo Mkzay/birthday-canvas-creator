@@ -771,6 +771,143 @@
     transform 220ms ease-out;
 }
 
+/* Freeform opener + board sequence animations */
+.intro.exit {
+  opacity: 0;
+  transform: scale(0.97);
+  pointer-events: none;
+  transition: opacity 700ms ease, transform 700ms ease;
+}
+
+.board {
+  opacity: 0;
+  transform: scale(1.02);
+  transition: opacity 900ms ease, transform 900ms ease;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+.board.enter {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: all;
+}
+
+@keyframes cardLand {
+  from {
+    opacity: 0;
+    transform: translateY(14px) rotate(0deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(var(--final-r, 0deg));
+  }
+}
+
+.card-wrap {
+  opacity: 0;
+}
+
+.card-wrap.landed {
+  animation: cardLand 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Desktop-only: hover flips the card tilt using the card's --final-r variable */
+@media (hover: hover) and (pointer: fine) {
+  .card-wrap {
+    transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  /* When hovering (or keyboard focusing) reverse the card's rotation sign so
+     a left-tilted card tilts right and vice-versa. Uses !important to override
+     inline transform applied in components (they set transform inline). */
+  .card-wrap:hover,
+  .card-wrap:focus-within {
+    transform: rotate(calc(var(--final-r, 0deg) * -1)) translateY(-6px) scale(1.02) !important;
+    z-index: 20;
+  }
+}
+@keyframes tapePop {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.tape-el,
+.pin-dot {
+  opacity: 0;
+  transform: scale(0);
+}
+
+.tape-el.pop,
+.pin-dot.pop {
+  animation: tapePop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes polaroidFlip {
+  0% {
+    transform: perspective(900px) rotateY(0deg) scale(1);
+  }
+  45% {
+    transform: perspective(900px) rotateY(-96deg) scale(1.03);
+  }
+  100% {
+    transform: perspective(900px) rotateY(-180deg) scale(0.98);
+  }
+}
+
+.freeform-polaroid {
+  transform-origin: center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+.freeform-polaroid.flip {
+  animation: polaroidFlip 700ms ease-out forwards;
+}
+
+/* Mobile-only: staggered fall-in animation when scrolling into view. Cards
+   come from alternating sides and the animation is reversible (removes the
+   class when scrolled out so it can play again when scrolled back). */
+@media (max-width: 767px) {
+  @keyframes mobileFallIn {
+    0% {
+      opacity: 0;
+      transform: translateX(var(--start-x, -30%)) translateY(14px) rotate(var(--start-rot, -3deg));
+    }
+    60% {
+      opacity: 1;
+      transform: translateX(calc(var(--start-x, -30%) * 0.12)) translateY(-6px) rotate(calc(var(--start-rot, -3deg) * 0.3));
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0) translateY(0) rotate(0deg);
+    }
+  }
+
+  .mobile-card {
+    opacity: 0;
+    transform: translateX(var(--start-x, -30%)) translateY(12px) rotate(var(--start-rot, -3deg));
+    will-change: transform, opacity;
+  }
+
+  .mobile-card.in-view {
+    animation: mobileFallIn var(--mobile-duration, 600ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--scroll-delay, 0ms);
+  }
+}
+
 .story-photo-board:hover::before {
   opacity: 1;
 }
@@ -1061,5 +1198,63 @@
     width: 0%;
     margin-left: 100%;
     opacity: 0.7;
+  }
+}
+
+/* Mobile text sizing for openers - target by Tailwind size classes */
+@media (max-width: 639px) {
+  /* Freeform polaroid name: 1.65rem -> 1.3rem */
+  .freeform-polaroid p {
+    font-size: 1.3rem !important;
+  }
+
+  /* Eyebrow text: 11px -> 9px */
+  .text-\[11px\] {
+    font-size: 9px !important;
+  }
+
+  /* Main heading: 3.9rem -> 2.4rem */
+  .text-\[3\.9rem\] {
+    font-size: 2.4rem !important;
+  }
+
+  /* SM breakpoint heading override: 4.6rem -> 2.4rem */
+  .sm\:text-\[4\.6rem\] {
+    font-size: 2.4rem !important;
+  }
+
+  /* Quote text: 1.12rem -> 0.95rem */
+  .text-\[1\.12rem\] {
+    font-size: 0.95rem !important;
+  }
+
+  /* Chips: 0.98rem -> 0.85rem */
+  .text-\[0\.98rem\] {
+    font-size: 0.85rem !important;
+  }
+
+  /* CTA button: 1.3rem -> 1.05rem */
+  .text-\[1\.3rem\] {
+    font-size: 1.05rem !important;
+  }
+
+  /* Skip intro button: 1rem -> 0.9rem */
+  .block.w-full.text-\[1rem\] {
+    font-size: 0.9rem !important;
+  }
+
+  /* Story cover heading: 2.55rem -> 1.7rem */
+  .text-\[2\.55rem\] {
+    font-size: 1.7rem !important;
+  }
+
+  /* Story section heading: 2.1rem -> 1.5rem */
+  .text-\[2\.1rem\] {
+    font-size: 1.5rem !important;
+  }
+
+  /* Reduced marker label: 10px -> 8px */
+  .text-\[10px\].font-semibold {
+    font-size: 8px !important;
   }
 }

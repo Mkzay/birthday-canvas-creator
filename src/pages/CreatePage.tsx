@@ -18,6 +18,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import Header from '@/components/Header';
+import OpenerThemePreview from '@/components/OpenerThemePreview';
+import { builtInThemeMap, visualThemeConfig } from '@/lib/themes';
 
 type Theme = string;
 type DisplayMode = 'story' | 'freeform' | 'bento';
@@ -29,20 +31,33 @@ interface CustomTheme {
   emoji: string;
   gradient_from: string;
   gradient_to: string;
+  gradient_mid?: string | null;
 }
 
-const themeConfig = {
-  elegant: { name: 'Elegant', emoji: '✨', primary: 'from-amber-400 to-orange-500' },
-  playful: { name: 'Playful', emoji: '🎈', primary: 'from-pink-500 to-purple-500' },
-  minimalist: { name: 'Minimalist', emoji: '🎯', primary: 'from-slate-600 to-slate-800' },
-  retro: { name: 'Retro', emoji: '🌈', primary: 'from-cyan-400 to-purple-500' },
-  tropical: { name: 'Tropical', emoji: '🌴', primary: 'from-green-400 to-emerald-500' },
-  cosmic: { name: 'Cosmic', emoji: '🚀', primary: 'from-violet-500 to-indigo-600' },
-  sunset: { name: 'Sunset', emoji: '🌅', primary: 'from-orange-400 to-rose-500' },
-  ocean: { name: 'Ocean', emoji: '🌊', primary: 'from-sky-400 to-cyan-500' },
-  candyland: { name: 'Candyland', emoji: '🍭', primary: 'from-pink-400 to-purple-500' },
-  midnight: { name: 'Midnight', emoji: '🌙', primary: 'from-indigo-500 to-violet-600' },
-};
+function getEffectiveColors(
+  selectedTheme: string,
+  letterColor: string | null | undefined,
+  customThemes: CustomTheme[],
+) {
+  if (letterColor) {
+    const [start, end] = letterColor.split(',').map((c) => c.trim());
+    return { start, end };
+  }
+
+  // Check custom themes
+  const custom = customThemes.find((t) => t.id === selectedTheme);
+  if (custom) {
+    return { start: custom.gradient_from, end: custom.gradient_to };
+  }
+
+  // Check built-in themes
+  const config = visualThemeConfig[selectedTheme as keyof typeof visualThemeConfig];
+  if (config && config.colors && config.colors.length >= 2) {
+    return { start: config.colors[0], end: config.colors[1] };
+  }
+
+  return { start: '#f5f0e8', end: '#eadfce' };
+}
 
 const displayModes: Array<{ id: DisplayMode; label: string; description: string }> = [
   { id: 'story', label: 'Story', description: 'Guided reveal flow' },
@@ -121,6 +136,21 @@ function ModePreview({ mode }: { mode: DisplayMode }) {
   );
 }
 
+const DEFAULT_LETTER_START = '#f5f0e8';
+const DEFAULT_LETTER_END = '#eadfce';
+
+function normalizePastedHex(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  const shortMatch = withHash.match(/^#([0-9a-f]{3})$/i);
+  if (shortMatch) {
+    const [r, g, b] = shortMatch[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return /^#[0-9a-f]{6}$/i.test(withHash) ? withHash.toLowerCase() : null;
+}
+
 function toIsoDatetime(value: string) {
   if (!value) return null;
   const date = new Date(value);
@@ -143,6 +173,11 @@ const CreatePage = () => {
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
   const [selectedDisplayMode, setSelectedDisplayMode] = useState<DisplayMode>('story');
+  const [letterColor, setLetterColor] = useState<string>('');
+  const [letterGradientStart, setLetterGradientStart] = useState(DEFAULT_LETTER_START);
+  const [letterGradientEnd, setLetterGradientEnd] = useState(DEFAULT_LETTER_END);
+  const [letterStartHexInput, setLetterStartHexInput] = useState(DEFAULT_LETTER_START);
+  const [letterEndHexInput, setLetterEndHexInput] = useState(DEFAULT_LETTER_END);
   const [allowPhotos, setAllowPhotos] = useState(user?.defaultAllowPhotos ?? true);
   const [allowAudio, setAllowAudio] = useState(user?.defaultAllowAudio ?? true);
   const [requireNames, setRequireNames] = useState(user?.defaultRequireNames ?? true);
@@ -177,6 +212,14 @@ const CreatePage = () => {
       setSelectedDisplayMode('story');
     }
   }, [isProUser, selectedDisplayMode]);
+
+  useEffect(() => {
+    setLetterStartHexInput(letterGradientStart);
+  }, [letterGradientStart]);
+
+  useEffect(() => {
+    setLetterEndHexInput(letterGradientEnd);
+  }, [letterGradientEnd]);
 
   const fetchCustomThemes = useCallback(async () => {
     if (!user) return;
@@ -298,6 +341,7 @@ const CreatePage = () => {
             birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
             theme: selectedTheme,
             displayMode: isProUser ? selectedDisplayMode : 'story',
+            letterColor: letterColor || null,
             creatorMessage: creatorMessage || null,
             soundtrackId: selectedSoundtrackId,
             pageCustomAudioUrl,
@@ -355,6 +399,7 @@ const CreatePage = () => {
           birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
           theme: selectedTheme,
           displayMode: isProUser ? selectedDisplayMode : 'story',
+          letterColor: letterColor || null,
           creatorMessage: creatorMessage || null,
           soundtrackId: selectedSoundtrackId,
           allowPhotos: nextAllowPhotos,
@@ -645,6 +690,120 @@ const CreatePage = () => {
                 ))}
               </div>
               <ModePreview mode={selectedDisplayMode} />
+            </div>
+
+            <div className="mt-8">
+              <Label className="text-foreground">Letter / envelope color</Label>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Optional. Use one or two tones for the paper mood. Leave empty to use the theme default.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2">
+                  <Label htmlFor="letter-color-start" className="text-xs text-muted-foreground">Start</Label>
+                  <input
+                    type="color"
+                    id="letter-color-start"
+                    value={letterGradientStart}
+                    onChange={(e) => {
+                      const nextStart = e.target.value;
+                      setLetterGradientStart(nextStart);
+                      setLetterColor(`${nextStart},${letterGradientEnd}`);
+                    }}
+                    className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background"
+                    aria-label="Choose letter gradient start color"
+                  />
+                </div>
+                <Input
+                  value={letterStartHexInput}
+                  onChange={(event) => setLetterStartHexInput(event.target.value)}
+                  onBlur={() => {
+                    const normalized = normalizePastedHex(letterStartHexInput);
+                    if (!normalized) {
+                      setLetterStartHexInput(letterGradientStart);
+                      return;
+                    }
+                    setLetterGradientStart(normalized);
+                    setLetterColor(`${normalized},${letterGradientEnd}`);
+                  }}
+                  placeholder="#f5f0e8"
+                  className="h-10 w-[8.5rem] font-mono text-xs"
+                  aria-label="Paste letter gradient start color code"
+                />
+                <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2">
+                  <Label htmlFor="letter-color-end" className="text-xs text-muted-foreground">End</Label>
+                  <input
+                    type="color"
+                    id="letter-color-end"
+                    value={letterGradientEnd}
+                    onChange={(e) => {
+                      const nextEnd = e.target.value;
+                      setLetterGradientEnd(nextEnd);
+                      setLetterColor(`${letterGradientStart},${nextEnd}`);
+                    }}
+                    className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background"
+                    aria-label="Choose letter gradient end color"
+                  />
+                </div>
+                <Input
+                  value={letterEndHexInput}
+                  onChange={(event) => setLetterEndHexInput(event.target.value)}
+                  onBlur={() => {
+                    const normalized = normalizePastedHex(letterEndHexInput);
+                    if (!normalized) {
+                      setLetterEndHexInput(letterGradientEnd);
+                      return;
+                    }
+                    setLetterGradientEnd(normalized);
+                    setLetterColor(`${letterGradientStart},${normalized}`);
+                  }}
+                  placeholder="#eadfce"
+                  className="h-10 w-[8.5rem] font-mono text-xs"
+                  aria-label="Paste letter gradient end color code"
+                />
+                {letterColor && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setLetterColor('');
+                      setLetterGradientStart(DEFAULT_LETTER_START);
+                      setLetterGradientEnd(DEFAULT_LETTER_END);
+                      setLetterStartHexInput(DEFAULT_LETTER_START);
+                      setLetterEndHexInput(DEFAULT_LETTER_END);
+                    }}
+                  >
+                    Use default
+                  </Button>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">You can paste hex values like #f5f0e8, f5f0e8, or #abc.</p>
+              
+              {(() => {
+                const { start, end } = getEffectiveColors(selectedTheme, letterColor, customThemes);
+                return (
+                  <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
+                    <div className="order-2 sm:order-1">
+                      <OpenerThemePreview 
+                        mode={selectedDisplayMode} 
+                        startColor={start} 
+                        endColor={end} 
+                        recipientName={recipientName} 
+                      />
+                    </div>
+                    <div className="order-1 space-y-0.5 text-xs sm:order-2">
+                      <p className="font-semibold text-foreground">
+                        {selectedDisplayMode === 'story' ? 'Letter theme preview' : 'Freeform opener preview'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {selectedDisplayMode === 'story' 
+                          ? 'Mirrors the opening envelope layout used on the birthday page.' 
+                          : 'Shows the polaroid-style reveal used in Freeform mode.'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="panel-inset mt-8 p-4 sm:p-6">
