@@ -36,6 +36,30 @@
 
 ## Common incidents
 
+### Birthday notification automation (GitHub Actions)
+
+Two workflows drive birthday email automation:
+
+- `.github/workflows/birthday-notify-cron.yml`
+  - Daily run at `00:05 UTC`
+  - Also supports manual runs with optional `date` (`YYYY-MM-DD`)
+- `.github/workflows/birthday-notify-backfill-monthly.yml`
+  - Monthly run on day 1 at `00:30 UTC`
+  - Replays the previous `35` days by default
+
+Required GitHub repository secrets:
+
+- `BIRTHDAY_NOTIFY_URL` → API endpoint, e.g. `https://<api-domain>/api/system/notify-birthdays/cron`
+- `CRON_SECRET` → must match API env var `CRON_SECRET`
+
+Optional (failure alert email via Resend):
+
+- `RESEND_API_KEY`
+- `ALERT_EMAIL_FROM`
+- `ALERT_EMAIL_TO`
+
+If the alert-email secrets are missing, workflows still run but skip alert email delivery on failures.
+
 ### iOS “Unauthorized” on reload
 
 Likely cookie domain / sameSite / secure mismatch.
