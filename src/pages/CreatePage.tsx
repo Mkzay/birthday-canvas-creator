@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import Header from '@/components/Header';
+import OpenerThemePreview from '@/components/OpenerThemePreview';
 import { builtInThemeMap, visualThemeConfig } from '@/lib/themes';
 
 type Theme = string;
@@ -56,87 +57,6 @@ function getEffectiveColors(
   }
 
   return { start: '#f5f0e8', end: '#eadfce' };
-}
-
-function LetterThemePreview({ startColor, endColor, recipientName }: { startColor: string; endColor: string; recipientName: string }) {
-  return (
-    <div className="relative h-36 w-52 overflow-hidden rounded-[1.35rem] border border-border/60 bg-gradient-to-br from-white to-muted/50 p-3 shadow-card-sm">
-      <div className="relative h-full w-full">
-        <div
-          className="absolute inset-0 rounded-[1rem]"
-          style={{
-            background: `linear-gradient(145deg, ${startColor}, ${endColor})`,
-            boxShadow: '0 14px 26px rgba(15, 23, 42, 0.16)',
-          }}
-        />
-        <div className="absolute inset-[1px] rounded-[0.95rem] border border-white/60" />
-        <div
-          className="absolute left-1/2 top-0 h-[52%] w-[92%] -translate-x-1/2 origin-top rounded-[0.9rem]"
-          style={{
-            clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-            background: `linear-gradient(145deg, ${endColor}, ${startColor})`,
-          }}
-        />
-        <div
-          className="absolute bottom-[10%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[0.85rem] border border-black/10"
-          style={{
-            background: `linear-gradient(180deg, ${startColor}, ${endColor})`,
-          }}
-        />
-        <div
-          className="absolute left-1/2 top-[24%] h-[40%] w-[74%] -translate-x-1/2 rounded-[0.7rem] border border-black/10 px-2.5 py-2 text-left"
-          style={{
-            background: `linear-gradient(180deg, ${endColor}, ${startColor})`,
-          }}
-        >
-          <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-foreground/65">To</p>
-          <p className="mt-1 line-clamp-1 text-xs font-bold text-foreground">{recipientName || 'Birthday Star'}</p>
-          <p className="mt-1 line-clamp-1 text-[9px] text-foreground/70">Open when ready for the story.</p>
-        </div>
-        <div
-          className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/65 shadow-sm"
-          style={{
-            background: `radial-gradient(circle at 30% 30%, ${startColor}, ${endColor})`,
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function FreeformThemePreview({ startColor, endColor, recipientName }: { startColor: string; endColor: string; recipientName: string }) {
-  return (
-    <div className="relative h-44 w-52 flex flex-col items-center justify-center p-3">
-       <div className="mx-auto w-fit rounded-md bg-white px-3 pb-3 pt-2.5 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
-        <div 
-          className="relative mx-auto h-3 w-10 -translate-y-1.5 rounded-sm transition-colors duration-500" 
-          style={{ backgroundColor: `${endColor}cc` }} 
-        />
-        <div 
-          className="relative h-[8.5rem] w-[9.2rem] overflow-hidden rounded-sm transition-colors duration-500 flex flex-col items-center justify-center text-center p-2" 
-          style={{ background: `linear-gradient(145deg, ${startColor}, ${endColor})` }}
-        >
-          <p className="text-[7px] font-semibold uppercase tracking-[0.2em] text-white/70">Happy Birthday</p>
-          <p className="mt-1 text-base font-bold text-white leading-tight drop-shadow-sm">{recipientName || 'Name'}</p>
-          <div className="mt-2 h-0.5 w-6 bg-white/40 rounded-full" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ThemePreview({ mode, startColor, endColor, recipientName }: { mode: DisplayMode; startColor: string; endColor: string; recipientName: string }) {
-  if (mode === 'story') {
-    return <LetterThemePreview startColor={startColor} endColor={endColor} recipientName={recipientName} />;
-  }
-  if (mode === 'freeform') {
-    return <FreeformThemePreview startColor={startColor} endColor={endColor} recipientName={recipientName} />;
-  }
-  return (
-    <div className="flex h-36 w-52 items-center justify-center rounded-[1.35rem] border border-dashed border-border/60 bg-muted/20 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-      Bento Preview
-    </div>
-  );
 }
 
 const displayModes: Array<{ id: DisplayMode; label: string; description: string }> = [
@@ -864,7 +784,7 @@ const CreatePage = () => {
                 return (
                   <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
                     <div className="order-2 sm:order-1">
-                      <ThemePreview 
+                      <OpenerThemePreview 
                         mode={selectedDisplayMode} 
                         startColor={start} 
                         endColor={end} 

@@ -1902,7 +1902,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const currentSlideDuration = useMemo(() => getSlideDuration(activeSlide), [activeSlide]);
   const hasMessages = messages.length > 0;
   const effectiveViewMode: PageDisplayMode = hasMessages ? viewMode : 'story';
-  const viewModeLabel = effectiveViewMode === 'story' ? 'Story' : effectiveViewMode === 'freeform' ? 'Freeform' : 'Bento';
   const coverHintLabel =
     isCoarsePointerDevice
       ? 'Tap to enlarge'
@@ -2540,28 +2539,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {!showRevealIntro && (
-        <div
-          className={cn(
-            'pointer-events-none z-40 mx-auto flex w-full max-w-6xl justify-center px-3 sm:px-5',
-            effectiveViewMode === 'freeform' ? 'fixed left-0 right-0 top-3 sm:top-4' : 'sticky top-3 sm:top-4',
-          )}
-        >
-          <div
-            className={cn(
-              'pointer-events-auto inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur-xl',
-              isDarkExperience ? 'border-white/16 bg-white/8 text-white' : 'border-white/75 bg-white/84 text-foreground',
-            )}
-            data-no-nav="true"
-          >
-            <span>View</span>
-            <span className={cn('rounded-full px-2.5 py-1 text-[10px] tracking-[0.1em]', isDarkExperience ? 'bg-white/14 text-white' : 'bg-white text-foreground')}>
-              {viewModeLabel}
-            </span>
           </div>
         </div>
       )}
