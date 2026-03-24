@@ -776,13 +776,13 @@
   opacity: 0;
   transform: scale(0.97);
   pointer-events: none;
-  transition: opacity 450ms ease, transform 450ms ease;
+  transition: opacity 700ms ease, transform 700ms ease;
 }
 
 .board {
   opacity: 0;
   transform: scale(1.02);
-  transition: opacity 560ms ease, transform 560ms ease;
+  transition: opacity 900ms ease, transform 900ms ease;
   pointer-events: none;
   will-change: opacity, transform;
 }
@@ -809,7 +809,7 @@
 }
 
 .card-wrap.landed {
-  animation: cardLand 450ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: cardLand 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes tapePop {
@@ -835,7 +835,7 @@
 
 .tape-el.pop,
 .pin-dot.pop {
-  animation: tapePop 200ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: tapePop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes polaroidFlip {
@@ -858,7 +858,7 @@
 }
 
 .freeform-polaroid.flip {
-  animation: polaroidFlip 450ms ease-out forwards;
+  animation: polaroidFlip 700ms ease-out forwards;
 }
 
 .story-photo-board:hover::before {

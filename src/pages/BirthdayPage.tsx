@@ -1633,7 +1633,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         setIsFreeformBoardEntered(true);
         setIsFreeformIntroExiting(false);
         setFreeformAnimationRun((current) => current + 1);
-      }, 390);
+      }, 750);
       freeformAnimationTimeoutsRef.current.push(boardEnterTimeoutId);
       return;
     }
@@ -1642,11 +1642,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     setRevealPhase('opening');
     await startSoundtrack(true);
 
-    window.setTimeout(() => setRevealPhase('burst'), 520);
+    window.setTimeout(() => setRevealPhase('burst'), 800);
     window.setTimeout(() => {
       setShowRevealIntro(false);
       setRevealPhase('idle');
-    }, 1380);
+    }, 2200);
   };
 
   const skipReveal = async () => {
