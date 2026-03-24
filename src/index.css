@@ -771,6 +771,96 @@
     transform 220ms ease-out;
 }
 
+/* Freeform opener + board sequence animations */
+.intro.exit {
+  opacity: 0;
+  transform: scale(0.97);
+  pointer-events: none;
+  transition: opacity 450ms ease, transform 450ms ease;
+}
+
+.board {
+  opacity: 0;
+  transform: scale(1.02);
+  transition: opacity 560ms ease, transform 560ms ease;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+.board.enter {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: all;
+}
+
+@keyframes cardLand {
+  from {
+    opacity: 0;
+    transform: translateY(14px) rotate(0deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(var(--final-r, 0deg));
+  }
+}
+
+.card-wrap {
+  opacity: 0;
+}
+
+.card-wrap.landed {
+  animation: cardLand 450ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tapePop {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.tape-el,
+.pin-dot {
+  opacity: 0;
+  transform: scale(0);
+}
+
+.tape-el.pop,
+.pin-dot.pop {
+  animation: tapePop 200ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes polaroidFlip {
+  0% {
+    transform: perspective(900px) rotateY(0deg) scale(1);
+  }
+  45% {
+    transform: perspective(900px) rotateY(-96deg) scale(1.03);
+  }
+  100% {
+    transform: perspective(900px) rotateY(-180deg) scale(0.98);
+  }
+}
+
+.freeform-polaroid {
+  transform-origin: center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+.freeform-polaroid.flip {
+  animation: polaroidFlip 450ms ease-out forwards;
+}
+
 .story-photo-board:hover::before {
   opacity: 1;
 }
@@ -1061,5 +1151,63 @@
     width: 0%;
     margin-left: 100%;
     opacity: 0.7;
+  }
+}
+
+/* Mobile text sizing for openers - target by Tailwind size classes */
+@media (max-width: 639px) {
+  /* Freeform polaroid name: 1.65rem -> 1.3rem */
+  .freeform-polaroid p {
+    font-size: 1.3rem !important;
+  }
+
+  /* Eyebrow text: 11px -> 9px */
+  .text-\[11px\] {
+    font-size: 9px !important;
+  }
+
+  /* Main heading: 3.9rem -> 2.4rem */
+  .text-\[3\.9rem\] {
+    font-size: 2.4rem !important;
+  }
+
+  /* SM breakpoint heading override: 4.6rem -> 2.4rem */
+  .sm\:text-\[4\.6rem\] {
+    font-size: 2.4rem !important;
+  }
+
+  /* Quote text: 1.12rem -> 0.95rem */
+  .text-\[1\.12rem\] {
+    font-size: 0.95rem !important;
+  }
+
+  /* Chips: 0.98rem -> 0.85rem */
+  .text-\[0\.98rem\] {
+    font-size: 0.85rem !important;
+  }
+
+  /* CTA button: 1.3rem -> 1.05rem */
+  .text-\[1\.3rem\] {
+    font-size: 1.05rem !important;
+  }
+
+  /* Skip intro button: 1rem -> 0.9rem */
+  .block.w-full.text-\[1rem\] {
+    font-size: 0.9rem !important;
+  }
+
+  /* Story cover heading: 2.55rem -> 1.7rem */
+  .text-\[2\.55rem\] {
+    font-size: 1.7rem !important;
+  }
+
+  /* Story section heading: 2.1rem -> 1.5rem */
+  .text-\[2\.1rem\] {
+    font-size: 1.5rem !important;
+  }
+
+  /* Reduced marker label: 10px -> 8px */
+  .text-\[10px\].font-semibold {
+    font-size: 8px !important;
   }
 }
