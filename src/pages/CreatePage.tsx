@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import Header from '@/components/Header';
+import { builtInThemeMap, visualThemeConfig } from '@/lib/themes';
 
 type Theme = string;
 type DisplayMode = 'story' | 'freeform' | 'bento';
@@ -29,20 +30,114 @@ interface CustomTheme {
   emoji: string;
   gradient_from: string;
   gradient_to: string;
+  gradient_mid?: string | null;
 }
 
-const themeConfig = {
-  elegant: { name: 'Elegant', emoji: '✨', primary: 'from-amber-400 to-orange-500' },
-  playful: { name: 'Playful', emoji: '🎈', primary: 'from-pink-500 to-purple-500' },
-  minimalist: { name: 'Minimalist', emoji: '🎯', primary: 'from-slate-600 to-slate-800' },
-  retro: { name: 'Retro', emoji: '🌈', primary: 'from-cyan-400 to-purple-500' },
-  tropical: { name: 'Tropical', emoji: '🌴', primary: 'from-green-400 to-emerald-500' },
-  cosmic: { name: 'Cosmic', emoji: '🚀', primary: 'from-violet-500 to-indigo-600' },
-  sunset: { name: 'Sunset', emoji: '🌅', primary: 'from-orange-400 to-rose-500' },
-  ocean: { name: 'Ocean', emoji: '🌊', primary: 'from-sky-400 to-cyan-500' },
-  candyland: { name: 'Candyland', emoji: '🍭', primary: 'from-pink-400 to-purple-500' },
-  midnight: { name: 'Midnight', emoji: '🌙', primary: 'from-indigo-500 to-violet-600' },
-};
+function getEffectiveColors(
+  selectedTheme: string,
+  letterColor: string | null | undefined,
+  customThemes: CustomTheme[],
+) {
+  if (letterColor) {
+    const [start, end] = letterColor.split(',').map((c) => c.trim());
+    return { start, end };
+  }
+
+  // Check custom themes
+  const custom = customThemes.find((t) => t.id === selectedTheme);
+  if (custom) {
+    return { start: custom.gradient_from, end: custom.gradient_to };
+  }
+
+  // Check built-in themes
+  const config = visualThemeConfig[selectedTheme as keyof typeof visualThemeConfig];
+  if (config && config.colors && config.colors.length >= 2) {
+    return { start: config.colors[0], end: config.colors[1] };
+  }
+
+  return { start: '#f5f0e8', end: '#eadfce' };
+}
+
+function LetterThemePreview({ startColor, endColor, recipientName }: { startColor: string; endColor: string; recipientName: string }) {
+  return (
+    <div className="relative h-36 w-52 overflow-hidden rounded-[1.35rem] border border-border/60 bg-gradient-to-br from-white to-muted/50 p-3 shadow-card-sm">
+      <div className="relative h-full w-full">
+        <div
+          className="absolute inset-0 rounded-[1rem]"
+          style={{
+            background: `linear-gradient(145deg, ${startColor}, ${endColor})`,
+            boxShadow: '0 14px 26px rgba(15, 23, 42, 0.16)',
+          }}
+        />
+        <div className="absolute inset-[1px] rounded-[0.95rem] border border-white/60" />
+        <div
+          className="absolute left-1/2 top-0 h-[52%] w-[92%] -translate-x-1/2 origin-top rounded-[0.9rem]"
+          style={{
+            clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+            background: `linear-gradient(145deg, ${endColor}, ${startColor})`,
+          }}
+        />
+        <div
+          className="absolute bottom-[10%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[0.85rem] border border-black/10"
+          style={{
+            background: `linear-gradient(180deg, ${startColor}, ${endColor})`,
+          }}
+        />
+        <div
+          className="absolute left-1/2 top-[24%] h-[40%] w-[74%] -translate-x-1/2 rounded-[0.7rem] border border-black/10 px-2.5 py-2 text-left"
+          style={{
+            background: `linear-gradient(180deg, ${endColor}, ${startColor})`,
+          }}
+        >
+          <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-foreground/65">To</p>
+          <p className="mt-1 line-clamp-1 text-xs font-bold text-foreground">{recipientName || 'Birthday Star'}</p>
+          <p className="mt-1 line-clamp-1 text-[9px] text-foreground/70">Open when ready for the story.</p>
+        </div>
+        <div
+          className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/65 shadow-sm"
+          style={{
+            background: `radial-gradient(circle at 30% 30%, ${startColor}, ${endColor})`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function FreeformThemePreview({ startColor, endColor, recipientName }: { startColor: string; endColor: string; recipientName: string }) {
+  return (
+    <div className="relative h-44 w-52 flex flex-col items-center justify-center p-3">
+       <div className="mx-auto w-fit rounded-md bg-white px-3 pb-3 pt-2.5 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
+        <div 
+          className="relative mx-auto h-3 w-10 -translate-y-1.5 rounded-sm transition-colors duration-500" 
+          style={{ backgroundColor: `${endColor}cc` }} 
+        />
+        <div 
+          className="relative h-[8.5rem] w-[9.2rem] overflow-hidden rounded-sm transition-colors duration-500 flex flex-col items-center justify-center text-center p-2" 
+          style={{ background: `linear-gradient(145deg, ${startColor}, ${endColor})` }}
+        >
+          <p className="text-[7px] font-semibold uppercase tracking-[0.2em] text-white/70">Happy Birthday</p>
+          <p className="mt-1 text-base font-bold text-white leading-tight drop-shadow-sm">{recipientName || 'Name'}</p>
+          <div className="mt-2 h-0.5 w-6 bg-white/40 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ThemePreview({ mode, startColor, endColor, recipientName }: { mode: DisplayMode; startColor: string; endColor: string; recipientName: string }) {
+  if (mode === 'story') {
+    return <LetterThemePreview startColor={startColor} endColor={endColor} recipientName={recipientName} />;
+  }
+  if (mode === 'freeform') {
+    return <FreeformThemePreview startColor={startColor} endColor={endColor} recipientName={recipientName} />;
+  }
+  return (
+    <div className="flex h-36 w-52 items-center justify-center rounded-[1.35rem] border border-dashed border-border/60 bg-muted/20 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+      Bento Preview
+    </div>
+  );
+}
 
 const displayModes: Array<{ id: DisplayMode; label: string; description: string }> = [
   { id: 'story', label: 'Story', description: 'Guided reveal flow' },
@@ -763,55 +858,32 @@ const CreatePage = () => {
                 )}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">You can paste hex values like #f5f0e8, f5f0e8, or #abc.</p>
-              <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
-                <div className="order-2 relative h-36 w-52 overflow-hidden rounded-[1.35rem] border border-border/60 bg-gradient-to-br from-white to-muted/50 p-3 shadow-card-sm sm:order-1">
-                  <div className="relative h-full w-full">
-                    <div
-                      className="absolute inset-0 rounded-[1rem]"
-                      style={{
-                        background: `linear-gradient(145deg, ${letterGradientStart}, ${letterGradientEnd})`,
-                        boxShadow: '0 14px 26px rgba(15, 23, 42, 0.16)',
-                      }}
-                    />
-                    <div className="absolute inset-[1px] rounded-[0.95rem] border border-white/60" />
-                    <div
-                      className="absolute left-1/2 top-0 h-[52%] w-[92%] -translate-x-1/2 origin-top rounded-[0.9rem]"
-                      style={{
-                        clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-                        background: `linear-gradient(145deg, ${letterGradientEnd}, ${letterGradientStart})`,
-                      }}
-                    />
-                    <div
-                      className="absolute bottom-[10%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[0.85rem] border border-black/10"
-                      style={{
-                        background: `linear-gradient(180deg, ${letterGradientStart}, ${letterGradientEnd})`,
-                      }}
-                    />
-                    <div
-                      className="absolute left-1/2 top-[24%] h-[40%] w-[74%] -translate-x-1/2 rounded-[0.7rem] border border-black/10 px-2.5 py-2 text-left"
-                      style={{
-                        background: `linear-gradient(180deg, ${letterGradientEnd}, ${letterGradientStart})`,
-                      }}
-                    >
-                      <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-foreground/65">To</p>
-                      <p className="mt-1 line-clamp-1 text-xs font-bold text-foreground">{recipientName || 'Birthday Star'}</p>
-                      <p className="mt-1 line-clamp-1 text-[9px] text-foreground/70">Open when ready for the story.</p>
+              
+              {(() => {
+                const { start, end } = getEffectiveColors(selectedTheme, letterColor, customThemes);
+                return (
+                  <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
+                    <div className="order-2 sm:order-1">
+                      <ThemePreview 
+                        mode={selectedDisplayMode} 
+                        startColor={start} 
+                        endColor={end} 
+                        recipientName={recipientName} 
+                      />
                     </div>
-                    <div
-                      className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/65 shadow-sm"
-                      style={{
-                        background: `radial-gradient(circle at 30% 30%, ${letterGradientStart}, ${letterGradientEnd})`,
-                      }}
-                    />
+                    <div className="order-1 space-y-0.5 text-xs sm:order-2">
+                      <p className="font-semibold text-foreground">
+                        {selectedDisplayMode === 'story' ? 'Letter theme preview' : 'Freeform opener preview'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {selectedDisplayMode === 'story' 
+                          ? 'Mirrors the opening envelope layout used on the birthday page.' 
+                          : 'Shows the polaroid-style reveal used in Freeform mode.'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="order-1 space-y-0.5 text-xs sm:order-2">
-                  <p className="font-semibold text-foreground">Letter theme preview</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Mirrors the opening envelope layout used on the birthday page.
-                  </p>
-                </div>
-              </div>
+                );
+              })()}
             </div>
 
             <div className="panel-inset mt-8 p-4 sm:p-6">

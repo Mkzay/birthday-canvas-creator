@@ -1574,12 +1574,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [rawLetterFrom, rawLetterMid, rawLetterTo] = (page?.letter_color || '').split(',');
   const letterColorFromHex =
     normalizeHexColor(rawLetterFrom) ||
-    (isCustomTheme ? normalizeHexColor(page?.theme_gradient_from) : null) ||
+    theme.colors[0] ||
     '#ff915a';
-  const letterColorMidHex = normalizeHexColor(rawLetterMid) || null;
+  const letterColorMidHex = normalizeHexColor(rawLetterMid) || (theme.colors.length > 2 ? theme.colors[1] : null);
   const letterColorToHex =
     normalizeHexColor(rawLetterTo || rawLetterMid) ||
-    (isCustomTheme ? normalizeHexColor(page?.theme_gradient_to) : null) ||
+    theme.colors[theme.colors.length - 1] ||
     letterColorFromHex;
 
   const { h: letterH, s: letterS, l: letterL } = hexToHsl(letterColorFromHex);
@@ -2345,8 +2345,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       <div className="pointer-events-none absolute right-[0%] top-[74%] h-[7.4rem] w-[10.1rem] rotate-[-4deg] rounded-lg border border-white/8 bg-white/14" />
 
                       <div className="mx-auto w-fit rounded-md bg-white px-4 pb-4 pt-3 shadow-[0_20px_56px_rgba(0,0,0,0.45)]">
-                        <div className="relative mx-auto h-5 w-14 -translate-y-2 rounded-sm" style={{ backgroundColor: '#e3c57a' }} />
-                        <div className="relative h-[12.6rem] w-[13.8rem] overflow-hidden rounded-sm" style={{ backgroundColor: '#c6ac84' }}>
+                        <div className="relative mx-auto h-5 w-14 -translate-y-2 rounded-sm transition-colors duration-500" style={{ backgroundColor: freeformOpenerPalette.tape }} />
+                        <div className="relative h-[12.6rem] w-[13.8rem] overflow-hidden rounded-sm transition-colors duration-500" style={{ background: freeformOpenerPalette.miniCard }}>
                           {coverPhotoSrc ? (
                             renderStoryImage(coverPhotoSrc, `${page.recipient_name} cover photo`, { disableParallax: true, eager: true })
                           ) : (
