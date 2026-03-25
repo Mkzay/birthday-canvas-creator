@@ -723,6 +723,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const freeformAnimationTimeoutsRef = useRef<number[]>([]);
   const mobileCardsContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileObserverRef = useRef<IntersectionObserver | null>(null);
+  const freeformBoardSectionRef = useRef<HTMLElement | null>(null);
+  const freeformStarsCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (!page) return;
@@ -1653,6 +1655,295 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     };
   // Re-run when messages change so newly rendered cards get observed.
   }, [messages.length]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (effectiveViewMode !== 'freeform' || !hasMessages) return;
+
+    const canvas = freeformStarsCanvasRef.current;
+    const section = freeformBoardSectionRef.current;
+    if (!canvas || !section) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    type ShootingStar = {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      length: number;
+      size: number;
+      glow: number;
+      life: number;
+      maxLife: number;
+      phase: number;
+      alphaScale: number;
+      isFast: boolean;
+    };
+
+    type StarBurstParticle = {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      life: number;
+      maxLife: number;
+      size: number;
+      glow: number;
+      alphaScale: number;
+      drag: number;
+      gravity: number;
+    };
+
+    type StarBurst = {
+      particles: StarBurstParticle[];
+    };
+
+    const stars: ShootingStar[] = [];
+    const bursts: StarBurst[] = [];
+    let rafId = 0;
+    let lastTime = 0;
+    let width = 0;
+    let height = 0;
+
+    const random = (min: number, max: number) => Math.random() * (max - min) + min;
+    const targetCount = () => Math.max(10, Math.round(width / 170));
+
+    const createStar = (): ShootingStar => {
+      const spawnBand = Math.max(width * 0.35, 220);
+      const x = random(-spawnBand, width + spawnBand * 0.08);
+      const y = random(-Math.max(height * 0.4, 180), Math.max(height * 0.2, 120));
+      const angle = random(24, 36) * (Math.PI / 180);
+      const isFast = Math.random() < 0.2;
+      const speed = isFast ? random(240, 330) : random(120, 210);
+      return {
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length: isFast ? random(108, 170) : random(84, 154),
+        size: random(1.2, 2.5),
+        glow: random(7, 15),
+        life: 0,
+        maxLife: isFast ? random(1.8, 3) : random(2.8, 4.6),
+        phase: random(0, Math.PI * 2),
+        alphaScale: random(0.7, 1),
+        isFast,
+      };
+    };
+
+    const setupCanvas = () => {
+      const rect = section.getBoundingClientRect();
+      width = Math.max(1, Math.round(rect.width));
+      height = Math.max(1, Math.round(rect.height));
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.round(width * dpr));
+      canvas.height = Math.max(1, Math.round(height * dpr));
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const isStarOut = (star: ShootingStar) => (
+      star.x > width + star.length + 80
+      || star.y > height + star.length + 80
+      || star.life > star.maxLife
+    );
+
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+    const createBurst = (x: number, y: number, isFast: boolean): StarBurst => {
+      const particleCount = isFast ? 13 : 9;
+      const particles: StarBurstParticle[] = [];
+
+      for (let i = 0; i < particleCount; i += 1) {
+        const angle = random(0, Math.PI * 2);
+        const speed = isFast ? random(72, 150) : random(48, 112);
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 0,
+          maxLife: random(0.34, 0.62),
+          size: random(0.9, 2.1),
+          glow: random(5, 12),
+          alphaScale: random(0.68, 1),
+          drag: random(0.78, 0.9),
+          gravity: random(22, 46),
+        });
+      }
+
+      return { particles };
+    };
+
+    const spawnExplosion = (star: ShootingStar) => {
+      const burstX = clamp(star.x, 6, width - 6);
+      const burstY = clamp(star.y, 6, height - 6);
+      bursts.push(createBurst(burstX, burstY, star.isFast));
+
+      if (bursts.length > 120) {
+        bursts.splice(0, bursts.length - 120);
+      }
+    };
+
+    const drawStar = (star: ShootingStar, timeSeconds: number) => {
+      const speed = Math.hypot(star.vx, star.vy) || 1;
+      const dirX = star.vx / speed;
+      const dirY = star.vy / speed;
+      const tailX = star.x - dirX * star.length;
+      const tailY = star.y - dirY * star.length;
+
+      const lifeProgress = Math.min(1, star.life / star.maxLife);
+      const fadeIn = Math.min(1, lifeProgress * 3.2);
+      const fadeOut = lifeProgress > 0.68 ? 1 - (lifeProgress - 0.68) / 0.32 : 1;
+      const twinkle = 0.85 + Math.sin(timeSeconds * 6 + star.phase) * 0.15;
+      const alpha = Math.max(0, Math.min(1, fadeIn * fadeOut * twinkle * star.alphaScale));
+      if (alpha <= 0) return;
+
+      const trail = ctx.createLinearGradient(tailX, tailY, star.x, star.y);
+      trail.addColorStop(0, `rgba(255, 255, 255, 0)`);
+      trail.addColorStop(0.35, `rgba(191, 230, 255, ${0.12 * alpha})`);
+      trail.addColorStop(0.75, `rgba(219, 242, 255, ${0.48 * alpha})`);
+      trail.addColorStop(1, `rgba(255, 255, 255, ${0.92 * alpha})`);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = star.size;
+      ctx.shadowBlur = star.glow;
+      ctx.shadowColor = `rgba(197, 236, 255, ${0.85 * alpha})`;
+      ctx.strokeStyle = trail;
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(star.x, star.y);
+      ctx.stroke();
+
+      const headGlow = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, star.size * 4.5);
+      headGlow.addColorStop(0, `rgba(255, 255, 255, ${0.95 * alpha})`);
+      headGlow.addColorStop(0.6, `rgba(212, 239, 255, ${0.35 * alpha})`);
+      headGlow.addColorStop(1, 'rgba(212, 239, 255, 0)');
+      ctx.fillStyle = headGlow;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size * 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const drawBurstParticle = (particle: StarBurstParticle) => {
+      const lifeProgress = Math.min(1, particle.life / particle.maxLife);
+      const alpha = Math.max(0, (1 - lifeProgress) * particle.alphaScale);
+      if (alpha <= 0) return;
+
+      const glow = ctx.createRadialGradient(
+        particle.x,
+        particle.y,
+        0,
+        particle.x,
+        particle.y,
+        particle.size * 4,
+      );
+      glow.addColorStop(0, `rgba(255, 255, 255, ${0.95 * alpha})`);
+      glow.addColorStop(0.45, `rgba(191, 231, 255, ${0.55 * alpha})`);
+      glow.addColorStop(1, 'rgba(191, 231, 255, 0)');
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.shadowBlur = particle.glow;
+      ctx.shadowColor = `rgba(196, 232, 255, ${0.75 * alpha})`;
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size * 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const tick = (now: number) => {
+      const nowSeconds = now * 0.001;
+      if (!lastTime) lastTime = now;
+      const dt = Math.min(0.05, (now - lastTime) * 0.001);
+      lastTime = now;
+
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = stars.length - 1; i >= 0; i -= 1) {
+        const star = stars[i];
+        star.life += dt;
+        star.x += star.vx * dt;
+        star.y += star.vy * dt;
+
+        if (isStarOut(star)) {
+          spawnExplosion(star);
+          stars[i] = createStar();
+          continue;
+        }
+
+        drawStar(star, nowSeconds);
+      }
+
+      for (let i = bursts.length - 1; i >= 0; i -= 1) {
+        const burst = bursts[i];
+
+        for (let j = burst.particles.length - 1; j >= 0; j -= 1) {
+          const particle = burst.particles[j];
+          particle.life += dt;
+          particle.vx *= 1 - dt * particle.drag;
+          particle.vy = particle.vy * (1 - dt * particle.drag) + particle.gravity * dt;
+          particle.x += particle.vx * dt;
+          particle.y += particle.vy * dt;
+
+          if (particle.life >= particle.maxLife) {
+            burst.particles.splice(j, 1);
+            continue;
+          }
+
+          drawBurstParticle(particle);
+        }
+
+        if (burst.particles.length === 0) {
+          bursts.splice(i, 1);
+        }
+      }
+
+      while (stars.length < targetCount()) {
+        stars.push(createStar());
+      }
+
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    const handleResize = () => {
+      setupCanvas();
+      const wanted = targetCount();
+      if (stars.length > wanted) {
+        stars.length = wanted;
+      }
+      while (stars.length < wanted) {
+        stars.push(createStar());
+      }
+    };
+
+    setupCanvas();
+    const initialStars = Math.max(8, Math.round(targetCount() * 0.85));
+    for (let i = 0; i < initialStars; i += 1) {
+      const star = createStar();
+      star.life = random(0, star.maxLife * 0.75);
+      stars.push(star);
+    }
+
+    rafId = window.requestAnimationFrame(tick);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      ctx.clearRect(0, 0, width, height);
+    };
+  }, [effectiveViewMode, hasMessages]);
 
   const beginReveal = async () => {
     if (effectiveViewMode === 'freeform') {
@@ -3147,6 +3438,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
       {effectiveViewMode === 'freeform' && hasMessages && (
         <section
+          ref={freeformBoardSectionRef}
           className={cn(
             'relative min-h-[100dvh] overflow-y-auto px-3 py-1 sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0',
             'freeform-reveal board',
@@ -3154,7 +3446,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           )}
           style={{ background: freeformThemePalette.boardBackground }}
         >
-          <div className="mx-auto w-full max-w-[66rem] pb-20 pt-2 sm:pt-16 xl:max-w-[88rem]">
+          <canvas ref={freeformStarsCanvasRef} className="pointer-events-none absolute inset-0 z-[2]" aria-hidden="true" />
+          <div className="relative z-10 mx-auto w-full max-w-[66rem] pb-20 pt-2 sm:pt-16 xl:max-w-[88rem]">
             <div className="mb-5 w-full sm:mb-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
