@@ -3592,7 +3592,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   backgroundColor: freeformThemePalette.cards[0].bg,
                   borderColor: freeformThemePalette.cards[0].border,
                   color: freeformThemePalette.cards[0].text,
-                }}
+                } as React.CSSProperties}
               >
                 <span
                   aria-hidden="true"
@@ -3649,7 +3649,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     backgroundColor: freeformThemePalette.cards[1].bg,
                     borderColor: freeformThemePalette.cards[1].border,
                     color: freeformThemePalette.cards[1].text,
-                  }}
+                  } as React.CSSProperties}
                 >
                   <span
                     aria-hidden="true"
@@ -3706,7 +3706,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             backgroundColor: tone.bg,
                             borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                             color: tone.text,
-                          } as any}
+                          } as React.CSSProperties}
                         >
                           {index % 2 === 0 ? (
                             <span
@@ -3871,7 +3871,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     backgroundColor: metaTone.bg,
                                     borderColor: metaTone.border,
                                     color: metaTone.text,
-                                  }}
+                                  } as React.CSSProperties}
                                 >
                                   {index % 2 === 0 ? (
                                     <span
@@ -3991,7 +3991,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   backgroundColor: tone.bg,
                                   borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                                   color: tone.text,
-                                }}
+                                } as React.CSSProperties}
                               >
                                 {index % 2 === 0 ? (
                                   <span
@@ -4126,7 +4126,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   backgroundColor: '#ECF8F3',
                   borderColor: '#AFD7C8',
                   color: '#1F5D4A',
-                }}
+                } as React.CSSProperties}
               >
                 <span
                   aria-hidden="true"

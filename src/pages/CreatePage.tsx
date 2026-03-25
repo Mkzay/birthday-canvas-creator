@@ -413,7 +413,7 @@ const CreatePage = () => {
       toast.error('Failed to update page settings');
       console.error(error);
     }
-  }, [birthdayDate, closeDate, createdPageId, creatorMessage, isProUser, pageCustomAudioUrl, recipientEmail, recipientName, selectedDisplayMode, selectedSoundtrackId, selectedTheme]);
+  }, [birthdayDate, closeDate, createdPageId, creatorMessage, isProUser, letterColor, pageCustomAudioUrl, recipientEmail, recipientName, selectedDisplayMode, selectedSoundtrackId, selectedTheme]);
 
   const handleAllowPhotosChange = (checked: boolean) => {
     setAllowPhotos(checked);
