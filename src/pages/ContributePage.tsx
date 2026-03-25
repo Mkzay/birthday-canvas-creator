@@ -13,6 +13,7 @@ import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import BrandLogo from '@/components/BrandLogo';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import StickerPicker, { StickerData } from '@/components/StickerPicker';
+import { visualThemeConfig, fontClassMap } from '@/lib/themes';
 
 interface PublicBirthdayPageData {
   id: string;
@@ -22,6 +23,9 @@ interface PublicBirthdayPageData {
   theme_emoji: string | null;
   theme_gradient_from: string | null;
   theme_gradient_to: string | null;
+  theme_gradient_mid?: string | null;
+  theme_gradient_angle?: number | null;
+  theme_font?: string | null;
   allow_photos: boolean;
   allow_audio: boolean;
   require_names: boolean;
@@ -51,6 +55,19 @@ interface ContributionDraft {
 
 const MAX_PHOTOS = 6;
 const CONTRIBUTION_PLATFORM_FEE_RATE = 0.015;
+const MAX_WISH_MESSAGE_CHARACTERS = 200;
+
+function extractPlainTextFromRichHtml(html: string) {
+  if (!html) return '';
+
+  const parserHost = document.createElement('div');
+  parserHost.innerHTML = html;
+
+  return (parserHost.textContent || parserHost.innerText || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 function formatNairaInputWithCommas(raw: string) {
   const cleaned = raw.replace(/,/g, '').replace(/[^\d.]/g, '');
@@ -64,18 +81,7 @@ function formatNairaInputWithCommas(raw: string) {
   return cleaned.includes('.') ? `${groupedInteger}.${decimalPart}` : groupedInteger;
 }
 
-const themeConfig = {
-  elegant: { name: 'Elegant', emoji: '✨', text: 'text-amber-900', bg: 'bg-gradient-to-br from-amber-50 to-orange-50' },
-  playful: { name: 'Playful', emoji: '🎈', text: 'text-pink-900', bg: 'bg-gradient-to-br from-pink-50 to-purple-50' },
-  minimalist: { name: 'Minimalist', emoji: '🎯', text: 'text-slate-900', bg: 'bg-gradient-to-br from-slate-50 to-gray-100' },
-  retro: { name: 'Retro', emoji: '🌈', text: 'text-purple-900', bg: 'bg-gradient-to-br from-cyan-50 to-purple-50' },
-  tropical: { name: 'Tropical', emoji: '🌴', text: 'text-emerald-900', bg: 'bg-gradient-to-br from-green-50 to-yellow-50' },
-  cosmic: { name: 'Cosmic', emoji: '🚀', text: 'text-violet-100', bg: 'bg-gradient-to-br from-violet-900 via-indigo-900 to-purple-900' },
-  sunset: { name: 'Sunset', emoji: '🌅', text: 'text-rose-900', bg: 'bg-gradient-to-br from-orange-100 to-rose-100' },
-  ocean: { name: 'Ocean', emoji: '🌊', text: 'text-sky-900', bg: 'bg-gradient-to-br from-sky-50 to-cyan-50' },
-  candyland: { name: 'Candyland', emoji: '🍭', text: 'text-fuchsia-900', bg: 'bg-gradient-to-br from-pink-100 to-lime-50' },
-  midnight: { name: 'Midnight', emoji: '🌙', text: 'text-indigo-100', bg: 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900' },
-} as const;
+const themeConfig = visualThemeConfig;
 
 const ContributePage = () => {
   const { pageId } = useParams();
@@ -589,19 +595,29 @@ const ContributePage = () => {
     ? calculateTotalChargeKobo(poolContributionAmountKobo)
     : 0;
   const builtInTheme = themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant;
+  const customGradientFrom = page.theme_gradient_from || '#8b5cf6';
+  const customGradientTo = page.theme_gradient_to || '#ec4899';
+  const customGradientMid = page.theme_gradient_mid || null;
+  const customGradientAngle = page.theme_gradient_angle ?? 135;
+  const customGradientStops = customGradientMid
+    ? `${customGradientFrom}, ${customGradientMid}, ${customGradientTo}`
+    : `${customGradientFrom}, ${customGradientTo}`;
+  const customThemeFont = fontClassMap[page.theme_font || 'sans'] || 'font-jakarta';
   const theme = isCustomTheme
     ? {
         emoji: page.theme_emoji || '🎨',
-        text: 'text-white',
+        text: 'text-slate-950',
         bg: '',
+        font: customThemeFont,
         style: {
-          background: `linear-gradient(135deg, ${page.theme_gradient_from || '#8b5cf6'}, ${page.theme_gradient_to || '#ec4899'})`,
+          background: `linear-gradient(${customGradientAngle}deg, ${customGradientStops})`,
         },
       }
     : {
         emoji: builtInTheme.emoji,
         text: builtInTheme.text,
-        bg: builtInTheme.bg,
+        bg: builtInTheme.heroClass,
+        font: builtInTheme.font,
         style: undefined,
       };
 
@@ -618,9 +634,14 @@ const ContributePage = () => {
       return;
     }
 
-    const plainText = message.replace(/<[^>]*>/g, '').trim();
+    const plainText = extractPlainTextFromRichHtml(message);
     if (!plainText) {
       toast.error('Please write a message');
+      return;
+    }
+
+    if (plainText.length > MAX_WISH_MESSAGE_CHARACTERS) {
+      toast.error(`Please keep your message within ${MAX_WISH_MESSAGE_CHARACTERS} characters`);
       return;
     }
 
@@ -666,13 +687,7 @@ const ContributePage = () => {
           message,
           photos: uploadedPhotos,
           audioUrl: uploadedAudioUrl,
-          stickers: stickers.map(s => ({
-            stickerType: s.stickerType,
-            positionX: s.positionX,
-            positionY: s.positionY,
-            rotation: s.rotation,
-            scale: s.scale
-          })),
+          stickers: [],
         }),
       });
 
@@ -742,7 +757,7 @@ const ContributePage = () => {
   };
 
   return (
-    <div className={`min-h-screen ${theme.bg}`} style={theme.style}>
+    <div className={`min-h-screen ${theme.bg} ${theme.font}`} style={theme.style}>
       {showConfetti && <Confetti />}
 
       <header className="px-4 py-3 sm:px-6 sm:py-4">
@@ -813,7 +828,7 @@ const ContributePage = () => {
                     value={message}
                     onChange={setMessage}
                     placeholder={currentPlaceholder}
-                    maxLength={500}
+                    maxLength={MAX_WISH_MESSAGE_CHARACTERS}
                     disabled={!page.can_contribute}
                   />
                 </div>
@@ -1003,23 +1018,6 @@ const ContributePage = () => {
                     )}
                   </div>
                 )}
-
-                <div className="mb-8 font-inherit">
-                  <div className="mb-3">
-                    <Label className="text-foreground">Decorate your wish</Label>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Add some fun stickers to your birthday card!
-                    </p>
-                  </div>
-                  <StickerPicker 
-                    stickers={stickers} 
-                    onChange={setStickers}
-                    className={!page.can_contribute ? "pointer-events-none opacity-60" : ""}
-                    message={message}
-                    senderName={senderName}
-                    themeId={page.theme}
-                  />
-                </div>
 
                 {page.pool_fundraising_enabled && (
                   <div className="mb-6 rounded-[1.2rem] border border-emerald-200 bg-emerald-50/80 p-4">
