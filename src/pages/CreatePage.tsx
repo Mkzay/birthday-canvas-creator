@@ -34,6 +34,11 @@ interface CustomTheme {
   gradient_mid?: string | null;
 }
 
+interface PaystackBankOption {
+  code: string;
+  name: string;
+}
+
 function getEffectiveColors(
   selectedTheme: string,
   letterColor: string | null | undefined,
@@ -199,7 +204,26 @@ const CreatePage = () => {
   const [publicCodeError, setPublicCodeError] = useState<string | null>(null);
   const [revealAtInput, setRevealAtInput] = useState('');
   const [revealPinInput, setRevealPinInput] = useState('');
+  const [poolFundraisingEnabled, setPoolFundraisingEnabled] = useState(false);
+  const [poolGoalNairaInput, setPoolGoalNairaInput] = useState('');
+  const [poolDescriptionInput, setPoolDescriptionInput] = useState('');
+  const [recipientBankCode, setRecipientBankCode] = useState('');
+  const [recipientAccountNumber, setRecipientAccountNumber] = useState('');
+  const [recipientAccountName, setRecipientAccountName] = useState('');
+  const [bankOptions, setBankOptions] = useState<PaystackBankOption[]>([]);
+  const [loadingBankOptions, setLoadingBankOptions] = useState(false);
+  const [resolvingRecipientAccount, setResolvingRecipientAccount] = useState(false);
+  const [recipientResolveError, setRecipientResolveError] = useState<string | null>(null);
+  const lastResolvedRecipientRef = useRef<string | null>(null);
   const isProUser = user?.planTier === 'pro';
+  const requiresResolvedPoolRecipient = isProUser && poolFundraisingEnabled;
+  const hasResolvedPoolRecipient = !requiresResolvedPoolRecipient || (
+    Boolean(recipientBankCode.trim())
+    && recipientAccountNumber.replace(/\D/g, '').length >= 10
+    && Boolean(recipientAccountName.trim())
+    && !resolvingRecipientAccount
+    && !recipientResolveError
+  );
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -242,6 +266,78 @@ const CreatePage = () => {
       void fetchCustomThemes();
     }
   }, [fetchCustomThemes, user]);
+
+  useEffect(() => {
+    if (!user || !isProUser) return;
+
+    let cancelled = false;
+    setLoadingBankOptions(true);
+
+    void apiFetch<{ banks: PaystackBankOption[] }>('/payments/paystack/banks')
+      .then((data) => {
+        if (cancelled) return;
+        setBankOptions(Array.isArray(data?.banks) ? data.banks : []);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setBankOptions([]);
+        toast.error('Could not load bank list right now');
+        console.error(error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingBankOptions(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isProUser, user]);
+
+  useEffect(() => {
+    if (!isProUser || !poolFundraisingEnabled) return;
+
+    const bankCode = recipientBankCode.trim();
+    const accountNumber = recipientAccountNumber.replace(/\D/g, '').slice(0, 20);
+
+    if (!bankCode || accountNumber.length < 10) {
+      setRecipientAccountName('');
+      setRecipientResolveError(null);
+      lastResolvedRecipientRef.current = null;
+      return;
+    }
+
+    const key = `${bankCode}:${accountNumber}`;
+    if (lastResolvedRecipientRef.current === key) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setResolvingRecipientAccount(true);
+      setRecipientResolveError(null);
+
+      void apiFetch<{ accountName: string; accountNumber: string }>('/payments/paystack/resolve-account', {
+        method: 'POST',
+        body: JSON.stringify({ bankCode, accountNumber }),
+      })
+        .then((data) => {
+          setRecipientAccountName((data.accountName || '').trim());
+          lastResolvedRecipientRef.current = key;
+          setRecipientResolveError(null);
+        })
+        .catch(() => {
+          setRecipientAccountName('');
+          lastResolvedRecipientRef.current = null;
+          setRecipientResolveError('Could not resolve account name. Check the bank and account number.');
+        })
+        .finally(() => {
+          setResolvingRecipientAccount(false);
+        });
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isProUser, poolFundraisingEnabled, recipientAccountNumber, recipientBankCode]);
 
   useEffect(() => {
     return () => {
@@ -323,6 +419,11 @@ const CreatePage = () => {
     }
     
     if (step === 2) {
+      if (requiresResolvedPoolRecipient && !hasResolvedPoolRecipient) {
+        toast.error('Resolve recipient account details before continuing');
+        return;
+      }
+
       setSaving(true);
       setPublicCodeError(null);
       const normalizedPublicCode = publicCodeInput.trim().toLowerCase();
@@ -352,6 +453,12 @@ const CreatePage = () => {
             revealAt: isProUser ? toIsoDatetime(revealAtInput) : undefined,
             revealPin: isProUser && revealPinInput.trim() ? revealPinInput.trim() : undefined,
             publicCode: isProUser && normalizedPublicCode ? normalizedPublicCode : undefined,
+            poolFundraisingEnabled,
+            poolGoalKobo: poolGoalNairaInput.trim() ? Math.round(Number(poolGoalNairaInput) * 100) : null,
+            poolDescription: poolDescriptionInput.trim() || null,
+            recipientBankCode: recipientBankCode.trim() || null,
+            recipientAccountNumber: recipientAccountNumber.trim() || null,
+            recipientAccountName: recipientAccountName.trim() || null,
           }),
         });
 
@@ -407,13 +514,19 @@ const CreatePage = () => {
           requireNames: nextRequireNames,
           closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate!, 'yyyy-MM-dd'),
           pageCustomAudioUrl,
+          poolFundraisingEnabled,
+          poolGoalKobo: poolGoalNairaInput.trim() ? Math.round(Number(poolGoalNairaInput) * 100) : null,
+          poolDescription: poolDescriptionInput.trim() || null,
+          recipientBankCode: recipientBankCode.trim() || null,
+          recipientAccountNumber: recipientAccountNumber.trim() || null,
+          recipientAccountName: recipientAccountName.trim() || null,
         }),
       });
     } catch (error) {
       toast.error('Failed to update page settings');
       console.error(error);
     }
-  }, [birthdayDate, closeDate, createdPageId, creatorMessage, isProUser, letterColor, pageCustomAudioUrl, recipientEmail, recipientName, selectedDisplayMode, selectedSoundtrackId, selectedTheme]);
+  }, [birthdayDate, closeDate, createdPageId, creatorMessage, isProUser, letterColor, pageCustomAudioUrl, poolDescriptionInput, poolFundraisingEnabled, poolGoalNairaInput, recipientAccountName, recipientAccountNumber, recipientBankCode, recipientEmail, recipientName, selectedDisplayMode, selectedSoundtrackId, selectedTheme]);
 
   const handleAllowPhotosChange = (checked: boolean) => {
     setAllowPhotos(checked);
@@ -428,6 +541,15 @@ const CreatePage = () => {
   const handleRequireNamesChange = (checked: boolean) => {
     setRequireNames(checked);
     void updateCreatedPageSettings(allowPhotos, allowAudio, checked);
+  };
+
+  const handlePoolFundraisingToggle = (checked: boolean) => {
+    setPoolFundraisingEnabled(checked);
+    toast.info(
+      checked
+        ? 'Pool contributions enabled. A 2% payout fee will apply when releasing the gift.'
+        : 'Pool contributions disabled for this page.',
+    );
   };
 
   const copyLink = async (type: 'contribute' | 'birthday') => {
@@ -879,6 +1001,110 @@ const CreatePage = () => {
                       Anyone opening the birthday link will need this PIN before they can view wishes.
                     </p>
                   </div>
+
+                  <div className="rounded-xl border border-border/70 bg-background/70 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Pool money gifts</p>
+                        <p className="text-xs text-muted-foreground">Enable Paystack contributions for this page.</p>
+                      </div>
+                      <Switch checked={poolFundraisingEnabled} onCheckedChange={handlePoolFundraisingToggle} />
+                    </div>
+
+                    {poolFundraisingEnabled && (
+                      <div className="mt-4 space-y-3">
+                        <div>
+                          <Label htmlFor="poolGoal" className="text-foreground">Goal amount (NGN, optional)</Label>
+                          <Input
+                            id="poolGoal"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={poolGoalNairaInput}
+                            onChange={(event) => setPoolGoalNairaInput(event.target.value)}
+                            className="mt-2"
+                            placeholder="e.g. 50000"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="poolDescription" className="text-foreground">Pool description (optional)</Label>
+                          <Textarea
+                            id="poolDescription"
+                            value={poolDescriptionInput}
+                            onChange={(event) => setPoolDescriptionInput(event.target.value)}
+                            className="mt-2 min-h-[80px]"
+                            placeholder="What contributors are helping with"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <Label htmlFor="recipientBankCode" className="text-foreground">Recipient bank</Label>
+                            <select
+                              id="recipientBankCode"
+                              value={recipientBankCode}
+                              onChange={(event) => {
+                                setRecipientBankCode(event.target.value);
+                                setRecipientAccountName('');
+                                setRecipientResolveError(null);
+                                lastResolvedRecipientRef.current = null;
+                              }}
+                              className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                              disabled={loadingBankOptions}
+                            >
+                              <option value="">{loadingBankOptions ? 'Loading banks...' : 'Select bank'}</option>
+                              {bankOptions.map((bank) => (
+                                <option key={bank.code} value={bank.code}>{bank.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <Label htmlFor="recipientAccountNumber" className="text-foreground">Recipient account number</Label>
+                            <Input
+                              id="recipientAccountNumber"
+                              value={recipientAccountNumber}
+                              onChange={(event) => {
+                                setRecipientAccountNumber(event.target.value.replace(/\D/g, '').slice(0, 20));
+                                setRecipientAccountName('');
+                                setRecipientResolveError(null);
+                                lastResolvedRecipientRef.current = null;
+                              }}
+                              className="mt-2"
+                              placeholder="10-20 digits"
+                              inputMode="numeric"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="recipientAccountName" className="text-foreground">Recipient account name (auto-resolved)</Label>
+                          <Input
+                            id="recipientAccountName"
+                            value={recipientAccountName}
+                            className="mt-2"
+                            placeholder={resolvingRecipientAccount ? 'Resolving account name...' : 'Account name will appear automatically'}
+                            readOnly
+                          />
+                          <div className="mt-2 flex items-center gap-2">
+                            {resolvingRecipientAccount ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Resolving account
+                              </span>
+                            ) : recipientAccountName.trim() && !recipientResolveError ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                <Check className="h-3.5 w-3.5" />
+                                Account resolved
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                                Enter bank and account number to resolve
+                              </span>
+                            )}
+                          </div>
+                          {recipientResolveError && <p className="mt-2 text-xs font-medium text-destructive">{recipientResolveError}</p>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 p-4">
@@ -1001,7 +1227,13 @@ const CreatePage = () => {
           )}
           
           {step < 3 ? (
-            <Button variant="hero" size="lg" onClick={handleNext} className="flex-1" disabled={saving || uploadingCover}>
+            <Button
+              variant="hero"
+              size="lg"
+              onClick={handleNext}
+              className="flex-1"
+              disabled={saving || uploadingCover || (step === 2 && !hasResolvedPoolRecipient)}
+            >
               {(saving || uploadingCover) ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" />

@@ -92,6 +92,22 @@ export const paystackVerifyBodySchema = z.object({
   reference: z.string().min(6).max(120).transform((s) => s.trim()),
 });
 
+export const poolContributionInitializeBodySchema = z.object({
+  amountKobo: z.coerce.number().int().min(100).max(500000000),
+  contributorName: z.union([z.string().max(120), z.null()]).optional(),
+  contributorEmail: z.union([z.string().email().max(320), z.null()]).optional(),
+  callbackPath: z.string().max(200).optional(),
+});
+
+export const poolReleaseBodySchema = z.object({
+  token: z.string().max(120).optional(),
+});
+
+export const paystackResolveAccountBodySchema = z.object({
+  bankCode: z.string().trim().min(2).max(12),
+  accountNumber: z.string().trim().regex(/^\d{10,20}$/),
+});
+
 const displayModeSchema = z.enum(["story", "freeform", "bento"]);
 
 export const pageCreateBodySchema = z.object({
@@ -110,6 +126,12 @@ export const pageCreateBodySchema = z.object({
   revealAt: z.union([z.string().datetime(), z.null()]).optional(),
   revealPin: z.union([z.string().regex(revealPinPattern, "PIN must be 4-12 digits."), z.null()]).optional(),
   publicCode: z.string().regex(slugPattern, "Public code must be 6-40 chars and use lowercase letters, numbers, and hyphens.").optional(),
+  poolFundraisingEnabled: z.boolean().optional(),
+  poolGoalKobo: z.coerce.number().int().min(0).max(500000000).optional(),
+  poolDescription: z.union([z.string().max(500), z.null()]).optional(),
+  recipientBankCode: z.union([z.string().max(12), z.null()]).optional(),
+  recipientAccountNumber: z.union([z.string().regex(/^\d{10,20}$/), z.null()]).optional(),
+  recipientAccountName: z.union([z.string().max(160), z.null()]).optional(),
 });
 
 export const pagePatchBodySchema = z.object({
@@ -130,6 +152,12 @@ export const pagePatchBodySchema = z.object({
   coverPhotoUrl: z.union([z.string().max(2000), z.null()]).optional(),
   pageCustomAudioUrl: z.union([z.string().max(2000), z.null()]).optional(),
   letterColor: z.union([z.string().max(32), z.null()]).optional(),
+  poolFundraisingEnabled: z.boolean().optional(),
+  poolGoalKobo: z.union([z.coerce.number().int().min(0).max(500000000), z.null()]).optional(),
+  poolDescription: z.union([z.string().max(500), z.null()]).optional(),
+  recipientBankCode: z.union([z.string().max(12), z.null()]).optional(),
+  recipientAccountNumber: z.union([z.string().regex(/^\d{10,20}$/), z.null()]).optional(),
+  recipientAccountName: z.union([z.string().max(160), z.null()]).optional(),
 });
 
 export const publicUnlockBodySchema = z.object({
@@ -157,6 +185,7 @@ export const publicMessageBodySchema = z.object({
   audioUrl: z.union([z.string().max(2000), z.null()]).optional(),
   photos: z.array(contributionPhotoSchema).max(12).optional(),
   stickers: z.array(contributionStickerSchema).max(20).optional(),
+  contributionAmountKobo: z.union([z.coerce.number().int().min(0).max(500000000), z.null()]).optional(),
 });
 
 export const uploadPageIdBodySchema = z.object({

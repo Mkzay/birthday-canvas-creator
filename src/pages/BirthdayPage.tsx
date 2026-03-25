@@ -16,6 +16,8 @@ import {
   Music,
   Image as ImageIcon,
   Video,
+  Wallet,
+  Gift,
 } from 'lucide-react';
 import BentoGridView from '@/components/BentoGridView';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -89,6 +91,34 @@ interface BirthdayPageData {
   is_unlocked?: boolean;
   owner_plan_tier?: 'free' | 'pro';
   message_count?: number;
+  pool_fundraising_enabled?: boolean;
+  pool_goal_kobo?: number | null;
+  pooled_amount_kobo?: number | null;
+  pool_description?: string | null;
+}
+
+interface PublicPoolSummary {
+  pool_fundraising_enabled: boolean;
+  pool_goal_kobo: number | null;
+  pooled_amount_kobo: number;
+  pool_description: string | null;
+  contributors: string[];
+  is_requested?: boolean;
+}
+
+interface PrivatePoolSummary extends PublicPoolSummary {
+  is_requested: boolean;
+  is_released: boolean;
+}
+
+interface PoolSummaryState {
+  pool_fundraising_enabled: boolean;
+  pool_goal_kobo: number | null;
+  pooled_amount_kobo: number;
+  pool_description: string | null;
+  contributors: string[];
+  is_requested: boolean;
+  is_released: boolean;
 }
 
 interface MessagePhoto {
@@ -147,6 +177,20 @@ function formatMediaTime(seconds: number) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, '0')}`;
+}
+
+function formatNairaFromKobo(amountKobo: number) {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    maximumFractionDigits: 0,
+  }).format((Number(amountKobo) || 0) / 100);
+}
+
+function formatNairaNumberFromKobo(amountKobo: number) {
+  return new Intl.NumberFormat('en-NG', {
+    maximumFractionDigits: 0,
+  }).format((Number(amountKobo) || 0) / 100);
 }
 
 function normalizeHexColor(value?: string | null) {
@@ -707,6 +751,18 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const isCoarsePointerDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
+  const [isPageOwner, setIsPageOwner] = useState(false);
+  const [poolSummary, setPoolSummary] = useState<PoolSummaryState>({
+    pool_fundraising_enabled: false,
+    pool_goal_kobo: null,
+    pooled_amount_kobo: 0,
+    pool_description: null,
+    contributors: [],
+    is_requested: false,
+    is_released: false,
+  });
+  const [releasingPoolPayout, setReleasingPoolPayout] = useState(false);
+  const [requestingGiftRelease, setRequestingGiftRelease] = useState(false);
   const [unlockPin, setUnlockPin] = useState('');
   const [unlocking, setUnlocking] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -1254,9 +1310,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
     try {
       if (isPreview) {
-        const [pageData, messagesData] = await Promise.all([
+        const [pageData, messagesData, publicPoolSummary] = await Promise.all([
           apiFetch<BirthdayPageData>(`/pages/${pageId}`),
           apiFetch<Message[]>(`/pages/${pageId}/messages`),
+          apiFetch<PublicPoolSummary>(`/public/pages/${pageId}/pool/summary`).catch(() => null),
         ]);
 
         setPage({
@@ -1269,12 +1326,33 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         });
         setViewMode(pageData.display_mode || 'story');
         setMessages(messagesData);
+        setIsPageOwner(true);
+        setPoolSummary({
+          pool_fundraising_enabled: Boolean(pageData.pool_fundraising_enabled),
+          pool_goal_kobo: pageData.pool_goal_kobo ?? null,
+          pooled_amount_kobo: Number(pageData.pooled_amount_kobo || 0),
+          pool_description: pageData.pool_description || null,
+          contributors: publicPoolSummary?.contributors || [],
+          is_requested: Boolean(publicPoolSummary?.is_requested),
+          is_released: false,
+        });
         return;
       }
 
       const publicPage = await apiFetch<BirthdayPageData>(`/public/pages/${pageId}`);
       setPage(publicPage);
       setViewMode(publicPage.display_mode || 'story');
+
+      const publicPoolSummary = await apiFetch<PublicPoolSummary>(`/public/pages/${pageId}/pool/summary`).catch(() => null);
+      setPoolSummary({
+        pool_fundraising_enabled: Boolean(publicPoolSummary?.pool_fundraising_enabled ?? publicPage.pool_fundraising_enabled),
+        pool_goal_kobo: publicPoolSummary?.pool_goal_kobo ?? publicPage.pool_goal_kobo ?? null,
+        pooled_amount_kobo: Number(publicPoolSummary?.pooled_amount_kobo ?? publicPage.pooled_amount_kobo ?? 0),
+        pool_description: publicPoolSummary?.pool_description ?? publicPage.pool_description ?? null,
+        contributors: publicPoolSummary?.contributors || [],
+        is_requested: Boolean(publicPoolSummary?.is_requested),
+        is_released: false,
+      });
       
       // If we are using a UUID but the page has a public code, redirect to use the public code in the URL
       if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && publicPage.public_code) {
@@ -1298,18 +1376,40 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
       if (user) {
         try {
-          const status = await apiFetch<{ isSaved: boolean }>(`/pages/${pageId}/save-status`);
+          const [status, ownerStatus, privatePoolSummary] = await Promise.all([
+            apiFetch<{ isSaved: boolean }>(`/pages/${pageId}/save-status`),
+            apiFetch<{ isOwner: boolean }>(`/pages/${pageId}/ownership`).catch(() => null),
+            apiFetch<PrivatePoolSummary>(`/pages/${pageId}/pool/summary`).catch(() => null),
+          ]);
+
           setIsSaved(status.isSaved);
+          setIsPageOwner(Boolean(ownerStatus?.isOwner));
+
+          if (privatePoolSummary) {
+            setPoolSummary((current) => ({
+              ...current,
+              pool_fundraising_enabled: Boolean(privatePoolSummary.pool_fundraising_enabled),
+              pool_goal_kobo: privatePoolSummary.pool_goal_kobo,
+              pooled_amount_kobo: Number(privatePoolSummary.pooled_amount_kobo || 0),
+              pool_description: privatePoolSummary.pool_description,
+              contributors: privatePoolSummary.contributors || current.contributors,
+              is_requested: Boolean(privatePoolSummary.is_requested),
+              is_released: Boolean(privatePoolSummary.is_released),
+            }));
+          }
         } catch {
           // ignore save status errors
+          setIsPageOwner(false);
         }
       } else {
         setIsSaved(false);
+        setIsPageOwner(false);
       }
     } catch (error) {
       console.error(error);
       setPage(null);
       setMessages([]);
+      setIsPageOwner(false);
     } finally {
       setLoading(false);
     }
@@ -1340,6 +1440,76 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       setUnlocking(false);
     }
   }, [fetchData, pageId, unlockPin]);
+
+  const handleReleasePoolPayout = useCallback(async () => {
+    if (!pageId || !page) return;
+    if (!poolSummary.pool_fundraising_enabled) {
+      toast.error('Pool gifting is not enabled for this page');
+      return;
+    }
+
+    setReleasingPoolPayout(true);
+    try {
+      const payout = await apiFetch<{ amount_kobo?: number; payout_fee_kobo?: number; gross_pool_amount_kobo?: number }>(`/pages/${pageId}/pool/release`, {
+        method: 'POST',
+        body: JSON.stringify({ confirm: true }),
+      });
+
+      const amountKobo = Number(payout.amount_kobo || poolSummary.pooled_amount_kobo || 0);
+      const payoutFeeKobo = Number(payout.payout_fee_kobo || 0);
+      toast.success(
+        payoutFeeKobo > 0
+          ? `Payout released: ${formatNairaFromKobo(amountKobo)} (2% payout fee: ${formatNairaFromKobo(payoutFeeKobo)})`
+          : `Payout released: ${formatNairaFromKobo(amountKobo)}`,
+      );
+      setPoolSummary((current) => ({ ...current, is_released: true }));
+      await fetchData();
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'PAYOUT_TOO_EARLY') {
+        toast.error('Payout can be released only after reveal time');
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_EMPTY') {
+        toast.error('No pooled amount available yet');
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_ACCOUNT_REQUIRED') {
+        toast.error('Recipient bank details are incomplete');
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_ALREADY_RELEASED') {
+        toast.info('Payout has already been released for this page');
+      } else {
+        toast.error('Could not release payout right now');
+      }
+    } finally {
+      setReleasingPoolPayout(false);
+    }
+  }, [fetchData, page, pageId, poolSummary.pool_fundraising_enabled, poolSummary.pooled_amount_kobo]);
+
+  const handleRequestGiftRelease = useCallback(async () => {
+    if (!pageId || !page) return;
+    if (!poolSummary.pool_fundraising_enabled || poolSummary.pooled_amount_kobo <= 0) {
+      toast.error('No pooled gift is available yet');
+      return;
+    }
+
+    setRequestingGiftRelease(true);
+    try {
+      await apiFetch(`/public/pages/${pageId}/pool/request-release`, {
+        method: 'POST',
+      });
+      toast.success("Your gift is on it's way");
+      setPoolSummary((current) => ({ ...current, is_requested: true }));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'PAYOUT_ALREADY_RELEASED') {
+        toast.info('This gift has already been released');
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_ALREADY_REQUESTED') {
+        toast.info('Gift request already sent to the organizer');
+        setPoolSummary((current) => ({ ...current, is_requested: true }));
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_TOO_EARLY') {
+        toast.error('Gift can only be requested after reveal time');
+      } else {
+        toast.error('Could not request gift release right now');
+      }
+    } finally {
+      setRequestingGiftRelease(false);
+    }
+  }, [page, pageId, poolSummary.pool_fundraising_enabled, poolSummary.pooled_amount_kobo]);
 
   useEffect(() => {
     void fetchData();
@@ -1523,6 +1693,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     if (contributorCount === 3) return `${contributorNames[0]}, ${contributorNames[1]}, and ${contributorNames[2]}`;
     return `${contributorNames[0]}, ${contributorNames[1]}, ${contributorNames[2]}, and ${contributorCount - 3} more`;
   }, [contributorCount, contributorNames]);
+
+  const paidContributorLine = useMemo(() => {
+    const names = poolSummary.contributors;
+    if (!names.length) return null;
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
+    return `${names[0]}, ${names[1]}, ${names[2]}, and ${names.length - 3} more`;
+  }, [poolSummary.contributors]);
 
   const burstMessages = useMemo(() => messages.slice(0, 4), [messages]);
   const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
@@ -3963,6 +4142,63 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                         <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{totalPhotos} photos</span>
                                         <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{totalAudioWishes} voices</span>
                                       </div>
+
+                                      {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
+                                        <div className="mt-3 rounded-lg border border-black/10 bg-white/35 p-3">
+                                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Pooled gift</p>
+                                          <p className="mt-1 text-sm font-semibold">₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}</p>
+                                          {poolSummary.pool_description && (
+                                            <p className="mt-1 text-xs leading-relaxed opacity-80">{poolSummary.pool_description}</p>
+                                          )}
+                                          {paidContributorLine && (
+                                            <p className="mt-1 text-xs leading-relaxed opacity-75">Paid by {paidContributorLine}.</p>
+                                          )}
+                                          {isPageOwner && !isPreview && (
+                                            <div className="mt-2" data-no-nav="true">
+                                              {poolSummary.is_released ? (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                  <Check className="h-3.5 w-3.5" />
+                                                  Payout released
+                                                </span>
+                                              ) : (
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  className="h-8 gap-1.5"
+                                                  onClick={handleReleasePoolPayout}
+                                                  disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
+                                                >
+                                                  {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                                                  Release Gift
+                                                </Button>
+                                              )}
+                                            </div>
+                                          )}
+                                          {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
+                                            <div className="mt-2" data-no-nav="true">
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                className="h-8 gap-1.5"
+                                                onClick={handleRequestGiftRelease}
+                                                disabled={requestingGiftRelease || !page?.is_revealed}
+                                              >
+                                                {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
+                                                Request Gift
+                                              </Button>
+                                            </div>
+                                          )}
+                                          {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
+                                            <div className="mt-2" data-no-nav="true">
+                                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                <Check className="h-3.5 w-3.5" />
+                                                Gift requested
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
                                       <p className="mt-3 border-t pt-2 text-xs leading-relaxed opacity-80" style={{ borderColor: freeformThemePalette.dividerColor }}>
                                         Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                                       </p>
@@ -4155,6 +4391,61 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalPhotos} photos</span>
                   <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalAudioWishes} voices</span>
                 </div>
+                {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
+                  <div className="mt-3 rounded-lg border border-black/10 bg-white/45 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Pooled gift</p>
+                    <p className="mt-1 text-sm font-semibold">₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}</p>
+                    {poolSummary.pool_description && (
+                      <p className="mt-1 text-xs leading-relaxed opacity-80">{poolSummary.pool_description}</p>
+                    )}
+                    {paidContributorLine && (
+                      <p className="mt-1 text-xs leading-relaxed opacity-75">Paid by {paidContributorLine}.</p>
+                    )}
+                    {isPageOwner && !isPreview && (
+                      <div className="mt-2" data-no-nav="true">
+                        {poolSummary.is_released ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                            <Check className="h-3.5 w-3.5" />
+                            Payout released
+                          </span>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 gap-1.5"
+                            onClick={handleReleasePoolPayout}
+                            disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
+                          >
+                            {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                            Release Gift
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
+                      <div className="mt-2" data-no-nav="true">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8 gap-1.5"
+                          onClick={handleRequestGiftRelease}
+                          disabled={requestingGiftRelease || !page?.is_revealed}
+                        >
+                          {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
+                          Request Gift
+                        </Button>
+                      </div>
+                    )}
+                    {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
+                      <div className="mt-2" data-no-nav="true">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                          <Check className="h-3.5 w-3.5" />
+                          Gift requested
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <p className="mt-3 border-t border-black/10 pt-2 text-xs leading-relaxed opacity-80">
                   Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                 </p>
@@ -4807,6 +5098,64 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                               <p className={cn('mt-3 text-sm leading-relaxed opacity-75', theme.text)}>
                                 {contributorLine}.
                               </p>
+                            )}
+
+                            {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
+                              <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
+                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Pooled gift</p>
+                                <p className={cn('mt-2 text-2xl font-semibold', theme.titleClass, theme.font)}>
+                                  ₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}
+                                </p>
+                                {poolSummary.pool_description && (
+                                  <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>{poolSummary.pool_description}</p>
+                                )}
+                                {paidContributorLine && (
+                                  <p className={cn('mt-2 text-xs leading-relaxed opacity-75', theme.text)}>Paid by {paidContributorLine}.</p>
+                                )}
+                                {isPageOwner && !isPreview && (
+                                  <div className="mt-3">
+                                    {poolSummary.is_released ? (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                                        <Check className="h-3.5 w-3.5" />
+                                        Payout released
+                                      </span>
+                                    ) : (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        className="h-9 gap-2"
+                                        onClick={handleReleasePoolPayout}
+                                        disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
+                                      >
+                                        {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                                        Release Gift
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                                {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
+                                  <div className="mt-3">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-9 gap-2"
+                                      onClick={handleRequestGiftRelease}
+                                      disabled={requestingGiftRelease || !page?.is_revealed}
+                                    >
+                                      {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
+                                      Request Gift
+                                    </Button>
+                                  </div>
+                                )}
+                                {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
+                                  <div className="mt-3">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                                      <Check className="h-3.5 w-3.5" />
+                                      Gift requested
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </article>
                         </div>
