@@ -2100,16 +2100,18 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     ? 'border border-white/14 bg-white/10 text-white/82'
     : 'border border-white/70 bg-white/74 text-foreground/78';
   const freeformThemePalette = useMemo(() => {
-    const colorA = normalizeHexColor(theme.colors[0]) || '#fbbf24';
-    const colorB = normalizeHexColor(theme.colors[1]) || '#f97316';
-    const colorC = normalizeHexColor(theme.colors[2]) || colorA;
+    const colorA = normalizeHexColor(letterColorFromHex) || normalizeHexColor(theme.colors[0]) || '#fbbf24';
+    const colorB = normalizeHexColor(letterColorMidHex || letterColorToHex) || normalizeHexColor(theme.colors[1]) || '#f97316';
+    const colorC = normalizeHexColor(letterColorToHex) || normalizeHexColor(theme.colors[2]) || colorA;
 
-    const { h: hA } = hexToHsl(colorA);
-    const { h: hB } = hexToHsl(colorB);
-    const { h: hC } = hexToHsl(colorC);
+    const { h: hA, s: sA, l: lA } = hexToHsl(colorA);
+    const { h: hB, s: sB, l: lB } = hexToHsl(colorB);
+    const { h: hC, s: sC, l: lC } = hexToHsl(colorC);
     const mixedHue = mixHue(hA, hB);
+    const averageLightness = (lA + lB + lC) / 3;
+    const freeformIsDark = isDarkExperience || averageLightness < 42;
 
-    const cards = isDarkExperience
+    const cards = freeformIsDark
       ? [
           { bg: `hsl(${hA} 24% 22%)`, border: `hsl(${hA} 34% 38%)`, text: 'hsl(0 0% 96%)' },
           { bg: `hsl(${hB} 22% 20%)`, border: `hsl(${hB} 32% 36%)`, text: 'hsl(0 0% 96%)' },
@@ -2118,28 +2120,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           { bg: `hsl(${mixHue(hB, hC)} 20% 23%)`, border: `hsl(${mixHue(hB, hC)} 30% 39%)`, text: 'hsl(0 0% 96%)' },
         ]
       : [
-          { bg: `hsl(${hA} 86% 95%)`, border: `hsl(${hA} 62% 78%)`, text: `hsl(${hA} 34% 24%)` },
-          { bg: `hsl(${hB} 84% 95%)`, border: `hsl(${hB} 58% 79%)`, text: `hsl(${hB} 32% 24%)` },
-          { bg: `hsl(${hC} 84% 95%)`, border: `hsl(${hC} 56% 79%)`, text: `hsl(${hC} 32% 24%)` },
-          { bg: `hsl(${mixedHue} 84% 95%)`, border: `hsl(${mixedHue} 58% 79%)`, text: `hsl(${mixedHue} 32% 24%)` },
-          { bg: `hsl(${mixHue(hB, hC)} 84% 95%)`, border: `hsl(${mixHue(hB, hC)} 58% 79%)`, text: `hsl(${mixHue(hB, hC)} 32% 24%)` },
+          { bg: `hsl(${hA} ${Math.max(52, Math.min(86, sA * 0.85))}% ${Math.max(88, Math.min(94, lA + 24))}%)`, border: `hsl(${hA} ${Math.max(42, Math.min(72, sA * 0.72))}% ${Math.max(68, Math.min(80, lA + 8))}%)`, text: `hsl(${hA} 34% 24%)` },
+          { bg: `hsl(${hB} ${Math.max(52, Math.min(86, sB * 0.85))}% ${Math.max(88, Math.min(94, lB + 24))}%)`, border: `hsl(${hB} ${Math.max(42, Math.min(72, sB * 0.72))}% ${Math.max(68, Math.min(80, lB + 8))}%)`, text: `hsl(${hB} 32% 24%)` },
+          { bg: `hsl(${hC} ${Math.max(52, Math.min(86, sC * 0.85))}% ${Math.max(88, Math.min(94, lC + 24))}%)`, border: `hsl(${hC} ${Math.max(42, Math.min(72, sC * 0.72))}% ${Math.max(68, Math.min(80, lC + 8))}%)`, text: `hsl(${hC} 32% 24%)` },
+          { bg: `hsl(${mixedHue} ${Math.max(52, Math.min(84, ((sA + sB) / 2) * 0.84))}% ${Math.max(88, Math.min(94, ((lA + lB) / 2) + 24))}%)`, border: `hsl(${mixedHue} ${Math.max(42, Math.min(70, ((sA + sB) / 2) * 0.7))}% ${Math.max(68, Math.min(80, ((lA + lB) / 2) + 8))}%)`, text: `hsl(${mixedHue} 32% 24%)` },
+          { bg: `hsl(${mixHue(hB, hC)} ${Math.max(52, Math.min(84, ((sB + sC) / 2) * 0.84))}% ${Math.max(88, Math.min(94, ((lB + lC) / 2) + 24))}%)`, border: `hsl(${mixHue(hB, hC)} ${Math.max(42, Math.min(70, ((sB + sC) / 2) * 0.7))}% ${Math.max(68, Math.min(80, ((lB + lC) / 2) + 8))}%)`, text: `hsl(${mixHue(hB, hC)} 32% 24%)` },
         ];
 
     return {
-      boardBackground: isDarkExperience
+      boardBackground: freeformIsDark
         ? `linear-gradient(165deg, hsl(${mixedHue} 24% 12%), hsl(${hB} 24% 10%) 52%, hsl(${hC} 24% 14%) 100%)`
-        : `linear-gradient(165deg, hsl(${mixedHue} 44% 95%), hsl(${hC} 40% 93%) 56%, hsl(${hA} 42% 91%) 100%)`,
-      eyebrowText: isDarkExperience ? `hsl(${mixedHue} 24% 76%)` : `hsl(${hB} 18% 47%)`,
-      metaText: isDarkExperience ? `hsl(${mixedHue} 18% 78%)` : `hsl(${hB} 14% 45%)`,
-      chipBg: isDarkExperience ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.58)',
-      chipText: isDarkExperience ? 'rgba(255,255,255,0.94)' : `hsl(${hB} 28% 30%)`,
-      accentBorder: isDarkExperience ? `hsl(${hA} 66% 62%)` : `hsl(${hA} 72% 52%)`,
-      tapeColor: isDarkExperience ? `hsla(${hC}, 66%, 72%, 0.34)` : `hsla(${hC}, 82%, 72%, 0.55)`,
-      pinColor: isDarkExperience ? `hsl(${hA} 76% 66%)` : `hsl(${hA} 76% 54%)`,
-      dividerColor: isDarkExperience ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
+        : `linear-gradient(165deg, hsl(${hA} ${Math.max(48, Math.min(84, sA * 0.92))}% ${Math.max(72, Math.min(90, lA + 22))}%), hsl(${hC} ${Math.max(46, Math.min(82, sC * 0.9))}% ${Math.max(64, Math.min(84, lC + 14))}%) 56%, hsl(${hB} ${Math.max(44, Math.min(80, sB * 0.88))}% ${Math.max(56, Math.min(78, lB + 8))}%) 100%)`,
+      eyebrowText: freeformIsDark ? `hsl(${mixedHue} 24% 76%)` : `hsl(${hB} 28% 36%)`,
+      metaText: freeformIsDark ? `hsl(${mixedHue} 18% 78%)` : `hsl(${hB} 24% 34%)`,
+      chipBg: freeformIsDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.62)',
+      chipText: freeformIsDark ? 'rgba(255,255,255,0.94)' : `hsl(${hB} 28% 28%)`,
+      accentBorder: freeformIsDark ? `hsl(${hA} 66% 62%)` : `hsl(${hA} 72% 48%)`,
+      tapeColor: freeformIsDark ? `hsla(${hC}, 66%, 72%, 0.34)` : `hsla(${hC}, 82%, 72%, 0.55)`,
+      pinColor: freeformIsDark ? `hsl(${hA} 76% 66%)` : `hsl(${hA} 76% 52%)`,
+      dividerColor: freeformIsDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
       cards,
     };
-  }, [isDarkExperience, theme.colors]);
+  }, [isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex, theme.colors]);
 
   const freeformOpenerPalette = useMemo(() => {
     const overlayStart = letterColorFromHex;
@@ -2881,16 +2883,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                       <div className="mt-7 grid grid-cols-3 gap-3 justify-items-center sm:flex sm:items-center sm:justify-center">
                         <span aria-label={`${messages.length} wishes`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
-                          <span className="select-none">{messages.length}</span>
-                          <Sparkles className="h-4 w-4" />
+                          <span className="select-none text-white">{messages.length}</span>
+                          <Sparkles className="h-4 w-4 text-white" />
                         </span>
                         <span aria-label={`${totalPhotos} photos`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
-                          <span className="select-none">{totalPhotos}</span>
-                          <ImageIcon className="h-4 w-4" />
+                          <span className="select-none text-white">{totalPhotos}</span>
+                          <ImageIcon className="h-4 w-4 text-white" />
                         </span>
                         <span aria-label={`${totalAudioWishes} voices`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
-                          <span className="select-none">{totalAudioWishes}</span>
-                          <Music className="h-4 w-4" />
+                          <span className="select-none text-white">{totalAudioWishes}</span>
+                          <Music className="h-4 w-4 text-white" />
                         </span>
                       </div>
 
