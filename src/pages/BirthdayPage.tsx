@@ -2107,30 +2107,53 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     const { h: hA, s: sA, l: lA } = hexToHsl(colorA);
     const { h: hB, s: sB, l: lB } = hexToHsl(colorB);
     const { h: hC, s: sC, l: lC } = hexToHsl(colorC);
-    const mixedHue = mixHue(hA, hB);
+    const hAB = mixHue(hA, hB);
+    const hBC = mixHue(hB, hC);
+    const mixedHue = hAB;
     const averageLightness = (lA + lB + lC) / 3;
     const freeformIsDark = isDarkExperience || averageLightness < 42;
+    const gradientAngle = Number.isFinite(customGradientAngle) ? customGradientAngle : 165;
+
+    const toDarkCard = (h: number, s: number, l: number) => {
+      const baseSat = Math.max(22, Math.min(50, s * 0.58));
+      const baseLight = Math.max(18, Math.min(27, l * 0.4));
+      return {
+        bg: `hsl(${h} ${baseSat}% ${baseLight}%)`,
+        border: `hsl(${h} ${Math.max(28, Math.min(62, baseSat + 12))}% ${Math.max(34, Math.min(46, baseLight + 16))}%)`,
+        text: 'hsl(0 0% 96%)',
+      };
+    };
+
+    const toLightCard = (h: number, s: number, l: number) => {
+      const baseSat = Math.max(52, Math.min(86, s * 0.86));
+      const baseLight = Math.max(87, Math.min(95, l + 24));
+      return {
+        bg: `hsl(${h} ${baseSat}% ${baseLight}%)`,
+        border: `hsl(${h} ${Math.max(42, Math.min(72, s * 0.72))}% ${Math.max(68, Math.min(82, l + 8))}%)`,
+        text: `hsl(${h} 34% 24%)`,
+      };
+    };
 
     const cards = freeformIsDark
       ? [
-          { bg: `hsl(${hA} 24% 22%)`, border: `hsl(${hA} 34% 38%)`, text: 'hsl(0 0% 96%)' },
-          { bg: `hsl(${hB} 22% 20%)`, border: `hsl(${hB} 32% 36%)`, text: 'hsl(0 0% 96%)' },
-          { bg: `hsl(${hC} 20% 22%)`, border: `hsl(${hC} 30% 38%)`, text: 'hsl(0 0% 96%)' },
-          { bg: `hsl(${mixedHue} 22% 21%)`, border: `hsl(${mixedHue} 32% 37%)`, text: 'hsl(0 0% 96%)' },
-          { bg: `hsl(${mixHue(hB, hC)} 20% 23%)`, border: `hsl(${mixHue(hB, hC)} 30% 39%)`, text: 'hsl(0 0% 96%)' },
+          toDarkCard(hA, sA, lA),
+          toDarkCard(hB, sB, lB),
+          toDarkCard(hC, sC, lC),
+          toDarkCard(hAB, (sA + sB) / 2, (lA + lB) / 2),
+          toDarkCard(hBC, (sB + sC) / 2, (lB + lC) / 2),
         ]
       : [
-          { bg: `hsl(${hA} ${Math.max(52, Math.min(86, sA * 0.85))}% ${Math.max(88, Math.min(94, lA + 24))}%)`, border: `hsl(${hA} ${Math.max(42, Math.min(72, sA * 0.72))}% ${Math.max(68, Math.min(80, lA + 8))}%)`, text: `hsl(${hA} 34% 24%)` },
-          { bg: `hsl(${hB} ${Math.max(52, Math.min(86, sB * 0.85))}% ${Math.max(88, Math.min(94, lB + 24))}%)`, border: `hsl(${hB} ${Math.max(42, Math.min(72, sB * 0.72))}% ${Math.max(68, Math.min(80, lB + 8))}%)`, text: `hsl(${hB} 32% 24%)` },
-          { bg: `hsl(${hC} ${Math.max(52, Math.min(86, sC * 0.85))}% ${Math.max(88, Math.min(94, lC + 24))}%)`, border: `hsl(${hC} ${Math.max(42, Math.min(72, sC * 0.72))}% ${Math.max(68, Math.min(80, lC + 8))}%)`, text: `hsl(${hC} 32% 24%)` },
-          { bg: `hsl(${mixedHue} ${Math.max(52, Math.min(84, ((sA + sB) / 2) * 0.84))}% ${Math.max(88, Math.min(94, ((lA + lB) / 2) + 24))}%)`, border: `hsl(${mixedHue} ${Math.max(42, Math.min(70, ((sA + sB) / 2) * 0.7))}% ${Math.max(68, Math.min(80, ((lA + lB) / 2) + 8))}%)`, text: `hsl(${mixedHue} 32% 24%)` },
-          { bg: `hsl(${mixHue(hB, hC)} ${Math.max(52, Math.min(84, ((sB + sC) / 2) * 0.84))}% ${Math.max(88, Math.min(94, ((lB + lC) / 2) + 24))}%)`, border: `hsl(${mixHue(hB, hC)} ${Math.max(42, Math.min(70, ((sB + sC) / 2) * 0.7))}% ${Math.max(68, Math.min(80, ((lB + lC) / 2) + 8))}%)`, text: `hsl(${mixHue(hB, hC)} 32% 24%)` },
+          toLightCard(hA, sA, lA),
+          toLightCard(hB, sB, lB),
+          toLightCard(hC, sC, lC),
+          toLightCard(hAB, (sA + sB) / 2, (lA + lB) / 2),
+          toLightCard(hBC, (sB + sC) / 2, (lB + lC) / 2),
         ];
 
     return {
       boardBackground: freeformIsDark
-        ? `linear-gradient(165deg, hsl(${mixedHue} 24% 12%), hsl(${hB} 24% 10%) 52%, hsl(${hC} 24% 14%) 100%)`
-        : `linear-gradient(165deg, hsl(${hA} ${Math.max(48, Math.min(84, sA * 0.92))}% ${Math.max(72, Math.min(90, lA + 22))}%), hsl(${hC} ${Math.max(46, Math.min(82, sC * 0.9))}% ${Math.max(64, Math.min(84, lC + 14))}%) 56%, hsl(${hB} ${Math.max(44, Math.min(80, sB * 0.88))}% ${Math.max(56, Math.min(78, lB + 8))}%) 100%)`,
+        ? `linear-gradient(${gradientAngle}deg, hsl(${hA} ${Math.max(24, Math.min(56, sA * 0.56))}% ${Math.max(10, Math.min(20, lA * 0.34))}%), hsl(${hB} ${Math.max(24, Math.min(56, sB * 0.56))}% ${Math.max(9, Math.min(18, lB * 0.3))}%) 52%, hsl(${hC} ${Math.max(24, Math.min(56, sC * 0.56))}% ${Math.max(10, Math.min(20, lC * 0.34))}%) 100%)`
+        : `linear-gradient(${gradientAngle}deg, hsl(${hA} ${Math.max(50, Math.min(88, sA * 0.92))}% ${Math.max(74, Math.min(92, lA + 24))}%), hsl(${hB} ${Math.max(48, Math.min(86, sB * 0.9))}% ${Math.max(66, Math.min(86, lB + 16))}%) 52%, hsl(${hC} ${Math.max(46, Math.min(84, sC * 0.88))}% ${Math.max(58, Math.min(80, lC + 10))}%) 100%)`,
       eyebrowText: freeformIsDark ? `hsl(${mixedHue} 24% 76%)` : `hsl(${hB} 28% 36%)`,
       metaText: freeformIsDark ? `hsl(${mixedHue} 18% 78%)` : `hsl(${hB} 24% 34%)`,
       chipBg: freeformIsDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.62)',
@@ -2141,7 +2164,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       dividerColor: freeformIsDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
       cards,
     };
-  }, [isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex, theme.colors]);
+  }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex, theme.colors]);
 
   const freeformOpenerPalette = useMemo(() => {
     const overlayStart = letterColorFromHex;
@@ -2153,43 +2176,84 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     const overlayHue = mixHue(hStart, hEnd);
     const overlaySat = Math.max(18, Math.min((sStart + sEnd) / 2, 72));
     const overlayLight = Math.max(18, Math.min((lStart + lEnd) / 2, 62));
-    const floatCardBorder = `hsla(${overlayHue}, ${Math.min(overlaySat + 10, 86)}%, ${Math.max(overlayLight - 24, 18)}%, 0.36)`;
-    const floatCardFill = `hsla(${overlayHue}, ${Math.min(overlaySat + 15, 90)}%, ${Math.min(overlayLight + 24, 86)}%, 0.2)`;
-    const paperColor = `hsl(${overlayHue} ${Math.max(18, overlaySat * 0.32)}% ${Math.min(95, Math.max(88, lMid + 22))}%)`;
+    const openerAngle = Number.isFinite(customGradientAngle) ? customGradientAngle : 135;
+    const openerIsDark = isDarkExperience || (lStart + lMid + lEnd) / 3 < 42;
+    const floatCardBorder = `hsla(${overlayHue}, ${Math.min(overlaySat + 14, 92)}%, ${openerIsDark ? 72 : 42}%, ${openerIsDark ? 0.4 : 0.3})`;
+    const floatCardFill = `hsla(${overlayHue}, ${Math.min(overlaySat + 18, 94)}%, ${openerIsDark ? 34 : 66}%, ${openerIsDark ? 0.24 : 0.2})`;
+    const paperColor = openerIsDark
+      ? `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.38)}% 16%)`
+      : `hsl(${overlayHue} ${Math.max(24, overlaySat * 0.52)}% 93%)`;
 
     return {
       backdrop: [
-        `radial-gradient(circle at 50% 24%, hsl(${hStart} ${Math.min(84, sStart)}% ${Math.min(84, lStart + 4)}% / 0.46), hsl(${hMid} ${Math.min(82, sMid)}% ${Math.min(78, lMid)}% / 0.32) 54%, hsl(${overlayHue} ${Math.max(28, overlaySat * 0.65)}% ${Math.max(12, overlayLight * 0.42)}% / 0.94) 100%)`,
-        `linear-gradient(180deg, hsl(${hEnd} ${Math.max(24, sEnd * 0.6)}% ${Math.max(12, lEnd * 0.36)}% / 0.78), hsl(${overlayHue} ${Math.max(30, overlaySat * 0.68)}% ${Math.max(10, overlayLight * 0.34)}% / 0.92))`,
+        `linear-gradient(${openerAngle}deg, ${overlayStart} 0%, ${overlayMid} 52%, ${overlayEnd} 100%)`,
+        `radial-gradient(circle at 50% 24%, hsl(${hMid} ${Math.min(92, sMid + 8)}% ${Math.min(74, lMid + 4)}% / 0.3), transparent 64%)`,
+        `radial-gradient(circle at 50% 100%, rgba(0,0,0, ${openerIsDark ? 0.5 : 0.28}), transparent 62%)`,
       ].join(', '),
       textureLayer: [
-        `repeating-linear-gradient(180deg, hsl(${overlayHue} ${Math.max(8, overlaySat * 0.24)}% 96% / 0.035) 0px, hsl(${overlayHue} ${Math.max(8, overlaySat * 0.24)}% 96% / 0.035) 1px, transparent 1px, transparent 4px)`,
-        `linear-gradient(180deg, hsl(${hStart} ${Math.max(22, sStart * 0.58)}% ${Math.max(9, lStart * 0.34)}%), hsl(${hEnd} ${Math.max(22, sEnd * 0.58)}% ${Math.max(9, lEnd * 0.3)}%))`,
+        `repeating-linear-gradient(180deg, hsl(${overlayHue} ${Math.max(12, overlaySat * 0.3)}% ${openerIsDark ? 92 : 98}% / 0.045) 0px, hsl(${overlayHue} ${Math.max(12, overlaySat * 0.3)}% ${openerIsDark ? 92 : 98}% / 0.045) 1px, transparent 1px, transparent 4px)`,
+        `linear-gradient(${openerAngle}deg, ${overlayStart}, ${overlayMid} 52%, ${overlayEnd})`,
       ].join(', '),
-      halo: `radial-gradient(circle, hsl(${overlayHue} ${Math.max(24, overlaySat * 0.74)}% ${Math.max(26, overlayLight * 0.72)}% / 0.24), transparent 72%)`,
+      halo: `radial-gradient(circle, hsl(${overlayHue} ${Math.max(30, overlaySat * 0.84)}% ${openerIsDark ? 54 : 64}% / 0.28), transparent 72%)`,
       tape: `${overlayEnd}cc`,
       miniCard: `linear-gradient(145deg, ${letterColorMidHex ? `${overlayStart}, ${overlayMid}, ${overlayEnd}` : `${overlayStart}, ${overlayEnd}`})`,
       floatingCardBorder: floatCardBorder,
       floatingCardFill: floatCardFill,
       paper: paperColor,
-      nameText: `hsl(${overlayHue} ${Math.max(24, overlaySat * 0.42)}% ${Math.max(22, overlayLight * 0.48)}%)`,
-      eyebrowText: `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.45)}% ${isDarkExperience ? 78 : 82}% / 0.9)`,
-      textPrimary: isDarkExperience ? 'hsl(0 0% 96%)' : 'hsl(0 0% 94%)',
-      textSecondary: isDarkExperience ? 'hsl(0 0% 83%)' : 'hsl(0 0% 86%)',
-      quoteText: isDarkExperience ? 'hsl(0 0% 85%)' : 'hsl(0 0% 88%)',
-      chipBg: `hsl(${overlayHue} ${Math.max(14, overlaySat * 0.35)}% ${isDarkExperience ? 32 : 97}% / ${isDarkExperience ? 0.38 : 0.24})`,
-      chipBorder: `hsl(${overlayHue} ${Math.max(16, overlaySat * 0.38)}% ${isDarkExperience ? 74 : 66}% / 0.46)`,
-      chipText: isDarkExperience
-        ? `hsl(${overlayHue} ${Math.max(18, overlaySat * 0.36)}% 93%)`
-        : `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.44)}% 25%)`,
-      ctaBorder: `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.5)}% ${isDarkExperience ? 76 : 84}% / 0.64)`,
-      ctaText: isDarkExperience
-        ? `hsl(${overlayHue} ${Math.max(16, overlaySat * 0.35)}% 96%)`
-        : `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.44)}% 98%)`,
-      skipText: isDarkExperience ? 'hsl(0 0% 74%)' : 'hsl(0 0% 78%)',
-      skipTextHover: isDarkExperience ? 'hsl(0 0% 88%)' : 'hsl(0 0% 94%)',
+      nameText: openerIsDark
+        ? 'hsl(0 0% 96%)'
+        : `hsl(${overlayHue} ${Math.max(28, overlaySat * 0.52)}% 22%)`,
+      eyebrowText: openerIsDark ? 'hsl(0 0% 90% / 0.92)' : 'hsl(0 0% 98% / 0.92)',
+      textPrimary: 'hsl(0 0% 98%)',
+      textSecondary: 'hsl(0 0% 92%)',
+      quoteText: 'hsl(0 0% 94%)',
+      chipBg: openerIsDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.24)',
+      chipBorder: openerIsDark ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.62)',
+      chipText: 'hsl(0 0% 96%)',
+      ctaBorder: openerIsDark ? 'rgba(255,255,255,0.66)' : 'rgba(255,255,255,0.74)',
+      ctaText: 'hsl(0 0% 98%)',
+      skipText: 'hsl(0 0% 86%)',
+      skipTextHover: 'hsl(0 0% 98%)',
     };
-  }, [isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
+  }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
+
+  const storyOpenerPalette = useMemo(() => {
+    const start = letterColorFromHex;
+    const mid = letterColorMidHex || letterColorToHex;
+    const end = letterColorToHex;
+    const angle = Number.isFinite(customGradientAngle) ? customGradientAngle : 140;
+    const { h: hStart, s: sStart, l: lStart } = hexToHsl(start);
+    const { h: hMid, s: sMid, l: lMid } = hexToHsl(mid);
+    const { h: hEnd, s: sEnd, l: lEnd } = hexToHsl(end);
+    const mixedHue = mixHue(hStart, hEnd);
+    const averageLight = (lStart + lMid + lEnd) / 3;
+    const isDark = isDarkExperience || averageLight < 44;
+    const satAvg = (sStart + sMid + sEnd) / 3;
+
+    return {
+      backdrop: [
+        `linear-gradient(${angle}deg, ${start} 0%, ${mid} 52%, ${end} 100%)`,
+        `radial-gradient(circle at 50% 100%, rgba(0,0,0, ${isDark ? 0.56 : 0.32}), transparent 62%)`,
+      ].join(', '),
+      textureLayer: `radial-gradient(circle at 50% 24%, rgba(255,255,255, ${isDark ? 0.14 : 0.24}), transparent 44%)`,
+      halo: `radial-gradient(circle, hsla(${mixedHue}, ${Math.max(36, Math.min(92, satAvg * 0.9))}%, ${isDark ? 62 : 72}%, 0.3), transparent 70%)`,
+      burstBorder: `hsla(${mixedHue}, ${Math.max(28, Math.min(84, satAvg * 0.86))}%, ${isDark ? 80 : 56}%, 0.44)`,
+      burstFill: `linear-gradient(${angle}deg, ${start}33, ${mid}40 52%, ${end}33)`,
+      envelopeOuter: `linear-gradient(${angle}deg, ${start}, ${mid} 52%, ${end})`,
+      envelopeInnerRing: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.52)',
+      envelopeInsetBorder: `hsla(${mixedHue}, ${Math.max(24, Math.min(76, satAvg * 0.74))}%, ${isDark ? 78 : 52}%, 0.56)`,
+      flap: `linear-gradient(${angle}deg, ${mid}, ${end} 60%, ${start})`,
+      body: `linear-gradient(180deg, ${start}f2, ${mid}dd 58%, ${end}d9)`,
+      bodyBorder: `hsla(${mixedHue}, ${Math.max(22, Math.min(76, satAvg * 0.68))}%, ${isDark ? 82 : 54}%, 0.66)`,
+      letter: `linear-gradient(180deg, rgba(255,255,255,0.95), ${mid}30 65%, ${end}26)`,
+      letterBorder: `hsla(${mixedHue}, ${Math.max(24, Math.min(78, satAvg * 0.7))}%, ${isDark ? 84 : 50}%, 0.74)`,
+      letterTo: isDark ? 'rgba(255,255,255,0.82)' : `hsl(${mixedHue} 38% 30%)`,
+      letterName: isDark ? 'hsl(0 0% 98%)' : `hsl(${hStart} 42% 20%)`,
+      letterBody: isDark ? 'rgba(255,255,255,0.84)' : `hsl(${hEnd} 28% 30%)`,
+      stamp: `radial-gradient(circle at 30% 30%, ${start}, ${mid} 55%, ${end})`,
+      stampBorder: isDark ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.74)',
+    };
+  }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
   const interactiveSelector = 'button,a,audio,input,textarea,select,[data-no-nav="true"]';
 
   const revealSlides = useMemo<RevealSlide[]>(() => {
@@ -2748,11 +2812,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           style={{
             background: effectiveViewMode === 'freeform'
               ? freeformOpenerPalette.backdrop
-              : [
-                  `radial-gradient(circle at 50% 28%, hsl(${letterH} ${clampedS * 0.5}% 85% / 0.3), hsl(${letterH2} ${clampedS2 * 0.45}% 76% / 0.22), transparent 32%)`,
-                  `radial-gradient(circle at 18% 16%, hsl(${letterH2} ${clampedS2 * 0.6}% 68% / 0.16), transparent 22%)`,
-                  `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 18% / 0.72), hsl(${letterH2} ${clampedS2 * 0.3}% 14% / 0.86))`,
-                ].join(', '),
+              : storyOpenerPalette.backdrop,
           }}
         >
           <div className={cn('relative flex w-full items-center justify-center', effectiveViewMode !== 'freeform' && 'max-w-5xl')}>
@@ -2777,9 +2837,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   style={
                     effectiveViewMode === 'freeform'
                       ? { background: freeformOpenerPalette.textureLayer }
-                      : {
-                          background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.34), hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.16), transparent 62%)`,
-                        }
+                      : { background: storyOpenerPalette.textureLayer }
                   }
                 />
                 <div
@@ -2787,7 +2845,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   style={
                     effectiveViewMode === 'freeform'
                       ? { background: freeformOpenerPalette.halo }
-                      : { background: `radial-gradient(circle, hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.2), transparent 68%)` }
+                      : { background: storyOpenerPalette.halo }
                   }
                 />
               </div>
@@ -2830,8 +2888,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       )}
                       style={{
                         transitionDelay: `${index * 85}ms`,
-                        borderColor: `hsl(${mixedLetterH} ${Math.max(24, ((clampedS + clampedS2) / 2) * 0.5)}% ${Math.min(80, ((letterL + letterL2) / 2) + 14)}% / 0.36)`,
-                        background: `linear-gradient(150deg, hsl(${letterH} ${Math.max(18, clampedS * 0.68)}% ${Math.max(20, letterL * 0.62)}% / 0.22), hsl(${letterH2} ${Math.max(18, clampedS2 * 0.68)}% ${Math.max(18, letterL2 * 0.56)}% / 0.2))`,
+                        borderColor: storyOpenerPalette.burstBorder,
+                        background: storyOpenerPalette.burstFill,
                         color: 'hsl(0 0% 96%)',
                       }}
                     >
@@ -2936,14 +2994,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     <div
                       className="absolute inset-0 rounded-[2.4rem]"
                       style={{
-                        background: `linear-gradient(145deg, hsl(${letterH} ${clampedS * 0.45}% 95%), hsl(${letterH2} ${clampedS2 * 0.55}% 88%))`,
-                        boxShadow: `0 26px 90px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 20% / 0.22)`,
+                        background: storyOpenerPalette.envelopeOuter,
+                        boxShadow: '0 26px 90px rgba(0,0,0,0.22)',
                       }}
                     />
-                    <div className="absolute inset-[1px] rounded-[2.35rem] border border-white/60" />
+                    <div className="absolute inset-[1px] rounded-[2.35rem] border" style={{ borderColor: storyOpenerPalette.envelopeInnerRing }} />
                     <div
                       className="absolute inset-[1.2rem] rounded-[1.9rem] border opacity-60"
-                      style={{ borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 82%)` }}
+                      style={{ borderColor: storyOpenerPalette.envelopeInsetBorder }}
                     />
                     {/* Envelope flap */}
                     <div
@@ -2953,16 +3011,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       )}
                       style={{
                         clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-                        background: `linear-gradient(145deg, hsl(${letterH2} ${clampedS2 * 0.6}% 78%), hsl(${letterH} ${clampedS * 0.5}% 88%))`,
-                        boxShadow: `0 16px 36px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 40% / 0.22)`,
+                        background: storyOpenerPalette.flap,
+                        boxShadow: '0 16px 36px rgba(0,0,0,0.18)',
                       }}
                     />
                     {/* Envelope body / inner pocket */}
                     <div
                       className="absolute bottom-[11%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[1.8rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
                       style={{
-                        background: `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.4}% 97%), hsl(${letterH2} ${clampedS2 * 0.55}% 90%))`,
-                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 85% / 0.7)`,
+                        background: storyOpenerPalette.body,
+                        borderColor: storyOpenerPalette.bodyBorder,
                       }}
                     />
                     {/* Letter card */}
@@ -2973,14 +3031,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         revealPhase === 'burst' ? '-translate-y-10 opacity-0' : '',
                       )}
                       style={{
-                        background: `linear-gradient(180deg, hsl(${letterH2} ${clampedS2 * 0.35}% 97%), hsl(${letterH} ${clampedS * 0.45}% 93%))`,
-                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 78% / 0.8)`,
-                        boxShadow: `0 14px 28px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 35% / 0.16)`,
+                        background: storyOpenerPalette.letter,
+                        borderColor: storyOpenerPalette.letterBorder,
+                        boxShadow: '0 14px 28px rgba(0,0,0,0.14)',
                       }}
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: `hsl(${mixedLetterH} 30% 42%)` }}>To</p>
-                      <p className="mt-2 text-[1.45rem] font-bold leading-none sm:text-[1.7rem]" style={{ color: `hsl(${letterH} 28% 22%)` }}>{page.recipient_name}</p>
-                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] sm:max-w-[10rem]" style={{ color: `hsl(${letterH2} 20% 38%)` }}>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: storyOpenerPalette.letterTo }}>To</p>
+                      <p className="mt-2 text-[1.45rem] font-bold leading-none sm:text-[1.7rem]" style={{ color: storyOpenerPalette.letterName }}>{page.recipient_name}</p>
+                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] sm:max-w-[10rem]" style={{ color: storyOpenerPalette.letterBody }}>
                         Open when ready for the birthday story.
                       </p>
                     </div>
@@ -2988,9 +3046,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     <div
                       className="animate-seal-breathe absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] transition-transform duration-300 group-hover:scale-105"
                       style={{
-                        background: `radial-gradient(circle at 30% 30%, hsl(${letterH} ${clampedS}% 62%), hsl(${letterH2} ${clampedS2 * 0.8}% 48%))`,
-                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.5}% 82%)`,
-                        '--seal-glow': `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.6}% 55% / 0.35)`,
+                        background: storyOpenerPalette.stamp,
+                        borderColor: storyOpenerPalette.stampBorder,
+                        '--seal-glow': 'rgba(255,255,255,0.28)',
                       } as React.CSSProperties}
                     >
                       <div className="flex h-full w-full items-center justify-center text-white/90">
