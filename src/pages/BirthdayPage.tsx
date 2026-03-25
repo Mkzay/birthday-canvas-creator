@@ -16,6 +16,8 @@ import {
   Music,
   Image as ImageIcon,
   Video,
+  Wallet,
+  Gift,
 } from 'lucide-react';
 import BentoGridView from '@/components/BentoGridView';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -89,6 +91,34 @@ interface BirthdayPageData {
   is_unlocked?: boolean;
   owner_plan_tier?: 'free' | 'pro';
   message_count?: number;
+  pool_fundraising_enabled?: boolean;
+  pool_goal_kobo?: number | null;
+  pooled_amount_kobo?: number | null;
+  pool_description?: string | null;
+}
+
+interface PublicPoolSummary {
+  pool_fundraising_enabled: boolean;
+  pool_goal_kobo: number | null;
+  pooled_amount_kobo: number;
+  pool_description: string | null;
+  contributors: string[];
+  is_requested?: boolean;
+}
+
+interface PrivatePoolSummary extends PublicPoolSummary {
+  is_requested: boolean;
+  is_released: boolean;
+}
+
+interface PoolSummaryState {
+  pool_fundraising_enabled: boolean;
+  pool_goal_kobo: number | null;
+  pooled_amount_kobo: number;
+  pool_description: string | null;
+  contributors: string[];
+  is_requested: boolean;
+  is_released: boolean;
 }
 
 interface MessagePhoto {
@@ -147,6 +177,20 @@ function formatMediaTime(seconds: number) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, '0')}`;
+}
+
+function formatNairaFromKobo(amountKobo: number) {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    maximumFractionDigits: 0,
+  }).format((Number(amountKobo) || 0) / 100);
+}
+
+function formatNairaNumberFromKobo(amountKobo: number) {
+  return new Intl.NumberFormat('en-NG', {
+    maximumFractionDigits: 0,
+  }).format((Number(amountKobo) || 0) / 100);
 }
 
 function normalizeHexColor(value?: string | null) {
@@ -707,6 +751,18 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const isCoarsePointerDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
+  const [isPageOwner, setIsPageOwner] = useState(false);
+  const [poolSummary, setPoolSummary] = useState<PoolSummaryState>({
+    pool_fundraising_enabled: false,
+    pool_goal_kobo: null,
+    pooled_amount_kobo: 0,
+    pool_description: null,
+    contributors: [],
+    is_requested: false,
+    is_released: false,
+  });
+  const [releasingPoolPayout, setReleasingPoolPayout] = useState(false);
+  const [requestingGiftRelease, setRequestingGiftRelease] = useState(false);
   const [unlockPin, setUnlockPin] = useState('');
   const [unlocking, setUnlocking] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -723,6 +779,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const freeformAnimationTimeoutsRef = useRef<number[]>([]);
   const mobileCardsContainerRef = useRef<HTMLDivElement | null>(null);
   const mobileObserverRef = useRef<IntersectionObserver | null>(null);
+  const freeformBoardSectionRef = useRef<HTMLElement | null>(null);
+  const freeformStarsCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (!page) return;
@@ -1252,9 +1310,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
     try {
       if (isPreview) {
-        const [pageData, messagesData] = await Promise.all([
+        const [pageData, messagesData, publicPoolSummary] = await Promise.all([
           apiFetch<BirthdayPageData>(`/pages/${pageId}`),
           apiFetch<Message[]>(`/pages/${pageId}/messages`),
+          apiFetch<PublicPoolSummary>(`/public/pages/${pageId}/pool/summary`).catch(() => null),
         ]);
 
         setPage({
@@ -1267,12 +1326,33 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         });
         setViewMode(pageData.display_mode || 'story');
         setMessages(messagesData);
+        setIsPageOwner(true);
+        setPoolSummary({
+          pool_fundraising_enabled: Boolean(pageData.pool_fundraising_enabled),
+          pool_goal_kobo: pageData.pool_goal_kobo ?? null,
+          pooled_amount_kobo: Number(pageData.pooled_amount_kobo || 0),
+          pool_description: pageData.pool_description || null,
+          contributors: publicPoolSummary?.contributors || [],
+          is_requested: Boolean(publicPoolSummary?.is_requested),
+          is_released: false,
+        });
         return;
       }
 
       const publicPage = await apiFetch<BirthdayPageData>(`/public/pages/${pageId}`);
       setPage(publicPage);
       setViewMode(publicPage.display_mode || 'story');
+
+      const publicPoolSummary = await apiFetch<PublicPoolSummary>(`/public/pages/${pageId}/pool/summary`).catch(() => null);
+      setPoolSummary({
+        pool_fundraising_enabled: Boolean(publicPoolSummary?.pool_fundraising_enabled ?? publicPage.pool_fundraising_enabled),
+        pool_goal_kobo: publicPoolSummary?.pool_goal_kobo ?? publicPage.pool_goal_kobo ?? null,
+        pooled_amount_kobo: Number(publicPoolSummary?.pooled_amount_kobo ?? publicPage.pooled_amount_kobo ?? 0),
+        pool_description: publicPoolSummary?.pool_description ?? publicPage.pool_description ?? null,
+        contributors: publicPoolSummary?.contributors || [],
+        is_requested: Boolean(publicPoolSummary?.is_requested),
+        is_released: false,
+      });
       
       // If we are using a UUID but the page has a public code, redirect to use the public code in the URL
       if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && publicPage.public_code) {
@@ -1296,18 +1376,40 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
       if (user) {
         try {
-          const status = await apiFetch<{ isSaved: boolean }>(`/pages/${pageId}/save-status`);
+          const [status, ownerStatus, privatePoolSummary] = await Promise.all([
+            apiFetch<{ isSaved: boolean }>(`/pages/${pageId}/save-status`),
+            apiFetch<{ isOwner: boolean }>(`/pages/${pageId}/ownership`).catch(() => null),
+            apiFetch<PrivatePoolSummary>(`/pages/${pageId}/pool/summary`).catch(() => null),
+          ]);
+
           setIsSaved(status.isSaved);
+          setIsPageOwner(Boolean(ownerStatus?.isOwner));
+
+          if (privatePoolSummary) {
+            setPoolSummary((current) => ({
+              ...current,
+              pool_fundraising_enabled: Boolean(privatePoolSummary.pool_fundraising_enabled),
+              pool_goal_kobo: privatePoolSummary.pool_goal_kobo,
+              pooled_amount_kobo: Number(privatePoolSummary.pooled_amount_kobo || 0),
+              pool_description: privatePoolSummary.pool_description,
+              contributors: privatePoolSummary.contributors || current.contributors,
+              is_requested: Boolean(privatePoolSummary.is_requested),
+              is_released: Boolean(privatePoolSummary.is_released),
+            }));
+          }
         } catch {
           // ignore save status errors
+          setIsPageOwner(false);
         }
       } else {
         setIsSaved(false);
+        setIsPageOwner(false);
       }
     } catch (error) {
       console.error(error);
       setPage(null);
       setMessages([]);
+      setIsPageOwner(false);
     } finally {
       setLoading(false);
     }
@@ -1338,6 +1440,76 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       setUnlocking(false);
     }
   }, [fetchData, pageId, unlockPin]);
+
+  const handleReleasePoolPayout = useCallback(async () => {
+    if (!pageId || !page) return;
+    if (!poolSummary.pool_fundraising_enabled) {
+      toast.error('Pool gifting is not enabled for this page');
+      return;
+    }
+
+    setReleasingPoolPayout(true);
+    try {
+      const payout = await apiFetch<{ amount_kobo?: number; payout_fee_kobo?: number; gross_pool_amount_kobo?: number }>(`/pages/${pageId}/pool/release`, {
+        method: 'POST',
+        body: JSON.stringify({ confirm: true }),
+      });
+
+      const amountKobo = Number(payout.amount_kobo || poolSummary.pooled_amount_kobo || 0);
+      const payoutFeeKobo = Number(payout.payout_fee_kobo || 0);
+      toast.success(
+        payoutFeeKobo > 0
+          ? `Payout released: ${formatNairaFromKobo(amountKobo)} (2% payout fee: ${formatNairaFromKobo(payoutFeeKobo)})`
+          : `Payout released: ${formatNairaFromKobo(amountKobo)}`,
+      );
+      setPoolSummary((current) => ({ ...current, is_released: true }));
+      await fetchData();
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'PAYOUT_TOO_EARLY') {
+        toast.error('Payout can be released only after reveal time');
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_EMPTY') {
+        toast.error('No pooled amount available yet');
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_ACCOUNT_REQUIRED') {
+        toast.error('Recipient bank details are incomplete');
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_ALREADY_RELEASED') {
+        toast.info('Payout has already been released for this page');
+      } else {
+        toast.error('Could not release payout right now');
+      }
+    } finally {
+      setReleasingPoolPayout(false);
+    }
+  }, [fetchData, page, pageId, poolSummary.pool_fundraising_enabled, poolSummary.pooled_amount_kobo]);
+
+  const handleRequestGiftRelease = useCallback(async () => {
+    if (!pageId || !page) return;
+    if (!poolSummary.pool_fundraising_enabled || poolSummary.pooled_amount_kobo <= 0) {
+      toast.error('No pooled gift is available yet');
+      return;
+    }
+
+    setRequestingGiftRelease(true);
+    try {
+      await apiFetch(`/public/pages/${pageId}/pool/request-release`, {
+        method: 'POST',
+      });
+      toast.success("Your gift is on it's way");
+      setPoolSummary((current) => ({ ...current, is_requested: true }));
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'PAYOUT_ALREADY_RELEASED') {
+        toast.info('This gift has already been released');
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_ALREADY_REQUESTED') {
+        toast.info('Gift request already sent to the organizer');
+        setPoolSummary((current) => ({ ...current, is_requested: true }));
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_TOO_EARLY') {
+        toast.error('Gift can only be requested after reveal time');
+      } else {
+        toast.error('Could not request gift release right now');
+      }
+    } finally {
+      setRequestingGiftRelease(false);
+    }
+  }, [page, pageId, poolSummary.pool_fundraising_enabled, poolSummary.pooled_amount_kobo]);
 
   useEffect(() => {
     void fetchData();
@@ -1522,6 +1694,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     return `${contributorNames[0]}, ${contributorNames[1]}, ${contributorNames[2]}, and ${contributorCount - 3} more`;
   }, [contributorCount, contributorNames]);
 
+  const paidContributorLine = useMemo(() => {
+    const names = poolSummary.contributors;
+    if (!names.length) return null;
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
+    return `${names[0]}, ${names[1]}, ${names[2]}, and ${names.length - 3} more`;
+  }, [poolSummary.contributors]);
+
   const burstMessages = useMemo(() => messages.slice(0, 4), [messages]);
   const resolvedCoverPhotoUrl = resolveAssetUrl(page?.cover_photo_url);
   const coverPhotoSrc = resolvedCoverPhotoUrl;
@@ -1653,6 +1834,295 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     };
   // Re-run when messages change so newly rendered cards get observed.
   }, [messages.length]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (effectiveViewMode !== 'freeform' || !hasMessages) return;
+
+    const canvas = freeformStarsCanvasRef.current;
+    const section = freeformBoardSectionRef.current;
+    if (!canvas || !section) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    type ShootingStar = {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      length: number;
+      size: number;
+      glow: number;
+      life: number;
+      maxLife: number;
+      phase: number;
+      alphaScale: number;
+      isFast: boolean;
+    };
+
+    type StarBurstParticle = {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      life: number;
+      maxLife: number;
+      size: number;
+      glow: number;
+      alphaScale: number;
+      drag: number;
+      gravity: number;
+    };
+
+    type StarBurst = {
+      particles: StarBurstParticle[];
+    };
+
+    const stars: ShootingStar[] = [];
+    const bursts: StarBurst[] = [];
+    let rafId = 0;
+    let lastTime = 0;
+    let width = 0;
+    let height = 0;
+
+    const random = (min: number, max: number) => Math.random() * (max - min) + min;
+    const targetCount = () => Math.max(10, Math.round(width / 170));
+
+    const createStar = (): ShootingStar => {
+      const spawnBand = Math.max(width * 0.35, 220);
+      const x = random(-spawnBand, width + spawnBand * 0.08);
+      const y = random(-Math.max(height * 0.4, 180), Math.max(height * 0.2, 120));
+      const angle = random(24, 36) * (Math.PI / 180);
+      const isFast = Math.random() < 0.2;
+      const speed = isFast ? random(240, 330) : random(120, 210);
+      return {
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        length: isFast ? random(108, 170) : random(84, 154),
+        size: random(1.2, 2.5),
+        glow: random(7, 15),
+        life: 0,
+        maxLife: isFast ? random(1.8, 3) : random(2.8, 4.6),
+        phase: random(0, Math.PI * 2),
+        alphaScale: random(0.7, 1),
+        isFast,
+      };
+    };
+
+    const setupCanvas = () => {
+      const rect = section.getBoundingClientRect();
+      width = Math.max(1, Math.round(rect.width));
+      height = Math.max(1, Math.round(rect.height));
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.round(width * dpr));
+      canvas.height = Math.max(1, Math.round(height * dpr));
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const isStarOut = (star: ShootingStar) => (
+      star.x > width + star.length + 80
+      || star.y > height + star.length + 80
+      || star.life > star.maxLife
+    );
+
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+    const createBurst = (x: number, y: number, isFast: boolean): StarBurst => {
+      const particleCount = isFast ? 13 : 9;
+      const particles: StarBurstParticle[] = [];
+
+      for (let i = 0; i < particleCount; i += 1) {
+        const angle = random(0, Math.PI * 2);
+        const speed = isFast ? random(72, 150) : random(48, 112);
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 0,
+          maxLife: random(0.34, 0.62),
+          size: random(0.9, 2.1),
+          glow: random(5, 12),
+          alphaScale: random(0.68, 1),
+          drag: random(0.78, 0.9),
+          gravity: random(22, 46),
+        });
+      }
+
+      return { particles };
+    };
+
+    const spawnExplosion = (star: ShootingStar) => {
+      const burstX = clamp(star.x, 6, width - 6);
+      const burstY = clamp(star.y, 6, height - 6);
+      bursts.push(createBurst(burstX, burstY, star.isFast));
+
+      if (bursts.length > 120) {
+        bursts.splice(0, bursts.length - 120);
+      }
+    };
+
+    const drawStar = (star: ShootingStar, timeSeconds: number) => {
+      const speed = Math.hypot(star.vx, star.vy) || 1;
+      const dirX = star.vx / speed;
+      const dirY = star.vy / speed;
+      const tailX = star.x - dirX * star.length;
+      const tailY = star.y - dirY * star.length;
+
+      const lifeProgress = Math.min(1, star.life / star.maxLife);
+      const fadeIn = Math.min(1, lifeProgress * 3.2);
+      const fadeOut = lifeProgress > 0.68 ? 1 - (lifeProgress - 0.68) / 0.32 : 1;
+      const twinkle = 0.85 + Math.sin(timeSeconds * 6 + star.phase) * 0.15;
+      const alpha = Math.max(0, Math.min(1, fadeIn * fadeOut * twinkle * star.alphaScale));
+      if (alpha <= 0) return;
+
+      const trail = ctx.createLinearGradient(tailX, tailY, star.x, star.y);
+      trail.addColorStop(0, `rgba(255, 255, 255, 0)`);
+      trail.addColorStop(0.35, `rgba(191, 230, 255, ${0.12 * alpha})`);
+      trail.addColorStop(0.75, `rgba(219, 242, 255, ${0.48 * alpha})`);
+      trail.addColorStop(1, `rgba(255, 255, 255, ${0.92 * alpha})`);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = star.size;
+      ctx.shadowBlur = star.glow;
+      ctx.shadowColor = `rgba(197, 236, 255, ${0.85 * alpha})`;
+      ctx.strokeStyle = trail;
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(star.x, star.y);
+      ctx.stroke();
+
+      const headGlow = ctx.createRadialGradient(star.x, star.y, 0, star.x, star.y, star.size * 4.5);
+      headGlow.addColorStop(0, `rgba(255, 255, 255, ${0.95 * alpha})`);
+      headGlow.addColorStop(0.6, `rgba(212, 239, 255, ${0.35 * alpha})`);
+      headGlow.addColorStop(1, 'rgba(212, 239, 255, 0)');
+      ctx.fillStyle = headGlow;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size * 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const drawBurstParticle = (particle: StarBurstParticle) => {
+      const lifeProgress = Math.min(1, particle.life / particle.maxLife);
+      const alpha = Math.max(0, (1 - lifeProgress) * particle.alphaScale);
+      if (alpha <= 0) return;
+
+      const glow = ctx.createRadialGradient(
+        particle.x,
+        particle.y,
+        0,
+        particle.x,
+        particle.y,
+        particle.size * 4,
+      );
+      glow.addColorStop(0, `rgba(255, 255, 255, ${0.95 * alpha})`);
+      glow.addColorStop(0.45, `rgba(191, 231, 255, ${0.55 * alpha})`);
+      glow.addColorStop(1, 'rgba(191, 231, 255, 0)');
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.shadowBlur = particle.glow;
+      ctx.shadowColor = `rgba(196, 232, 255, ${0.75 * alpha})`;
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size * 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const tick = (now: number) => {
+      const nowSeconds = now * 0.001;
+      if (!lastTime) lastTime = now;
+      const dt = Math.min(0.05, (now - lastTime) * 0.001);
+      lastTime = now;
+
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = stars.length - 1; i >= 0; i -= 1) {
+        const star = stars[i];
+        star.life += dt;
+        star.x += star.vx * dt;
+        star.y += star.vy * dt;
+
+        if (isStarOut(star)) {
+          spawnExplosion(star);
+          stars[i] = createStar();
+          continue;
+        }
+
+        drawStar(star, nowSeconds);
+      }
+
+      for (let i = bursts.length - 1; i >= 0; i -= 1) {
+        const burst = bursts[i];
+
+        for (let j = burst.particles.length - 1; j >= 0; j -= 1) {
+          const particle = burst.particles[j];
+          particle.life += dt;
+          particle.vx *= 1 - dt * particle.drag;
+          particle.vy = particle.vy * (1 - dt * particle.drag) + particle.gravity * dt;
+          particle.x += particle.vx * dt;
+          particle.y += particle.vy * dt;
+
+          if (particle.life >= particle.maxLife) {
+            burst.particles.splice(j, 1);
+            continue;
+          }
+
+          drawBurstParticle(particle);
+        }
+
+        if (burst.particles.length === 0) {
+          bursts.splice(i, 1);
+        }
+      }
+
+      while (stars.length < targetCount()) {
+        stars.push(createStar());
+      }
+
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    const handleResize = () => {
+      setupCanvas();
+      const wanted = targetCount();
+      if (stars.length > wanted) {
+        stars.length = wanted;
+      }
+      while (stars.length < wanted) {
+        stars.push(createStar());
+      }
+    };
+
+    setupCanvas();
+    const initialStars = Math.max(8, Math.round(targetCount() * 0.85));
+    for (let i = 0; i < initialStars; i += 1) {
+      const star = createStar();
+      star.life = random(0, star.maxLife * 0.75);
+      stars.push(star);
+    }
+
+    rafId = window.requestAnimationFrame(tick);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      ctx.clearRect(0, 0, width, height);
+    };
+  }, [effectiveViewMode, hasMessages]);
 
   const beginReveal = async () => {
     if (effectiveViewMode === 'freeform') {
@@ -1809,46 +2279,71 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     ? 'border border-white/14 bg-white/10 text-white/82'
     : 'border border-white/70 bg-white/74 text-foreground/78';
   const freeformThemePalette = useMemo(() => {
-    const colorA = normalizeHexColor(theme.colors[0]) || '#fbbf24';
-    const colorB = normalizeHexColor(theme.colors[1]) || '#f97316';
-    const colorC = normalizeHexColor(theme.colors[2]) || colorA;
+    const colorA = normalizeHexColor(letterColorFromHex) || normalizeHexColor(theme.colors[0]) || '#fbbf24';
+    const colorB = normalizeHexColor(letterColorMidHex || letterColorToHex) || normalizeHexColor(theme.colors[1]) || '#f97316';
+    const colorC = normalizeHexColor(letterColorToHex) || normalizeHexColor(theme.colors[2]) || colorA;
 
-    const { h: hA } = hexToHsl(colorA);
-    const { h: hB } = hexToHsl(colorB);
-    const { h: hC } = hexToHsl(colorC);
-    const mixedHue = mixHue(hA, hB);
+    const { h: hA, s: sA, l: lA } = hexToHsl(colorA);
+    const { h: hB, s: sB, l: lB } = hexToHsl(colorB);
+    const { h: hC, s: sC, l: lC } = hexToHsl(colorC);
+    const hAB = mixHue(hA, hB);
+    const hBC = mixHue(hB, hC);
+    const mixedHue = hAB;
+    const averageLightness = (lA + lB + lC) / 3;
+    const freeformIsDark = isDarkExperience || averageLightness < 42;
+    const gradientAngle = Number.isFinite(customGradientAngle) ? customGradientAngle : 165;
 
-    const cards = isDarkExperience
+    const toDarkCard = (h: number, s: number, l: number) => {
+      const baseSat = Math.max(22, Math.min(50, s * 0.58));
+      const baseLight = Math.max(18, Math.min(27, l * 0.4));
+      return {
+        bg: `hsl(${h} ${baseSat}% ${baseLight}%)`,
+        border: `hsl(${h} ${Math.max(28, Math.min(62, baseSat + 12))}% ${Math.max(34, Math.min(46, baseLight + 16))}%)`,
+        text: 'hsl(0 0% 96%)',
+      };
+    };
+
+    const toLightCard = (h: number, s: number, l: number) => {
+      const baseSat = Math.max(52, Math.min(86, s * 0.86));
+      const baseLight = Math.max(87, Math.min(95, l + 24));
+      return {
+        bg: `hsl(${h} ${baseSat}% ${baseLight}%)`,
+        border: `hsl(${h} ${Math.max(42, Math.min(72, s * 0.72))}% ${Math.max(68, Math.min(82, l + 8))}%)`,
+        text: `hsl(${h} 34% 24%)`,
+      };
+    };
+
+    const cards = freeformIsDark
       ? [
-          { bg: `hsl(${hA} 24% 22%)`, border: `hsl(${hA} 34% 38%)`, text: 'hsl(0 0% 96%)' },
-          { bg: `hsl(${hB} 22% 20%)`, border: `hsl(${hB} 32% 36%)`, text: 'hsl(0 0% 96%)' },
-          { bg: `hsl(${hC} 20% 22%)`, border: `hsl(${hC} 30% 38%)`, text: 'hsl(0 0% 96%)' },
-          { bg: `hsl(${mixedHue} 22% 21%)`, border: `hsl(${mixedHue} 32% 37%)`, text: 'hsl(0 0% 96%)' },
-          { bg: `hsl(${mixHue(hB, hC)} 20% 23%)`, border: `hsl(${mixHue(hB, hC)} 30% 39%)`, text: 'hsl(0 0% 96%)' },
+          toDarkCard(hA, sA, lA),
+          toDarkCard(hB, sB, lB),
+          toDarkCard(hC, sC, lC),
+          toDarkCard(hAB, (sA + sB) / 2, (lA + lB) / 2),
+          toDarkCard(hBC, (sB + sC) / 2, (lB + lC) / 2),
         ]
       : [
-          { bg: `hsl(${hA} 86% 95%)`, border: `hsl(${hA} 62% 78%)`, text: `hsl(${hA} 34% 24%)` },
-          { bg: `hsl(${hB} 84% 95%)`, border: `hsl(${hB} 58% 79%)`, text: `hsl(${hB} 32% 24%)` },
-          { bg: `hsl(${hC} 84% 95%)`, border: `hsl(${hC} 56% 79%)`, text: `hsl(${hC} 32% 24%)` },
-          { bg: `hsl(${mixedHue} 84% 95%)`, border: `hsl(${mixedHue} 58% 79%)`, text: `hsl(${mixedHue} 32% 24%)` },
-          { bg: `hsl(${mixHue(hB, hC)} 84% 95%)`, border: `hsl(${mixHue(hB, hC)} 58% 79%)`, text: `hsl(${mixHue(hB, hC)} 32% 24%)` },
+          toLightCard(hA, sA, lA),
+          toLightCard(hB, sB, lB),
+          toLightCard(hC, sC, lC),
+          toLightCard(hAB, (sA + sB) / 2, (lA + lB) / 2),
+          toLightCard(hBC, (sB + sC) / 2, (lB + lC) / 2),
         ];
 
     return {
-      boardBackground: isDarkExperience
-        ? `linear-gradient(165deg, hsl(${mixedHue} 24% 12%), hsl(${hB} 24% 10%) 52%, hsl(${hC} 24% 14%) 100%)`
-        : `linear-gradient(165deg, hsl(${mixedHue} 44% 95%), hsl(${hC} 40% 93%) 56%, hsl(${hA} 42% 91%) 100%)`,
-      eyebrowText: isDarkExperience ? `hsl(${mixedHue} 24% 76%)` : `hsl(${hB} 18% 47%)`,
-      metaText: isDarkExperience ? `hsl(${mixedHue} 18% 78%)` : `hsl(${hB} 14% 45%)`,
-      chipBg: isDarkExperience ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.58)',
-      chipText: isDarkExperience ? 'rgba(255,255,255,0.94)' : `hsl(${hB} 28% 30%)`,
-      accentBorder: isDarkExperience ? `hsl(${hA} 66% 62%)` : `hsl(${hA} 72% 52%)`,
-      tapeColor: isDarkExperience ? `hsla(${hC}, 66%, 72%, 0.34)` : `hsla(${hC}, 82%, 72%, 0.55)`,
-      pinColor: isDarkExperience ? `hsl(${hA} 76% 66%)` : `hsl(${hA} 76% 54%)`,
-      dividerColor: isDarkExperience ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
+      boardBackground: freeformIsDark
+        ? `linear-gradient(${gradientAngle}deg, hsl(${hA} ${Math.max(24, Math.min(56, sA * 0.56))}% ${Math.max(10, Math.min(20, lA * 0.34))}%), hsl(${hB} ${Math.max(24, Math.min(56, sB * 0.56))}% ${Math.max(9, Math.min(18, lB * 0.3))}%) 52%, hsl(${hC} ${Math.max(24, Math.min(56, sC * 0.56))}% ${Math.max(10, Math.min(20, lC * 0.34))}%) 100%)`
+        : `linear-gradient(${gradientAngle}deg, hsl(${hA} ${Math.max(50, Math.min(88, sA * 0.92))}% ${Math.max(74, Math.min(92, lA + 24))}%), hsl(${hB} ${Math.max(48, Math.min(86, sB * 0.9))}% ${Math.max(66, Math.min(86, lB + 16))}%) 52%, hsl(${hC} ${Math.max(46, Math.min(84, sC * 0.88))}% ${Math.max(58, Math.min(80, lC + 10))}%) 100%)`,
+      eyebrowText: freeformIsDark ? `hsl(${mixedHue} 24% 76%)` : `hsl(${hB} 28% 36%)`,
+      metaText: freeformIsDark ? `hsl(${mixedHue} 18% 78%)` : `hsl(${hB} 24% 34%)`,
+      chipBg: freeformIsDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.62)',
+      chipText: freeformIsDark ? 'rgba(255,255,255,0.94)' : `hsl(${hB} 28% 28%)`,
+      accentBorder: freeformIsDark ? `hsl(${hA} 66% 62%)` : `hsl(${hA} 72% 48%)`,
+      tapeColor: freeformIsDark ? `hsla(${hC}, 66%, 72%, 0.34)` : `hsla(${hC}, 82%, 72%, 0.55)`,
+      pinColor: freeformIsDark ? `hsl(${hA} 76% 66%)` : `hsl(${hA} 76% 52%)`,
+      dividerColor: freeformIsDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
       cards,
     };
-  }, [isDarkExperience, theme.colors]);
+  }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex, theme.colors]);
 
   const freeformOpenerPalette = useMemo(() => {
     const overlayStart = letterColorFromHex;
@@ -1860,43 +2355,122 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     const overlayHue = mixHue(hStart, hEnd);
     const overlaySat = Math.max(18, Math.min((sStart + sEnd) / 2, 72));
     const overlayLight = Math.max(18, Math.min((lStart + lEnd) / 2, 62));
-    const floatCardBorder = `hsla(${overlayHue}, ${Math.min(overlaySat + 10, 86)}%, ${Math.max(overlayLight - 24, 18)}%, 0.36)`;
-    const floatCardFill = `hsla(${overlayHue}, ${Math.min(overlaySat + 15, 90)}%, ${Math.min(overlayLight + 24, 86)}%, 0.2)`;
-    const paperColor = `hsl(${overlayHue} ${Math.max(18, overlaySat * 0.32)}% ${Math.min(95, Math.max(88, lMid + 22))}%)`;
+    const openerAngle = Number.isFinite(customGradientAngle) ? customGradientAngle : 135;
+    const openerIsDark = isDarkExperience || (lStart + lMid + lEnd) / 3 < 42;
+    const floatCardBorder = `hsla(${overlayHue}, ${Math.min(overlaySat + 14, 92)}%, ${openerIsDark ? 72 : 42}%, ${openerIsDark ? 0.4 : 0.3})`;
+    const floatCardFill = `hsla(${overlayHue}, ${Math.min(overlaySat + 18, 94)}%, ${openerIsDark ? 34 : 66}%, ${openerIsDark ? 0.24 : 0.2})`;
+    const paperColor = openerIsDark
+      ? `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.38)}% 16%)`
+      : `hsl(${overlayHue} ${Math.max(24, overlaySat * 0.52)}% 93%)`;
 
     return {
       backdrop: [
-        `radial-gradient(circle at 50% 24%, hsl(${hStart} ${Math.min(84, sStart)}% ${Math.min(84, lStart + 4)}% / 0.46), hsl(${hMid} ${Math.min(82, sMid)}% ${Math.min(78, lMid)}% / 0.32) 54%, hsl(${overlayHue} ${Math.max(28, overlaySat * 0.65)}% ${Math.max(12, overlayLight * 0.42)}% / 0.94) 100%)`,
-        `linear-gradient(180deg, hsl(${hEnd} ${Math.max(24, sEnd * 0.6)}% ${Math.max(12, lEnd * 0.36)}% / 0.78), hsl(${overlayHue} ${Math.max(30, overlaySat * 0.68)}% ${Math.max(10, overlayLight * 0.34)}% / 0.92))`,
+        `linear-gradient(${openerAngle}deg, ${overlayStart} 0%, ${overlayMid} 52%, ${overlayEnd} 100%)`,
+        `radial-gradient(circle at 50% 24%, hsl(${hMid} ${Math.min(92, sMid + 8)}% ${Math.min(74, lMid + 4)}% / 0.3), transparent 64%)`,
+        `radial-gradient(circle at 50% 100%, rgba(0,0,0, ${openerIsDark ? 0.5 : 0.28}), transparent 62%)`,
       ].join(', '),
       textureLayer: [
-        `repeating-linear-gradient(180deg, hsl(${overlayHue} ${Math.max(8, overlaySat * 0.24)}% 96% / 0.035) 0px, hsl(${overlayHue} ${Math.max(8, overlaySat * 0.24)}% 96% / 0.035) 1px, transparent 1px, transparent 4px)`,
-        `linear-gradient(180deg, hsl(${hStart} ${Math.max(22, sStart * 0.58)}% ${Math.max(9, lStart * 0.34)}%), hsl(${hEnd} ${Math.max(22, sEnd * 0.58)}% ${Math.max(9, lEnd * 0.3)}%))`,
+        `repeating-linear-gradient(180deg, hsl(${overlayHue} ${Math.max(12, overlaySat * 0.3)}% ${openerIsDark ? 92 : 98}% / 0.045) 0px, hsl(${overlayHue} ${Math.max(12, overlaySat * 0.3)}% ${openerIsDark ? 92 : 98}% / 0.045) 1px, transparent 1px, transparent 4px)`,
+        `linear-gradient(${openerAngle}deg, ${overlayStart}, ${overlayMid} 52%, ${overlayEnd})`,
       ].join(', '),
-      halo: `radial-gradient(circle, hsl(${overlayHue} ${Math.max(24, overlaySat * 0.74)}% ${Math.max(26, overlayLight * 0.72)}% / 0.24), transparent 72%)`,
+      halo: `radial-gradient(circle, hsl(${overlayHue} ${Math.max(30, overlaySat * 0.84)}% ${openerIsDark ? 54 : 64}% / 0.28), transparent 72%)`,
       tape: `${overlayEnd}cc`,
       miniCard: `linear-gradient(145deg, ${letterColorMidHex ? `${overlayStart}, ${overlayMid}, ${overlayEnd}` : `${overlayStart}, ${overlayEnd}`})`,
       floatingCardBorder: floatCardBorder,
       floatingCardFill: floatCardFill,
       paper: paperColor,
-      nameText: `hsl(${overlayHue} ${Math.max(24, overlaySat * 0.42)}% ${Math.max(22, overlayLight * 0.48)}%)`,
-      eyebrowText: `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.45)}% ${isDarkExperience ? 78 : 82}% / 0.9)`,
-      textPrimary: isDarkExperience ? 'hsl(0 0% 96%)' : 'hsl(0 0% 94%)',
-      textSecondary: isDarkExperience ? 'hsl(0 0% 83%)' : 'hsl(0 0% 86%)',
-      quoteText: isDarkExperience ? 'hsl(0 0% 85%)' : 'hsl(0 0% 88%)',
-      chipBg: `hsl(${overlayHue} ${Math.max(14, overlaySat * 0.35)}% ${isDarkExperience ? 32 : 97}% / ${isDarkExperience ? 0.38 : 0.24})`,
-      chipBorder: `hsl(${overlayHue} ${Math.max(16, overlaySat * 0.38)}% ${isDarkExperience ? 74 : 66}% / 0.46)`,
-      chipText: isDarkExperience
-        ? `hsl(${overlayHue} ${Math.max(18, overlaySat * 0.36)}% 93%)`
-        : `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.44)}% 25%)`,
-      ctaBorder: `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.5)}% ${isDarkExperience ? 76 : 84}% / 0.64)`,
-      ctaText: isDarkExperience
-        ? `hsl(${overlayHue} ${Math.max(16, overlaySat * 0.35)}% 96%)`
-        : `hsl(${overlayHue} ${Math.max(20, overlaySat * 0.44)}% 98%)`,
-      skipText: isDarkExperience ? 'hsl(0 0% 74%)' : 'hsl(0 0% 78%)',
-      skipTextHover: isDarkExperience ? 'hsl(0 0% 88%)' : 'hsl(0 0% 94%)',
+      nameText: openerIsDark
+        ? 'hsl(0 0% 96%)'
+        : `hsl(${overlayHue} ${Math.max(28, overlaySat * 0.52)}% 22%)`,
+      eyebrowText: openerIsDark ? 'hsl(0 0% 90% / 0.92)' : 'hsl(0 0% 98% / 0.92)',
+      textPrimary: 'hsl(0 0% 98%)',
+      textSecondary: 'hsl(0 0% 92%)',
+      quoteText: 'hsl(0 0% 94%)',
+      chipBg: openerIsDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.24)',
+      chipBorder: openerIsDark ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.62)',
+      chipText: 'hsl(0 0% 96%)',
+      ctaBorder: openerIsDark ? 'rgba(255,255,255,0.66)' : 'rgba(255,255,255,0.74)',
+      ctaText: 'hsl(0 0% 98%)',
+      skipText: 'hsl(0 0% 86%)',
+      skipTextHover: 'hsl(0 0% 98%)',
     };
-  }, [isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
+  }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
+
+  const storyOpenerPalette = useMemo(() => {
+    const start = letterColorFromHex;
+    const mid = letterColorMidHex || letterColorToHex;
+    const end = letterColorToHex;
+    const angle = Number.isFinite(customGradientAngle) ? customGradientAngle : 140;
+    const { h: hStart, s: sStart, l: lStart } = hexToHsl(start);
+    const { h: hMid, s: sMid, l: lMid } = hexToHsl(mid);
+    const { h: hEnd, s: sEnd, l: lEnd } = hexToHsl(end);
+    const mixedHue = mixHue(hStart, hEnd);
+    const averageLight = (lStart + lMid + lEnd) / 3;
+    const isDark = isDarkExperience || averageLight < 44;
+    const satAvg = (sStart + sMid + sEnd) / 3;
+
+    return {
+      backdrop: [
+        `linear-gradient(${angle}deg, ${start} 0%, ${mid} 52%, ${end} 100%)`,
+        `radial-gradient(circle at 50% 100%, rgba(0,0,0, ${isDark ? 0.56 : 0.32}), transparent 62%)`,
+      ].join(', '),
+      textureLayer: `radial-gradient(circle at 50% 24%, rgba(255,255,255, ${isDark ? 0.14 : 0.24}), transparent 44%)`,
+      halo: `radial-gradient(circle, hsla(${mixedHue}, ${Math.max(36, Math.min(92, satAvg * 0.9))}%, ${isDark ? 62 : 72}%, 0.3), transparent 70%)`,
+      burstBorder: `hsla(${mixedHue}, ${Math.max(28, Math.min(84, satAvg * 0.86))}%, ${isDark ? 80 : 56}%, 0.44)`,
+      burstFill: `linear-gradient(${angle}deg, ${start}33, ${mid}40 52%, ${end}33)`,
+      envelopeOuter: `linear-gradient(${angle}deg, ${start}, ${mid} 52%, ${end})`,
+      envelopeInnerRing: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.52)',
+      envelopeInsetBorder: `hsla(${mixedHue}, ${Math.max(24, Math.min(76, satAvg * 0.74))}%, ${isDark ? 78 : 52}%, 0.56)`,
+      flap: `linear-gradient(${angle}deg, ${mid}, ${end} 60%, ${start})`,
+      body: `linear-gradient(180deg, ${start}f2, ${mid}dd 58%, ${end}d9)`,
+      bodyBorder: `hsla(${mixedHue}, ${Math.max(22, Math.min(76, satAvg * 0.68))}%, ${isDark ? 82 : 54}%, 0.66)`,
+      letter: `linear-gradient(180deg, rgba(255,255,255,0.95), ${mid}30 65%, ${end}26)`,
+      letterBorder: `hsla(${mixedHue}, ${Math.max(24, Math.min(78, satAvg * 0.7))}%, ${isDark ? 84 : 50}%, 0.74)`,
+      letterTo: isDark ? 'rgba(255,255,255,0.82)' : `hsl(${mixedHue} 38% 30%)`,
+      letterName: isDark ? 'hsl(0 0% 98%)' : `hsl(${hStart} 42% 20%)`,
+      letterBody: isDark ? 'rgba(255,255,255,0.84)' : `hsl(${hEnd} 28% 30%)`,
+      stamp: `radial-gradient(circle at 30% 30%, ${start}, ${mid} 55%, ${end})`,
+      stampBorder: isDark ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.74)',
+    };
+  }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
+
+  const storyThemePalette = useMemo(() => {
+    const start = letterColorFromHex;
+    const mid = letterColorMidHex || letterColorToHex;
+    const end = letterColorToHex;
+    const angle = Number.isFinite(customGradientAngle) ? customGradientAngle : 140;
+    const { h: hStart, s: sStart, l: lStart } = hexToHsl(start);
+    const { h: hMid, s: sMid, l: lMid } = hexToHsl(mid);
+    const { h: hEnd, s: sEnd, l: lEnd } = hexToHsl(end);
+    const hueMix = mixHue(hStart, hEnd);
+    const satAvg = (sStart + sMid + sEnd) / 3;
+    const lightAvg = (lStart + lMid + lEnd) / 3;
+    const isDark = isDarkExperience || lightAvg < 44;
+
+    return {
+      sectionBackground: [
+        `linear-gradient(${angle}deg, ${start} 0%, ${mid} 52%, ${end} 100%)`,
+        `radial-gradient(circle at 50% 110%, rgba(0,0,0, ${isDark ? 0.46 : 0.28}), transparent 60%)`,
+      ].join(', '),
+      topBadgeBg: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.32)',
+      topBadgeText: 'rgba(255,255,255,0.96)',
+      panelBg: isDark ? 'rgba(10,12,18,0.42)' : 'rgba(255,255,255,0.22)',
+      panelBorder: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.46)',
+      orbA: isDark
+        ? `hsla(${hMid}, ${Math.max(30, Math.min(92, sMid * 0.88))}%, 78%, 0.16)`
+        : `hsla(${hStart}, ${Math.max(34, Math.min(94, sStart * 0.94))}%, 92%, 0.54)`,
+      orbB: isDark
+        ? `hsla(${hEnd}, ${Math.max(30, Math.min(92, sEnd * 0.9))}%, 62%, 0.24)`
+        : `hsla(${hEnd}, ${Math.max(30, Math.min(90, sEnd * 0.9))}%, 76%, 0.46)`,
+      paperBg: isDark ? 'rgba(9,11,18,0.5)' : 'rgba(255,255,255,0.27)',
+      paperBorder: isDark ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.52)',
+      softBg: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.19)',
+      softBorder: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.44)',
+      pillBg: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.32)',
+      pillBorder: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.56)',
+      pillText: isDark ? 'rgba(255,255,255,0.92)' : `hsl(${hueMix} ${Math.max(24, satAvg * 0.45)}% 24%)`,
+    };
+  }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
   const interactiveSelector = 'button,a,audio,input,textarea,select,[data-no-nav="true"]';
 
   const revealSlides = useMemo<RevealSlide[]>(() => {
@@ -2455,11 +3029,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           style={{
             background: effectiveViewMode === 'freeform'
               ? freeformOpenerPalette.backdrop
-              : [
-                  `radial-gradient(circle at 50% 28%, hsl(${letterH} ${clampedS * 0.5}% 85% / 0.3), hsl(${letterH2} ${clampedS2 * 0.45}% 76% / 0.22), transparent 32%)`,
-                  `radial-gradient(circle at 18% 16%, hsl(${letterH2} ${clampedS2 * 0.6}% 68% / 0.16), transparent 22%)`,
-                  `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.35}% 18% / 0.72), hsl(${letterH2} ${clampedS2 * 0.3}% 14% / 0.86))`,
-                ].join(', '),
+              : storyOpenerPalette.backdrop,
           }}
         >
           <div className={cn('relative flex w-full items-center justify-center', effectiveViewMode !== 'freeform' && 'max-w-5xl')}>
@@ -2484,9 +3054,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   style={
                     effectiveViewMode === 'freeform'
                       ? { background: freeformOpenerPalette.textureLayer }
-                      : {
-                          background: `radial-gradient(circle, hsl(${letterH} ${clampedS}% ${letterL}% / 0.34), hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.16), transparent 62%)`,
-                        }
+                      : { background: storyOpenerPalette.textureLayer }
                   }
                 />
                 <div
@@ -2494,7 +3062,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   style={
                     effectiveViewMode === 'freeform'
                       ? { background: freeformOpenerPalette.halo }
-                      : { background: `radial-gradient(circle, hsl(${letterH2} ${clampedS2}% ${letterL2}% / 0.2), transparent 68%)` }
+                      : { background: storyOpenerPalette.halo }
                   }
                 />
               </div>
@@ -2537,8 +3105,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       )}
                       style={{
                         transitionDelay: `${index * 85}ms`,
-                        borderColor: `hsl(${mixedLetterH} ${Math.max(24, ((clampedS + clampedS2) / 2) * 0.5)}% ${Math.min(80, ((letterL + letterL2) / 2) + 14)}% / 0.36)`,
-                        background: `linear-gradient(150deg, hsl(${letterH} ${Math.max(18, clampedS * 0.68)}% ${Math.max(20, letterL * 0.62)}% / 0.22), hsl(${letterH2} ${Math.max(18, clampedS2 * 0.68)}% ${Math.max(18, letterL2 * 0.56)}% / 0.2))`,
+                        borderColor: storyOpenerPalette.burstBorder,
+                        background: storyOpenerPalette.burstFill,
                         color: 'hsl(0 0% 96%)',
                       }}
                     >
@@ -2590,16 +3158,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                       <div className="mt-7 grid grid-cols-3 gap-3 justify-items-center sm:flex sm:items-center sm:justify-center">
                         <span aria-label={`${messages.length} wishes`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
-                          <span className="select-none">{messages.length}</span>
-                          <Sparkles className="h-4 w-4" />
+                          <span className="select-none text-white">{messages.length}</span>
+                          <Sparkles className="h-4 w-4 text-white" />
                         </span>
                         <span aria-label={`${totalPhotos} photos`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
-                          <span className="select-none">{totalPhotos}</span>
-                          <ImageIcon className="h-4 w-4" />
+                          <span className="select-none text-white">{totalPhotos}</span>
+                          <ImageIcon className="h-4 w-4 text-white" />
                         </span>
                         <span aria-label={`${totalAudioWishes} voices`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
-                          <span className="select-none">{totalAudioWishes}</span>
-                          <Music className="h-4 w-4" />
+                          <span className="select-none text-white">{totalAudioWishes}</span>
+                          <Music className="h-4 w-4 text-white" />
                         </span>
                       </div>
 
@@ -2643,14 +3211,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     <div
                       className="absolute inset-0 rounded-[2.4rem]"
                       style={{
-                        background: `linear-gradient(145deg, hsl(${letterH} ${clampedS * 0.45}% 95%), hsl(${letterH2} ${clampedS2 * 0.55}% 88%))`,
-                        boxShadow: `0 26px 90px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 20% / 0.22)`,
+                        background: storyOpenerPalette.envelopeOuter,
+                        boxShadow: '0 26px 90px rgba(0,0,0,0.22)',
                       }}
                     />
-                    <div className="absolute inset-[1px] rounded-[2.35rem] border border-white/60" />
+                    <div className="absolute inset-[1px] rounded-[2.35rem] border" style={{ borderColor: storyOpenerPalette.envelopeInnerRing }} />
                     <div
                       className="absolute inset-[1.2rem] rounded-[1.9rem] border opacity-60"
-                      style={{ borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 82%)` }}
+                      style={{ borderColor: storyOpenerPalette.envelopeInsetBorder }}
                     />
                     {/* Envelope flap */}
                     <div
@@ -2660,16 +3228,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       )}
                       style={{
                         clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-                        background: `linear-gradient(145deg, hsl(${letterH2} ${clampedS2 * 0.6}% 78%), hsl(${letterH} ${clampedS * 0.5}% 88%))`,
-                        boxShadow: `0 16px 36px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 40% / 0.22)`,
+                        background: storyOpenerPalette.flap,
+                        boxShadow: '0 16px 36px rgba(0,0,0,0.18)',
                       }}
                     />
                     {/* Envelope body / inner pocket */}
                     <div
                       className="absolute bottom-[11%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[1.8rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
                       style={{
-                        background: `linear-gradient(180deg, hsl(${letterH} ${clampedS * 0.4}% 97%), hsl(${letterH2} ${clampedS2 * 0.55}% 90%))`,
-                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 85% / 0.7)`,
+                        background: storyOpenerPalette.body,
+                        borderColor: storyOpenerPalette.bodyBorder,
                       }}
                     />
                     {/* Letter card */}
@@ -2680,14 +3248,14 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         revealPhase === 'burst' ? '-translate-y-10 opacity-0' : '',
                       )}
                       style={{
-                        background: `linear-gradient(180deg, hsl(${letterH2} ${clampedS2 * 0.35}% 97%), hsl(${letterH} ${clampedS * 0.45}% 93%))`,
-                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.4}% 78% / 0.8)`,
-                        boxShadow: `0 14px 28px hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.3}% 35% / 0.16)`,
+                        background: storyOpenerPalette.letter,
+                        borderColor: storyOpenerPalette.letterBorder,
+                        boxShadow: '0 14px 28px rgba(0,0,0,0.14)',
                       }}
                     >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: `hsl(${mixedLetterH} 30% 42%)` }}>To</p>
-                      <p className="mt-2 text-[1.45rem] font-bold leading-none sm:text-[1.7rem]" style={{ color: `hsl(${letterH} 28% 22%)` }}>{page.recipient_name}</p>
-                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] sm:max-w-[10rem]" style={{ color: `hsl(${letterH2} 20% 38%)` }}>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: storyOpenerPalette.letterTo }}>To</p>
+                      <p className="mt-2 text-[1.45rem] font-bold leading-none sm:text-[1.7rem]" style={{ color: storyOpenerPalette.letterName }}>{page.recipient_name}</p>
+                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] sm:max-w-[10rem]" style={{ color: storyOpenerPalette.letterBody }}>
                         Open when ready for the birthday story.
                       </p>
                     </div>
@@ -2695,9 +3263,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     <div
                       className="animate-seal-breathe absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] transition-transform duration-300 group-hover:scale-105"
                       style={{
-                        background: `radial-gradient(circle at 30% 30%, hsl(${letterH} ${clampedS}% 62%), hsl(${letterH2} ${clampedS2 * 0.8}% 48%))`,
-                        borderColor: `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.5}% 82%)`,
-                        '--seal-glow': `hsl(${mixedLetterH} ${((clampedS + clampedS2) / 2) * 0.6}% 55% / 0.35)`,
+                        background: storyOpenerPalette.stamp,
+                        borderColor: storyOpenerPalette.stampBorder,
+                        '--seal-glow': 'rgba(255,255,255,0.28)',
                       } as React.CSSProperties}
                     >
                       <div className="flex h-full w-full items-center justify-center text-white/90">
@@ -2723,7 +3291,23 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </div>
       )}
 
-      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', effectiveViewMode !== 'story' && 'hidden')}>
+      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', effectiveViewMode !== 'story' && 'hidden')} style={{ background: storyThemePalette.sectionBackground }}>
+        <div aria-hidden="true" className="slide-stars-layer" style={{ opacity: 0.68, '--star-end-y': '185%', '--layer-time-offset': '-0.45s' } as React.CSSProperties}>
+          <div className="slide-star" style={{ left: '7%', '--star-x': '0%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '13%', '--star-x': '-1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '20%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '27%', '--star-x': '1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '34%', '--star-x': '-3%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '41%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '49%', '--star-x': '4%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '56%', '--star-x': '-1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '63%', '--star-x': '-2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '70%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '77%', '--star-x': '3%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '84%', '--star-x': '-2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '91%', '--star-x': '-4%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '96%', '--star-x': '1%' } as React.CSSProperties} />
+        </div>
         <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-28">
           <div className="story-scroll-reveal flex items-start justify-between gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
             <div>
@@ -2734,7 +3318,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 {page.recipient_name}&apos;s birthday story
               </h1>
             </div>
-            <div className={cn('rounded-full px-3 py-1.5 text-xs font-medium', isDarkExperience ? 'bg-white/10 text-white' : 'bg-white/72 text-foreground')}>
+            <div className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ backgroundColor: storyThemePalette.topBadgeBg, color: storyThemePalette.topBadgeText }}>
               Scroll through
             </div>
           </div>
@@ -2857,25 +3441,30 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             <article
               className={cn('story-scroll-reveal relative overflow-hidden rounded-[2rem] border p-4 shadow-[0_24px_80px_rgba(18,18,23,0.12)]', experiencePanelClass)}
               data-scroll-reveal="true"
-              style={getStoryDelayStyle(Math.min(120 + index * 70, 420), getStoryMotionDuration(slide))}
+              style={{ ...getStoryDelayStyle(Math.min(120 + index * 70, 420), getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.panelBg, borderColor: storyThemePalette.panelBorder }}
             >
               <div className="pointer-events-none absolute inset-0">
-                <div className={cn('absolute -left-[8%] top-[8%] h-28 w-28 rounded-full blur-3xl', isDarkExperience ? 'bg-white/8' : 'bg-white/55')} />
-                <div className={cn('absolute bottom-[-8%] right-[-6%] h-32 w-32 rounded-full blur-3xl', isDarkExperience ? 'bg-primary/20' : 'bg-amber-200/55')} />
+                <div className="absolute -left-[8%] top-[8%] h-28 w-28 rounded-full blur-3xl" style={{ background: storyThemePalette.orbA }} />
+                <div className="absolute bottom-[-8%] right-[-6%] h-32 w-32 rounded-full blur-3xl" style={{ background: storyThemePalette.orbB }} />
               </div>
-              <div aria-hidden="true" className="slide-stars-layer">
+              <div aria-hidden="true" className="slide-stars-layer" style={{ '--layer-time-offset': '-1.35s' } as React.CSSProperties}>
                 <div className="slide-star" style={{ left: '8%', '--star-x': '0%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '17%', '--star-x': '-1%' } as React.CSSProperties} />
                 <div className="slide-star" style={{ left: '26%', '--star-x': '3%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '35%', '--star-x': '1%' } as React.CSSProperties} />
                 <div className="slide-star" style={{ left: '42%', '--star-x': '-2%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '53%', '--star-x': '2%' } as React.CSSProperties} />
                 <div className="slide-star" style={{ left: '61%', '--star-x': '4%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '70%', '--star-x': '-1%' } as React.CSSProperties} />
                 <div className="slide-star" style={{ left: '79%', '--star-x': '-3%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '89%', '--star-x': '2%' } as React.CSSProperties} />
               </div>
 
               <div className="relative z-10">
                 {slide.kind === 'cover' && (
                   <div className="space-y-4">
                     <div className="space-y-4">
-                      <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(30, getStoryMotionDuration(slide))}>
+                      <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(30, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                         <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>First page out of the envelope</p>
                         <h2 className={cn('mt-3 text-[2.55rem] font-bold leading-[0.94]', theme.titleClass, theme.font)}>
                           Happy Birthday,
@@ -2886,11 +3475,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           Every note, photo, and voice clip inside was chosen to make this feel less like a page and more like a gift being opened.
                         </p>
                         <div className="mt-5 grid grid-cols-2 gap-3">
-                          <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)}>
+                          <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes</p>
                             <p className={cn('mt-2 text-xl font-semibold', theme.text)}>{messages.length}</p>
                           </div>
-                          <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)}>
+                          <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Reveal date</p>
                             <p className={cn('mt-2 text-base font-semibold', theme.text)}>{format(birthdayDate, 'MMMM d, yyyy')}</p>
                           </div>
@@ -2898,7 +3487,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       </article>
 
                       {page.creator_message && (
-                        <article className={cn('story-stage-reveal-soft rounded-[1.4rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(180, 700)}>
+                        <article className={cn('story-stage-reveal-soft rounded-[1.4rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(180, 700), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Packed with a note from the organizer</p>
                           <p className={cn('mt-3 text-sm leading-relaxed opacity-80', theme.text)}>&quot;{page.creator_message}&quot;</p>
                         </article>
@@ -2906,7 +3495,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     </div>
 
                     {coverPhotoSrc && (
-                      <article className={cn('story-stage-reveal-soft relative overflow-hidden rounded-[1.4rem] border', keepsakeSoftClass)} style={getStoryDelayStyle(130, 760)}>
+                      <article className={cn('story-stage-reveal-soft relative overflow-hidden rounded-[1.4rem] border', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(130, 760), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                         <button
                           type="button"
                           className="relative block h-[46dvh] min-h-[16rem] max-h-[30rem] w-full"
@@ -2926,7 +3515,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                 {slide.kind === 'stats' && (
                   <div className="space-y-4">
-                    <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(30, getStoryMotionDuration(slide))}>
+                    <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(30, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                       <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>The shape of the celebration</p>
                       <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[0.98]', theme.titleClass, theme.font)}>
                         Collected with love.
@@ -2936,15 +3525,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       </p>
                     </article>
                     <div className="grid grid-cols-2 gap-3">
-                      <article className={cn('story-stage-reveal-soft col-span-2 rounded-[1.45rem] border p-4', keepsakePaperClass)} style={getStoryDelayStyle(110)}>
+                      <article className={cn('story-stage-reveal-soft col-span-2 rounded-[1.45rem] border p-4', keepsakePaperClass)} style={{ ...getStoryDelayStyle(110), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                         <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes written</p>
                         <p className={cn('mt-3 text-5xl font-bold leading-none', theme.titleClass, theme.font)}>{messages.length}</p>
                       </article>
-                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(170)}>
+                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(170), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                         <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Photos added</p>
                         <p className={cn('mt-3 text-3xl font-semibold', theme.text)}>{totalPhotos}</p>
                       </article>
-                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(220)}>
+                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(220), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                         <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Voice notes</p>
                         <p className={cn('mt-3 text-3xl font-semibold', theme.text)}>{totalAudioWishes}</p>
                       </article>
@@ -2954,10 +3543,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                 {slide.kind === 'organizer' && page.creator_message && (
                   <div className="space-y-4 text-center">
-                    <div className={cn('story-stage-reveal mx-auto flex h-16 w-16 items-center justify-center rounded-[1.5rem] border', experienceInsetClass)} style={getStoryDelayStyle(40)}>
+                    <div className={cn('story-stage-reveal mx-auto flex h-16 w-16 items-center justify-center rounded-[1.5rem] border', experienceInsetClass)} style={{ ...getStoryDelayStyle(40), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                       <Heart className={cn('h-8 w-8', theme.text)} />
                     </div>
-                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(130)}>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(130), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                       <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>A note from the organizer</p>
                       <p className={cn('mt-4 text-xl italic leading-[1.45]', theme.text)}>&quot;{page.creator_message}&quot;</p>
                     </article>
@@ -2970,7 +3559,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   return (
                     <div className="space-y-4">
-                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass)} style={getStoryDelayStyle(40, getStoryMotionDuration(slide))}>
+                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass)} style={{ ...getStoryDelayStyle(40, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                         <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
                           Letter {slide.index + 1} of {messages.length}
                         </p>
@@ -2981,12 +3570,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         }
                         <div className="mt-5 flex flex-wrap gap-2">
                           {photoCount > 0 && (
-                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
+                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)} style={{ backgroundColor: storyThemePalette.pillBg, borderColor: storyThemePalette.pillBorder, color: storyThemePalette.pillText }}>
                               {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
                             </span>
                           )}
                           {slide.message.audio_url && (
-                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
+                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)} style={{ backgroundColor: storyThemePalette.pillBg, borderColor: storyThemePalette.pillBorder, color: storyThemePalette.pillText }}>
                               Voice note inside
                             </span>
                           )}
@@ -3013,7 +3602,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       </article>
 
                       {slide.message.audio_url && (
-                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(130, 760)}>
+                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(130, 760), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-sm font-semibold', theme.text)}>Voice note</p>
                           {renderWishAudioPlayer(slide.message, 'mt-3 w-full')}
                         </article>
@@ -3057,7 +3646,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       )}
 
                       {photoCount === 0 && (
-                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(slide.message.audio_url ? 190 : 130)}>
+                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(slide.message.audio_url ? 190 : 130), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-sm leading-relaxed opacity-82', theme.text)}>
                             This one lands through words{slide.message.audio_url ? ' and voice' : ''} alone.
                           </p>
@@ -3069,7 +3658,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                 {slide.kind === 'closing' && (
                   <div className="space-y-4 text-center">
-                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(130, getStoryMotionDuration(slide))}>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(130, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                       <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>Final page</p>
                       <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[1]', theme.titleClass, theme.font)}>
                         Keep this close,
@@ -3080,21 +3669,21 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         This is the part worth replaying: every photo, every message, and every voice note gathered into one last birthday page.
                       </p>
                       <div className="mt-5 grid grid-cols-3 gap-2 text-left">
-                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes</p>
                           <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{messages.length}</p>
                         </div>
-                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Photos</p>
                           <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{totalPhotos}</p>
                         </div>
-                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Voices</p>
                           <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{totalAudioWishes}</p>
                         </div>
                       </div>
                     </article>
-                    <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4 text-left', keepsakeSoftClass)} style={getStoryDelayStyle(220, 760)}>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4 text-left', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(220, 760), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                       <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>
                         Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}
                       </p>
@@ -3147,6 +3736,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
       {effectiveViewMode === 'freeform' && hasMessages && (
         <section
+          ref={freeformBoardSectionRef}
           className={cn(
             'relative min-h-[100dvh] overflow-y-auto px-3 py-1 sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0',
             'freeform-reveal board',
@@ -3154,7 +3744,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           )}
           style={{ background: freeformThemePalette.boardBackground }}
         >
-          <div className="mx-auto w-full max-w-[66rem] pb-20 pt-2 sm:pt-16 xl:max-w-[88rem]">
+          <canvas ref={freeformStarsCanvasRef} className="pointer-events-none absolute inset-0 z-[2]" aria-hidden="true" />
+          <div className="relative z-10 mx-auto w-full max-w-[66rem] pb-20 pt-2 sm:pt-16 xl:max-w-[88rem]">
             <div className="mb-5 w-full sm:mb-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -3180,7 +3771,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   backgroundColor: freeformThemePalette.cards[0].bg,
                   borderColor: freeformThemePalette.cards[0].border,
                   color: freeformThemePalette.cards[0].text,
-                }}
+                } as React.CSSProperties}
               >
                 <span
                   aria-hidden="true"
@@ -3237,7 +3828,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     backgroundColor: freeformThemePalette.cards[1].bg,
                     borderColor: freeformThemePalette.cards[1].border,
                     color: freeformThemePalette.cards[1].text,
-                  }}
+                  } as React.CSSProperties}
                 >
                   <span
                     aria-hidden="true"
@@ -3294,7 +3885,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             backgroundColor: tone.bg,
                             borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                             color: tone.text,
-                          } as any}
+                          } as React.CSSProperties}
                         >
                           {index % 2 === 0 ? (
                             <span
@@ -3459,7 +4050,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                     backgroundColor: metaTone.bg,
                                     borderColor: metaTone.border,
                                     color: metaTone.text,
-                                  }}
+                                  } as React.CSSProperties}
                                 >
                                   {index % 2 === 0 ? (
                                     <span
@@ -3551,6 +4142,63 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                         <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{totalPhotos} photos</span>
                                         <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{totalAudioWishes} voices</span>
                                       </div>
+
+                                      {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
+                                        <div className="mt-3 rounded-lg border border-black/10 bg-white/35 p-3">
+                                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Pooled gift</p>
+                                          <p className="mt-1 text-sm font-semibold">₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}</p>
+                                          {poolSummary.pool_description && (
+                                            <p className="mt-1 text-xs leading-relaxed opacity-80">{poolSummary.pool_description}</p>
+                                          )}
+                                          {paidContributorLine && (
+                                            <p className="mt-1 text-xs leading-relaxed opacity-75">Paid by {paidContributorLine}.</p>
+                                          )}
+                                          {isPageOwner && !isPreview && (
+                                            <div className="mt-2" data-no-nav="true">
+                                              {poolSummary.is_released ? (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                  <Check className="h-3.5 w-3.5" />
+                                                  Payout released
+                                                </span>
+                                              ) : (
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  className="h-8 gap-1.5"
+                                                  onClick={handleReleasePoolPayout}
+                                                  disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
+                                                >
+                                                  {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                                                  Release Gift
+                                                </Button>
+                                              )}
+                                            </div>
+                                          )}
+                                          {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
+                                            <div className="mt-2" data-no-nav="true">
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                className="h-8 gap-1.5"
+                                                onClick={handleRequestGiftRelease}
+                                                disabled={requestingGiftRelease || !page?.is_revealed}
+                                              >
+                                                {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
+                                                Request Gift
+                                              </Button>
+                                            </div>
+                                          )}
+                                          {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
+                                            <div className="mt-2" data-no-nav="true">
+                                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                <Check className="h-3.5 w-3.5" />
+                                                Gift requested
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
                                       <p className="mt-3 border-t pt-2 text-xs leading-relaxed opacity-80" style={{ borderColor: freeformThemePalette.dividerColor }}>
                                         Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                                       </p>
@@ -3579,7 +4227,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   backgroundColor: tone.bg,
                                   borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                                   color: tone.text,
-                                }}
+                                } as React.CSSProperties}
                               >
                                 {index % 2 === 0 ? (
                                   <span
@@ -3714,7 +4362,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   backgroundColor: '#ECF8F3',
                   borderColor: '#AFD7C8',
                   color: '#1F5D4A',
-                }}
+                } as React.CSSProperties}
               >
                 <span
                   aria-hidden="true"
@@ -3743,6 +4391,61 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                   <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalPhotos} photos</span>
                   <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalAudioWishes} voices</span>
                 </div>
+                {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
+                  <div className="mt-3 rounded-lg border border-black/10 bg-white/45 p-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Pooled gift</p>
+                    <p className="mt-1 text-sm font-semibold">₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}</p>
+                    {poolSummary.pool_description && (
+                      <p className="mt-1 text-xs leading-relaxed opacity-80">{poolSummary.pool_description}</p>
+                    )}
+                    {paidContributorLine && (
+                      <p className="mt-1 text-xs leading-relaxed opacity-75">Paid by {paidContributorLine}.</p>
+                    )}
+                    {isPageOwner && !isPreview && (
+                      <div className="mt-2" data-no-nav="true">
+                        {poolSummary.is_released ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                            <Check className="h-3.5 w-3.5" />
+                            Payout released
+                          </span>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 gap-1.5"
+                            onClick={handleReleasePoolPayout}
+                            disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
+                          >
+                            {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                            Release Gift
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
+                      <div className="mt-2" data-no-nav="true">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8 gap-1.5"
+                          onClick={handleRequestGiftRelease}
+                          disabled={requestingGiftRelease || !page?.is_revealed}
+                        >
+                          {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
+                          Request Gift
+                        </Button>
+                      </div>
+                    )}
+                    {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
+                      <div className="mt-2" data-no-nav="true">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                          <Check className="h-3.5 w-3.5" />
+                          Gift requested
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <p className="mt-3 border-t border-black/10 pt-2 text-xs leading-relaxed opacity-80">
                   Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                 </p>
@@ -3753,7 +4456,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       )}
 
       {/* Desktop: story (slide) view */}
-      <section className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', effectiveViewMode !== 'story' && '!hidden')}>
+      <section
+        className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', effectiveViewMode !== 'story' && '!hidden')}
+        style={{ background: storyThemePalette.sectionBackground }}
+      >
+        <div aria-hidden="true" className="slide-stars-layer" style={{ opacity: 0.68, '--star-end-y': '185%', '--layer-time-offset': '-0.9s' } as React.CSSProperties}>
+          <div className="slide-star" style={{ left: '5%', '--star-x': '0%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '11%', '--star-x': '-1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '16%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '22%', '--star-x': '1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '28%', '--star-x': '-3%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '35%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '41%', '--star-x': '4%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '48%', '--star-x': '-1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '54%', '--star-x': '-2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '61%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '67%', '--star-x': '3%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '74%', '--star-x': '-2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '80%', '--star-x': '-4%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '87%', '--star-x': '1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '93%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '97%', '--star-x': '-1%' } as React.CSSProperties} />
+        </div>
         <div className="mx-auto flex h-full max-w-6xl flex-col">
           <div className="flex items-start gap-4">
             <div className="flex flex-1 gap-2">
@@ -3890,7 +4614,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 {page.recipient_name}&apos;s birthday story
               </h1>
             </div>
-            <div className={cn('self-start rounded-full px-3 py-1.5 text-xs font-medium sm:self-auto sm:px-4 sm:py-2 sm:text-sm', isDarkExperience ? 'bg-white/10 text-white' : 'bg-white/72 text-foreground')}>
+            <div className="self-start rounded-full px-3 py-1.5 text-xs font-medium sm:self-auto sm:px-4 sm:py-2 sm:text-sm" style={{ backgroundColor: storyThemePalette.topBadgeBg, color: storyThemePalette.topBadgeText }}>
               Slide {currentSlide + 1} of {revealSlides.length}
             </div>
           </div>
@@ -3903,18 +4627,26 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           >
             {activeSlide && (
               <div key={activeSlide.id} className={cn('h-full', slideDirection === 'back' ? 'animate-wrapped-slide-reverse' : 'animate-wrapped-slide')}>
-                <div className={cn('relative h-full overflow-hidden rounded-[2rem] border p-3 shadow-[0_30px_90px_rgba(18,18,23,0.14)] sm:rounded-[2.4rem] sm:p-6 lg:p-8', experiencePanelClass)}>
+                <div
+                  className={cn('relative h-full overflow-hidden rounded-[2rem] border p-3 shadow-[0_30px_90px_rgba(18,18,23,0.14)] sm:rounded-[2.4rem] sm:p-6 lg:p-8', experiencePanelClass)}
+                  style={{ backgroundColor: storyThemePalette.panelBg, borderColor: storyThemePalette.panelBorder }}
+                >
                   <div className="pointer-events-none absolute inset-0">
-                    <div className={cn('absolute -left-[10%] top-[10%] h-40 w-40 rounded-full blur-3xl sm:h-56 sm:w-56', isDarkExperience ? 'bg-white/8' : 'bg-white/55')} />
-                    <div className={cn('absolute bottom-[-8%] right-[-4%] h-48 w-48 rounded-full blur-3xl sm:h-72 sm:w-72', isDarkExperience ? 'bg-primary/20' : 'bg-amber-200/55')} />
+                    <div className="absolute -left-[10%] top-[10%] h-40 w-40 rounded-full blur-3xl sm:h-56 sm:w-56" style={{ background: storyThemePalette.orbA }} />
+                    <div className="absolute bottom-[-8%] right-[-4%] h-48 w-48 rounded-full blur-3xl sm:h-72 sm:w-72" style={{ background: storyThemePalette.orbB }} />
                     <div className={cn('absolute inset-0 opacity-70', isDarkExperience ? 'bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_36%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_45%)]' : 'bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.9),transparent_34%),linear-gradient(145deg,rgba(255,246,236,0.76),transparent_45%)]')} />
                   </div>
-                  <div aria-hidden="true" className="slide-stars-layer">
+                  <div aria-hidden="true" className="slide-stars-layer" style={{ '--layer-time-offset': '-1.75s' } as React.CSSProperties}>
                     <div className="slide-star" style={{ left: '6%', '--star-x': '0%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '15%', '--star-x': '-1%' } as React.CSSProperties} />
                     <div className="slide-star" style={{ left: '24%', '--star-x': '3%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '34%', '--star-x': '1%' } as React.CSSProperties} />
                     <div className="slide-star" style={{ left: '46%', '--star-x': '-2%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '57%', '--star-x': '2%' } as React.CSSProperties} />
                     <div className="slide-star" style={{ left: '68%', '--star-x': '4%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '77%', '--star-x': '-1%' } as React.CSSProperties} />
                     <div className="slide-star" style={{ left: '86%', '--star-x': '-3%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '94%', '--star-x': '2%' } as React.CSSProperties} />
                   </div>
 
                   <div className="relative z-10 h-full">
@@ -4366,6 +5098,64 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                               <p className={cn('mt-3 text-sm leading-relaxed opacity-75', theme.text)}>
                                 {contributorLine}.
                               </p>
+                            )}
+
+                            {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
+                              <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
+                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Pooled gift</p>
+                                <p className={cn('mt-2 text-2xl font-semibold', theme.titleClass, theme.font)}>
+                                  ₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}
+                                </p>
+                                {poolSummary.pool_description && (
+                                  <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>{poolSummary.pool_description}</p>
+                                )}
+                                {paidContributorLine && (
+                                  <p className={cn('mt-2 text-xs leading-relaxed opacity-75', theme.text)}>Paid by {paidContributorLine}.</p>
+                                )}
+                                {isPageOwner && !isPreview && (
+                                  <div className="mt-3">
+                                    {poolSummary.is_released ? (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                                        <Check className="h-3.5 w-3.5" />
+                                        Payout released
+                                      </span>
+                                    ) : (
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        className="h-9 gap-2"
+                                        onClick={handleReleasePoolPayout}
+                                        disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
+                                      >
+                                        {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                                        Release Gift
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                                {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
+                                  <div className="mt-3">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-9 gap-2"
+                                      onClick={handleRequestGiftRelease}
+                                      disabled={requestingGiftRelease || !page?.is_revealed}
+                                    >
+                                      {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
+                                      Request Gift
+                                    </Button>
+                                  </div>
+                                )}
+                                {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
+                                  <div className="mt-3">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                                      <Check className="h-3.5 w-3.5" />
+                                      Gift requested
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </article>
                         </div>

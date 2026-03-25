@@ -313,6 +313,150 @@ export async function initializeDatabase() {
   `;
 
   await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS pool_fundraising_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS pool_goal_kobo INTEGER;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS pooled_amount_kobo BIGINT NOT NULL DEFAULT 0;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS pool_description TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS recipient_bank_code TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS recipient_account_number TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS recipient_account_name TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_messages
+    ADD COLUMN IF NOT EXISTS contribution_amount_kobo INTEGER NOT NULL DEFAULT 0;
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS pool_contributions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      page_id UUID NOT NULL REFERENCES birthday_pages(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL DEFAULT 'paystack',
+      provider_reference TEXT NOT NULL UNIQUE,
+      amount_kobo INTEGER NOT NULL,
+      contribution_amount_kobo INTEGER NOT NULL DEFAULT 0,
+      platform_fee_kobo INTEGER NOT NULL DEFAULT 0,
+      total_charge_kobo INTEGER NOT NULL DEFAULT 0,
+      paystack_fee_kobo INTEGER,
+      net_received_kobo INTEGER,
+      contributor_name TEXT,
+      contributor_email TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      payment_metadata JSONB,
+      verified_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT pool_contributions_status_check CHECK (status IN ('pending', 'success', 'failed', 'refunded'))
+    );
+  `;
+
+  await sql`
+    ALTER TABLE pool_contributions
+    ADD COLUMN IF NOT EXISTS contribution_amount_kobo INTEGER NOT NULL DEFAULT 0;
+  `;
+
+  await sql`
+    ALTER TABLE pool_contributions
+    ADD COLUMN IF NOT EXISTS platform_fee_kobo INTEGER NOT NULL DEFAULT 0;
+  `;
+
+  await sql`
+    ALTER TABLE pool_contributions
+    ADD COLUMN IF NOT EXISTS total_charge_kobo INTEGER NOT NULL DEFAULT 0;
+  `;
+
+  await sql`
+    ALTER TABLE pool_contributions
+    ADD COLUMN IF NOT EXISTS paystack_fee_kobo INTEGER;
+  `;
+
+  await sql`
+    ALTER TABLE pool_contributions
+    ADD COLUMN IF NOT EXISTS net_received_kobo INTEGER;
+  `;
+
+  await sql`
+    UPDATE pool_contributions
+    SET contribution_amount_kobo = CASE
+          WHEN contribution_amount_kobo > 0 THEN contribution_amount_kobo
+          ELSE amount_kobo
+        END,
+        total_charge_kobo = CASE
+          WHEN total_charge_kobo > 0 THEN total_charge_kobo
+          ELSE amount_kobo
+        END
+    WHERE contribution_amount_kobo = 0 OR total_charge_kobo = 0;
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_pool_contributions_page_id
+    ON pool_contributions(page_id);
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_pool_contributions_status
+    ON pool_contributions(status);
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS pool_payouts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      page_id UUID NOT NULL REFERENCES birthday_pages(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL DEFAULT 'paystack',
+      provider_reference TEXT,
+      amount_kobo INTEGER NOT NULL,
+      gross_pool_amount_kobo INTEGER,
+      payout_fee_kobo INTEGER,
+      status TEXT NOT NULL,
+      response_payload JSONB,
+      created_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT pool_payouts_status_check CHECK (status IN ('processing', 'success', 'failed'))
+    );
+  `;
+
+  await sql`
+    ALTER TABLE pool_payouts
+    ADD COLUMN IF NOT EXISTS gross_pool_amount_kobo INTEGER;
+  `;
+
+  await sql`
+    ALTER TABLE pool_payouts
+    ADD COLUMN IF NOT EXISTS payout_fee_kobo INTEGER;
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_pool_payouts_page_id
+    ON pool_payouts(page_id);
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS birthday_message_photos (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       message_id UUID NOT NULL REFERENCES birthday_messages(id) ON DELETE CASCADE,

@@ -33,6 +33,7 @@ import {
   sendBirthdayReminderEmail,
   sendNewMessageAlertEmail,
   sendPasswordResetEmail,
+  sendPoolReleaseRequestEmail,
   sendVerificationEmail,
   sendWelcomeEmail,
 } from "./emailFlows";
@@ -54,6 +55,9 @@ import {
   themePatchBodySchema,
   paystackInitializeBodySchema,
   paystackVerifyBodySchema,
+  paystackResolveAccountBodySchema,
+  poolContributionInitializeBodySchema,
+  poolReleaseBodySchema,
   pageCreateBodySchema,
   pagePatchBodySchema,
   publicUnlockBodySchema,
@@ -84,6 +88,9 @@ import {
   publicPhotoUploadLimiter,
   publicAudioUploadLimiter,
   publicMessageLimiter,
+  publicPoolContributionInitLimiter,
+  publicPoolPayoutRequestLimiter,
+  poolPayoutReleaseLimiter,
   healthEndpointLimiter,
   paystackWebhookLimiter,
 } from "./rateLimits";
@@ -93,9 +100,16 @@ const port = Number(process.env.PORT || process.env.API_PORT || 3001);
 const FREE_THEME_LIMIT = 3;
 const PREMIUM_THEME_FONTS = new Set(["caveat", "sora", "cormorant", "space-grotesk", "dm-serif"]);
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
+const BPS_BASE = 10_000;
+const POOL_CONTRIBUTION_PLATFORM_FEE_BPS = 150;
+const POOL_PAYOUT_FEE_BPS = 200;
+const PAYSTACK_TRANSACTION_FEE_BPS = 150;
+const PAYSTACK_TRANSACTION_FLAT_FEE_KOBO = 10_000;
+const PAYSTACK_TRANSACTION_MAX_FEE_KOBO = 200_000;
 const PRO_ONE_TIME_AMOUNT_KOBO = 500000;
 const PRO_OFFER_CURRENCY = "NGN";
 const PRO_OFFER_PURCHASE_TYPE = "one_time";
+const PAYSTACK_BANKS_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const FREE_CONTRIBUTOR_LIMIT = 6;
 const PUBLIC_UNLOCK_COOKIE_NAME = "wishcanvas_public_unlock";
 const EXPORTS_DISABLED_IN_PRODUCTION = process.env.NODE_ENV === "production";
@@ -112,6 +126,45 @@ const PRO_OFFER_FEATURES = [
   { id: "keepsake-export", title: "Export and keepsake features", status: "coming-soon" },
   { id: "priority-support", title: "Priority support and recovery", status: "coming-soon" },
 ] as const;
+
+type PaystackBank = {
+  name?: string;
+  code?: string;
+  active?: boolean;
+  country?: string;
+  currency?: string;
+};
+
+let paystackBanksCache: Array<{ name: string; code: string }> = [];
+let paystackBanksCacheExpiresAt = 0;
+
+async function fetchPaystackBanks() {
+  const now = Date.now();
+  if (paystackBanksCache.length > 0 && now < paystackBanksCacheExpiresAt) {
+    return paystackBanksCache;
+  }
+
+  const data = await paystackRequest<PaystackBank[]>("/bank?country=nigeria");
+  const banks = (Array.isArray(data) ? data : [])
+    .filter((bank) => {
+      const code = typeof bank.code === "string" ? bank.code.trim() : "";
+      const name = typeof bank.name === "string" ? bank.name.trim() : "";
+      const country = typeof bank.country === "string" ? bank.country.toLowerCase() : "";
+      const currency = typeof bank.currency === "string" ? bank.currency.toUpperCase() : "";
+      const isActive = bank.active !== false;
+
+      return Boolean(code && name && isActive && (country === "" || country === "nigeria") && (currency === "" || currency === "NGN"));
+    })
+    .map((bank) => ({
+      code: String(bank.code).trim(),
+      name: String(bank.name).trim(),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  paystackBanksCache = banks;
+  paystackBanksCacheExpiresAt = now + PAYSTACK_BANKS_CACHE_TTL_MS;
+  return banks;
+}
 
 function hasProThemeAccess(user: SessionUser) {
   return user.planTier === "pro";
@@ -182,6 +235,52 @@ function getProAmountKobo() {
   return PRO_ONE_TIME_AMOUNT_KOBO;
 }
 
+function percentageFeeKobo(amountKobo: number, bps: number) {
+  if (!Number.isFinite(amountKobo) || amountKobo <= 0) return 0;
+  return Math.round((amountKobo * bps) / BPS_BASE);
+}
+
+function calculatePoolContributionCharge(contributionAmountKobo: number) {
+  const normalizedContribution = Math.max(0, Math.trunc(contributionAmountKobo));
+  const platformFeeKobo = percentageFeeKobo(normalizedContribution, POOL_CONTRIBUTION_PLATFORM_FEE_BPS);
+  const totalChargeKobo = normalizedContribution + platformFeeKobo;
+
+  return {
+    contributionAmountKobo: normalizedContribution,
+    platformFeeKobo,
+    totalChargeKobo,
+  };
+}
+
+function calculatePaystackFeeKobo(totalChargeKobo: number) {
+  const normalizedCharge = Math.max(0, Math.trunc(totalChargeKobo));
+  const percentageComponent = percentageFeeKobo(normalizedCharge, PAYSTACK_TRANSACTION_FEE_BPS);
+  return Math.min(PAYSTACK_TRANSACTION_MAX_FEE_KOBO, percentageComponent + PAYSTACK_TRANSACTION_FLAT_FEE_KOBO);
+}
+
+function calculateNetReceivedKobo(totalChargeKobo: number) {
+  const normalizedCharge = Math.max(0, Math.trunc(totalChargeKobo));
+  const paystackFeeKobo = calculatePaystackFeeKobo(normalizedCharge);
+  const netReceivedKobo = Math.max(normalizedCharge - paystackFeeKobo, 0);
+
+  return {
+    paystackFeeKobo,
+    netReceivedKobo,
+  };
+}
+
+function calculatePoolPayout(grossPoolBalanceKobo: number) {
+  const normalizedBalance = Math.max(0, Math.trunc(grossPoolBalanceKobo));
+  const payoutFeeKobo = percentageFeeKobo(normalizedBalance, POOL_PAYOUT_FEE_BPS);
+  const payoutAmountKobo = Math.max(normalizedBalance - payoutFeeKobo, 0);
+
+  return {
+    grossPoolBalanceKobo: normalizedBalance,
+    payoutFeeKobo,
+    payoutAmountKobo,
+  };
+}
+
 function getClientOriginForRequest(request: express.Request) {
   const requestOrigin = typeof request.headers.origin === "string"
     ? normalizeOrigin(request.headers.origin)
@@ -228,7 +327,15 @@ type PaystackPaymentData = {
   currency: string;
   reference: string;
   customer?: { email?: string };
-  metadata?: { userId?: string; planTier?: string };
+  metadata?: {
+            purpose: "pro_upgrade",
+    userId?: string;
+    planTier?: string;
+    purpose?: string;
+    pageId?: string;
+    contributorName?: string;
+    contributorEmail?: string;
+  };
 };
 
 type ProcessPaystackPaymentResult = {
@@ -523,6 +630,109 @@ app.post("/api/billing/paystack/webhook", paystackWebhookLimiter, express.raw({ 
   }
 
   try {
+    const webhookPurpose = typeof eventData.metadata?.purpose === "string" ? eventData.metadata.purpose : "";
+    const webhookPageId = typeof eventData.metadata?.pageId === "string" ? eventData.metadata.pageId : "";
+
+    if (webhookPurpose === "pool_gift" || webhookPageId) {
+      const resolvedPageId = await resolvePageId(webhookPageId);
+      if (!resolvedPageId) {
+        response.json({ ok: true, ignored: true });
+        return;
+      }
+
+      const contributorName = sanitizeDisplayName(eventData.metadata?.contributorName) || "Anonymous";
+      const contributorEmail = sanitizeEmail(eventData.metadata?.contributorEmail || eventData.customer?.email) || null;
+      const totalChargeKobo = Math.max(0, Number(eventData.amount || 0));
+
+      const existingContributionRows = await sql`
+        SELECT contribution_amount_kobo, platform_fee_kobo, total_charge_kobo, amount_kobo
+        FROM pool_contributions
+        WHERE provider_reference = ${eventData.reference}
+        LIMIT 1
+      `;
+
+      const existingContribution = existingContributionRows[0];
+      const metadataContributionAmountKobo = sanitizeAmountKobo(eventData.metadata?.contributionAmountKobo);
+      const fallbackContributionAmountKobo = Number(existingContribution?.contribution_amount_kobo || 0)
+        || metadataContributionAmountKobo
+        || Number(existingContribution?.amount_kobo || 0)
+        || totalChargeKobo;
+
+      const contributionCharge = calculatePoolContributionCharge(fallbackContributionAmountKobo);
+      const contributionAmountKobo = contributionCharge.contributionAmountKobo;
+      const platformFeeKobo = Number(existingContribution?.platform_fee_kobo || 0) || contributionCharge.platformFeeKobo;
+      const finalTotalChargeKobo = totalChargeKobo || Number(existingContribution?.total_charge_kobo || 0) || contributionCharge.totalChargeKobo;
+      const settlement = calculateNetReceivedKobo(finalTotalChargeKobo);
+
+      await sql`
+        INSERT INTO pool_contributions (
+          page_id,
+          provider,
+          provider_reference,
+          amount_kobo,
+          contribution_amount_kobo,
+          platform_fee_kobo,
+          total_charge_kobo,
+          paystack_fee_kobo,
+          net_received_kobo,
+          contributor_name,
+          contributor_email,
+          status,
+          payment_metadata,
+          verified_at,
+          updated_at
+        )
+        VALUES (
+          ${resolvedPageId},
+          'paystack',
+          ${eventData.reference},
+          ${finalTotalChargeKobo},
+          ${contributionAmountKobo},
+          ${platformFeeKobo},
+          ${finalTotalChargeKobo},
+          ${settlement.paystackFeeKobo},
+          ${settlement.netReceivedKobo},
+          ${contributorName},
+          ${contributorEmail},
+          'success',
+          ${JSON.stringify(eventPayload)}::jsonb,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (provider_reference)
+        DO UPDATE SET
+          amount_kobo = EXCLUDED.amount_kobo,
+          contribution_amount_kobo = EXCLUDED.contribution_amount_kobo,
+          platform_fee_kobo = EXCLUDED.platform_fee_kobo,
+          total_charge_kobo = EXCLUDED.total_charge_kobo,
+          paystack_fee_kobo = EXCLUDED.paystack_fee_kobo,
+          net_received_kobo = EXCLUDED.net_received_kobo,
+          contributor_name = EXCLUDED.contributor_name,
+          contributor_email = EXCLUDED.contributor_email,
+          status = EXCLUDED.status,
+          payment_metadata = EXCLUDED.payment_metadata,
+          verified_at = NOW(),
+          updated_at = NOW()
+      `;
+
+      await sql`
+        UPDATE birthday_pages bp
+        SET pooled_amount_kobo = COALESCE(agg.total_kobo, 0),
+            updated_at = NOW()
+        FROM (
+          SELECT page_id, SUM(COALESCE(net_received_kobo, amount_kobo))::bigint AS total_kobo
+          FROM pool_contributions
+          WHERE page_id = ${resolvedPageId}
+            AND status = 'success'
+          GROUP BY page_id
+        ) AS agg
+        WHERE bp.id = ${resolvedPageId}
+      `;
+
+      response.json({ ok: true });
+      return;
+    }
+
     const result = await processPaystackSuccessfulPayment(eventData, {
       source: "webhook",
       rawPayload: eventPayload,
@@ -594,6 +804,26 @@ function sanitizeEmail(value: unknown) {
   if (!trimmed) return null;
   if (!trimmed.includes("@")) return null;
   return trimmed;
+}
+
+function sanitizeBankCode(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return /^[a-zA-Z0-9]{2,12}$/.test(trimmed) ? trimmed : null;
+}
+
+function sanitizeAccountNumber(value: unknown) {
+  if (typeof value !== "string") return null;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 20 ? digits : null;
+}
+
+function sanitizeAmountKobo(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (!Number.isInteger(n) || n < 0 || n > 500000000) return null;
+  return n;
 }
 
 function sanitizePublicCode(value: unknown) {
@@ -758,6 +988,7 @@ async function fetchMessagesForPage(pageId: string) {
       bm.message,
       bm.photo_url AS legacy_photo_url,
       bm.audio_url,
+      bm.contribution_amount_kobo,
       bm.created_at,
       bmp.id AS photo_id,
       bmp.photo_url,
@@ -788,6 +1019,7 @@ async function fetchMessagesForPage(pageId: string) {
         message: String(row.message),
         photo_url: typeof row.legacy_photo_url === "string" ? row.legacy_photo_url : null,
         audio_url: typeof row.audio_url === "string" ? row.audio_url : null,
+        contribution_amount_kobo: Number(row.contribution_amount_kobo || 0),
         created_at: row.created_at,
         photos: [],
         stickers: [],
@@ -1053,6 +1285,10 @@ function publicPageQuery(pageId: string) {
       bp.cover_photo_url,
       bp.soundtrack_id,
       bp.custom_audio_url,
+      bp.pool_fundraising_enabled,
+      bp.pool_goal_kobo,
+      bp.pooled_amount_kobo,
+      bp.pool_description,
       bp.reveal_at,
       bp.reveal_pin_hash,
       bp.view_count,
@@ -1794,6 +2030,59 @@ app.post("/api/billing/paystack/verify", requireAuth, validateBody(paystackVerif
   }
 });
 
+app.get("/api/payments/paystack/banks", requireAuth, async (_request: AuthedRequest, response) => {
+  try {
+    const banks = await fetchPaystackBanks();
+    response.json({ banks });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "paystack-bank-list-failed";
+    logRequestFailure("paystack-bank-list", { message });
+
+    if (message === "PAYSTACK_NOT_CONFIGURED") {
+      response.status(500).json({ error: "Paystack is not configured on the server." });
+      return;
+    }
+
+    response.status(502).json({ error: "Could not load bank list right now." });
+  }
+});
+
+app.post(
+  "/api/payments/paystack/resolve-account",
+  requireAuth,
+  validateBody(paystackResolveAccountBodySchema),
+  async (request: AuthedRequest, response) => {
+    const bankCode = sanitizeBankCode(request.body.bankCode);
+    const accountNumber = sanitizeAccountNumber(request.body.accountNumber);
+
+    if (!bankCode || !accountNumber) {
+      response.status(400).json({ error: "Invalid account details" });
+      return;
+    }
+
+    try {
+      const data = await paystackRequest<{ account_number: string; account_name: string }>(
+        `/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
+      );
+
+      response.json({
+        accountNumber: String(data.account_number || accountNumber),
+        accountName: String(data.account_name || "").trim(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "paystack-account-resolve-failed";
+      logRequestFailure("paystack-account-resolve", { message, bankCode });
+
+      if (message === "PAYSTACK_NOT_CONFIGURED") {
+        response.status(500).json({ error: "Paystack is not configured on the server." });
+        return;
+      }
+
+      response.status(400).json({ error: "Could not resolve account details." });
+    }
+  },
+);
+
 app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async (request: AuthedRequest, response) => {
   const file = request.file;
 
@@ -2162,6 +2451,12 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
         close_date,
         reveal_at,
         reveal_pin_hash,
+        pool_fundraising_enabled,
+        pool_goal_kobo,
+        pool_description,
+        recipient_bank_code,
+        recipient_account_number,
+        recipient_account_name,
         status,
         custom_audio_url
       )
@@ -2181,6 +2476,12 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
         ${String(request.body.closeDate || request.body.birthdayDate)},
         ${request.body.revealAt || null},
         ${revealPinHash},
+        ${Boolean(request.body.poolFundraisingEnabled ?? false)},
+        ${sanitizeAmountKobo(request.body.poolGoalKobo)},
+        ${sanitizeDisplayName(request.body.poolDescription)},
+        ${sanitizeBankCode(request.body.recipientBankCode)},
+        ${sanitizeAccountNumber(request.body.recipientAccountNumber)},
+        ${sanitizeDisplayName(request.body.recipientAccountName)},
         'active',
         ${request.body.pageCustomAudioUrl || null}
       )
@@ -2230,6 +2531,190 @@ app.get("/api/pages/:id/ownership", requireAuth, validateParams(pageIdParamSchem
   `;
 
   response.json({ isOwner: Boolean(rows[0]), publicCode: rows[0] ? String(rows[0].public_code) : null });
+});
+
+app.get("/api/pages/:id/pool/summary", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageId = String(pageRows[0].id);
+  const rows = await sql`
+    SELECT
+      bp.pool_fundraising_enabled,
+      bp.pool_goal_kobo,
+      bp.pooled_amount_kobo,
+      bp.pool_description,
+      COALESCE(array_remove(array_agg(DISTINCT pc.contributor_name), NULL), ARRAY[]::text[]) AS contributors,
+      EXISTS(
+        SELECT 1
+        FROM pool_payouts pp
+        WHERE pp.page_id = bp.id
+          AND pp.status = 'processing'
+      ) AS is_requested,
+      EXISTS(
+        SELECT 1
+        FROM pool_payouts pp
+        WHERE pp.page_id = bp.id
+          AND pp.status = 'success'
+      ) AS is_released
+    FROM birthday_pages bp
+    LEFT JOIN pool_contributions pc ON pc.page_id = bp.id AND pc.status = 'success'
+    WHERE bp.id = ${pageId}
+    GROUP BY bp.id
+  `;
+
+  response.json(rows[0] || {
+    pool_fundraising_enabled: false,
+    pool_goal_kobo: null,
+    pooled_amount_kobo: 0,
+    pool_description: null,
+    contributors: [],
+    is_requested: false,
+    is_released: false,
+  });
+});
+
+app.post("/api/pages/:id/pool/release", requireAuth, poolPayoutReleaseLimiter, validateParams(pageIdParamSchema), validateBody(poolReleaseBodySchema), async (request: AuthedRequest, response) => {
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  const page = pageRows[0];
+  if (!page) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const now = Date.now();
+  const revealAtRaw = page.reveal_at ? new Date(String(page.reveal_at)).getTime() : null;
+  const birthdayAtRaw = page.birthday_date ? new Date(`${String(page.birthday_date)}T00:00:00.000Z`).getTime() : null;
+  const gateTime = revealAtRaw || birthdayAtRaw;
+
+  if (!gateTime || now < gateTime) {
+    response.status(403).json({ error: "Payout can only be released after reveal time.", code: "PAYOUT_TOO_EARLY" });
+    return;
+  }
+
+  const payout = calculatePoolPayout(Number(page.pooled_amount_kobo || 0));
+  if (!payout.grossPoolBalanceKobo || payout.grossPoolBalanceKobo <= 0) {
+    response.status(400).json({ error: "No pooled amount available for release.", code: "PAYOUT_EMPTY" });
+    return;
+  }
+
+  if (!payout.payoutAmountKobo || payout.payoutAmountKobo <= 0) {
+    response.status(400).json({ error: "Payout amount is too small after fees.", code: "PAYOUT_BELOW_MINIMUM" });
+    return;
+  }
+
+  const recipientBankCode = sanitizeBankCode(page.recipient_bank_code);
+  const recipientAccountNumber = sanitizeAccountNumber(page.recipient_account_number);
+  const recipientAccountName = sanitizeDisplayName(page.recipient_account_name);
+
+  if (!recipientBankCode || !recipientAccountNumber || !recipientAccountName) {
+    response.status(400).json({ error: "Recipient bank details are incomplete.", code: "PAYOUT_ACCOUNT_REQUIRED" });
+    return;
+  }
+
+  const payoutExists = await sql`
+    SELECT id
+    FROM pool_payouts
+    WHERE page_id = ${String(page.id)}
+      AND status = 'success'
+    LIMIT 1
+  `;
+
+  if (payoutExists[0]) {
+    response.status(409).json({ error: "Payout already released for this page.", code: "PAYOUT_ALREADY_RELEASED" });
+    return;
+  }
+
+  try {
+    const recipientData = await paystackRequest<{ recipient_code: string }>("/transferrecipient", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "nuban",
+        name: recipientAccountName,
+        account_number: recipientAccountNumber,
+        bank_code: recipientBankCode,
+        currency: "NGN",
+      }),
+    });
+
+    const transferRef = `wishcanvas_pool_${String(page.id).slice(0, 8)}_${Date.now()}`;
+    const transferData = await paystackRequest<{ reference: string; transfer_code: string }>("/transfer", {
+      method: "POST",
+      body: JSON.stringify({
+        source: "balance",
+        amount: payout.payoutAmountKobo,
+        recipient: recipientData.recipient_code,
+        reason: `Birthday pooled gift release for ${String(page.recipient_name || "recipient")}`,
+        reference: transferRef,
+      }),
+    });
+
+    await sql`
+      INSERT INTO pool_payouts (
+        page_id,
+        provider,
+        provider_reference,
+        amount_kobo,
+        gross_pool_amount_kobo,
+        payout_fee_kobo,
+        status,
+        response_payload,
+        created_by_user_id,
+        updated_at
+      )
+      VALUES (
+        ${String(page.id)},
+        'paystack',
+        ${transferData.reference || transferRef},
+        ${payout.payoutAmountKobo},
+        ${payout.grossPoolBalanceKobo},
+        ${payout.payoutFeeKobo},
+        'success',
+        ${JSON.stringify({ transfer: transferData, recipient: recipientData })}::jsonb,
+        ${request.user!.id},
+        NOW()
+      )
+    `;
+
+    response.json({
+      status: "success",
+      amount_kobo: payout.payoutAmountKobo,
+      gross_pool_amount_kobo: payout.grossPoolBalanceKobo,
+      payout_fee_kobo: payout.payoutFeeKobo,
+      reference: transferData.reference || transferRef,
+      transfer_code: transferData.transfer_code,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "payout-release-failed";
+    await sql`
+      INSERT INTO pool_payouts (
+        page_id,
+        provider,
+        amount_kobo,
+        gross_pool_amount_kobo,
+        payout_fee_kobo,
+        status,
+        response_payload,
+        created_by_user_id,
+        updated_at
+      )
+      VALUES (
+        ${String(page.id)},
+        'paystack',
+        ${payout.payoutAmountKobo},
+        ${payout.grossPoolBalanceKobo},
+        ${payout.payoutFeeKobo},
+        'failed',
+        ${JSON.stringify({ error: message })}::jsonb,
+        ${request.user!.id},
+        NOW()
+      )
+    `;
+    response.status(500).json({ error: "Could not release payout right now.", code: "PAYOUT_FAILED" });
+  }
 });
 
 app.get("/api/pages/:id/save-status", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
@@ -2501,6 +2986,12 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
             cover_photo_url = ${request.body.coverPhotoUrl || null},
             custom_audio_url = ${request.body.pageCustomAudioUrl || null},
             letter_color = ${request.body.letterColor ?? null},
+            pool_fundraising_enabled = ${Boolean(request.body.poolFundraisingEnabled ?? false)},
+            pool_goal_kobo = ${sanitizeAmountKobo(request.body.poolGoalKobo)},
+            pool_description = ${sanitizeDisplayName(request.body.poolDescription)},
+            recipient_bank_code = ${sanitizeBankCode(request.body.recipientBankCode)},
+            recipient_account_number = ${sanitizeAccountNumber(request.body.recipientAccountNumber)},
+            recipient_account_name = ${sanitizeDisplayName(request.body.recipientAccountName)},
             updated_at = NOW()
           WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
             AND user_id = ${request.user!.id}
@@ -2524,6 +3015,12 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
             reveal_pin_hash = CASE WHEN ${hasRevealPin} THEN ${revealPinHash} ELSE reveal_pin_hash END,
             public_code = CASE WHEN ${hasPublicCode} THEN ${nextPublicCode} ELSE public_code END,
             letter_color = ${request.body.letterColor ?? null},
+            pool_fundraising_enabled = ${Boolean(request.body.poolFundraisingEnabled ?? false)},
+            pool_goal_kobo = ${sanitizeAmountKobo(request.body.poolGoalKobo)},
+            pool_description = ${sanitizeDisplayName(request.body.poolDescription)},
+            recipient_bank_code = ${sanitizeBankCode(request.body.recipientBankCode)},
+            recipient_account_number = ${sanitizeAccountNumber(request.body.recipientAccountNumber)},
+            recipient_account_name = ${sanitizeDisplayName(request.body.recipientAccountName)},
             updated_at = NOW()
           WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
             AND user_id = ${request.user!.id}
@@ -2841,6 +3338,300 @@ app.get("/api/public/pages/:id", validateParams(pageIdParamSchema), async (reque
   });
 });
 
+app.get("/api/public/pages/:id/pool/summary", validateParams(pageIdParamSchema), async (request, response) => {
+  const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
+  if (!resolvedPageId) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const rows = await sql`
+    SELECT
+      bp.pool_fundraising_enabled,
+      bp.pool_goal_kobo,
+      bp.pooled_amount_kobo,
+      bp.pool_description,
+      EXISTS(
+        SELECT 1
+        FROM pool_payouts pp
+        WHERE pp.page_id = bp.id
+          AND pp.status = 'processing'
+      ) AS is_requested,
+      COALESCE(array_remove(array_agg(DISTINCT pc.contributor_name), NULL), ARRAY[]::text[]) AS contributors
+    FROM birthday_pages bp
+    LEFT JOIN pool_contributions pc ON pc.page_id = bp.id AND pc.status = 'success'
+    WHERE bp.id = ${resolvedPageId}
+      AND bp.status = 'active'
+    GROUP BY bp.id
+  `;
+
+  if (!rows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  response.json(rows[0]);
+});
+
+app.post(
+  "/api/public/pages/:id/pool/request-release",
+  validateParams(pageIdParamSchema),
+  publicPoolPayoutRequestLimiter,
+  async (request, response) => {
+    const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
+    if (!resolvedPageId) {
+      response.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const rows = await sql`
+      SELECT
+        bp.id,
+        bp.public_code,
+        bp.recipient_name,
+        bp.pool_fundraising_enabled,
+        bp.pooled_amount_kobo,
+        bp.reveal_at,
+        bp.birthday_date,
+        bp.status,
+        u.email AS owner_email,
+        u.display_name AS owner_name
+      FROM birthday_pages bp
+      INNER JOIN users u ON u.id = bp.user_id
+      WHERE bp.id = ${resolvedPageId}
+      LIMIT 1
+    `;
+
+    const page = rows[0];
+    if (!page || page.status !== "active") {
+      response.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    if (!page.pool_fundraising_enabled) {
+      response.status(403).json({ error: "Pool gifting is not enabled for this page", code: "POOL_DISABLED" });
+      return;
+    }
+
+    const amountKobo = Number(page.pooled_amount_kobo || 0);
+    if (amountKobo <= 0) {
+      response.status(400).json({ error: "No pooled amount available.", code: "PAYOUT_EMPTY" });
+      return;
+    }
+
+    const gateTime = page.reveal_at
+      ? new Date(String(page.reveal_at)).getTime()
+      : new Date(`${String(page.birthday_date)}T00:00:00.000Z`).getTime();
+
+    if (!gateTime || Date.now() < gateTime) {
+      response.status(403).json({ error: "Gift can be requested after reveal time.", code: "PAYOUT_TOO_EARLY" });
+      return;
+    }
+
+    const payoutExists = await sql`
+      SELECT id
+      FROM pool_payouts
+      WHERE page_id = ${String(page.id)}
+        AND status = 'success'
+      LIMIT 1
+    `;
+
+    if (payoutExists[0]) {
+      response.status(409).json({ error: "Gift has already been released.", code: "PAYOUT_ALREADY_RELEASED" });
+      return;
+    }
+
+    const requestExists = await sql`
+      SELECT id
+      FROM pool_payouts
+      WHERE page_id = ${String(page.id)}
+        AND status = 'processing'
+      LIMIT 1
+    `;
+
+    if (requestExists[0]) {
+      response.status(409).json({ error: "Gift request is already pending.", code: "PAYOUT_ALREADY_REQUESTED" });
+      return;
+    }
+
+    const organizerEmail = sanitizeEmail(page.owner_email);
+    if (!organizerEmail) {
+      response.status(500).json({ error: "Could not notify the organizer right now." });
+      return;
+    }
+
+    try {
+      await sendPoolReleaseRequestEmail({
+        to: organizerEmail,
+        ownerName: sanitizeDisplayName(page.owner_name) || null,
+        recipientName: String(page.recipient_name || "Recipient"),
+        pageCode: String(page.public_code || page.id),
+      });
+
+      await sql`
+        INSERT INTO pool_payouts (
+          page_id,
+          provider,
+          amount_kobo,
+          status,
+          response_payload,
+          updated_at
+        )
+        VALUES (
+          ${String(page.id)},
+          'request',
+          ${amountKobo},
+          'processing',
+          ${JSON.stringify({ requested_via: 'recipient', notified_organizer_email: organizerEmail })}::jsonb,
+          NOW()
+        )
+      `;
+
+      response.json({ status: "requested" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "pool-request-release-email-failed";
+      logRequestFailure("pool-request-release", {
+        pageId: String(page.id),
+        message,
+      });
+      response.status(502).json({ error: "Could not notify the organizer right now." });
+    }
+  },
+);
+
+app.post(
+  "/api/public/pages/:id/pool/initialize",
+  validateParams(pageIdParamSchema),
+  publicPoolContributionInitLimiter,
+  validateBody(poolContributionInitializeBodySchema),
+  async (request, response) => {
+    const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
+    if (!resolvedPageId) {
+      response.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const pageRows = await publicPageQuery(resolvedPageId);
+    const page = pageRows[0];
+
+    if (!page) {
+      response.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    if (!page.can_contribute) {
+      response.status(403).json({ error: "This birthday page is no longer accepting contributions" });
+      return;
+    }
+
+    if (!page.pool_fundraising_enabled) {
+      response.status(403).json({ error: "Money contribution is disabled for this page", code: "POOL_DISABLED" });
+      return;
+    }
+
+    const contributionAmountKobo = sanitizeAmountKobo(request.body.amountKobo);
+    if (!contributionAmountKobo || contributionAmountKobo < 100) {
+      response.status(400).json({ error: "Minimum amount is 100 kobo", code: "INVALID_AMOUNT" });
+      return;
+    }
+
+    try {
+      const callbackPath = typeof request.body.callbackPath === "string" && request.body.callbackPath.startsWith("/")
+        ? request.body.callbackPath
+        : `/birthday/${String(page.public_code || resolvedPageId)}`;
+
+      const callbackUrl = `${getClientOriginForRequest(request)}${callbackPath}`;
+      const contributorName = sanitizeDisplayName(request.body.contributorName) || "Anonymous";
+      const contributorEmail = sanitizeEmail(request.body.contributorEmail) || undefined;
+      const contributionCharge = calculatePoolContributionCharge(contributionAmountKobo);
+
+      const data = await paystackRequest<{ authorization_url: string; reference: string }>("/transaction/initialize", {
+        method: "POST",
+        body: JSON.stringify({
+          email: contributorEmail || "pool@wishcanvas.app",
+          amount: contributionCharge.totalChargeKobo,
+          currency: "NGN",
+          callback_url: callbackUrl,
+          metadata: {
+            purpose: "pool_gift",
+            pageId: resolvedPageId,
+            pageCode: String(page.public_code || resolvedPageId),
+            contributorName,
+            contributorEmail: contributorEmail || null,
+            contributionAmountKobo: contributionCharge.contributionAmountKobo,
+            platformFeeKobo: contributionCharge.platformFeeKobo,
+            totalChargeKobo: contributionCharge.totalChargeKobo,
+          },
+        }),
+      });
+
+      await sql`
+        INSERT INTO pool_contributions (
+          page_id,
+          provider,
+          provider_reference,
+          amount_kobo,
+          contribution_amount_kobo,
+          platform_fee_kobo,
+          total_charge_kobo,
+          contributor_name,
+          contributor_email,
+          status,
+          payment_metadata,
+          updated_at
+        )
+        VALUES (
+          ${resolvedPageId},
+          'paystack',
+          ${data.reference},
+          ${contributionCharge.totalChargeKobo},
+          ${contributionCharge.contributionAmountKobo},
+          ${contributionCharge.platformFeeKobo},
+          ${contributionCharge.totalChargeKobo},
+          ${contributorName},
+          ${contributorEmail || null},
+          'pending',
+          ${JSON.stringify({
+            contributionAmountKobo: contributionCharge.contributionAmountKobo,
+            platformFeeKobo: contributionCharge.platformFeeKobo,
+            totalChargeKobo: contributionCharge.totalChargeKobo,
+            callbackUrl,
+          })}::jsonb,
+          NOW()
+        )
+        ON CONFLICT (provider_reference)
+        DO UPDATE SET
+          amount_kobo = EXCLUDED.amount_kobo,
+          contribution_amount_kobo = EXCLUDED.contribution_amount_kobo,
+          platform_fee_kobo = EXCLUDED.platform_fee_kobo,
+          total_charge_kobo = EXCLUDED.total_charge_kobo,
+          contributor_name = EXCLUDED.contributor_name,
+          contributor_email = EXCLUDED.contributor_email,
+          payment_metadata = EXCLUDED.payment_metadata,
+          updated_at = NOW()
+      `;
+
+      response.json({
+        authorizationUrl: data.authorization_url,
+        reference: data.reference,
+        amountKobo: contributionCharge.contributionAmountKobo,
+        contributionAmountKobo: contributionCharge.contributionAmountKobo,
+        totalChargeKobo: contributionCharge.totalChargeKobo,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "pool-initialize-failed";
+      logRequestFailure("pool-initialize", { pageId: resolvedPageId, message });
+
+      if (message === "PAYSTACK_NOT_CONFIGURED") {
+        response.status(500).json({ error: "Paystack is not configured on the server." });
+        return;
+      }
+
+      response.status(502).json({ error: "Could not initialize contribution payment right now." });
+    }
+  },
+);
+
 app.get("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), async (request, response) => {
   const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
   if (!resolvedPageId) {
@@ -3028,14 +3819,17 @@ app.post("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), pu
     return;
   }
 
+  const contributionAmountKobo = sanitizeAmountKobo(request.body.contributionAmountKobo) || 0;
+
   const rows = await sql`
-    INSERT INTO birthday_messages (page_id, sender_name, message, photo_url, audio_url)
+    INSERT INTO birthday_messages (page_id, sender_name, message, photo_url, audio_url, contribution_amount_kobo)
     VALUES (
       ${resolvedPageId},
       ${senderName || "Anonymous"},
       ${message},
       ${photos[0]?.url || null},
-      ${audioUrl}
+      ${audioUrl},
+      ${contributionAmountKobo}
     )
     RETURNING *
   `;
@@ -3072,6 +3866,15 @@ app.post("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), pu
         )
       `),
     );
+  }
+
+  if (contributionAmountKobo > 0) {
+    await sql`
+      UPDATE birthday_pages
+      SET pooled_amount_kobo = pooled_amount_kobo + ${contributionAmountKobo},
+          updated_at = NOW()
+      WHERE id = ${resolvedPageId}
+    `;
   }
 
   const messages = await fetchMessagesForPage(String(createdMessage.page_id));

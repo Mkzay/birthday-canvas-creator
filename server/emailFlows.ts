@@ -369,3 +369,35 @@ export async function sendBirthdayReminderEmail(params: {
     tags: [{ name: "type", value: "birthday-reminder" }],
   });
 }
+
+export async function sendPoolReleaseRequestEmail(params: {
+  to: string;
+  ownerName?: string | null;
+  recipientName: string;
+  pageCode: string;
+}) {
+  const safeOwnerName = escapeHtml(params.ownerName?.trim() || "there");
+  const safeRecipientName = escapeHtml(params.recipientName.trim() || "the recipient");
+  const pageUrl = `${getSiteBaseUrl()}/birthday/${params.pageCode}`;
+
+  const inner = hero("🎁", "Gift request", `${safeRecipientName} requested the gift`) +
+    body(`
+      ${p(`Hi ${safeOwnerName},`) }
+      ${p(`${safeRecipientName} just requested that you release their pooled birthday gift.`)}
+      ${p("A 2% payout fee will be deducted from the pool total before transfer is sent.")}
+      ${p("Open the birthday page to confirm and release the payout.")}
+    `,
+    { label: "Open release page", href: pageUrl },
+    "If you've already released it, you can ignore this email."
+  );
+
+  const html = shell(inner, `${params.recipientName} requested gift release.`);
+
+  await sendTransactionalEmail({
+    to: params.to,
+    subject: `${params.recipientName} requested their birthday gift`,
+    html,
+    text: `${params.recipientName} requested gift release. Open: ${pageUrl}`,
+    tags: [{ name: "type", value: "gift-release-request" }],
+  });
+}

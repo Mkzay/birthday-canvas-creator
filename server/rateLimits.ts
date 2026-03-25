@@ -154,3 +154,27 @@ export const publicMessageLimiter = rateLimit({
   legacyHeaders: false,
   message: jsonMessage,
 });
+
+export const publicPoolContributionInitLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: jsonMessage,
+});
+
+export const publicPoolPayoutRequestLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: jsonMessage,
+});
+
+export const poolPayoutReleaseLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: jsonMessage,
+});

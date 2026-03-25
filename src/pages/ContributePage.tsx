@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { GripVertical, ImagePlus, Loader2, Lock, Mic2, Plus, Send, Sparkles, X, Square, Mic } from 'lucide-react';
+import { GripVertical, HandCoins, ImagePlus, Loader2, Lock, Mic2, Plus, Send, Sparkles, X, Square, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,10 @@ interface PublicBirthdayPageData {
   require_names: boolean;
   can_contribute: boolean;
   message_count: number;
+  pool_fundraising_enabled: boolean;
+  pool_goal_kobo: number | null;
+  pooled_amount_kobo: number;
+  pool_description: string | null;
 }
 
 interface PendingPhoto {
@@ -36,7 +40,29 @@ interface PendingPhoto {
   caption: string;
 }
 
+interface ContributionDraft {
+  senderName: string;
+  message: string;
+  poolAmountNaira: string;
+  poolContributorEmail: string;
+  stickers: StickerData[];
+  updatedAt: number;
+}
+
 const MAX_PHOTOS = 6;
+const CONTRIBUTION_PLATFORM_FEE_RATE = 0.015;
+
+function formatNairaInputWithCommas(raw: string) {
+  const cleaned = raw.replace(/,/g, '').replace(/[^\d.]/g, '');
+  if (!cleaned) return '';
+
+  const [integerPartRaw = '', decimalRaw = ''] = cleaned.split('.');
+  const integerPart = integerPartRaw.replace(/^0+(?=\d)/, '') || '0';
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const decimalPart = decimalRaw.slice(0, 2);
+
+  return cleaned.includes('.') ? `${groupedInteger}.${decimalPart}` : groupedInteger;
+}
 
 const themeConfig = {
   elegant: { name: 'Elegant', emoji: '✨', text: 'text-amber-900', bg: 'bg-gradient-to-br from-amber-50 to-orange-50' },
@@ -53,6 +79,7 @@ const themeConfig = {
 
 const ContributePage = () => {
   const { pageId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState<PublicBirthdayPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [senderName, setSenderName] = useState('');
@@ -68,14 +95,21 @@ const ContributePage = () => {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [poolAmountNaira, setPoolAmountNaira] = useState('');
+  const [poolContributorEmail, setPoolContributorEmail] = useState('');
+  const [recentContributionKobo, setRecentContributionKobo] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const poolAmountInputRef = useRef<HTMLInputElement>(null);
   const selectedPhotosRef = useRef<PendingPhoto[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<number | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [stickers, setStickers] = useState<StickerData[]>([]);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+
+  const draftStorageKey = pageId ? `contribute-draft:${pageId}` : null;
 
   useEffect(() => {
     selectedPhotosRef.current = selectedPhotos;
@@ -109,6 +143,65 @@ const ContributePage = () => {
       void fetchPage();
     }
   }, [fetchPage, pageId]);
+
+  useEffect(() => {
+    if (!draftStorageKey) {
+      setDraftHydrated(false);
+      return;
+    }
+
+    try {
+      const stored = sessionStorage.getItem(draftStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<ContributionDraft>;
+        if (typeof parsed.senderName === 'string') {
+          setSenderName(parsed.senderName);
+        }
+        if (typeof parsed.message === 'string') {
+          setMessage(parsed.message);
+        }
+        if (typeof parsed.poolAmountNaira === 'string') {
+          setPoolAmountNaira(parsed.poolAmountNaira);
+        }
+        if (typeof parsed.poolContributorEmail === 'string') {
+          setPoolContributorEmail(parsed.poolContributorEmail);
+        }
+        if (Array.isArray(parsed.stickers)) {
+          setStickers(parsed.stickers);
+        }
+      }
+    } catch {
+      // Ignore malformed draft payloads and continue with fresh state.
+    } finally {
+      setDraftHydrated(true);
+    }
+  }, [draftStorageKey]);
+
+  useEffect(() => {
+    if (!draftStorageKey || !draftHydrated || isSubmitted) {
+      return;
+    }
+
+    const draft: ContributionDraft = {
+      senderName,
+      message,
+      poolAmountNaira,
+      poolContributorEmail,
+      stickers,
+      updatedAt: Date.now(),
+    };
+
+    sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
+  }, [
+    draftHydrated,
+    draftStorageKey,
+    isSubmitted,
+    message,
+    poolAmountNaira,
+    poolContributorEmail,
+    senderName,
+    stickers,
+  ]);
 
   const placeholderTemplates = [
     (name: string) => `Write something ${name} will never forget...`,
@@ -379,6 +472,96 @@ const ContributePage = () => {
     }
   };
 
+  const formatKobo = (value: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      maximumFractionDigits: 2,
+    }).format(value / 100);
+  };
+
+  const calculateTotalChargeKobo = (contributionAmountKobo: number) => {
+    const platformFeeKobo = Math.round(contributionAmountKobo * CONTRIBUTION_PLATFORM_FEE_RATE);
+    return contributionAmountKobo + platformFeeKobo;
+  };
+
+  const initializePoolPayment = async (amountKobo: number, contributorName: string | null, contributorEmail: string | null) => {
+    if (!page) return;
+
+    const result = await apiFetch<{
+      authorizationUrl: string;
+      reference: string;
+      amountKobo: number;
+      contributionAmountKobo?: number;
+      totalChargeKobo?: number;
+    }>(`/public/pages/${page.id}/pool/initialize`, {
+      method: 'POST',
+      body: JSON.stringify({
+        amountKobo,
+        contributorName,
+        contributorEmail,
+        callbackPath: `/contribute/${page.id}?submitted=1`,
+      }),
+    });
+
+    sessionStorage.setItem(
+      `pool-payment:${page.id}:${result.reference}`,
+      JSON.stringify({ amountKobo: result.contributionAmountKobo ?? result.amountKobo }),
+    );
+
+    window.location.href = result.authorizationUrl;
+  };
+
+  useEffect(() => {
+    if (!pageId) return;
+
+    const status = searchParams.get('status')?.toLowerCase();
+    const reference = searchParams.get('reference') || searchParams.get('trxref');
+    const submitted = searchParams.get('submitted') === '1';
+
+    if (status !== 'success' || !reference) {
+      if (submitted) {
+        setIsSubmitted(true);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('submitted');
+        setSearchParams(nextParams, { replace: true });
+      }
+      return;
+    }
+
+    const storageKey = `pool-payment:${pageId}:${reference}`;
+    const stored = sessionStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        const payload = JSON.parse(stored) as { amountKobo?: number };
+        if (typeof payload.amountKobo === 'number' && Number.isFinite(payload.amountKobo) && payload.amountKobo > 0) {
+          setRecentContributionKobo(payload.amountKobo);
+          toast.success(`Payment successful! You contributed ${formatKobo(payload.amountKobo)}.`);
+        } else {
+          toast.success('Payment successful!');
+        }
+      } catch {
+        toast.success('Payment successful!');
+      }
+      sessionStorage.removeItem(storageKey);
+    } else {
+      toast.success('Payment successful!');
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('status');
+    nextParams.delete('reference');
+    nextParams.delete('trxref');
+    nextParams.delete('transaction_id');
+    nextParams.delete('submitted');
+
+    if (submitted) {
+      setIsSubmitted(true);
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  }, [pageId, searchParams, setSearchParams]);
+
   if (loading) {
     return <WishCanvasLoader />;
   }
@@ -399,6 +582,12 @@ const ContributePage = () => {
   }
 
   const isCustomTheme = page.theme.startsWith('custom_');
+  const poolContributionAmountKobo = Number.isFinite(Number(poolAmountNaira.replace(/,/g, ''))) && Number(poolAmountNaira.replace(/,/g, '')) > 0
+    ? Math.round(Number(poolAmountNaira.replace(/,/g, '')) * 100)
+    : 0;
+  const poolTotalChargeKobo = poolContributionAmountKobo > 0
+    ? calculateTotalChargeKobo(poolContributionAmountKobo)
+    : 0;
   const builtInTheme = themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant;
   const theme = isCustomTheme
     ? {
@@ -440,6 +629,21 @@ const ContributePage = () => {
       return;
     }
 
+    const amountNaira = Number(poolAmountNaira.replace(/,/g, ''));
+    const hasPoolAmountInput = poolAmountNaira.trim().length > 0;
+    if (hasPoolAmountInput) {
+      if (!Number.isFinite(amountNaira) || amountNaira <= 0) {
+        toast.error('Enter a valid amount in Naira or clear the amount field');
+        return;
+      }
+
+      const amountKobo = Math.round(amountNaira * 100);
+      if (amountKobo < 100) {
+        toast.error('Minimum amount is ₦1.00');
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     const uploadedPhotos = selectedPhotos.length ? await uploadPhotos() : [];
@@ -472,8 +676,34 @@ const ContributePage = () => {
         }),
       });
 
+      const shouldInitializePayment =
+        page.pool_fundraising_enabled &&
+        poolAmountNaira.trim().length > 0 &&
+        Number.isFinite(amountNaira) &&
+        amountNaira > 0;
+
+      if (shouldInitializePayment) {
+        const amountKobo = Math.round(amountNaira * 100);
+
+        if (draftStorageKey) {
+          sessionStorage.removeItem(draftStorageKey);
+        }
+
+        toast.success('Wish added. Redirecting you to payment...');
+
+        await initializePoolPayment(
+          amountKobo,
+          senderName.trim() || null,
+          poolContributorEmail.trim() || null,
+        );
+        return;
+      }
+
       setShowConfetti(true);
       setIsSubmitted(true);
+      if (draftStorageKey) {
+        sessionStorage.removeItem(draftStorageKey);
+      }
       setPage((currentPage) =>
         currentPage
           ? {
@@ -500,10 +730,15 @@ const ContributePage = () => {
   const handleAddAnother = () => {
     setSenderName('');
     setMessage('');
+    setPoolAmountNaira('');
+    setPoolContributorEmail('');
     clearSelectedPhotos();
     removeWishAudio();
     setStickers([]);
     setIsSubmitted(false);
+    if (draftStorageKey) {
+      sessionStorage.removeItem(draftStorageKey);
+    }
   };
 
   return (
@@ -786,6 +1021,83 @@ const ContributePage = () => {
                   />
                 </div>
 
+                {page.pool_fundraising_enabled && (
+                  <div className="mb-6 rounded-[1.2rem] border border-emerald-200 bg-emerald-50/80 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+                          <HandCoins className="h-4 w-4" />
+                          Send {page.recipient_name} money
+                        </p>
+                        <p className="mt-1 text-xs text-emerald-800/90">
+                          Money goes through Paystack and is pooled for the final gift release.
+                        </p>
+                        {page.pool_description && (
+                          <p className="mt-2 text-xs text-emerald-900">{page.pool_description}</p>
+                        )}
+                        {typeof page.pool_goal_kobo === 'number' && page.pool_goal_kobo > 0 && (
+                          <p className="mt-1 text-xs text-emerald-900/90">Goal: {formatKobo(page.pool_goal_kobo)}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {typeof recentContributionKobo === 'number' && recentContributionKobo > 0 && (
+                      <div className="mt-3 rounded-xl border border-emerald-300 bg-white/80 p-3">
+                        <p className="text-sm font-semibold text-emerald-900">
+                          You contributed {formatKobo(recentContributionKobo)}.
+                        </p>
+                        <p className="mt-1 text-xs text-emerald-900/80">
+                          Want to add more to the gift pool?
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="mt-2 border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100"
+                          onClick={() => {
+                            setPoolAmountNaira(formatNairaInputWithCommas(String(recentContributionKobo / 100)));
+                            poolAmountInputRef.current?.focus();
+                          }}
+                          disabled={!page.can_contribute || submitting}
+                        >
+                          Contribute again
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      <Input
+                        ref={poolAmountInputRef}
+                        type="text"
+                        inputMode="decimal"
+                        value={poolAmountNaira}
+                        onChange={(event) => setPoolAmountNaira(formatNairaInputWithCommas(event.target.value))}
+                        placeholder="Amount (NGN)"
+                        className="bg-white"
+                        disabled={!page.can_contribute || submitting}
+                      />
+                      <Input
+                        type="email"
+                        value={poolContributorEmail}
+                        onChange={(event) => setPoolContributorEmail(event.target.value)}
+                        placeholder="Email for receipt (optional)"
+                        className="bg-white sm:col-span-2"
+                        disabled={!page.can_contribute || submitting}
+                      />
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <p className="self-center text-[11px] text-emerald-900/80">
+                        If you enter an amount, we will redirect you to checkout right after you add your wish.
+                      </p>
+                      {poolTotalChargeKobo > 0 && (
+                        <p className="self-center rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-emerald-900">
+                          You will be charged {formatKobo(poolTotalChargeKobo)}.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading || uploadingAudio || isRecording || !page.can_contribute}>
                   {submitting || uploading || uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                   {uploading
@@ -794,7 +1106,9 @@ const ContributePage = () => {
                       ? 'Uploading audio...'
                       : submitting
                         ? 'Adding your wish...'
-                        : 'Add my wish'}
+                        : page.pool_fundraising_enabled && poolAmountNaira.trim().length > 0
+                          ? 'Add my wish and continue to payment'
+                          : 'Add my wish'}
                 </Button>
               </div>
             </form>
