@@ -21,6 +21,15 @@ function getTextLength(html: string): number {
   return (temp.textContent || '').length;
 }
 
+function getStateTextLength(state: { doc: { content: { size: number }; textBetween: (from: number, to: number, blockSeparator?: string, leafText?: string) => string } }) {
+  return state.doc.textBetween(0, state.doc.content.size, '', '').length;
+}
+
+function getSelectionTextLength(state: { doc: { textBetween: (from: number, to: number, blockSeparator?: string, leafText?: string) => string } }, from: number, to: number) {
+  if (to <= from) return 0;
+  return state.doc.textBetween(from, to, '', '').length;
+}
+
 interface ToolbarButtonProps {
   active: boolean;
   onClick: () => void;
@@ -62,11 +71,47 @@ const RichTextEditor = ({ value, onChange, placeholder, maxLength = 500, disable
     ],
     content: value,
     editable: !disabled,
+    editorProps: {
+      handleTextInput(view, from, to, text) {
+        if (!maxLength) return false;
+
+        const currentLength = getStateTextLength(view.state);
+        const selectedLength = getSelectionTextLength(view.state, from, to);
+        const allowed = maxLength - (currentLength - selectedLength);
+
+        if (allowed <= 0) {
+          return true;
+        }
+
+        if (text.length > allowed) {
+          view.dispatch(view.state.tr.insertText(text.slice(0, allowed), from, to));
+          return true;
+        }
+
+        return false;
+      },
+      handlePaste(view, event) {
+        if (!maxLength) return false;
+
+        const pastedText = event.clipboardData?.getData('text/plain') || '';
+        if (!pastedText) return false;
+
+        const { from, to } = view.state.selection;
+        const currentLength = getStateTextLength(view.state);
+        const selectedLength = getSelectionTextLength(view.state, from, to);
+        const allowed = maxLength - (currentLength - selectedLength);
+
+        if (allowed <= 0) {
+          return true;
+        }
+
+        const nextText = pastedText.slice(0, allowed);
+        view.dispatch(view.state.tr.insertText(nextText, from, to));
+        return true;
+      },
+    },
     onUpdate: ({ editor: ed }) => {
       const html = ed.getHTML();
-      if (maxLength && getTextLength(html) > maxLength) {
-        return;
-      }
       onChange(html);
     },
   });
