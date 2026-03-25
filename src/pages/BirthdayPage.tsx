@@ -2254,6 +2254,44 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       stampBorder: isDark ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.74)',
     };
   }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
+
+  const storyThemePalette = useMemo(() => {
+    const start = letterColorFromHex;
+    const mid = letterColorMidHex || letterColorToHex;
+    const end = letterColorToHex;
+    const angle = Number.isFinite(customGradientAngle) ? customGradientAngle : 140;
+    const { h: hStart, s: sStart, l: lStart } = hexToHsl(start);
+    const { h: hMid, s: sMid, l: lMid } = hexToHsl(mid);
+    const { h: hEnd, s: sEnd, l: lEnd } = hexToHsl(end);
+    const hueMix = mixHue(hStart, hEnd);
+    const satAvg = (sStart + sMid + sEnd) / 3;
+    const lightAvg = (lStart + lMid + lEnd) / 3;
+    const isDark = isDarkExperience || lightAvg < 44;
+
+    return {
+      sectionBackground: [
+        `linear-gradient(${angle}deg, ${start} 0%, ${mid} 52%, ${end} 100%)`,
+        `radial-gradient(circle at 50% 110%, rgba(0,0,0, ${isDark ? 0.46 : 0.28}), transparent 60%)`,
+      ].join(', '),
+      topBadgeBg: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.32)',
+      topBadgeText: 'rgba(255,255,255,0.96)',
+      panelBg: isDark ? 'rgba(10,12,18,0.42)' : 'rgba(255,255,255,0.22)',
+      panelBorder: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.46)',
+      orbA: isDark
+        ? `hsla(${hMid}, ${Math.max(30, Math.min(92, sMid * 0.88))}%, 78%, 0.16)`
+        : `hsla(${hStart}, ${Math.max(34, Math.min(94, sStart * 0.94))}%, 92%, 0.54)`,
+      orbB: isDark
+        ? `hsla(${hEnd}, ${Math.max(30, Math.min(92, sEnd * 0.9))}%, 62%, 0.24)`
+        : `hsla(${hEnd}, ${Math.max(30, Math.min(90, sEnd * 0.9))}%, 76%, 0.46)`,
+      paperBg: isDark ? 'rgba(9,11,18,0.5)' : 'rgba(255,255,255,0.27)',
+      paperBorder: isDark ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.52)',
+      softBg: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.19)',
+      softBorder: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.44)',
+      pillBg: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.32)',
+      pillBorder: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.56)',
+      pillText: isDark ? 'rgba(255,255,255,0.92)' : `hsl(${hueMix} ${Math.max(24, satAvg * 0.45)}% 24%)`,
+    };
+  }, [customGradientAngle, isDarkExperience, letterColorFromHex, letterColorMidHex, letterColorToHex]);
   const interactiveSelector = 'button,a,audio,input,textarea,select,[data-no-nav="true"]';
 
   const revealSlides = useMemo<RevealSlide[]>(() => {
@@ -3074,7 +3112,23 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </div>
       )}
 
-      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', effectiveViewMode !== 'story' && 'hidden')}>
+      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', effectiveViewMode !== 'story' && 'hidden')} style={{ background: storyThemePalette.sectionBackground }}>
+        <div aria-hidden="true" className="slide-stars-layer" style={{ opacity: 0.68, '--star-end-y': '185%', '--layer-time-offset': '-0.45s' } as React.CSSProperties}>
+          <div className="slide-star" style={{ left: '7%', '--star-x': '0%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '13%', '--star-x': '-1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '20%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '27%', '--star-x': '1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '34%', '--star-x': '-3%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '41%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '49%', '--star-x': '4%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '56%', '--star-x': '-1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '63%', '--star-x': '-2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '70%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '77%', '--star-x': '3%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '84%', '--star-x': '-2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '91%', '--star-x': '-4%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '96%', '--star-x': '1%' } as React.CSSProperties} />
+        </div>
         <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-28">
           <div className="story-scroll-reveal flex items-start justify-between gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
             <div>
@@ -3085,7 +3139,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 {page.recipient_name}&apos;s birthday story
               </h1>
             </div>
-            <div className={cn('rounded-full px-3 py-1.5 text-xs font-medium', isDarkExperience ? 'bg-white/10 text-white' : 'bg-white/72 text-foreground')}>
+            <div className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ backgroundColor: storyThemePalette.topBadgeBg, color: storyThemePalette.topBadgeText }}>
               Scroll through
             </div>
           </div>
@@ -3208,25 +3262,30 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
             <article
               className={cn('story-scroll-reveal relative overflow-hidden rounded-[2rem] border p-4 shadow-[0_24px_80px_rgba(18,18,23,0.12)]', experiencePanelClass)}
               data-scroll-reveal="true"
-              style={getStoryDelayStyle(Math.min(120 + index * 70, 420), getStoryMotionDuration(slide))}
+              style={{ ...getStoryDelayStyle(Math.min(120 + index * 70, 420), getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.panelBg, borderColor: storyThemePalette.panelBorder }}
             >
               <div className="pointer-events-none absolute inset-0">
-                <div className={cn('absolute -left-[8%] top-[8%] h-28 w-28 rounded-full blur-3xl', isDarkExperience ? 'bg-white/8' : 'bg-white/55')} />
-                <div className={cn('absolute bottom-[-8%] right-[-6%] h-32 w-32 rounded-full blur-3xl', isDarkExperience ? 'bg-primary/20' : 'bg-amber-200/55')} />
+                <div className="absolute -left-[8%] top-[8%] h-28 w-28 rounded-full blur-3xl" style={{ background: storyThemePalette.orbA }} />
+                <div className="absolute bottom-[-8%] right-[-6%] h-32 w-32 rounded-full blur-3xl" style={{ background: storyThemePalette.orbB }} />
               </div>
-              <div aria-hidden="true" className="slide-stars-layer">
+              <div aria-hidden="true" className="slide-stars-layer" style={{ '--layer-time-offset': '-1.35s' } as React.CSSProperties}>
                 <div className="slide-star" style={{ left: '8%', '--star-x': '0%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '17%', '--star-x': '-1%' } as React.CSSProperties} />
                 <div className="slide-star" style={{ left: '26%', '--star-x': '3%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '35%', '--star-x': '1%' } as React.CSSProperties} />
                 <div className="slide-star" style={{ left: '42%', '--star-x': '-2%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '53%', '--star-x': '2%' } as React.CSSProperties} />
                 <div className="slide-star" style={{ left: '61%', '--star-x': '4%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '70%', '--star-x': '-1%' } as React.CSSProperties} />
                 <div className="slide-star" style={{ left: '79%', '--star-x': '-3%' } as React.CSSProperties} />
+                <div className="slide-star" style={{ left: '89%', '--star-x': '2%' } as React.CSSProperties} />
               </div>
 
               <div className="relative z-10">
                 {slide.kind === 'cover' && (
                   <div className="space-y-4">
                     <div className="space-y-4">
-                      <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(30, getStoryMotionDuration(slide))}>
+                      <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(30, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                         <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>First page out of the envelope</p>
                         <h2 className={cn('mt-3 text-[2.55rem] font-bold leading-[0.94]', theme.titleClass, theme.font)}>
                           Happy Birthday,
@@ -3237,11 +3296,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           Every note, photo, and voice clip inside was chosen to make this feel less like a page and more like a gift being opened.
                         </p>
                         <div className="mt-5 grid grid-cols-2 gap-3">
-                          <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)}>
+                          <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes</p>
                             <p className={cn('mt-2 text-xl font-semibold', theme.text)}>{messages.length}</p>
                           </div>
-                          <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)}>
+                          <div className={cn('rounded-[1.2rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Reveal date</p>
                             <p className={cn('mt-2 text-base font-semibold', theme.text)}>{format(birthdayDate, 'MMMM d, yyyy')}</p>
                           </div>
@@ -3249,7 +3308,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       </article>
 
                       {page.creator_message && (
-                        <article className={cn('story-stage-reveal-soft rounded-[1.4rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(180, 700)}>
+                        <article className={cn('story-stage-reveal-soft rounded-[1.4rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(180, 700), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Packed with a note from the organizer</p>
                           <p className={cn('mt-3 text-sm leading-relaxed opacity-80', theme.text)}>&quot;{page.creator_message}&quot;</p>
                         </article>
@@ -3257,7 +3316,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                     </div>
 
                     {coverPhotoSrc && (
-                      <article className={cn('story-stage-reveal-soft relative overflow-hidden rounded-[1.4rem] border', keepsakeSoftClass)} style={getStoryDelayStyle(130, 760)}>
+                      <article className={cn('story-stage-reveal-soft relative overflow-hidden rounded-[1.4rem] border', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(130, 760), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                         <button
                           type="button"
                           className="relative block h-[46dvh] min-h-[16rem] max-h-[30rem] w-full"
@@ -3277,7 +3336,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                 {slide.kind === 'stats' && (
                   <div className="space-y-4">
-                    <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(30, getStoryMotionDuration(slide))}>
+                    <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(30, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                       <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>The shape of the celebration</p>
                       <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[0.98]', theme.titleClass, theme.font)}>
                         Collected with love.
@@ -3287,15 +3346,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       </p>
                     </article>
                     <div className="grid grid-cols-2 gap-3">
-                      <article className={cn('story-stage-reveal-soft col-span-2 rounded-[1.45rem] border p-4', keepsakePaperClass)} style={getStoryDelayStyle(110)}>
+                      <article className={cn('story-stage-reveal-soft col-span-2 rounded-[1.45rem] border p-4', keepsakePaperClass)} style={{ ...getStoryDelayStyle(110), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                         <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes written</p>
                         <p className={cn('mt-3 text-5xl font-bold leading-none', theme.titleClass, theme.font)}>{messages.length}</p>
                       </article>
-                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(170)}>
+                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(170), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                         <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Photos added</p>
                         <p className={cn('mt-3 text-3xl font-semibold', theme.text)}>{totalPhotos}</p>
                       </article>
-                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(220)}>
+                      <article className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(220), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                         <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Voice notes</p>
                         <p className={cn('mt-3 text-3xl font-semibold', theme.text)}>{totalAudioWishes}</p>
                       </article>
@@ -3305,10 +3364,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                 {slide.kind === 'organizer' && page.creator_message && (
                   <div className="space-y-4 text-center">
-                    <div className={cn('story-stage-reveal mx-auto flex h-16 w-16 items-center justify-center rounded-[1.5rem] border', experienceInsetClass)} style={getStoryDelayStyle(40)}>
+                    <div className={cn('story-stage-reveal mx-auto flex h-16 w-16 items-center justify-center rounded-[1.5rem] border', experienceInsetClass)} style={{ ...getStoryDelayStyle(40), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                       <Heart className={cn('h-8 w-8', theme.text)} />
                     </div>
-                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(130)}>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(130), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                       <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>A note from the organizer</p>
                       <p className={cn('mt-4 text-xl italic leading-[1.45]', theme.text)}>&quot;{page.creator_message}&quot;</p>
                     </article>
@@ -3321,7 +3380,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   return (
                     <div className="space-y-4">
-                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass)} style={getStoryDelayStyle(40, getStoryMotionDuration(slide))}>
+                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass)} style={{ ...getStoryDelayStyle(40, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                         <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
                           Letter {slide.index + 1} of {messages.length}
                         </p>
@@ -3332,12 +3391,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         }
                         <div className="mt-5 flex flex-wrap gap-2">
                           {photoCount > 0 && (
-                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
+                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)} style={{ backgroundColor: storyThemePalette.pillBg, borderColor: storyThemePalette.pillBorder, color: storyThemePalette.pillText }}>
                               {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
                             </span>
                           )}
                           {slide.message.audio_url && (
-                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
+                            <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)} style={{ backgroundColor: storyThemePalette.pillBg, borderColor: storyThemePalette.pillBorder, color: storyThemePalette.pillText }}>
                               Voice note inside
                             </span>
                           )}
@@ -3364,7 +3423,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       </article>
 
                       {slide.message.audio_url && (
-                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(130, 760)}>
+                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(130, 760), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-sm font-semibold', theme.text)}>Voice note</p>
                           {renderWishAudioPlayer(slide.message, 'mt-3 w-full')}
                         </article>
@@ -3408,7 +3467,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       )}
 
                       {photoCount === 0 && (
-                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={getStoryDelayStyle(slide.message.audio_url ? 190 : 130)}>
+                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(slide.message.audio_url ? 190 : 130), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-sm leading-relaxed opacity-82', theme.text)}>
                             This one lands through words{slide.message.audio_url ? ' and voice' : ''} alone.
                           </p>
@@ -3420,7 +3479,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                 {slide.kind === 'closing' && (
                   <div className="space-y-4 text-center">
-                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={getStoryDelayStyle(130, getStoryMotionDuration(slide))}>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(130, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                       <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>Final page</p>
                       <h2 className={cn('mt-3 text-[2.1rem] font-bold leading-[1]', theme.titleClass, theme.font)}>
                         Keep this close,
@@ -3431,21 +3490,21 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                         This is the part worth replaying: every photo, every message, and every voice note gathered into one last birthday page.
                       </p>
                       <div className="mt-5 grid grid-cols-3 gap-2 text-left">
-                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wishes</p>
                           <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{messages.length}</p>
                         </div>
-                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Photos</p>
                           <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{totalPhotos}</p>
                         </div>
-                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)}>
+                        <div className={cn('rounded-[1.1rem] border p-3', keepsakeSoftClass)} style={{ backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Voices</p>
                           <p className={cn('mt-2 text-lg font-semibold', theme.text)}>{totalAudioWishes}</p>
                         </div>
                       </div>
                     </article>
-                    <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4 text-left', keepsakeSoftClass)} style={getStoryDelayStyle(220, 760)}>
+                    <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4 text-left', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(220, 760), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
                       <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>
                         Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}
                       </p>
@@ -4106,7 +4165,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       )}
 
       {/* Desktop: story (slide) view */}
-      <section className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', effectiveViewMode !== 'story' && '!hidden')}>
+      <section
+        className={cn('relative hidden h-[100dvh] overflow-hidden px-3 py-3 sm:px-5 sm:py-5 sm:block', effectiveViewMode !== 'story' && '!hidden')}
+        style={{ background: storyThemePalette.sectionBackground }}
+      >
+        <div aria-hidden="true" className="slide-stars-layer" style={{ opacity: 0.68, '--star-end-y': '185%', '--layer-time-offset': '-0.9s' } as React.CSSProperties}>
+          <div className="slide-star" style={{ left: '5%', '--star-x': '0%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '11%', '--star-x': '-1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '16%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '22%', '--star-x': '1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '28%', '--star-x': '-3%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '35%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '41%', '--star-x': '4%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '48%', '--star-x': '-1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '54%', '--star-x': '-2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '61%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '67%', '--star-x': '3%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '74%', '--star-x': '-2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '80%', '--star-x': '-4%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '87%', '--star-x': '1%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '93%', '--star-x': '2%' } as React.CSSProperties} />
+          <div className="slide-star" style={{ left: '97%', '--star-x': '-1%' } as React.CSSProperties} />
+        </div>
         <div className="mx-auto flex h-full max-w-6xl flex-col">
           <div className="flex items-start gap-4">
             <div className="flex flex-1 gap-2">
@@ -4243,7 +4323,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                 {page.recipient_name}&apos;s birthday story
               </h1>
             </div>
-            <div className={cn('self-start rounded-full px-3 py-1.5 text-xs font-medium sm:self-auto sm:px-4 sm:py-2 sm:text-sm', isDarkExperience ? 'bg-white/10 text-white' : 'bg-white/72 text-foreground')}>
+            <div className="self-start rounded-full px-3 py-1.5 text-xs font-medium sm:self-auto sm:px-4 sm:py-2 sm:text-sm" style={{ backgroundColor: storyThemePalette.topBadgeBg, color: storyThemePalette.topBadgeText }}>
               Slide {currentSlide + 1} of {revealSlides.length}
             </div>
           </div>
@@ -4256,18 +4336,26 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           >
             {activeSlide && (
               <div key={activeSlide.id} className={cn('h-full', slideDirection === 'back' ? 'animate-wrapped-slide-reverse' : 'animate-wrapped-slide')}>
-                <div className={cn('relative h-full overflow-hidden rounded-[2rem] border p-3 shadow-[0_30px_90px_rgba(18,18,23,0.14)] sm:rounded-[2.4rem] sm:p-6 lg:p-8', experiencePanelClass)}>
+                <div
+                  className={cn('relative h-full overflow-hidden rounded-[2rem] border p-3 shadow-[0_30px_90px_rgba(18,18,23,0.14)] sm:rounded-[2.4rem] sm:p-6 lg:p-8', experiencePanelClass)}
+                  style={{ backgroundColor: storyThemePalette.panelBg, borderColor: storyThemePalette.panelBorder }}
+                >
                   <div className="pointer-events-none absolute inset-0">
-                    <div className={cn('absolute -left-[10%] top-[10%] h-40 w-40 rounded-full blur-3xl sm:h-56 sm:w-56', isDarkExperience ? 'bg-white/8' : 'bg-white/55')} />
-                    <div className={cn('absolute bottom-[-8%] right-[-4%] h-48 w-48 rounded-full blur-3xl sm:h-72 sm:w-72', isDarkExperience ? 'bg-primary/20' : 'bg-amber-200/55')} />
+                    <div className="absolute -left-[10%] top-[10%] h-40 w-40 rounded-full blur-3xl sm:h-56 sm:w-56" style={{ background: storyThemePalette.orbA }} />
+                    <div className="absolute bottom-[-8%] right-[-4%] h-48 w-48 rounded-full blur-3xl sm:h-72 sm:w-72" style={{ background: storyThemePalette.orbB }} />
                     <div className={cn('absolute inset-0 opacity-70', isDarkExperience ? 'bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_36%),linear-gradient(145deg,rgba(255,255,255,0.04),transparent_45%)]' : 'bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.9),transparent_34%),linear-gradient(145deg,rgba(255,246,236,0.76),transparent_45%)]')} />
                   </div>
-                  <div aria-hidden="true" className="slide-stars-layer">
+                  <div aria-hidden="true" className="slide-stars-layer" style={{ '--layer-time-offset': '-1.75s' } as React.CSSProperties}>
                     <div className="slide-star" style={{ left: '6%', '--star-x': '0%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '15%', '--star-x': '-1%' } as React.CSSProperties} />
                     <div className="slide-star" style={{ left: '24%', '--star-x': '3%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '34%', '--star-x': '1%' } as React.CSSProperties} />
                     <div className="slide-star" style={{ left: '46%', '--star-x': '-2%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '57%', '--star-x': '2%' } as React.CSSProperties} />
                     <div className="slide-star" style={{ left: '68%', '--star-x': '4%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '77%', '--star-x': '-1%' } as React.CSSProperties} />
                     <div className="slide-star" style={{ left: '86%', '--star-x': '-3%' } as React.CSSProperties} />
+                    <div className="slide-star" style={{ left: '94%', '--star-x': '2%' } as React.CSSProperties} />
                   </div>
 
                   <div className="relative z-10 h-full">
