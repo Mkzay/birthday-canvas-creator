@@ -742,7 +742,7 @@ const CreatePage = () => {
                     <button
                       type="button"
                       onClick={removeCoverPhoto}
-                      className="absolute top-2 right-2 p-1.5 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background transition-colors"
+                      className="absolute top-2 right-2 z-20 p-1.5 bg-background/80 backdrop-blur-sm rounded-full hover:bg-background transition-colors"
                       aria-label="Remove selected cover photo"
                     >
                       <X className="w-4 h-4 text-foreground" />

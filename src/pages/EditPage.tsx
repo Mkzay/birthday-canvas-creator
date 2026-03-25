@@ -809,7 +809,7 @@ const EditPage = () => {
                     <button
                       type="button"
                       onClick={removeCoverPhoto}
-                      className="absolute right-2 top-2 rounded-full bg-background/80 p-1.5 backdrop-blur-sm transition-colors hover:bg-background"
+                      className="absolute right-2 top-2 z-20 rounded-full bg-background/80 p-1.5 backdrop-blur-sm transition-colors hover:bg-background"
                       aria-label="Remove selected cover photo"
                     >
                       <X className="h-4 w-4 text-foreground" />
