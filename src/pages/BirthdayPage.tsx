@@ -749,6 +749,41 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const mobileRevealRef = useRef<HTMLDivElement | null>(null);
   const [isDesktopReveal, setIsDesktopReveal] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 640));
   const isCoarsePointerDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+  const mobileFreeformMotion = useMemo(() => {
+    if (!isCoarsePointerDevice) {
+      return {
+        introStaggerMs: 80,
+        introPopLagMs: 60,
+        scrollStaggerMs: 90,
+        cardDurationMs: 760,
+      };
+    }
+
+    const nav = typeof navigator !== 'undefined'
+      ? (navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } })
+      : null;
+    const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const saveDataOn = Boolean(nav?.connection?.saveData);
+    const hasLowMemory = typeof nav?.deviceMemory === 'number' && nav.deviceMemory <= 4;
+    const hasFewThreads = typeof nav?.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4;
+    const isLowPowerMobile = prefersReducedMotion || saveDataOn || hasLowMemory || hasFewThreads;
+
+    if (isLowPowerMobile) {
+      return {
+        introStaggerMs: 175,
+        introPopLagMs: 128,
+        scrollStaggerMs: 180,
+        cardDurationMs: 1180,
+      };
+    }
+
+    return {
+      introStaggerMs: 210,
+      introPopLagMs: 150,
+      scrollStaggerMs: 220,
+      cardDurationMs: 1320,
+    };
+  }, [isCoarsePointerDevice]);
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
   const [isPageOwner, setIsPageOwner] = useState(false);
@@ -1775,7 +1810,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     setPoppedFreeformDecorators(new Set());
 
     freeformCardAnimationOrder.forEach((cardId, index) => {
-      const startDelay = (isCoarsePointerDevice ? 160 : 80) * index;
+      const startDelay = mobileFreeformMotion.introStaggerMs * index;
       const landTimeoutId = window.setTimeout(() => {
         setLandedFreeformCards((current) => {
           const next = new Set(current);
@@ -1790,7 +1825,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           next.add(cardId);
           return next;
         });
-      }, startDelay + (isCoarsePointerDevice ? 120 : 60));
+      }, startDelay + mobileFreeformMotion.introPopLagMs);
 
       freeformAnimationTimeoutsRef.current.push(landTimeoutId, popTimeoutId);
     });
@@ -1798,7 +1833,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     return () => {
       clearFreeformAnimationTimeouts();
     };
-  }, [clearFreeformAnimationTimeouts, freeformAnimationRun, freeformCardAnimationOrder, isCoarsePointerDevice]);
+  }, [clearFreeformAnimationTimeouts, freeformAnimationRun, freeformCardAnimationOrder, mobileFreeformMotion]);
 
   // Mobile: staggered scroll-triggered fall-in for cards. Uses IntersectionObserver
   // to add/remove the `in-view` class so the animation can replay when scrolling
@@ -3881,7 +3916,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             '--final-r': `${rotation}deg`,
                             '--start-x': `${index % 2 === 0 ? '-30%' : '30%'}`,
                             '--start-rot': `${rotation * -1}deg`,
-                            '--scroll-delay': `${index * 165}ms`,
+                            '--scroll-delay': `${index * mobileFreeformMotion.scrollStaggerMs}ms`,
+                            '--mobile-duration': `${mobileFreeformMotion.cardDurationMs}ms`,
                             backgroundColor: tone.bg,
                             borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                             color: tone.text,
