@@ -1775,7 +1775,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     setPoppedFreeformDecorators(new Set());
 
     freeformCardAnimationOrder.forEach((cardId, index) => {
-      const startDelay = (isCoarsePointerDevice ? 130 : 80) * index;
+      const startDelay = (isCoarsePointerDevice ? 160 : 80) * index;
       const landTimeoutId = window.setTimeout(() => {
         setLandedFreeformCards((current) => {
           const next = new Set(current);
@@ -1790,7 +1790,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           next.add(cardId);
           return next;
         });
-      }, startDelay + (isCoarsePointerDevice ? 95 : 60));
+      }, startDelay + (isCoarsePointerDevice ? 120 : 60));
 
       freeformAnimationTimeoutsRef.current.push(landTimeoutId, popTimeoutId);
     });
@@ -3881,7 +3881,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                             '--final-r': `${rotation}deg`,
                             '--start-x': `${index % 2 === 0 ? '-30%' : '30%'}`,
                             '--start-rot': `${rotation * -1}deg`,
-                            '--scroll-delay': `${index * 130}ms`,
+                            '--scroll-delay': `${index * 165}ms`,
                             backgroundColor: tone.bg,
                             borderColor: isExpanded ? freeformThemePalette.accentBorder : tone.border,
                             color: tone.text,
