@@ -48,6 +48,26 @@ const PreviewPage = () => {
     }
   }, [authLoading, checkOwnership, navigate, pageId, user]);
 
+  useEffect(() => {
+    if (!isOwner) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyOverscrollBehaviorY = body.style.overscrollBehaviorY;
+
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehaviorY = 'none';
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehaviorY = previousBodyOverscrollBehaviorY;
+    };
+  }, [isOwner]);
+
   const copyLink = async () => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}/birthday/${publicCode || pageId}`;
