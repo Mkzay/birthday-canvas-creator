@@ -32,6 +32,7 @@ interface CustomTheme {
   gradient_from: string;
   gradient_to: string;
   gradient_mid?: string | null;
+  gradient_angle?: number | null;
 }
 
 interface PaystackBankOption {
@@ -45,23 +46,37 @@ function getEffectiveColors(
   customThemes: CustomTheme[],
 ) {
   if (letterColor) {
-    const [start, end] = letterColor.split(',').map((c) => c.trim());
-    return { start, end };
+    const [first, second, third] = letterColor.split(',').map((c) => c.trim()).filter(Boolean);
+    if (third) {
+      return { start: first, mid: second, end: third, angle: null as number | null };
+    }
+    return { start: first, mid: null as string | null, end: second || first, angle: null as number | null };
   }
 
   // Check custom themes
   const custom = customThemes.find((t) => t.id === selectedTheme);
   if (custom) {
-    return { start: custom.gradient_from, end: custom.gradient_to };
+    return {
+      start: custom.gradient_from,
+      mid: custom.gradient_mid || null,
+      end: custom.gradient_to,
+      angle: custom.gradient_angle ?? null,
+    };
   }
 
   // Check built-in themes
   const config = visualThemeConfig[selectedTheme as keyof typeof visualThemeConfig];
   if (config && config.colors && config.colors.length >= 2) {
-    return { start: config.colors[0], end: config.colors[1] };
+    const end = config.colors[config.colors.length - 1];
+    return {
+      start: config.colors[0],
+      mid: config.colors.length > 2 ? config.colors[1] : null,
+      end,
+      angle: null as number | null,
+    };
   }
 
-  return { start: '#f5f0e8', end: '#eadfce' };
+  return { start: '#f5f0e8', mid: null as string | null, end: '#eadfce', angle: null as number | null };
 }
 
 const displayModes: Array<{ id: DisplayMode; label: string; description: string }> = [
@@ -902,7 +917,7 @@ const CreatePage = () => {
               <p className="mt-2 text-xs text-muted-foreground">You can paste hex values like #f5f0e8, f5f0e8, or #abc.</p>
               
               {(() => {
-                const { start, end } = getEffectiveColors(selectedTheme, letterColor, customThemes);
+                const { start, mid, end, angle } = getEffectiveColors(selectedTheme, letterColor, customThemes);
                 return (
                   <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
                     <div className="order-2 sm:order-1">
@@ -910,6 +925,8 @@ const CreatePage = () => {
                         mode={selectedDisplayMode} 
                         startColor={start} 
                         endColor={end} 
+                        midColor={mid}
+                        gradientAngle={angle}
                         recipientName={recipientName} 
                       />
                     </div>
