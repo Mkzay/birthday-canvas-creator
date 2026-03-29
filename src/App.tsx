@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { useEffect } from "react";
 import WishCanvasLoader from "@/components/WishCanvasLoader";
@@ -85,7 +85,7 @@ const moduleKeyFromPathname = (pathname: string): RouteModuleKey | null => {
   if (pathname === "/dashboard") return "Dashboard";
   if (pathname === "/create") return "CreatePage";
   if (pathname === "/themes") return "ThemeBuilderPage";
-  if (pathname === "/upgrade") return "UpgradePage";
+  if (pathname === "/upgrade" || pathname === "/billing") return "UpgradePage";
   if (pathname === "/settings") return "SettingsPage";
   if (pathname.startsWith("/edit/")) return "EditPage";
   if (pathname.startsWith("/contribute/")) return "ContributePage";
@@ -325,7 +325,9 @@ const App = () => (
               <Route path="/birthday/:pageId" element={<BirthdayPage />} />
               <Route path="/preview/:pageId" element={<PreviewPage />} />
               <Route path="/themes" element={<ThemeBuilderPage />} />
-              <Route path="/upgrade" element={<UpgradePage />} />
+              <Route path="/billing" element={<UpgradePage />} />
+              <Route path="/upgrade" element={<Navigate to="/billing" replace />} />
+              <Route path="/upgrade/*" element={<Navigate to="/billing" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

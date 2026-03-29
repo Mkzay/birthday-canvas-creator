@@ -24,7 +24,7 @@ async function run() {
     check('paystack initialize requires auth', '/api/billing/paystack/initialize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ callbackPath: '/upgrade' }),
+      body: JSON.stringify({ callbackPath: '/billing' }),
     }, 401),
     check('analytics requires auth', '/api/pages/test/analytics', { method: 'GET' }, 401),
     check('export requires auth', '/api/pages/test/export', { method: 'GET' }, 401),

@@ -350,7 +350,7 @@ const Dashboard = () => {
   const handleAnalytics = async (pageCode: string) => {
     if (!isProUser) {
       toast.info('Creator analytics is available on Pro.');
-      navigate('/upgrade');
+      navigate('/billing');
       return;
     }
 
@@ -370,7 +370,7 @@ const Dashboard = () => {
   const handleExport = async (pageCode: string, recipientName: string) => {
     if (!isProUser) {
       toast.info('Page export is available on Pro.');
-      navigate('/upgrade');
+      navigate('/billing');
       return;
     }
 
@@ -593,7 +593,7 @@ const Dashboard = () => {
                 <p className="text-sm font-semibold text-foreground">Unlock creator analytics and keepsake PDF export</p>
                 <p className="text-xs text-muted-foreground">Track page views, contributor growth, and download branded birthday keepsakes.</p>
               </div>
-              <Link to="/upgrade" className="shrink-0">
+              <Link to="/billing" className="shrink-0">
                 <Button variant="hero" size="sm" className="gap-2">
                   <Crown className="h-4 w-4" />
                   Upgrade

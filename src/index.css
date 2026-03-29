@@ -917,7 +917,7 @@
   }
 
   .mobile-card.in-view {
-    animation: mobileFallIn var(--mobile-duration, 600ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: mobileFallIn var(--mobile-duration, 1120ms) cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: var(--scroll-delay, 0ms);
   }
 }
@@ -930,6 +930,106 @@
   transform: translate3d(calc(var(--parallax-x) * 0.18), calc(var(--parallax-y) * 0.18), 0) scale(1.06);
   transition: transform 220ms ease-out;
   will-change: transform;
+}
+
+/* Desktop story sizing overrides for 1024-1280 only.
+   This adjusts card/image/text scale without changing slide or container behavior. */
+@media (min-width: 1024px) and (max-width: 1280px) {
+  .story-desktop-responsive .story-slide-cover-grid,
+  .story-desktop-responsive .story-slide-wish-grid {
+    gap: 0.5rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-card,
+  .story-desktop-responsive .story-slide-wish-card {
+    width: 100%;
+    min-height: 0;
+    padding: 0.68rem !important;
+    border-radius: 1.1rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-photo,
+  .story-desktop-responsive .story-slide-wish-photos {
+    width: 100%;
+    min-height: 13.2rem;
+    padding: 0.48rem !important;
+    border-radius: 1.1rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-photo button {
+    min-height: 12.2rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-title {
+    font-size: clamp(1.3rem, 1.55vw, 1.65rem) !important;
+    line-height: 0.92 !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-copy {
+    margin-top: 0.4rem !important;
+    font-size: clamp(0.74rem, 0.84vw, 0.82rem) !important;
+    line-height: 1.28 !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-grid > div {
+    gap: 0.44rem !important;
+    justify-content: flex-start !important;
+    min-height: 0 !important;
+  }
+
+  .story-desktop-responsive .story-desktop-card .story-slide-cover-card {
+    max-height: 52dvh !important;
+    overflow: hidden !important;
+  }
+
+  .story-desktop-responsive .story-desktop-card .story-slide-cover-photo {
+    max-height: 52dvh !important;
+    overflow: hidden !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-card .mt-6 {
+    margin-top: 0.36rem !important;
+    gap: 0.38rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-card .mt-4,
+  .story-desktop-responsive .story-slide-cover-card .mt-5 {
+    margin-top: 0.36rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-card .text-xl,
+  .story-desktop-responsive .story-slide-cover-card .text-2xl,
+  .story-desktop-responsive .story-slide-cover-card .text-lg,
+  .story-desktop-responsive .story-slide-cover-card .text-base {
+    font-size: 0.82rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-grid > div > .story-stage-reveal-soft {
+    margin-left: 0 !important;
+    padding: 0.5rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-grid > div > .story-stage-reveal-soft .mt-3 {
+    margin-top: 0.32rem !important;
+  }
+
+  .story-desktop-responsive .story-slide-wish-title {
+    font-size: clamp(1.16rem, 1.42vw, 1.5rem) !important;
+    line-height: 0.98 !important;
+  }
+
+  .story-desktop-responsive .story-slide-wish-message {
+    font-size: clamp(0.74rem, 0.82vw, 0.84rem) !important;
+    line-height: 1.18 !important;
+  }
+
+  .story-desktop-responsive .story-slide-cover-photo img,
+  .story-desktop-responsive .story-slide-wish-photos img,
+  .story-desktop-responsive .story-photo-layer {
+    width: 100%;
+    height: 100%;
+  }
 }
 
 .story-photo-float {

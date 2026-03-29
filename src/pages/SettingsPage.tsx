@@ -33,6 +33,7 @@ import {
   Save,
   Trash2,
   KeyRound,
+  Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
@@ -553,6 +554,31 @@ const SettingsPage = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          </div>
+        </section>
+
+        <section className="panel-card p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Mail className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Support</h2>
+              <p className="text-sm text-muted-foreground">Get help with billing, account, or birthday page issues</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Need a hand? Reach us at{' '}
+              <a
+                href="mailto:hello@wishcanvas.app"
+                className="font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
+              >
+                hello@wishcanvas.app
+              </a>
+              .
+            </p>
           </div>
         </section>
       </main>
