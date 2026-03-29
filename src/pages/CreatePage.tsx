@@ -1128,7 +1128,7 @@ const CreatePage = () => {
                   <p className="text-sm text-muted-foreground">
                     Custom links, scheduled reveal, and secret PIN unlock are available on Pro.
                   </p>
-                  <Button type="button" variant="outline" className="mt-3" onClick={() => navigate('/upgrade')}>
+                  <Button type="button" variant="outline" className="mt-3" onClick={() => navigate('/billing')}>
                     Upgrade to Pro
                   </Button>
                 </div>

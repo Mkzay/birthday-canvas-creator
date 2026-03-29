@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import BrandLogo from '@/components/BrandLogo';
 import { resolveAssetUrl } from '@/lib/api';
-import { User, Settings, LogOut, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import { User, Settings, LogOut, LayoutDashboard, ArrowLeft, CreditCard } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -125,6 +125,10 @@ const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="rounded-xl cursor-pointer py-2.5">
                   <Settings className="mr-3 h-4 w-4 text-primary/70" />
                   <span className="font-medium">Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/billing')} className="rounded-xl cursor-pointer py-2.5">
+                  <CreditCard className="mr-3 h-4 w-4 text-primary/70" />
+                  <span className="font-medium">Billing</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-border/40" />
                 <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/5 rounded-xl cursor-pointer py-2.5" onClick={handleSignOut}>

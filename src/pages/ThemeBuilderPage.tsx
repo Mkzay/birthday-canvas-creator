@@ -298,7 +298,7 @@ const ThemeBuilderPage = () => {
               {!isProPlan && (
                 <>
                   <span className="text-muted-foreground">Upgrade for midpoint gradients, premium fonts, icons, and unlimited themes.</span>
-                  <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => navigate('/upgrade')}>
+                  <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => navigate('/billing')}>
                     Upgrade to Pro
                   </Button>
                 </>
@@ -649,7 +649,7 @@ const ThemeBuilderPage = () => {
               <Palette className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">No custom themes yet</p>
               {isFreeThemeLimitReached ? (
-                <Button variant="outline" onClick={() => navigate('/upgrade')} className="gap-2">
+                <Button variant="outline" onClick={() => navigate('/billing')} className="gap-2">
                   <Crown className="w-4 h-4" />
                   Upgrade to Create More
                 </Button>

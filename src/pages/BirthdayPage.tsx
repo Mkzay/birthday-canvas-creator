@@ -755,8 +755,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       return {
         introStaggerMs: 80,
         introPopLagMs: 60,
-        scrollStaggerMs: 90,
-        cardDurationMs: 760,
+        scrollStaggerMs: 140,
+        cardDurationMs: 980,
       };
     }
 
@@ -773,16 +773,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       return {
         introStaggerMs: 175,
         introPopLagMs: 128,
-        scrollStaggerMs: 180,
-        cardDurationMs: 1180,
+        scrollStaggerMs: 220,
+        cardDurationMs: 1320,
       };
     }
 
     return {
       introStaggerMs: 210,
       introPopLagMs: 150,
-      scrollStaggerMs: 220,
-      cardDurationMs: 1320,
+      scrollStaggerMs: 270,
+      cardDurationMs: 1480,
     };
   }, [isCoarsePointerDevice]);
   const { user } = useAuth();
@@ -1678,9 +1678,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           if (entry.isIntersecting) {
             entry.target.classList.remove('is-exiting');
             entry.target.classList.add('is-visible');
-          } else if (entry.target.classList.contains('is-visible')) {
-            entry.target.classList.remove('is-visible');
-            entry.target.classList.add('is-exiting');
           }
         });
       },
@@ -1836,9 +1833,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     };
   }, [clearFreeformAnimationTimeouts, freeformAnimationRun, freeformCardAnimationOrder, mobileFreeformMotion]);
 
-  // Mobile: staggered scroll-triggered fall-in for cards. Uses IntersectionObserver
-  // to add/remove the `in-view` class so the animation can replay when scrolling
-  // back up. Only activates on narrow (mobile) viewports to avoid desktop side-effects.
+  // Mobile: staggered scroll-triggered fall-in for cards. Once a card enters view,
+  // keep it revealed so scrolling back up doesn't play a reverse animation.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mql = window.matchMedia('(max-width: 767px)');
@@ -1855,8 +1851,6 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         const el = entry.target as HTMLElement;
         if (entry.isIntersecting) {
           el.classList.add('in-view');
-        } else {
-          el.classList.remove('in-view');
         }
       });
     }, { threshold: 0.22 });
@@ -3024,7 +3018,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     <div
       className={cn(
         'relative transition-colors duration-500',
-        isDesktopReveal
+        !isDesktopReveal && effectiveViewMode === 'freeform'
+          ? 'min-h-[100dvh] overflow-x-hidden overflow-y-auto'
+          : isDesktopReveal
           ? 'h-[100dvh] min-h-[100dvh] overflow-hidden'
           : isPreview
             ? 'h-[calc(100dvh-3.5rem)] min-h-[calc(100dvh-3.5rem)] overflow-hidden'
@@ -3778,14 +3774,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         <section
           ref={freeformBoardSectionRef}
           className={cn(
-            'relative min-h-[100dvh] overflow-x-hidden overflow-y-auto px-3 py-1 sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0',
+            'relative h-[100dvh] min-h-[100dvh] overflow-x-hidden overflow-y-auto px-3 py-1 touch-pan-y overscroll-y-contain sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0',
             'freeform-reveal board',
             isFreeformBoardEntered && 'enter',
           )}
-          style={{ background: freeformThemePalette.boardBackground }}
+          style={{
+            background: freeformThemePalette.boardBackground,
+            WebkitOverflowScrolling: 'touch',
+          }}
         >
           <canvas ref={freeformStarsCanvasRef} className="pointer-events-none absolute inset-0 z-[2]" aria-hidden="true" />
-          <div className="relative z-10 mx-auto w-full max-w-[66rem] pb-20 pt-2 sm:pt-16 xl:max-w-[88rem]">
+          <div className="relative z-10 mx-auto w-full max-w-[66rem] pb-20 pt-2 sm:pt-8 xl:max-w-[88rem]">
             <div className="mb-5 w-full sm:mb-7">
               <div className="flex items-start justify-between gap-4">
                 <div>
