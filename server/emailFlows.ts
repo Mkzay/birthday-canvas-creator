@@ -12,6 +12,10 @@ function getAppName() {
   return process.env.APP_NAME?.trim() || "WishCanvas";
 }
 
+function getSupportEmail() {
+  return process.env.SUPPORT_EMAIL?.trim() || "hello@wishcanvas.app";
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -132,6 +136,9 @@ function body(contentHtml: string, cta?: Cta, note?: string) {
       <hr class="divider" style="border:none;border-top:1px solid ${BORDER};margin:24px 0 20px;"/>
       <p class="muted" style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};line-height:1.6;">
         If you didn't expect this email, you can safely ignore it.
+      </p>
+      <p class="muted" style="margin:12px 0 0;font-family:Georgia,serif;font-size:12px;color:${MUTED};line-height:1.6;">
+        Need help? Email <a href="mailto:${escapeHtml(getSupportEmail())}" style="color:${CORAL};text-decoration:none;">${escapeHtml(getSupportEmail())}</a>.
       </p>
       ${noteHtml}
     </td></tr>

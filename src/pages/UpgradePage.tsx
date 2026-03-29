@@ -393,6 +393,19 @@ const UpgradePage = () => {
                   <p className="font-medium text-foreground">Need to continue later?</p>
                   <p className="mt-1.5 leading-6">You can leave this page and come back anytime. Nothing changes until checkout completes successfully.</p>
                 </div>
+                <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
+                  <p className="font-medium text-foreground">Need help?</p>
+                  <p className="mt-1.5 leading-6">
+                    For billing or account support, email{' '}
+                    <a
+                      href="mailto:hello@wishcanvas.app"
+                      className="font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
+                    >
+                      hello@wishcanvas.app
+                    </a>
+                    .
+                  </p>
+                </div>
               </div>
             </section>
           </aside>
