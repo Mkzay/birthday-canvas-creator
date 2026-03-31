@@ -3018,10 +3018,10 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     <div
       className={cn(
         'relative transition-colors duration-500',
-        !isDesktopReveal && (!showRevealIntro || effectiveViewMode === 'freeform')
-          ? 'min-h-[100dvh] overflow-x-hidden overflow-y-auto'
-          : isDesktopReveal
-          ? 'h-[100dvh] min-h-[100dvh] overflow-hidden'
+        !isDesktopReveal
+          ? showRevealIntro && effectiveViewMode !== 'freeform'
+            ? isPreview ? 'h-[calc(100dvh-3.5rem)] min-h-[calc(100dvh-3.5rem)] overflow-hidden' : 'h-[100dvh] min-h-[100dvh] overflow-hidden'
+            : isPreview ? 'h-[calc(100dvh-3.5rem)] min-h-[calc(100dvh-3.5rem)] overflow-x-hidden overflow-y-auto' : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto'
           : isPreview
             ? 'h-[calc(100dvh-3.5rem)] min-h-[calc(100dvh-3.5rem)] overflow-hidden'
             : 'h-[100dvh] min-h-[100dvh] overflow-hidden',
@@ -3595,7 +3595,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
                   return (
                     <div className="space-y-4">
-                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass)} style={{ ...getStoryDelayStyle(40, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
+                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass, photoCount === 0 && !slide.message.audio_url && 'text-center flex flex-col items-center')} style={{ ...getStoryDelayStyle(40, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                         <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
                           Letter {slide.index + 1} of {messages.length}
                         </p>
@@ -3604,7 +3604,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                           ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(slide.message.message) }} />
                           : <p className={cn('mt-4 text-lg leading-relaxed', theme.text)}>&quot;{slide.message.message}&quot;</p>
                         }
-                        <div className="mt-5 flex flex-wrap gap-2">
+                        <div className={cn("mt-5 flex flex-wrap gap-2", photoCount === 0 && !slide.message.audio_url && "justify-center")}>
                           {photoCount > 0 && (
                             <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)} style={{ backgroundColor: storyThemePalette.pillBg, borderColor: storyThemePalette.pillBorder, color: storyThemePalette.pillText }}>
                               {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
@@ -3970,9 +3970,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                 return next;
                               })
                             }
-                            className="block w-full text-left"
+                            className={cn("block w-full", photoCount === 0 && voiceCount === 0 ? "text-center" : "text-left")}
                           >
-                            <div className="flex items-start justify-between gap-3">
+                            <div className={cn("flex items-start gap-3", photoCount === 0 && voiceCount === 0 ? "justify-center" : "justify-between")}>
                               <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-65">{message.sender_name || 'Someone'}</p>
                               {isExpanded && (
                                 <span className="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>
@@ -4312,9 +4312,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                       return next;
                                     })
                                   }
-                                  className="block w-full text-left"
+                                  className={cn("block w-full", photoCount === 0 && voiceCount === 0 ? "text-center" : "text-left")}
                                 >
-                                  <div className="flex items-start justify-between gap-3">
+                                  <div className={cn("flex items-start gap-3", photoCount === 0 && voiceCount === 0 ? "justify-center" : "justify-between")}>
                                     <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-65">{message.sender_name || 'Someone'}</p>
                                     {isExpanded && (
                                       <span className="rounded-full bg-[#f3e5d2] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9b6a35]">
@@ -4948,7 +4948,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       return (
                         <div className="story-slide-wish-grid grid h-full gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                           <div className="flex flex-col gap-4 lg:justify-center">
-                            <article className={cn('story-slide-wish-card story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass)} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
+                            <article className={cn('story-slide-wish-card story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass, photoCount === 0 && !activeSlide.message.audio_url && 'flex flex-col items-center justify-center text-center')} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
                               {isPreview && (
                                 <Button
                                   variant="ghost"
@@ -4967,8 +4967,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                                   <span className="hidden sm:inline">Remove wish</span>
                                 </Button>
                               )}
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
+                              <div className={cn("flex items-start justify-between gap-4", photoCount === 0 && !activeSlide.message.audio_url && "w-full justify-center")}>
+                                <div className={cn(photoCount === 0 && !activeSlide.message.audio_url && "flex flex-col items-center")}>
                                   <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
                                     Letter {activeSlide.index + 1} of {messages.length}
                                   </p>
