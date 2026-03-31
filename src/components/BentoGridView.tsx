@@ -307,6 +307,7 @@ const BentoGridView: React.FC<BentoGridViewProps> = ({
             const stickerEmojis = (message.stickers ?? []).map(
               (s) => STICKER_EMOJI_MAP[s.sticker_type] ?? s.sticker_type,
             );
+            const isTextOnly = photos.length === 0 && !message.audio_url;
 
             return (
               <button
@@ -319,6 +320,7 @@ const BentoGridView: React.FC<BentoGridViewProps> = ({
                   variant === 'wide' && 'col-span-2 row-span-1',
                   variant === 'tall' && 'col-span-1 row-span-2',
                   variant === 'normal' && 'col-span-1 row-span-1',
+                  isTextOnly && 'text-center'
                 )}
               >
                 {/* Photo background if available and card is tall or wide */}
@@ -334,7 +336,7 @@ const BentoGridView: React.FC<BentoGridViewProps> = ({
                 )}
 
                 {/* Card content */}
-                <div className={cn('relative z-10 flex h-full flex-col p-4', firstPhoto && variant !== 'normal' ? 'justify-end text-white' : '')}>
+                <div className={cn('relative z-10 flex h-full flex-col p-4', firstPhoto && variant !== 'normal' ? 'justify-end text-white' : '', isTextOnly && 'items-center justify-center')}>
                   <p
                     className={cn(
                       'text-[10px] font-semibold uppercase tracking-[0.18em]',
@@ -364,7 +366,7 @@ const BentoGridView: React.FC<BentoGridViewProps> = ({
                   )}
 
                   {/* Badges row */}
-                  <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
+                  <div className={cn("mt-auto flex flex-wrap items-center gap-1.5 pt-2", isTextOnly && "justify-center")}>
                     {stickerEmojis.length > 0 && (
                       <span className="text-sm">{stickerEmojis.slice(0, 3).join(' ')}</span>
                     )}
