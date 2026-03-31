@@ -3018,7 +3018,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     <div
       className={cn(
         'relative transition-colors duration-500',
-        !isDesktopReveal && effectiveViewMode === 'freeform'
+        !isDesktopReveal && (!showRevealIntro || effectiveViewMode === 'freeform')
           ? 'min-h-[100dvh] overflow-x-hidden overflow-y-auto'
           : isDesktopReveal
           ? 'h-[100dvh] min-h-[100dvh] overflow-hidden'
@@ -3327,7 +3327,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </div>
       )}
 
-      <section className={cn('relative min-h-[100dvh] overflow-y-auto px-3 py-4 sm:hidden', effectiveViewMode !== 'story' && 'hidden')} style={{ background: storyThemePalette.sectionBackground }}>
+      <section className={cn('relative min-h-[100dvh] px-3 py-4 sm:hidden', effectiveViewMode !== 'story' && 'hidden')} style={{ background: storyThemePalette.sectionBackground }}>
         <div aria-hidden="true" className="slide-stars-layer" style={{ opacity: 0.68, '--star-end-y': '185%', '--layer-time-offset': '-0.45s' } as React.CSSProperties}>
           <div className="slide-star" style={{ left: '7%', '--star-x': '0%' } as React.CSSProperties} />
           <div className="slide-star" style={{ left: '13%', '--star-x': '-1%' } as React.CSSProperties} />
@@ -3742,7 +3742,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
       {/* Bento grid — mobile (below sm breakpoint, shown when viewMode=bento) */}
       {effectiveViewMode === 'bento' && messages.length > 0 && (
-        <section className="relative min-h-[100dvh] overflow-y-auto px-0 py-4 sm:hidden">
+        <section className="relative min-h-[100dvh] px-0 py-4 sm:hidden">
           <BentoGridView
             page={page}
             messages={messages}
@@ -3774,7 +3774,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         <section
           ref={freeformBoardSectionRef}
           className={cn(
-            'relative h-[100dvh] min-h-[100dvh] overflow-x-hidden overflow-y-auto px-3 py-1 touch-pan-y overscroll-y-contain sm:h-[100dvh] sm:px-5 sm:pb-5 sm:pt-0',
+            'relative min-h-[100dvh] px-3 py-1 touch-pan-y overscroll-y-contain sm:h-[100dvh] sm:overflow-x-hidden sm:overflow-y-auto sm:px-5 sm:pb-5 sm:pt-0',
             'freeform-reveal board',
             isFreeformBoardEntered && 'enter',
           )}
