@@ -377,6 +377,14 @@ function MobileVoiceNoteControl({
         // Scroll can fire spurious pause events. Only notify parent when this
         // was a real user-initiated session (button tap), not a scroll glitch.
         if (isSessionActiveRef.current) {
+          const el = getAudioEl();
+          if (el) {
+            void el.play().catch(() => {
+              isSessionActiveRef.current = false;
+              onStopped();
+            });
+            return;
+          }
           isSessionActiveRef.current = false;
           onStopped();
         }
@@ -4946,7 +4954,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
                       }
 
                       return (
-                        <div className="story-slide-wish-grid grid h-full gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+                        <div className={cn("story-slide-wish-grid h-full lg:items-start", photoCount > 0 ? "grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" : "flex flex-col gap-4 justify-center max-w-3xl mx-auto w-full")}>
                           <div className="flex flex-col gap-4 lg:justify-center">
                             <article className={cn('story-slide-wish-card story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass, photoCount === 0 && !activeSlide.message.audio_url && 'flex flex-col items-center justify-center text-center')} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
                               {isPreview && (
