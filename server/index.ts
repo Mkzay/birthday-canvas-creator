@@ -328,13 +328,13 @@ type PaystackPaymentData = {
   reference: string;
   customer?: { email?: string };
   metadata?: {
-            purpose: "pro_upgrade",
     userId?: string;
     planTier?: string;
     purpose?: string;
     pageId?: string;
     contributorName?: string;
     contributorEmail?: string;
+    contributionAmountKobo?: number;
   };
 };
 
