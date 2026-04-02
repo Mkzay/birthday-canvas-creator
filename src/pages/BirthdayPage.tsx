@@ -1399,8 +1399,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       }
 
       const publicPage = await apiFetch<BirthdayPageData>(`/public/pages/${pageId}`);
-      setPage(publicPage);
-      setViewMode(publicPage.display_mode || 'story');
+      const hasReachedBirthdayByDate = (() => {
+        const parsedBirthday = parseLocalDate(publicPage.birthday_date);
+        if (Number.isNaN(parsedBirthday.getTime())) return false;
+        return Date.now() >= parsedBirthday.getTime();
+      })();
+      const normalizedPublicPage = hasReachedBirthdayByDate && !publicPage.is_revealed
+        ? { ...publicPage, is_revealed: true }
+        : publicPage;
+
+      setPage(normalizedPublicPage);
+      setViewMode(normalizedPublicPage.display_mode || 'story');
 
       const publicPoolSummary = await apiFetch<PublicPoolSummary>(`/public/pages/${pageId}/pool/summary`).catch(() => null);
       setPoolSummary({
@@ -1414,11 +1423,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
       });
       
       // If we are using a UUID but the page has a public code, redirect to use the public code in the URL
-      if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && publicPage.public_code) {
-        navigate(`/birthday/${publicPage.public_code}`, { replace: true });
+      if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && normalizedPublicPage.public_code) {
+        navigate(`/birthday/${normalizedPublicPage.public_code}`, { replace: true });
       }
 
-      if (publicPage.is_revealed && publicPage.is_unlocked !== false) {
+      if (normalizedPublicPage.is_revealed && normalizedPublicPage.is_unlocked !== false) {
         try {
           const messagesData = await apiFetch<Message[]>(`/public/pages/${pageId}/messages`);
           setMessages(messagesData);
