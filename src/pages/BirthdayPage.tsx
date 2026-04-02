@@ -738,6 +738,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const [hasTriggeredIntro, setHasTriggeredIntro] = useState(false);
   const [revealPhase, setRevealPhase] = useState<RevealPhase>('idle');
   const [isDesktopPlaybackPaused, setIsDesktopPlaybackPaused] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [slideRemainingMs, setSlideRemainingMs] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slideDirection, setSlideDirection] = useState<'forward' | 'back'>('forward');
@@ -825,6 +826,20 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const mobileObserverRef = useRef<IntersectionObserver | null>(null);
   const freeformBoardSectionRef = useRef<HTMLElement | null>(null);
   const freeformStarsCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (isPreview || page?.is_revealed !== false) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [isPreview, page?.is_revealed]);
 
   useEffect(() => {
     if (!page) return;
@@ -2296,7 +2311,11 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const requiresUnlock = !isPreview && Boolean(page?.requires_unlock);
   const isUnlocked = isPreview || !requiresUnlock || Boolean(page?.is_unlocked);
   const canShowKeepsakeDownload = false;
-  const isBeforeBirthday = !isPreview && page?.is_revealed === false;
+  const hasReachedBirthdayDate = useMemo(() => {
+    if (Number.isNaN(birthdayDate.getTime())) return false;
+    return nowMs >= birthdayDate.getTime();
+  }, [birthdayDate, nowMs]);
+  const isBeforeBirthday = !isPreview && page?.is_revealed === false && !hasReachedBirthdayDate;
   const isDarkExperience = page?.theme === 'cosmic' || page?.theme === 'midnight';
   const experiencePanelClass = isDarkExperience
     ? 'border-white/16 bg-white/12 backdrop-blur-xl'
