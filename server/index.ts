@@ -954,27 +954,22 @@ async function createUniquePublicCode() {
 }
 
 async function resolvePageId(identifier: string) {
-  const publicCodeRows = await sql`
+  const normalizedIdentifier = String(identifier || "").trim();
+  if (!normalizedIdentifier) {
+    return null;
+  }
+
+  const rows = await sql`
     SELECT id
     FROM birthday_pages
-    WHERE public_code = ${identifier}
+    WHERE id::text = ${normalizedIdentifier}
+       OR public_code = ${normalizedIdentifier}
+       OR LOWER(public_code) = LOWER(${normalizedIdentifier})
     LIMIT 1
   `;
 
-  if (publicCodeRows[0]) {
-    return String(publicCodeRows[0].id);
-  }
-
-  if (/^[0-9a-f-]{36}$/i.test(identifier)) {
-    const uuidRows = await sql`
-      SELECT id
-      FROM birthday_pages
-      WHERE id = ${identifier}
-      LIMIT 1
-    `;
-    if (uuidRows[0]) {
-      return String(uuidRows[0].id);
-    }
+  if (rows[0]) {
+    return String(rows[0].id);
   }
 
   return null;
