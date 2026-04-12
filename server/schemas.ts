@@ -199,9 +199,11 @@ export const systemTestEmailBodySchema = z.object({
 
 export const birthdayNotifyBodySchema = z.object({
   date: dateYmd.optional(),
+  dryRun: z.boolean().optional(),
 });
 
 export const cronNotifyBodySchema = z.object({
   date: dateYmd.optional(),
+  dryRun: z.boolean().optional(),
   secret: z.string().max(256).optional(),
 });

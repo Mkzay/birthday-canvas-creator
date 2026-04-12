@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import BrandLogo from '@/components/BrandLogo';
 import { resolveAssetUrl } from '@/lib/api';
-import { User, Settings, LogOut, LayoutDashboard, ArrowLeft, CreditCard } from 'lucide-react';
+import { User, Settings, LogOut, LayoutDashboard, ArrowLeft, CreditCard, ShieldCheck } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,12 +15,14 @@ import {
 
 interface HeaderProps {
   showDashboardLabel?: boolean;
+  sectionLabel?: string;
   backTo?: { label: string; href?: string; useHistory?: boolean };
 }
 
-const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
+const Header = ({ showDashboardLabel = false, sectionLabel, backTo }: HeaderProps) => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const navLabel = sectionLabel || (showDashboardLabel ? 'Dashboard' : '');
 
   const handleBackClick = () => {
     if (!backTo) return;
@@ -43,9 +45,9 @@ const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
       <div className="glass-card mx-auto flex max-w-7xl items-center justify-between rounded-2xl px-4 py-3 shadow-soft">
         <div className="flex items-center gap-3">
           <BrandLogo compact />
-          {showDashboardLabel && (
+          {navLabel && (
             <div className="hidden border-l border-border/60 pl-3 sm:block">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">Dashboard</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">{navLabel}</p>
             </div>
           )}
           {backTo && (
@@ -87,6 +89,14 @@ const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
               </Link>
             )
           )}
+          {user?.isAdmin && (
+            <Link
+              to="/admin"
+              className="hidden rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 sm:inline-flex"
+            >
+              Admin
+            </Link>
+          )}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -122,6 +132,12 @@ const Header = ({ showDashboardLabel = false, backTo }: HeaderProps) => {
                   <LayoutDashboard className="mr-3 h-4 w-4 text-primary/70" />
                   <span className="font-medium">My Pages</span>
                 </DropdownMenuItem>
+                {user.isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin')} className="rounded-xl cursor-pointer py-2.5">
+                    <ShieldCheck className="mr-3 h-4 w-4 text-primary/70" />
+                    <span className="font-medium">Admin</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="rounded-xl cursor-pointer py-2.5">
                   <Settings className="mr-3 h-4 w-4 text-primary/70" />
                   <span className="font-medium">Settings</span>

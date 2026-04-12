@@ -63,14 +63,14 @@ interface BirthdayPage {
   view_count?: number;
 }
 
-interface PageAnalytics {
+type PageAnalytics = {
   view_count: number;
   message_count: number;
   contributor_count: number;
   photo_message_count: number;
   audio_message_count: number;
   last_contribution_at: string | null;
-}
+};
 
 interface CustomTheme {
   id: string;
@@ -79,22 +79,6 @@ interface CustomTheme {
   gradient_from: string;
   gradient_to: string;
 }
-
-type SystemStatusPayload = {
-  ok: boolean;
-  checks: {
-    db: { ok: boolean; latency_ms?: number; error?: string };
-    uploads: { ok: boolean; error?: string };
-  };
-  ts: string;
-  latency_ms: number;
-  meta?: { node_env?: string };
-  stats?: {
-    total_users: number;
-    total_pages: number;
-    total_visitors: number;
-  };
-};
 
 type ThemeDisplay = {
   name: string;
@@ -122,15 +106,13 @@ const themeAccentMap: Record<string, string> = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [pages, setPages] = useState<BirthdayPage[]>([]);
   const [savedPages, setSavedPages] = useState<BirthdayPage[]>([]);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagePendingDelete, setPagePendingDelete] = useState<BirthdayPage | null>(null);
   const [savedPagePendingRemove, setSavedPagePendingRemove] = useState<BirthdayPage | null>(null);
-  const [systemStatus, setSystemStatus] = useState<SystemStatusPayload | null>(null);
-  const [systemStatusError, setSystemStatusError] = useState<string | null>(null);
   const [analyticsByPage, setAnalyticsByPage] = useState<Record<string, PageAnalytics>>({});
   const [analyticsLoadingPage, setAnalyticsLoadingPage] = useState<string | null>(null);
   const [exportingPage, setExportingPage] = useState<string | null>(null);
@@ -184,34 +166,11 @@ const Dashboard = () => {
     }
   }, [user]);
 
-  const fetchSystemStatus = useCallback(async () => {
-    if (!user?.isAdmin) {
-      setSystemStatus(null);
-      setSystemStatusError(null);
-      return;
-    }
-
-    try {
-      const data = await apiFetch<SystemStatusPayload>('/system/status');
-      setSystemStatus(data);
-      setSystemStatusError(null);
-    } catch (error) {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        setSystemStatus(null);
-        setSystemStatusError('Admin permission is required to view system status.');
-        return;
-      }
-      console.error(error);
-      setSystemStatus(null);
-      setSystemStatusError('Unable to load system status right now. Please try again in a moment.');
-    }
-  }, [user]);
-
   useEffect(() => {
     if (user) {
-      void Promise.all([fetchPages(), fetchSavedPages(), fetchCustomThemes(), fetchSystemStatus()]);
+      void Promise.all([fetchPages(), fetchSavedPages(), fetchCustomThemes()]);
     }
-  }, [fetchCustomThemes, fetchPages, fetchSavedPages, fetchSystemStatus, user]);
+  }, [fetchCustomThemes, fetchPages, fetchSavedPages, user]);
 
   const isArchivedPage = (page: BirthdayPage) => {
     const birthdayDate = parseLocalDate(page.birthday_date);
@@ -403,11 +362,6 @@ const Dashboard = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
-  };
-
   if (authLoading || loading) {
     return <WishCanvasLoader />;
   }
@@ -495,62 +449,6 @@ const Dashboard = () => {
               </article>
             ))}
 
-            {user?.isAdmin && (
-              <div className="rounded-[1.35rem] border border-border/60 bg-card/80 px-5 py-4 shadow-card">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">System</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">
-                      {systemStatus
-                        ? (systemStatus.ok ? 'All systems operational' : 'Degraded')
-                        : 'Status unavailable'}
-                    </p>
-                    {systemStatus ? (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        DB {systemStatus.checks.db.ok ? 'OK' : 'FAIL'} • Uploads {systemStatus.checks.uploads.ok ? 'OK' : 'FAIL'}
-                      </p>
-                    ) : (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {systemStatusError || 'System status has not been loaded yet.'}
-                      </p>
-                    )}
-                  </div>
-                  <div className={systemStatus?.ok ? 'flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700' : 'flex h-11 w-11 items-center justify-center rounded-2xl bg-destructive/10 text-destructive'}>
-                    {systemStatus?.ok ? <Activity className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {user?.isAdmin && (
-              <div className="rounded-[1.35rem] border border-border/60 bg-card/80 px-5 py-4 shadow-card">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Platform totals</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">Audience and content overview</p>
-                    <p className="mt-2 text-xs text-muted-foreground">Live aggregate counts across all active pages.</p>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <Users className="h-5 w-5" />
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Users</p>
-                    <p className="mt-1 text-base font-semibold text-foreground">{systemStatus?.stats?.total_users ?? '—'}</p>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Visitors</p>
-                    <p className="mt-1 text-base font-semibold text-foreground">{systemStatus?.stats?.total_visitors ?? '—'}</p>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Pages</p>
-                    <p className="mt-1 text-base font-semibold text-foreground">{systemStatus?.stats?.total_pages ?? '—'}</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </section>
 

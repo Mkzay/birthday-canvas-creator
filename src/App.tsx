@@ -36,6 +36,7 @@ const routeModuleLoaders = {
   AuthPage: () => import("./pages/AuthPage"),
   VerifyEmailPage: () => import("./pages/VerifyEmailPage"),
   Dashboard: () => import("./pages/Dashboard"),
+  AdminPage: () => import("./pages/AdminPage"),
   CreatePage: () => import("./pages/CreatePage"),
   EditPage: () => import("./pages/EditPage"),
   ContributePage: () => import("./pages/ContributePage"),
@@ -83,6 +84,7 @@ const moduleKeyFromPathname = (pathname: string): RouteModuleKey | null => {
   if (pathname === "/auth") return "AuthPage";
   if (pathname === "/verify-email") return "VerifyEmailPage";
   if (pathname === "/dashboard") return "Dashboard";
+  if (pathname === "/admin") return "AdminPage";
   if (pathname === "/create") return "CreatePage";
   if (pathname === "/themes") return "ThemeBuilderPage";
   if (pathname === "/upgrade" || pathname === "/billing") return "UpgradePage";
@@ -99,6 +101,7 @@ const Index = lazyImport(routeModuleLoaders.Index, "Index");
 const AuthPage = lazyImport(routeModuleLoaders.AuthPage, "AuthPage");
 const VerifyEmailPage = lazyImport(routeModuleLoaders.VerifyEmailPage, "VerifyEmailPage");
 const Dashboard = lazyImport(routeModuleLoaders.Dashboard, "Dashboard");
+const AdminPage = lazyImport(routeModuleLoaders.AdminPage, "AdminPage");
 const CreatePage = lazyImport(routeModuleLoaders.CreatePage, "CreatePage");
 const EditPage = lazyImport(routeModuleLoaders.EditPage, "EditPage");
 const ContributePage = lazyImport(routeModuleLoaders.ContributePage, "ContributePage");
@@ -239,7 +242,7 @@ const RoutePrefetchController = () => {
     } else if (pathname === "/auth" || pathname === "/verify-email") {
       targets.push("Dashboard", "CreatePage");
     } else if (pathname === "/dashboard") {
-      targets.push("CreatePage", "ThemeBuilderPage", "UpgradePage", "SettingsPage");
+      targets.push("CreatePage", "ThemeBuilderPage", "UpgradePage", "SettingsPage", "AdminPage");
     } else if (pathname.startsWith("/birthday/")) {
       targets.push("ContributePage");
     } else if (pathname.startsWith("/preview/")) {
@@ -319,6 +322,7 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/admin" element={<AdminPage />} />
               <Route path="/create" element={<CreatePage />} />
               <Route path="/edit/:pageId" element={<EditPage />} />
               <Route path="/contribute/:pageId" element={<ContributePage />} />
