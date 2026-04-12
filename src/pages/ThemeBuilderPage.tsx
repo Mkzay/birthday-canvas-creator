@@ -10,72 +10,18 @@ import { cn } from '@/lib/utils';
 import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import Header from '@/components/Header';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
-
-interface CustomTheme {
-  id: string;
-  name: string;
-  emoji: string;
-  gradient_from: string;
-  gradient_to: string;
-  gradient_mid: string | null;
-  gradient_angle: number;
-  accent_color: string | null;
-  font: string;
-  icon_url?: string | null;
-}
-
-const EMOJI_OPTIONS = ['🎨', '✨', '🌟', '💫', '🔥', '💖', '🌈', '🎭', '🎪', '🎯', '💎', '🦋', '🌸', '🍀', '⭐', '🌺', '🎵', '🎶', '🌙', '☀️'];
-
-const FONT_OPTIONS = [
-  { value: 'jakarta', label: 'Modern Sans', className: 'font-jakarta', sample: 'Happy Birthday' },
-  { value: 'playfair', label: 'Classic Serif', className: 'font-playfair', sample: 'Happy Birthday' },
-  { value: 'caveat', label: 'Handwritten', className: 'font-caveat', sample: 'Happy Birthday' },
-  { value: 'nunito', label: 'Rounded', className: 'font-nunito', sample: 'Happy Birthday' },
-  { value: 'sora', label: 'Display', className: 'font-sora', sample: 'Happy Birthday' },
-  { value: 'cormorant', label: 'Elegant Serif', className: 'font-cormorant', sample: 'Happy Birthday' },
-  { value: 'space-grotesk', label: 'Grotesk', className: 'font-space-grotesk', sample: 'Happy Birthday' },
-  { value: 'dm-serif', label: 'Bold Serif', className: 'font-dm-serif', sample: 'Happy Birthday' },
-  { value: 'inter', label: 'Neutral', className: 'font-inter', sample: 'Happy Birthday' },
-  { value: 'outfit', label: 'Soft Modern', className: 'font-outfit', sample: 'Happy Birthday' },
-];
-
-const ANGLE_OPTIONS = [
-  { value: 0, label: '↑' },
-  { value: 45, label: '↗' },
-  { value: 90, label: '→' },
-  { value: 135, label: '↘' },
-  { value: 180, label: '↓' },
-  { value: 225, label: '↙' },
-  { value: 270, label: '←' },
-  { value: 315, label: '↖' },
-];
-
-const FREE_THEME_LIMIT = 3;
-const PREMIUM_THEME_FONTS = new Set(['caveat', 'sora', 'cormorant', 'space-grotesk', 'dm-serif']);
-
-function normalizeHex(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return '';
-  const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
-  return withHash.slice(0, 7);
-}
-
-function fontClassForValue(value: string): string {
-  if (value === 'sans') return 'font-jakarta';
-  if (value === 'serif') return 'font-playfair';
-  return FONT_OPTIONS.find((f) => f.value === value)?.className || 'font-sans';
-}
-
-function fontLabelForValue(value: string): string {
-  if (value === 'sans') return 'Modern Sans';
-  if (value === 'serif') return 'Classic Serif';
-  return FONT_OPTIONS.find((f) => f.value === value)?.label || value;
-}
-
-function buildGradient(from: string, to: string, mid: string | null, angle: number): string {
-  const stops = mid ? `${from}, ${mid}, ${to}` : `${from}, ${to}`;
-  return `linear-gradient(${angle}deg, ${stops})`;
-}
+import type { CustomTheme } from '@/pages/theme-builder';
+import {
+  ANGLE_OPTIONS,
+  EMOJI_OPTIONS,
+  FONT_OPTIONS,
+  FREE_THEME_LIMIT,
+  PREMIUM_THEME_FONTS,
+  buildGradient,
+  fontClassForValue,
+  fontLabelForValue,
+  normalizeHex,
+} from '@/pages/theme-builder';
 
 const ThemeBuilderPage = () => {
   const navigate = useNavigate();

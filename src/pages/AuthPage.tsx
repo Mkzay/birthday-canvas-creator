@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LockKeyhole, Mail, Sparkles, User2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -130,7 +130,7 @@ const AuthPage = () => {
     }
   };
 
-  const handleForgotPassword = async (event: React.FormEvent) => {
+  const handleForgotPassword = async (event: FormEvent) => {
     event.preventDefault();
 
     const emailResult = emailSchema.safeParse(email);
@@ -156,7 +156,7 @@ const AuthPage = () => {
     }
   };
 
-  const handleResetPassword = async (event: React.FormEvent) => {
+  const handleResetPassword = async (event: FormEvent) => {
     event.preventDefault();
 
     if (!resetToken) {
@@ -192,7 +192,7 @@ const AuthPage = () => {
     }
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
     const emailResult = emailSchema.safeParse(email);

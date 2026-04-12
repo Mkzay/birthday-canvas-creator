@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { GripVertical, HandCoins, ImagePlus, Loader2, Lock, Mic2, Plus, Send, Sparkles, X, Square, Mic } from 'lucide-react';
+import { GripVertical, HandCoins, ImagePlus, Loader2, Lock, Mic2, Send, X, Square, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,74 +12,17 @@ import { parseLocalDate } from '@/lib/date';
 import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import BrandLogo from '@/components/BrandLogo';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
-import StickerPicker, { StickerData } from '@/components/StickerPicker';
+import StickerPicker, { type StickerData } from '@/components/StickerPicker';
 import { visualThemeConfig, fontClassMap } from '@/lib/themes';
-
-interface PublicBirthdayPageData {
-  id: string;
-  recipient_name: string;
-  birthday_date: string;
-  theme: string;
-  theme_emoji: string | null;
-  theme_gradient_from: string | null;
-  theme_gradient_to: string | null;
-  theme_gradient_mid?: string | null;
-  theme_gradient_angle?: number | null;
-  theme_font?: string | null;
-  allow_photos: boolean;
-  allow_audio: boolean;
-  require_names: boolean;
-  can_contribute: boolean;
-  message_count: number;
-  pool_fundraising_enabled: boolean;
-  pool_goal_kobo: number | null;
-  pooled_amount_kobo: number;
-  pool_description: string | null;
-}
-
-interface PendingPhoto {
-  id: string;
-  file: File;
-  previewUrl: string;
-  caption: string;
-}
-
-interface ContributionDraft {
-  senderName: string;
-  message: string;
-  poolAmountNaira: string;
-  poolContributorEmail: string;
-  stickers: StickerData[];
-  updatedAt: number;
-}
-
-const MAX_PHOTOS = 6;
-const CONTRIBUTION_PLATFORM_FEE_RATE = 0.015;
-const MAX_WISH_MESSAGE_CHARACTERS = 200;
-
-function extractPlainTextFromRichHtml(html: string) {
-  if (!html) return '';
-
-  const parserHost = document.createElement('div');
-  parserHost.innerHTML = html;
-
-  return (parserHost.textContent || parserHost.innerText || '')
-    .replace(/\u00a0/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function formatNairaInputWithCommas(raw: string) {
-  const cleaned = raw.replace(/,/g, '').replace(/[^\d.]/g, '');
-  if (!cleaned) return '';
-
-  const [integerPartRaw = '', decimalRaw = ''] = cleaned.split('.');
-  const integerPart = integerPartRaw.replace(/^0+(?=\d)/, '') || '0';
-  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const decimalPart = decimalRaw.slice(0, 2);
-
-  return cleaned.includes('.') ? `${groupedInteger}.${decimalPart}` : groupedInteger;
-}
+import type { ContributionDraft, PendingPhoto, PublicBirthdayPageData } from '@/pages/contribute';
+import {
+  CONTRIBUTION_PLATFORM_FEE_RATE,
+  ContributeSuccessPanel,
+  MAX_PHOTOS,
+  MAX_WISH_MESSAGE_CHARACTERS,
+  extractPlainTextFromRichHtml,
+  formatNairaInputWithCommas,
+} from '@/pages/contribute';
 
 const themeConfig = visualThemeConfig;
 
@@ -240,7 +183,7 @@ const ContributePage = () => {
     }
   }, []);
 
-  const handleWishAudioSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleWishAudioSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -369,7 +312,7 @@ const ContributePage = () => {
     });
   };
 
-  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
@@ -621,7 +564,7 @@ const ContributePage = () => {
         style: undefined,
       };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
     if (isRecording) {
@@ -1112,36 +1055,11 @@ const ContributePage = () => {
             </form>
           </>
         ) : (
-          <div className="animate-scale-in px-2 text-center">
-            <div className="mb-4 text-6xl sm:mb-6 sm:text-8xl">🎉</div>
-            <h2 className={`mb-2 text-2xl font-bold sm:mb-3 sm:text-3xl ${theme.text}`}>Your wish has been added!</h2>
-            <p className="mb-6 text-sm text-muted-foreground sm:mb-8 sm:text-base">
-              {page.recipient_name} will see it on their special day.
-            </p>
-
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <Button variant="outline" size="default" onClick={handleAddAnother} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add another message
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-background px-4 text-xs text-muted-foreground sm:text-sm">or</span>
-                </div>
-              </div>
-
-              <Link to="/create">
-                <Button variant="hero" size="default" className="w-full gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Create your own birthday page
-                </Button>
-              </Link>
-            </div>
-          </div>
+          <ContributeSuccessPanel
+            recipientName={page.recipient_name}
+            themeTextClass={theme.text}
+            onAddAnother={handleAddAnother}
+          />
         )}
       </main>
     </div>

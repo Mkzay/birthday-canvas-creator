@@ -1,18 +1,16 @@
-import React from 'react';
+import type { FC } from 'react';
 import { cn } from '@/lib/utils';
 
 interface AnimatedBackgroundProps {
   showStars?: boolean;
   showWaves?: boolean;
   className?: string;
-  theme?: 'light' | 'dark' | 'auto';
 }
 
-const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({ 
-  showStars = true, 
-  showWaves = true, 
+const AnimatedBackground: FC<AnimatedBackgroundProps> = ({
+  showStars = true,
+  showWaves = true,
   className,
-  theme = 'auto'
 }) => {
   return (
     <div className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)} aria-hidden="true">
@@ -21,7 +19,6 @@ const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
           {Array.from({ length: 20 }).map((_, i) => {
             const size = Math.random() * 3 + 1;
             const left = Math.random() * 100;
-            const top = Math.random() * 100;
             const delay = Math.random() * 5;
             const duration = Math.random() * 3 + 2;
             return (

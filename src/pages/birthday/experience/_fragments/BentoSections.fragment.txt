@@ -1,0 +1,29 @@
+      {/* Bento grid — mobile (below sm breakpoint, shown when viewMode=bento) */}
+      {effectiveViewMode === 'bento' && messages.length > 0 && (
+        <section className="relative min-h-[100dvh] px-0 py-4 sm:hidden">
+          <BentoGridView
+            page={page}
+            messages={messages}
+            theme={theme}
+            isDarkExperience={isDarkExperience}
+            keepsakePaperClass={keepsakePaperClass}
+            keepsakeSoftClass={keepsakeSoftClass}
+            birthdayDate={birthdayDate}
+          />
+        </section>
+      )}
+
+      {/* Desktop: bento grid view */}
+      {effectiveViewMode === 'bento' && messages.length > 0 && (
+        <section className="relative hidden h-[100dvh] overflow-y-auto px-3 py-4 sm:px-5 sm:py-5 sm:block">
+          <BentoGridView
+            page={page}
+            messages={messages}
+            theme={theme}
+            isDarkExperience={isDarkExperience}
+            keepsakePaperClass={keepsakePaperClass}
+            keepsakeSoftClass={keepsakeSoftClass}
+            birthdayDate={birthdayDate}
+          />
+        </section>
+      )}

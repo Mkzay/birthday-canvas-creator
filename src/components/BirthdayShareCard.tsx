@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Download, Copy, Check } from 'lucide-react';
@@ -353,7 +353,7 @@ const BirthdayShareCard = ({
   };
 
   // Draw preview when dialog opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) {
       setTimeout(() => {
         void drawCard();

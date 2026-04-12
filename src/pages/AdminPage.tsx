@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { Activity, AlertTriangle, CheckCircle2, Database, Mail, RefreshCw, ServerCrash, Users } from 'lucide-react';
@@ -12,67 +12,7 @@ import AnimatedBackground from '@/components/AnimatedBackground';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-type SystemStatusPayload = {
-  ok: boolean;
-  checks: {
-    db: { ok: boolean; latency_ms?: number; error?: string };
-    uploads: { ok: boolean; error?: string };
-  };
-  ts: string;
-  latency_ms: number;
-  meta?: { node_env?: string };
-  stats?: {
-    total_users: number;
-    total_pages: number;
-    total_visitors: number;
-  };
-};
-
-type AdminBirthdayRow = {
-  id: string;
-  public_code: string;
-  recipient_name: string;
-  recipient_email: string | null;
-  birthday_date: string;
-  reveal_at: string | null;
-  close_date: string | null;
-  theme: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  view_count: number;
-  pool_fundraising_enabled: boolean;
-  pooled_amount_kobo: number;
-  owner_user_id: string;
-  owner_display_name: string | null;
-  owner_email: string;
-  owner_plan_tier: string;
-  message_count: number;
-};
-
-type BirthdayNotifyResult = {
-  pageId: string;
-  publicCode: string;
-  recipientName: string;
-  birthdayDate: string;
-  messageCount: number;
-  recipientEmail: string | null;
-  ownerEmail: string | null;
-  ownerWillBeNotified: boolean;
-  recipientDeliveryEmail: string | null;
-  sent: boolean;
-  reason?: string;
-};
-
-type BirthdayNotifyPayload = {
-  ok: boolean;
-  dryRun: boolean;
-  date: string;
-  total: number;
-  sent: number;
-  results: BirthdayNotifyResult[];
-};
+import type { AdminBirthdayRow, BirthdayNotifyPayload, SystemStatusPayload } from '@/pages/admin';
 
 const AdminPage = () => {
   const navigate = useNavigate();
