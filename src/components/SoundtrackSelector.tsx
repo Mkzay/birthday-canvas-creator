@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Music4, Pause, Play, Link as LinkIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,7 +70,7 @@ const SoundtrackSelector = ({
     }
   };
 
-  const handleLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLinkChange = (e: ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInputValue(val);
     const ytid = extractYouTubeId(val);

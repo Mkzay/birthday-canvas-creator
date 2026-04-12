@@ -1,0 +1,3 @@
+export const MAX_PHOTOS = 6;
+export const CONTRIBUTION_PLATFORM_FEE_RATE = 0.015;
+export const MAX_WISH_MESSAGE_CHARACTERS = 200;

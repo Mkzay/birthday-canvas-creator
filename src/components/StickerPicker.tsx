@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type FC } from 'react';
 import { X, RotateCw, Maximize2, Minimize2, Move } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { isRichHtml, wishMessageHtmlWithQuotes } from '@/lib/wish-utils';
 import { visualThemeConfig } from '@/lib/themes';
@@ -38,7 +37,7 @@ const AVAILABLE_STICKERS = [
   { type: 'icecream', emoji: '🍦' },
 ];
 
-const StickerPicker: React.FC<StickerPickerProps> = ({ 
+const StickerPicker: FC<StickerPickerProps> = ({ 
   stickers, 
   onChange, 
   className, 
@@ -62,7 +61,7 @@ const StickerPicker: React.FC<StickerPickerProps> = ({
   const startPosRef = useRef({ x: 0, y: 0 });
 
 
-  const addSticker = (type: string, emoji: string) => {
+  const addSticker = (type: string, _emoji: string) => {
     const newSticker: StickerData = {
       id: crypto.randomUUID(),
       stickerType: type,

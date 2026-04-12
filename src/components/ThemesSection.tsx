@@ -1,4 +1,3 @@
-import React from 'react';
 import { Palette, Paintbrush2 } from 'lucide-react';
 import { builtInThemeOptions } from '@/lib/themes';
 

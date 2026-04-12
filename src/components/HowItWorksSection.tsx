@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowRight, Gift, Share2, Sparkles } from 'lucide-react';
 
 const steps = [

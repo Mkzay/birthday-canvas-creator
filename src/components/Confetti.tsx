@@ -1,7 +1,7 @@
-import React from 'react';
+import { useState } from 'react';
 
 const Confetti = () => {
-  const [particles] = React.useState(() => Array.from({ length: 20 }, (_, i) => ({
+  const [particles] = useState(() => Array.from({ length: 20 }, (_, i) => ({
     id: i,
     left: Math.random() * 100,
     delay: Math.random() * 10,

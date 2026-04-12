@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 import { format } from 'date-fns';
 import { Heart, Image as ImageIcon, Mic, MessageSquare, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -91,7 +91,7 @@ function getMessagePhotos(message: Message): MessagePhoto[] {
   return [];
 }
 
-const BentoGridView: React.FC<BentoGridViewProps> = ({
+const BentoGridView: FC<BentoGridViewProps> = ({
   page,
   messages,
   theme,

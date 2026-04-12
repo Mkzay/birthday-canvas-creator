@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, type Context, type ReactNode } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 
 interface AuthUser {
@@ -50,7 +50,7 @@ interface AuthContextType {
 
 declare global {
   interface Window {
-    __wishcanvasAuthContext?: React.Context<AuthContextType | undefined>;
+    __wishcanvasAuthContext?: Context<AuthContextType | undefined>;
   }
 }
 
@@ -77,7 +77,7 @@ function mapProfile(user: AuthUser | null): Profile | null {
   };
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 

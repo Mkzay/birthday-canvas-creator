@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -39,19 +39,7 @@ import { toast } from 'sonner';
 import { apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
 import Header from '@/components/Header';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
-
-const themeOptions = [
-  { value: 'elegant', label: 'Elegant ✨' },
-  { value: 'playful', label: 'Playful 🎈' },
-  { value: 'minimalist', label: 'Minimalist 🎯' },
-  { value: 'retro', label: 'Retro 🌈' },
-  { value: 'tropical', label: 'Tropical 🌴' },
-  { value: 'cosmic', label: 'Cosmic 🚀' },
-  { value: 'sunset', label: 'Sunset 🌅' },
-  { value: 'ocean', label: 'Ocean 🌊' },
-  { value: 'candyland', label: 'Candyland 🍭' },
-  { value: 'midnight', label: 'Midnight 🌙' },
-];
+import { themeOptions } from '@/pages/settings';
 
 const SettingsPage = () => {
   const navigate = useNavigate();
@@ -169,7 +157,7 @@ const SettingsPage = () => {
     }
   };
 
-  const handleAvatarSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 

@@ -1,0 +1,436 @@
+import { memo, type CSSProperties } from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Loader2,
+  Mail,
+  Music4,
+  Share2,
+  Download,
+  SkipForward,
+  Sparkles,
+  Volume2,
+  Trash2,
+  Music,
+  Image as ImageIcon,
+  Video,
+  Wallet,
+  Gift,
+  Check,
+} from 'lucide-react';
+import BentoGridView from '@/components/BentoGridView';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { resolveAssetUrl } from '@/lib/api';
+import { stripHtml, isRichHtml, sanitizeWishHtmlForDisplay, wishMessageHtmlWithQuotes } from '@/lib/wish-utils';
+import {
+  formatNairaNumberFromKobo,
+  getMessagePhotos,
+  getMobileSectionCaption,
+  getMobileSectionLabel,
+  getMobileSectionMarker,
+  getMobileSectionTone,
+  getStoryMotionDuration,
+  STICKER_EMOJI_MAP,
+} from '@/pages/birthday';
+import type { Message, MessagePhoto } from '@/pages/birthday/types';
+import { useBirthdayView } from '@/pages/birthday/view/BirthdayPageViewContext';
+import FloatingParticles from '@/components/FloatingParticles';
+
+
+export const RevealIntroOverlay = memo(function RevealIntroOverlay() {
+  const {
+  activeSlide,
+  beginReveal,
+  birthdayDate,
+  burstMessages,
+  canShowKeepsakeDownload,
+  clampedS,
+  clampedS2,
+  contributorLine,
+  coverHintLabel,
+  coverPhotoSrc,
+  currentSlide,
+  currentSlideDuration,
+  downloadingPdf,
+  downloadingVideo,
+  effectiveViewMode,
+  expandedFreeformCardIds,
+  experienceInsetClass,
+  experiencePanelClass,
+  freeformBoardSectionRef,
+  freeformOpenerPalette,
+  freeformStarsCanvasRef,
+  freeformThemePalette,
+  getStoryDelayStyle,
+  goToNextSlide,
+  goToPreviousSlide,
+  handleBoardParallaxLeave,
+  handleBoardParallaxMove,
+  handleDownloadKeepsake,
+  handleDownloadVideoKeepsake,
+  handlePauseControl,
+  handlePlayControl,
+  handleReleasePoolPayout,
+  handleRequestGiftRelease,
+  handleStageClick,
+  handleTouchEnd,
+  handleTouchStart,
+  hasMessages,
+  includeSoundtrackInVideo,
+  isDarkExperience,
+  isDesktopPlaybackPaused,
+  isFreeformBoardEntered,
+  isFreeformIntroExiting,
+  isPageOwner,
+  isPreview,
+  isSaved,
+  keepsakePaperClass,
+  keepsakePhotoBoardClass,
+  keepsakePillClass,
+  keepsakeSoftClass,
+  landedFreeformCards,
+  loading,
+  messages,
+  mixedLetterH,
+  mobileCardsContainerRef,
+  mobileFreeformMotion,
+  mobileRevealRef,
+  navigate,
+  page,
+  pageId,
+  paidContributorLine,
+  poolSummary,
+  poppedFreeformDecorators,
+  releasingPoolPayout,
+  renderStoryImage,
+  renderWishAudioPlayer,
+  requestingGiftRelease,
+  revealPhase,
+  revealSlides,
+  setActiveWishAudioId,
+  setCurrentSlide,
+  setDownloadingPdf,
+  setDownloadingVideo,
+  setExpandedFreeformCardIds,
+  setExpandedPhoto,
+  setFreeformAnimationRun,
+  setHasTriggeredIntro,
+  setIncludeSoundtrackInVideo,
+  setIsDesktopPlaybackPaused,
+  setIsDesktopReveal,
+  setIsFreeformBoardEntered,
+  setIsFreeformIntroExiting,
+  setIsPageOwner,
+  setIsSaved,
+  setLandedFreeformCards,
+  setLoading,
+  setMessages,
+  setNowMs,
+  setPage,
+  setPendingDeleteAction,
+  setPoolSummary,
+  setPoppedFreeformDecorators,
+  setReleasingPoolPayout,
+  setRequestingGiftRelease,
+  setRevealPhase,
+  setShowRevealIntro,
+  setShowShareCard,
+  setSlideDirection,
+  setSlideRemainingMs,
+  setStartYoutube,
+  setUnlockPin,
+  setUnlocking,
+  setViewMode,
+  showRevealIntro,
+  showRevealIntroInPreview,
+  skipReveal,
+  slideDirection,
+  storyOpenerPalette,
+  storyThemePalette,
+  theme,
+  toggleSavePage,
+  totalAudioWishes,
+  totalPhotos,
+  user,
+  viewMode,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
+} = useBirthdayView() as any;
+  return (
+    <>
+        <div
+          className={cn(
+            'fixed inset-0 z-40 flex items-center justify-center backdrop-blur-md',
+            effectiveViewMode === 'freeform' ? 'px-0' : 'px-4',
+            effectiveViewMode === 'freeform' && 'freeform-intro intro',
+            effectiveViewMode === 'freeform' && isFreeformIntroExiting && 'exit',
+          )}
+          style={{
+            background: effectiveViewMode === 'freeform'
+              ? freeformOpenerPalette.backdrop
+              : storyOpenerPalette.backdrop,
+          }}
+        >
+          <div className={cn('relative flex w-full items-center justify-center', effectiveViewMode !== 'freeform' && 'max-w-5xl')}>
+            {effectiveViewMode !== 'freeform' && (
+              <button
+                type="button"
+                onClick={() => void skipReveal()}
+                className="absolute right-0 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/18 sm:top-6"
+              >
+                <SkipForward className="h-4 w-4" />
+                Skip intro
+              </button>
+            )}
+      
+            <div className="relative flex min-h-[100dvh] w-full items-center justify-center py-20">
+              {effectiveViewMode !== 'freeform' && (
+                <FloatingParticles hue={mixedLetterH} saturation={((clampedS + clampedS2) / 2) * 100} />
+              )}
+              <div className="pointer-events-none absolute inset-0">
+                <div
+                  className="absolute inset-0"
+                  style={
+                    effectiveViewMode === 'freeform'
+                      ? { background: freeformOpenerPalette.textureLayer }
+                      : { background: storyOpenerPalette.textureLayer }
+                  }
+                />
+                <div
+                  className="absolute left-1/2 top-[43%] h-[30rem] w-[20rem] -translate-x-1/2 rounded-full blur-3xl"
+                  style={
+                    effectiveViewMode === 'freeform'
+                      ? { background: freeformOpenerPalette.halo }
+                      : { background: storyOpenerPalette.halo }
+                  }
+                />
+              </div>
+      
+              <div
+                className={cn(
+                  'relative flex w-full flex-col items-center justify-center',
+                  effectiveViewMode === 'freeform' ? 'max-w-none px-3 sm:px-8 lg:px-14' : 'max-w-xl',
+                )}
+              >
+                <div className={cn('mb-6 text-center', effectiveViewMode !== 'freeform' && 'text-white')}>
+                  <p
+                    className={cn('text-[11px] font-semibold uppercase tracking-[0.32em]', effectiveViewMode !== 'freeform' && 'text-white/68')}
+                    style={effectiveViewMode === 'freeform' ? { color: freeformOpenerPalette.eyebrowText } : undefined}
+                  >
+                    Birthday post
+                  </p>
+                  <p
+                    className={cn('mt-3 text-lg font-medium tracking-tight', effectiveViewMode !== 'freeform' && 'text-white/92')}
+                    style={effectiveViewMode === 'freeform' ? { color: freeformOpenerPalette.textSecondary } : undefined}
+                  >
+                    {effectiveViewMode === 'freeform' ? `A board for ${page.recipient_name}` : `A letter for ${page.recipient_name}`}
+                  </p>
+                </div>
+      
+                <div className="relative flex h-[26rem] w-full items-center justify-center sm:h-[30rem]">
+                  {effectiveViewMode !== 'freeform' && burstMessages.map((message, index) => (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        'absolute left-1/2 top-1/2 w-48 rounded-[1.4rem] border p-4 shadow-[0_20px_70px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-700 ease-out hover:scale-[1.03] hover:shadow-[0_24px_80px_rgba(0,0,0,0.24)] sm:w-56',
+                        revealPhase === 'burst'
+                          ? [
+                              '-translate-x-[150%] -translate-y-[165%] rotate-[-14deg]',
+                              'translate-x-[38%] -translate-y-[148%] rotate-[12deg]',
+                              '-translate-x-[145%] translate-y-[74%] rotate-[8deg]',
+                              'translate-x-[42%] translate-y-[88%] rotate-[-8deg]',
+                            ][index]
+                          : 'opacity-0 scale-75 -translate-x-1/2 -translate-y-1/2',
+                      )}
+                      style={{
+                        transitionDelay: `${index * 85}ms`,
+                        borderColor: storyOpenerPalette.burstBorder,
+                        background: storyOpenerPalette.burstFill,
+                        color: 'hsl(0 0% 96%)',
+                      }}
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/72">Wish {index + 1}</p>
+                      <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/90">&quot;{stripHtml(message.message)}&quot;</p>
+                      <p className="mt-3 text-xs font-semibold text-white/78">{message.sender_name}</p>
+                    </div>
+                  ))}
+      
+                  {effectiveViewMode === 'freeform' ? (
+                    <div
+                      className={cn(
+                        'relative z-10 w-full px-2 text-center transition-all duration-700 ease-out sm:px-4',
+                        revealPhase === 'opening' && 'scale-[0.99]',
+                        revealPhase === 'burst' && 'scale-[0.95] opacity-85',
+                      )}
+                    >
+                      <div className="pointer-events-none absolute left-[-2%] top-[10%] h-[6.3rem] w-[12.4rem] rotate-[-6deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute left-[27%] top-[3%] h-[5.2rem] w-[9rem] rotate-[1deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute right-[-2%] top-[9%] h-[6.2rem] w-[11.1rem] rotate-[5deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute left-[4%] top-[71%] h-[7rem] w-[11rem] rotate-[2deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute right-[20%] top-[79%] h-[7rem] w-[9.5rem] rotate-[-3deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+                      <div className="pointer-events-none absolute right-[0%] top-[74%] h-[7.4rem] w-[10.1rem] rotate-[-4deg] rounded-lg border" style={{ borderColor: freeformOpenerPalette.floatingCardBorder, backgroundColor: freeformOpenerPalette.floatingCardFill }} />
+      
+                      <div
+                        className={cn('mx-auto w-fit rounded-md px-4 pb-4 pt-3 shadow-[0_20px_56px_rgba(0,0,0,0.45)] freeform-polaroid', isFreeformIntroExiting && 'flip')}
+                        style={{ backgroundColor: freeformOpenerPalette.paper }}
+                      >
+                        <div className="relative mx-auto h-5 w-14 -translate-y-2 rounded-sm transition-colors duration-500" style={{ backgroundColor: freeformOpenerPalette.tape }} />
+                        <div className="relative h-[12.6rem] w-[13.8rem] overflow-hidden rounded-sm transition-colors duration-500" style={{ background: freeformOpenerPalette.miniCard }}>
+                          {coverPhotoSrc ? (
+                            renderStoryImage(coverPhotoSrc, `${page.recipient_name} cover photo`, { disableParallax: true, eager: true })
+                          ) : (
+                            <div className="flex h-full items-center justify-center" style={{ color: freeformOpenerPalette.textSecondary }}>
+                              <ImageIcon className="h-9 w-9" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="mt-3 text-[1.65rem] leading-none" style={{ fontFamily: '"Lobster", "Pacifico", serif', color: freeformOpenerPalette.nameText }}>{page.recipient_name}</p>
+                      </div>
+      
+                      <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: freeformOpenerPalette.eyebrowText }}>A birthday board for</p>
+                      <h2 className="mt-2 text-[3.9rem] font-semibold leading-[0.92] sm:text-[4.6rem]" style={{ fontFamily: '"Playfair Display", Georgia, serif', color: freeformOpenerPalette.textPrimary }}>
+                        {page.recipient_name}
+                      </h2>
+                      <p className="mx-auto mt-4 max-w-[27rem] text-[1.12rem] italic leading-[1.45]" style={{ fontFamily: '"Playfair Display", Georgia, serif', color: freeformOpenerPalette.quoteText }}>
+                        "Every note, photo, and voice here was left just for you."
+                      </p>
+      
+                      <div className="mt-7 grid grid-cols-3 gap-3 justify-items-center sm:flex sm:items-center sm:justify-center">
+                        <span aria-label={`${messages.length} wishes`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
+                          <span className="select-none text-white">{messages.length}</span>
+                          <Sparkles className="h-4 w-4 text-white" />
+                        </span>
+                        <span aria-label={`${totalPhotos} photos`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
+                          <span className="select-none text-white">{totalPhotos}</span>
+                          <ImageIcon className="h-4 w-4 text-white" />
+                        </span>
+                        <span aria-label={`${totalAudioWishes} voices`} className="inline-flex w-[6rem] h-10 items-center justify-center gap-2 rounded-full border text-[0.98rem] font-medium backdrop-blur-sm" style={{ backgroundColor: freeformOpenerPalette.chipBg, borderColor: freeformOpenerPalette.chipBorder, color: freeformOpenerPalette.chipText }}>
+                          <span className="select-none text-white">{totalAudioWishes}</span>
+                          <Music className="h-4 w-4 text-white" />
+                        </span>
+                      </div>
+      
+                      <button
+                        type="button"
+                        onClick={() => void beginReveal()}
+                        className="mt-8 inline-flex items-center rounded-2xl border bg-transparent px-8 py-2.5 text-[1.3rem] font-medium transition-colors hover:bg-white/10"
+                        style={{ borderColor: freeformOpenerPalette.ctaBorder, color: freeformOpenerPalette.ctaText }}
+                        aria-label="Open your board"
+                      >
+                        Open your board
+                      </button>
+      
+                      <button
+                        type="button"
+                        onClick={() => void skipReveal()}
+                        className="mt-5 block w-full text-[1rem] transition-colors"
+                        style={{ color: freeformOpenerPalette.skipText }}
+                        onMouseEnter={(event) => {
+                          event.currentTarget.style.color = freeformOpenerPalette.skipTextHover;
+                        }}
+                        onMouseLeave={(event) => {
+                          event.currentTarget.style.color = freeformOpenerPalette.skipText;
+                        }}
+                      >
+                        skip intro
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void beginReveal()}
+                      aria-label="Open birthday letter"
+                      className={cn(
+                        'group relative z-10 h-[18rem] w-[20.5rem] transition-all duration-700 ease-out sm:h-[20.5rem] sm:w-[24rem]',
+                        revealPhase === 'opening' && 'scale-[0.98] rotate-[1.5deg]',
+                        revealPhase === 'burst' && 'scale-[0.94] opacity-80',
+                      )}
+                    >
+                    {/* Envelope outer shell */}
+                    <div
+                      className="absolute inset-0 rounded-[2.4rem]"
+                      style={{
+                        background: storyOpenerPalette.envelopeOuter,
+                        boxShadow: '0 26px 90px rgba(0,0,0,0.22)',
+                      }}
+                    />
+                    <div className="absolute inset-[1px] rounded-[2.35rem] border" style={{ borderColor: storyOpenerPalette.envelopeInnerRing }} />
+                    <div
+                      className="absolute inset-[1.2rem] rounded-[1.9rem] border opacity-60"
+                      style={{ borderColor: storyOpenerPalette.envelopeInsetBorder }}
+                    />
+                    {/* Envelope flap */}
+                    <div
+                      className={cn(
+                        'absolute left-1/2 top-0 h-[52%] w-[92%] -translate-x-1/2 origin-top rounded-[2rem] transition-all duration-500',
+                        revealPhase !== 'idle' ? '-translate-y-4 rotate-[-12deg]' : 'group-hover:-translate-y-1',
+                      )}
+                      style={{
+                        clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+                        background: storyOpenerPalette.flap,
+                        boxShadow: '0 16px 36px rgba(0,0,0,0.18)',
+                      }}
+                    />
+                    {/* Envelope body / inner pocket */}
+                    <div
+                      className="absolute bottom-[11%] left-1/2 h-[55%] w-[90%] -translate-x-1/2 rounded-[1.8rem] border shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                      style={{
+                        background: storyOpenerPalette.body,
+                        borderColor: storyOpenerPalette.bodyBorder,
+                      }}
+                    />
+                    {/* Letter card */}
+                    <div
+                      className={cn(
+                        'absolute left-1/2 top-[24%] h-[40%] w-[74%] -translate-x-1/2 rounded-[1.4rem] border px-5 py-4 text-left transition-all duration-500 sm:w-[72%]',
+                        revealPhase === 'opening' ? '-translate-y-6' : '',
+                        revealPhase === 'burst' ? '-translate-y-10 opacity-0' : '',
+                      )}
+                      style={{
+                        background: storyOpenerPalette.letter,
+                        borderColor: storyOpenerPalette.letterBorder,
+                        boxShadow: '0 14px 28px rgba(0,0,0,0.14)',
+                      }}
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: storyOpenerPalette.letterTo }}>To</p>
+                      <p className="mt-2 text-[1.45rem] font-bold leading-none sm:text-[1.7rem]" style={{ color: storyOpenerPalette.letterName }}>{page.recipient_name}</p>
+                      <p className="mt-2.5 max-w-[9rem] text-[11px] leading-[1.45] sm:max-w-[10rem]" style={{ color: storyOpenerPalette.letterBody }}>
+                        Open when ready for the birthday story.
+                      </p>
+                    </div>
+                    {/* Stamp / seal button */}
+                    <div
+                      className="animate-seal-breathe absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-[5px] transition-transform duration-300 group-hover:scale-105"
+                      style={{
+                        background: storyOpenerPalette.stamp,
+                        borderColor: storyOpenerPalette.stampBorder,
+                        '--seal-glow': 'rgba(255,255,255,0.28)',
+                      } as CSSProperties}
+                    >
+                      <div className="flex h-full w-full items-center justify-center text-white/90">
+                        <Mail className="h-6 w-6" />
+                      </div>
+                    </div>
+                    <div className="absolute inset-x-0 -bottom-14 text-center">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/84 sm:text-xs">
+                        Tap to break the seal
+                      </p>
+                      <div className="mt-2 flex items-center justify-center gap-2 text-white/62">
+                        <span className="h-1.5 w-1.5 rounded-full bg-white/45" />
+                        <span className="text-[11px] uppercase tracking-[0.22em]">{messages.length} letters waiting inside</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-white/45" />
+                      </div>
+                    </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    </>
+  );
+});

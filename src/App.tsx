@@ -1,15 +1,14 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect, type ComponentType } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
-import { useEffect } from "react";
 import WishCanvasLoader from "@/components/WishCanvasLoader";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const lazyImport = <T extends React.ComponentType<any>>(
+const lazyImport = <T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
   name: string
 ) => {
