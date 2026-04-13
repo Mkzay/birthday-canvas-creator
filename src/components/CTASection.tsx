@@ -5,6 +5,11 @@ import { useAuth } from '@/context/AuthContext';
 
 const CTASection = () => {
   const { user } = useAuth();
+  const scrollToSetupFlow = () => {
+    const section = document.getElementById('setup-flow');
+    if (!section) return;
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <section className="relative overflow-hidden px-4 py-16 sm:px-6 sm:py-20 md:py-24">
@@ -34,11 +39,22 @@ const CTASection = () => {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
               </Button>
             </Link>
-            <Link to={user ? '/dashboard' : '/auth'}>
-              <Button variant="glass" size="lg" className="w-full border-white/20 text-base text-primary-foreground hover:bg-white/12 sm:w-auto">
-                {user ? 'Open dashboard' : 'See the setup flow'}
+            {user ? (
+              <Link to="/dashboard">
+                <Button variant="glass" size="lg" className="w-full border-white/20 text-base text-primary-foreground hover:bg-white/12 sm:w-auto">
+                  Open dashboard
+                </Button>
+              </Link>
+            ) : (
+              <Button
+                variant="glass"
+                size="lg"
+                className="w-full border-white/20 text-base text-primary-foreground hover:bg-white/12 sm:w-auto"
+                onClick={scrollToSetupFlow}
+              >
+                See the setup flow
               </Button>
-            </Link>
+            )}
           </div>
         </div>
 

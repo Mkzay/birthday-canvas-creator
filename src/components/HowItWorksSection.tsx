@@ -38,7 +38,7 @@ const steps = [
 
 const HowItWorksSection = () => {
   return (
-    <section className="relative overflow-hidden bg-card px-4 py-20 sm:px-6 sm:py-24 md:py-28">
+    <section id="setup-flow" className="relative overflow-hidden bg-card px-4 py-20 sm:px-6 sm:py-24 md:py-28">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[8%] top-24 h-40 w-40 rounded-full bg-primary/8 blur-3xl" />
         <div className="absolute right-[10%] top-10 h-52 w-52 rounded-full bg-secondary/10 blur-3xl" />
@@ -56,6 +56,9 @@ const HowItWorksSection = () => {
           <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg">
             WishCanvas works best when the organizer does very little and the birthday person still gets something that
             feels intentional.
+          </p>
+          <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground/90 sm:text-base">
+            It started as something built for a friend&apos;s birthday, then grew into a flow anyone can use in minutes.
           </p>
 
           <div className="mt-8 space-y-3">
