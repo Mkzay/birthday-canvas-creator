@@ -4,6 +4,7 @@ export interface BirthdayPageData {
   recipient_name: string;
   birthday_date: string;
   theme: string;
+  letter_theme?: string | null;
   display_mode?: 'story' | 'freeform' | 'bento';
   theme_emoji?: string | null;
   theme_gradient_from?: string | null;
@@ -12,6 +13,10 @@ export interface BirthdayPageData {
   theme_gradient_angle?: number | null;
   theme_accent_color?: string | null;
   theme_font?: string | null;
+  letter_theme_gradient_from?: string | null;
+  letter_theme_gradient_to?: string | null;
+  letter_theme_gradient_mid?: string | null;
+  letter_theme_gradient_angle?: number | null;
   letter_color?: string | null;
   creator_message: string | null;
   cover_photo_url: string | null;

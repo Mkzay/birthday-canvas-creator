@@ -1634,6 +1634,12 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const customGradientStops = customGradientMid
     ? `${customGradientFrom}, ${customGradientMid}, ${customGradientTo}`
     : `${customGradientFrom}, ${customGradientTo}`;
+  const customThemeAverageLightness = (
+    hexToHsl(customGradientFrom).l
+    + hexToHsl(customGradientMid || customGradientTo).l
+    + hexToHsl(customGradientTo).l
+  ) / 3;
+  const isDarkCustomTheme = customThemeAverageLightness < 46;
 
   const theme = isCustomTheme
     ? {
@@ -1645,9 +1651,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         ],
         font: fontClassMap[page?.theme_font || 'sans'] || 'font-sans',
         heroClass: '',
-        titleClass: 'text-slate-900',
-        cardClass: 'bg-white/82 border-white/70',
-        text: 'text-slate-950',
+        titleClass: isDarkCustomTheme ? 'text-white' : 'text-slate-900',
+        cardClass: isDarkCustomTheme ? 'bg-white/12 border-white/18' : 'bg-white/82 border-white/70',
+        text: isDarkCustomTheme ? 'text-white/95' : 'text-slate-950',
         accentColor: customAccentColor,
         style: {
           background: `linear-gradient(${customGradientAngle}deg, ${customGradientStops})`,
@@ -1659,15 +1665,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         style: undefined,
       };
 
+  const letterThemeKey = page?.letter_theme || page?.theme || 'elegant';
+  const isCustomLetterTheme = letterThemeKey.startsWith('custom_');
+  const fallbackLetterTheme = themeConfig[letterThemeKey as keyof typeof themeConfig] || fallbackTheme;
+  const letterThemeGradientFrom = isCustomLetterTheme
+    ? (page?.letter_theme_gradient_from || customGradientFrom)
+    : (fallbackLetterTheme.colors[0] || theme.colors[0]);
+  const letterThemeGradientTo = isCustomLetterTheme
+    ? (page?.letter_theme_gradient_to || customGradientTo)
+    : (fallbackLetterTheme.colors[fallbackLetterTheme.colors.length - 1] || theme.colors[theme.colors.length - 1]);
+  const letterThemeGradientMid = isCustomLetterTheme
+    ? (page?.letter_theme_gradient_mid || null)
+    : (fallbackLetterTheme.colors.length > 2 ? fallbackLetterTheme.colors[1] : null);
+
   const [rawLetterFrom, rawLetterMid, rawLetterTo] = (page?.letter_color || '').split(',');
   const letterColorFromHex =
     normalizeHexColor(rawLetterFrom) ||
-    theme.colors[0] ||
+    letterThemeGradientFrom ||
     '#ff915a';
-  const letterColorMidHex = normalizeHexColor(rawLetterMid) || (theme.colors.length > 2 ? theme.colors[1] : null);
+  const letterColorMidHex = normalizeHexColor(rawLetterMid) || letterThemeGradientMid;
   const letterColorToHex =
     normalizeHexColor(rawLetterTo || rawLetterMid) ||
-    theme.colors[theme.colors.length - 1] ||
+    letterThemeGradientTo ||
     letterColorFromHex;
 
   const { h: letterH, s: letterS, l: letterL } = hexToHsl(letterColorFromHex);
@@ -1703,7 +1722,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     return nowMs >= birthdayDate.getTime();
   }, [birthdayDate, nowMs]);
   const isBeforeBirthday = !isPreview && page?.is_revealed === false && !hasReachedBirthdayDate;
-  const isDarkExperience = page?.theme === 'cosmic' || page?.theme === 'midnight';
+  const isDarkExperience = page?.theme === 'cosmic' || page?.theme === 'midnight' || (isCustomTheme && isDarkCustomTheme);
   const experiencePanelClass = isDarkExperience
     ? 'border-white/16 bg-white/12 backdrop-blur-xl'
     : 'border-white/65 bg-white/88 shadow-[0_24px_80px_rgba(255,255,255,0.28),0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-md';

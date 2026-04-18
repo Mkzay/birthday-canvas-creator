@@ -42,12 +42,11 @@ const EditPage = () => {
   const [birthdayDate, setBirthdayDate] = useState<Date>();
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
+  const [selectedLetterTheme, setSelectedLetterTheme] = useState<Theme>('elegant');
   const [selectedDisplayMode, setSelectedDisplayMode] = useState<DisplayMode>('story');
   const [letterColor, setLetterColor] = useState<string>('');
   const [letterGradientStart, setLetterGradientStart] = useState(DEFAULT_LETTER_START);
   const [letterGradientEnd, setLetterGradientEnd] = useState(DEFAULT_LETTER_END);
-  const [letterStartHexInput, setLetterStartHexInput] = useState(DEFAULT_LETTER_START);
-  const [letterEndHexInput, setLetterEndHexInput] = useState(DEFAULT_LETTER_END);
   const [allowPhotos, setAllowPhotos] = useState(true);
   const [allowAudio, setAllowAudio] = useState(true);
   const [requireNames, setRequireNames] = useState(true);
@@ -118,6 +117,7 @@ const EditPage = () => {
         birthday_date: string;
         creator_message: string | null;
         theme: string;
+        letter_theme?: string | null;
         display_mode?: DisplayMode;
         letter_color: string | null;
         soundtrack_id: string | null;
@@ -143,19 +143,16 @@ const EditPage = () => {
       setBirthdayDate(parseLocalDate(data.birthday_date));
       setCreatorMessage(data.creator_message || '');
       setSelectedTheme(data.theme as Theme);
+      setSelectedLetterTheme((data.letter_theme as Theme) || (data.theme as Theme));
       setSelectedDisplayMode(isProUser ? (data.display_mode || 'story') : 'story');
       setLetterColor(data.letter_color || '');
       if (data.letter_color) {
         const parsed = parseLetterGradientValue(data.letter_color);
         setLetterGradientStart(parsed.start);
         setLetterGradientEnd(parsed.end);
-        setLetterStartHexInput(parsed.start);
-        setLetterEndHexInput(parsed.end);
       } else {
         setLetterGradientStart(DEFAULT_LETTER_START);
         setLetterGradientEnd(DEFAULT_LETTER_END);
-        setLetterStartHexInput(DEFAULT_LETTER_START);
-        setLetterEndHexInput(DEFAULT_LETTER_END);
       }
       setSelectedSoundtrackId(data.soundtrack_id || 'golden-hour');
       setAllowPhotos(data.allow_photos);
@@ -285,14 +282,6 @@ const EditPage = () => {
     }
   }, [isProUser, selectedDisplayMode]);
 
-  useEffect(() => {
-    setLetterStartHexInput(letterGradientStart);
-  }, [letterGradientStart]);
-
-  useEffect(() => {
-    setLetterEndHexInput(letterGradientEnd);
-  }, [letterGradientEnd]);
-
   const handleCoverPhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -414,6 +403,7 @@ const EditPage = () => {
           birthdayDate: format(birthdayDate, 'yyyy-MM-dd'),
           creatorMessage: creatorMessage || null,
           theme: selectedTheme,
+          letterTheme: selectedLetterTheme,
           displayMode: isProUser ? selectedDisplayMode : 'story',
           letterColor: letterColor || null,
           soundtrackId: selectedSoundtrackId,
@@ -544,6 +534,8 @@ const EditPage = () => {
             recipientName={recipientName}
             selectedTheme={selectedTheme}
             onSelectTheme={setSelectedTheme}
+            selectedLetterTheme={selectedLetterTheme}
+            onSelectLetterTheme={setSelectedLetterTheme}
             customThemes={customThemes}
             isProUser={isProUser}
             selectedDisplayMode={selectedDisplayMode}
@@ -554,10 +546,6 @@ const EditPage = () => {
             setLetterGradientStart={setLetterGradientStart}
             letterGradientEnd={letterGradientEnd}
             setLetterGradientEnd={setLetterGradientEnd}
-            letterStartHexInput={letterStartHexInput}
-            setLetterStartHexInput={setLetterStartHexInput}
-            letterEndHexInput={letterEndHexInput}
-            setLetterEndHexInput={setLetterEndHexInput}
             selectedSoundtrackId={selectedSoundtrackId}
             onSelectSoundtrackId={setSelectedSoundtrackId}
             pageCustomAudioUrl={pageCustomAudioUrl}

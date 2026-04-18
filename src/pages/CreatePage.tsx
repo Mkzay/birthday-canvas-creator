@@ -38,12 +38,11 @@ const CreatePage = () => {
   const [birthdayDate, setBirthdayDate] = useState<Date>();
   const [creatorMessage, setCreatorMessage] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
+  const [selectedLetterTheme, setSelectedLetterTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
   const [selectedDisplayMode, setSelectedDisplayMode] = useState<DisplayMode>('story');
   const [letterColor, setLetterColor] = useState<string>('');
   const [letterGradientStart, setLetterGradientStart] = useState(DEFAULT_LETTER_START);
   const [letterGradientEnd, setLetterGradientEnd] = useState(DEFAULT_LETTER_END);
-  const [letterStartHexInput, setLetterStartHexInput] = useState(DEFAULT_LETTER_START);
-  const [letterEndHexInput, setLetterEndHexInput] = useState(DEFAULT_LETTER_END);
   const [allowPhotos, setAllowPhotos] = useState(user?.defaultAllowPhotos ?? true);
   const [allowAudio, setAllowAudio] = useState(user?.defaultAllowAudio ?? true);
   const [requireNames, setRequireNames] = useState(user?.defaultRequireNames ?? true);
@@ -98,14 +97,6 @@ const CreatePage = () => {
     }
   }, [isProUser, selectedDisplayMode]);
 
-  useEffect(() => {
-    setLetterStartHexInput(letterGradientStart);
-  }, [letterGradientStart]);
-
-  useEffect(() => {
-    setLetterEndHexInput(letterGradientEnd);
-  }, [letterGradientEnd]);
-
   const fetchCustomThemes = useCallback(async () => {
     if (!user) return;
 
@@ -121,6 +112,7 @@ const CreatePage = () => {
   useEffect(() => {
     if (user) {
       setSelectedTheme(user.defaultTheme || 'elegant');
+      setSelectedLetterTheme(user.defaultTheme || 'elegant');
       setAllowPhotos(user.defaultAllowPhotos ?? true);
       setAllowAudio(user.defaultAllowAudio ?? true);
       setRequireNames(user.defaultRequireNames ?? true);
@@ -296,6 +288,7 @@ const CreatePage = () => {
             recipientEmail: recipientEmail.trim() || null,
             birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
             theme: selectedTheme,
+            letterTheme: selectedLetterTheme,
             displayMode: isProUser ? selectedDisplayMode : 'story',
             letterColor: letterColor || null,
             creatorMessage: creatorMessage || null,
@@ -360,6 +353,7 @@ const CreatePage = () => {
           recipientEmail: recipientEmail.trim() || null,
           birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
           theme: selectedTheme,
+          letterTheme: selectedLetterTheme,
           displayMode: isProUser ? selectedDisplayMode : 'story',
           letterColor: letterColor || null,
           creatorMessage: creatorMessage || null,
@@ -381,7 +375,7 @@ const CreatePage = () => {
       toast.error('Failed to update page settings');
       console.error(error);
     }
-  }, [birthdayDate, closeDate, createdPageId, creatorMessage, isProUser, letterColor, pageCustomAudioUrl, poolDescriptionInput, poolFundraisingEnabled, poolGoalNairaInput, recipientAccountName, recipientAccountNumber, recipientBankCode, recipientEmail, recipientName, selectedDisplayMode, selectedSoundtrackId, selectedTheme]);
+  }, [birthdayDate, closeDate, createdPageId, creatorMessage, isProUser, letterColor, pageCustomAudioUrl, poolDescriptionInput, poolFundraisingEnabled, poolGoalNairaInput, recipientAccountName, recipientAccountNumber, recipientBankCode, recipientEmail, recipientName, selectedDisplayMode, selectedLetterTheme, selectedSoundtrackId, selectedTheme]);
 
   const handleAllowPhotosChange = (checked: boolean) => {
     setAllowPhotos(checked);
@@ -492,6 +486,8 @@ const CreatePage = () => {
             recipientName={recipientName}
             selectedTheme={selectedTheme}
             onSelectTheme={setSelectedTheme}
+            selectedLetterTheme={selectedLetterTheme}
+            onSelectLetterTheme={setSelectedLetterTheme}
             customThemes={customThemes}
             isProUser={isProUser}
             selectedDisplayMode={selectedDisplayMode}
@@ -502,10 +498,6 @@ const CreatePage = () => {
             setLetterGradientStart={setLetterGradientStart}
             letterGradientEnd={letterGradientEnd}
             setLetterGradientEnd={setLetterGradientEnd}
-            letterStartHexInput={letterStartHexInput}
-            setLetterStartHexInput={setLetterStartHexInput}
-            letterEndHexInput={letterEndHexInput}
-            setLetterEndHexInput={setLetterEndHexInput}
             selectedSoundtrackId={selectedSoundtrackId}
             onSelectSoundtrackId={setSelectedSoundtrackId}
             pageCustomAudioUrl={pageCustomAudioUrl}

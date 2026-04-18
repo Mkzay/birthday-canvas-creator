@@ -25,6 +25,7 @@ interface ThemeSelectorProps {
   customThemes?: ThemeSelectorCustomTheme[];
   manageThemesHref?: string;
   recipientName?: string;
+  showPreview?: boolean;
 }
 
 const ThemeSelector = ({
@@ -33,6 +34,7 @@ const ThemeSelector = ({
   customThemes = [],
   manageThemesHref = '/themes',
   recipientName,
+  showPreview = true,
 }: ThemeSelectorProps) => {
   const previewData = useMemo(() => {
     if (selectedTheme.startsWith('custom_')) {
@@ -79,34 +81,35 @@ const ThemeSelector = ({
 
   return (
     <div className="space-y-5">
-      {/* Mini preview */}
-      <div
-        className="relative overflow-hidden rounded-[1.5rem] p-5 sm:p-6"
-        style={{ background: previewData.gradient }}
-      >
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-        <div className="relative">
-          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.28em]', previewData.isDark ? 'text-white/60' : 'text-white/70')}>
-            Preview
-          </p>
-          <h3 className={cn('mt-2 text-2xl font-bold leading-tight sm:text-3xl', previewData.fontClass, previewData.isDark ? 'text-white' : 'text-white')}>
-            Happy Birthday, {displayName}.
-          </h3>
-          <div className="mt-4 flex items-center gap-3">
-            <div className={cn('rounded-xl border px-4 py-2.5', previewData.isDark ? 'border-white/15 bg-white/10' : 'border-white/25 bg-white/20')}>
-              <p className={cn('text-xs', previewData.isDark ? 'text-white/70' : 'text-white/80')}>Wish card</p>
-              <p className={cn('mt-1 text-sm font-medium italic', previewData.isDark ? 'text-white/90' : 'text-white')}>&ldquo;Your message here...&rdquo;</p>
-            </div>
-            <div className={cn('flex h-10 w-10 items-center justify-center rounded-full text-lg', previewData.isDark ? 'bg-white/12' : 'bg-white/22')}>
-              {previewData.iconUrl ? (
-                <img src={previewData.iconUrl} alt={previewData.name} className="h-8 w-8 rounded-xl object-cover" />
-              ) : (
-                previewData.emoji
-              )}
+      {showPreview && (
+        <div
+          className="relative overflow-hidden rounded-[1.5rem] p-5 sm:p-6"
+          style={{ background: previewData.gradient }}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+          <div className="relative">
+            <p className={cn('text-[10px] font-semibold uppercase tracking-[0.28em]', previewData.isDark ? 'text-white/60' : 'text-white/70')}>
+              Preview
+            </p>
+            <h3 className={cn('mt-2 text-2xl font-bold leading-tight sm:text-3xl', previewData.fontClass, previewData.isDark ? 'text-white' : 'text-white')}>
+              Happy Birthday, {displayName}.
+            </h3>
+            <div className="mt-4 flex items-center gap-3">
+              <div className={cn('rounded-xl border px-4 py-2.5', previewData.isDark ? 'border-white/15 bg-white/10' : 'border-white/25 bg-white/20')}>
+                <p className={cn('text-xs', previewData.isDark ? 'text-white/70' : 'text-white/80')}>Wish card</p>
+                <p className={cn('mt-1 text-sm font-medium italic', previewData.isDark ? 'text-white/90' : 'text-white')}>&ldquo;Your message here...&rdquo;</p>
+              </div>
+              <div className={cn('flex h-10 w-10 items-center justify-center rounded-full text-lg', previewData.isDark ? 'bg-white/12' : 'bg-white/22')}>
+                {previewData.iconUrl ? (
+                  <img src={previewData.iconUrl} alt={previewData.name} className="h-8 w-8 rounded-xl object-cover" />
+                ) : (
+                  previewData.emoji
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Built-in themes */}
       <div className="rounded-[2rem] border border-border/70 bg-gradient-to-br from-white via-background to-primary/5 p-4 shadow-card sm:p-5">
