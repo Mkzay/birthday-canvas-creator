@@ -140,30 +140,34 @@ const FeaturesSection = () => {
               </div>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[2rem] border border-border/60 bg-slate-950 p-5 text-slate-50 shadow-xl">
-                  <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
-                    <span>Birthday board</span>
-                    <span>Live preview</span>
-                  </div>
-                  <div className="mt-5 flex items-start gap-3">
-                    <div className="gradient-cta flex h-12 w-12 items-center justify-center rounded-2xl text-xl">
-                      🎂
+                <div className="rounded-[2rem] border border-border/60 bg-white/95 p-4 text-foreground shadow-card sm:p-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Dashboard card preview</p>
+                  <div className="mt-3 overflow-hidden rounded-[1.4rem] border border-border/60 bg-card">
+                    <div className="flex gap-3 p-3 sm:p-4">
+                      <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-violet-200 via-fuchsia-200 to-amber-200">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-foreground sm:text-base">Esther&apos;s Birthday</p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">🎂 Twilight Gold</span>
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Collecting wishes</span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+                          <div className="rounded-lg border border-border/60 bg-background/80 px-2 py-1.5">
+                            <p className="font-semibold text-foreground">Apr 1, 2026</p>
+                            <p>Birthday</p>
+                          </div>
+                          <div className="rounded-lg border border-border/60 bg-background/80 px-2 py-1.5">
+                            <p className="font-semibold text-foreground">23 collected</p>
+                            <p>Wishes</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-lg font-semibold text-white">Sarah&apos;s surprise page</p>
-                      <p className="text-sm text-slate-400">23 wishes gathered before midnight</p>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted/70 px-0 mx-3 mb-3 sm:mx-4 sm:mb-4">
+                      <div className="gradient-cta h-full w-4/5 rounded-full" />
                     </div>
-                  </div>
-                  <div className="mt-5 flex -space-x-2">
-                    <div className="h-9 w-9 rounded-full border-2 border-slate-950 bg-gradient-to-br from-violet-500 to-fuchsia-500" />
-                    <div className="h-9 w-9 rounded-full border-2 border-slate-950 bg-gradient-to-br from-pink-400 to-rose-400" />
-                    <div className="h-9 w-9 rounded-full border-2 border-slate-950 bg-gradient-to-br from-amber-400 to-orange-500" />
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-slate-950 bg-slate-800 text-xs font-semibold text-slate-200">
-                      +20
-                    </div>
-                  </div>
-                  <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
-                    <div className="gradient-cta h-full w-4/5 rounded-full" />
                   </div>
                 </div>
 

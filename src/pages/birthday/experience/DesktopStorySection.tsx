@@ -11,7 +11,6 @@ import {
   Share2,
   Download,
   SkipForward,
-  Sparkles,
   Volume2,
   Trash2,
   Music,
@@ -329,7 +328,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
           </div>
       
           <div
-            className="story-desktop-stage relative mt-2 flex-1 overflow-hidden sm:mt-3"
+            className="story-desktop-stage relative mt-2 h-[74svh] min-h-[34rem] max-h-[52rem] overflow-hidden sm:mt-3"
             onClick={handleStageClick}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -469,17 +468,19 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                     )}
       
                   {activeSlide.kind === 'organizer' && page.creator_message && (
-                    <div className="flex h-full flex-col items-center justify-center text-center">
-                      <div className={cn('story-stage-reveal flex h-20 w-20 items-center justify-center rounded-[2rem] border', experienceInsetClass)} style={getStoryDelayStyle(60)}>
-                        <Heart className={cn('h-10 w-10', theme.text)} />
-                      </div>
-                      <p className={cn('story-stage-reveal-soft mt-8 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)} style={getStoryDelayStyle(120)}>
-                        A note from the organizer
-                      </p>
-                      <p className={cn('story-stage-reveal mt-6 max-w-4xl text-3xl italic leading-[1.3] sm:text-5xl', theme.text)} style={getStoryDelayStyle(180)}>
-                        &quot;{page.creator_message}&quot;
-                      </p>
-                      <p className={cn('story-stage-reveal-soft mt-6 text-sm opacity-70', theme.text)} style={getStoryDelayStyle(250)}>Written before the reveal began.</p>
+                    <div className="flex h-full items-center justify-center">
+                      <article className={cn('story-stage-reveal relative flex h-full w-full max-w-5xl flex-col items-center justify-center rounded-[2rem] border p-6 text-center sm:p-10', keepsakePaperClass)} style={getStoryDelayStyle(90)}>
+                        <div className={cn('story-stage-reveal-soft flex h-20 w-20 items-center justify-center rounded-[2rem] border', experienceInsetClass)} style={getStoryDelayStyle(60)}>
+                          <Heart className={cn('h-10 w-10', theme.text)} />
+                        </div>
+                        <p className={cn('story-stage-reveal-soft mt-8 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)} style={getStoryDelayStyle(120)}>
+                          A note from the organizer
+                        </p>
+                        <p className={cn('story-stage-reveal mt-6 max-w-4xl text-3xl italic leading-[1.3] sm:text-5xl', theme.text)} style={getStoryDelayStyle(180)}>
+                          &quot;{page.creator_message}&quot;
+                        </p>
+                        <p className={cn('story-stage-reveal-soft mt-6 text-sm opacity-70', theme.text)} style={getStoryDelayStyle(250)}>Written before the reveal began.</p>
+                      </article>
                     </div>
                   )}
       
@@ -612,9 +613,9 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                       }
       
                       return (
-                        <div className={cn("story-slide-wish-grid h-full lg:items-start", photoCount > 0 ? "grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" : "flex flex-col gap-4 justify-center max-w-3xl mx-auto w-full")}>
-                          <div className="flex flex-col gap-4 lg:justify-center">
-                            <article className={cn('story-slide-wish-card story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass, photoCount === 0 && !activeSlide.message.audio_url && 'flex flex-col items-center justify-center text-center')} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
+                        <div className={cn("story-slide-wish-grid h-full lg:items-start", photoCount > 0 ? "grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" : "mx-auto flex h-full w-full max-w-3xl flex-col justify-center") }>
+                          <div className={cn('flex flex-col gap-4 lg:justify-center', photoCount === 0 && !activeSlide.message.audio_url && 'h-full justify-center')}>
+                            <article className={cn('story-slide-wish-card story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass, photoCount === 0 && !activeSlide.message.audio_url && 'flex flex-col justify-center')} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
                               {isPreview && (
                                 <Button
                                   variant="ghost"
@@ -633,8 +634,8 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                                   <span className="hidden sm:inline">Remove wish</span>
                                 </Button>
                               )}
-                              <div className={cn("flex items-start justify-between gap-4", photoCount === 0 && !activeSlide.message.audio_url && "w-full justify-center")}>
-                                <div className={cn(photoCount === 0 && !activeSlide.message.audio_url && "flex flex-col items-center")}>
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
                                   <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
                                     Letter {activeSlide.index + 1} of {messages.length}
                                   </p>
@@ -719,16 +720,6 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               </article>
                             )}
       
-                            {photoCount === 0 && (
-                              <article className={cn('story-stage-reveal-soft flex items-center gap-3 rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(activeSlide.message.audio_url ? 240 : 170, 740)}>
-                                <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', isDarkExperience ? 'bg-white/10' : 'bg-white/78')}>
-                                  <Sparkles className={cn('h-5 w-5', theme.text)} />
-                                </div>
-                                <p className={cn('text-sm leading-relaxed opacity-82 sm:text-base', theme.text)}>
-                                  This one lands through words{activeSlide.message.audio_url ? ' and voice' : ''} alone.
-                                </p>
-                              </article>
-                            )}
                           </div>
       
                           {photoCount > 0 && (

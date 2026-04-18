@@ -1,17 +1,13 @@
 import type React from 'react';
 import { Lock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import OpenerThemePreview from '@/components/OpenerThemePreview';
 import SoundtrackSelector from '@/components/SoundtrackSelector';
 import ThemeSelector from '@/components/ThemeSelector';
 import { cn } from '@/lib/utils';
 import type { CustomTheme, DisplayMode, Theme } from '../types';
-import { DEFAULT_LETTER_END, DEFAULT_LETTER_START, displayModes } from '../constants';
+import { displayModes } from '../constants';
 import { getEffectiveColors } from '../getEffectiveColors';
 import { ModePreview } from '../ModePreview';
-import { normalizePastedHex } from '../hexAndDate';
 
 export type WizardStepThemeVariant = 'create' | 'edit';
 
@@ -20,6 +16,8 @@ export type WizardStepThemeProps = {
   recipientName: string;
   selectedTheme: Theme;
   onSelectTheme: (theme: Theme) => void;
+  selectedLetterTheme: Theme;
+  onSelectLetterTheme: (theme: Theme) => void;
   customThemes: CustomTheme[];
   isProUser: boolean;
   selectedDisplayMode: DisplayMode;
@@ -30,10 +28,6 @@ export type WizardStepThemeProps = {
   setLetterGradientStart: (value: string) => void;
   letterGradientEnd: string;
   setLetterGradientEnd: (value: string) => void;
-  letterStartHexInput: string;
-  setLetterStartHexInput: (value: string) => void;
-  letterEndHexInput: string;
-  setLetterEndHexInput: (value: string) => void;
   selectedSoundtrackId: string;
   onSelectSoundtrackId: (id: string) => void;
   pageCustomAudioUrl: string | null;
@@ -47,6 +41,8 @@ export function WizardStepTheme({
   recipientName,
   selectedTheme,
   onSelectTheme,
+  selectedLetterTheme,
+  onSelectLetterTheme,
   customThemes,
   isProUser,
   selectedDisplayMode,
@@ -57,10 +53,6 @@ export function WizardStepTheme({
   setLetterGradientStart,
   letterGradientEnd,
   setLetterGradientEnd,
-  letterStartHexInput,
-  setLetterStartHexInput,
-  letterEndHexInput,
-  setLetterEndHexInput,
   selectedSoundtrackId,
   onSelectSoundtrackId,
   pageCustomAudioUrl,
@@ -84,10 +76,16 @@ export function WizardStepTheme({
         {isCreate ? 'Choose a vibe' : 'Adjust the visual direction'}
       </h2>
       <p className="mb-6 text-sm text-muted-foreground sm:mb-8 sm:text-base">
-        {isCreate ? 'Select a theme that matches their personality' : 'Change the page mood and soundtrack without scrolling through unrelated fields.'}
+        {isCreate ? 'Select themes for the page and letter' : 'Change the page mood and soundtrack without scrolling through unrelated fields.'}
       </p>
 
-      <ThemeSelector selectedTheme={selectedTheme} onSelect={onSelectTheme} customThemes={customThemes} recipientName={recipientName} />
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-base font-semibold text-foreground mb-3">Birthday page theme</h3>
+          <p className="text-sm text-muted-foreground mb-4">This theme applies to the entire birthday page backdrop and wishes display.</p>
+          <ThemeSelector selectedTheme={selectedTheme} onSelect={onSelectTheme} customThemes={customThemes} recipientName={recipientName} />
+        </div>
+      </div>
 
       <div className="panel-inset mt-4 p-4 sm:p-6">
         <h3 className="text-lg font-bold text-foreground">Birthday page view</h3>
@@ -124,98 +122,8 @@ export function WizardStepTheme({
       </div>
 
       <div className="mt-8">
-        <Label className="text-foreground">Letter / envelope color</Label>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Optional. Use one or two tones for the paper mood. Leave empty to use the theme default.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2">
-            <Label htmlFor="letter-color-start" className="text-xs text-muted-foreground">
-              Start
-            </Label>
-            <input
-              type="color"
-              id="letter-color-start"
-              value={letterGradientStart}
-              onChange={(e) => {
-                const nextStart = e.target.value;
-                setLetterGradientStart(nextStart);
-                setLetterColor(`${nextStart},${letterGradientEnd}`);
-              }}
-              className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background"
-              aria-label="Choose letter gradient start color"
-            />
-          </div>
-          <Input
-            value={letterStartHexInput}
-            onChange={(event) => setLetterStartHexInput(event.target.value)}
-            onBlur={() => {
-              const normalized = normalizePastedHex(letterStartHexInput);
-              if (!normalized) {
-                setLetterStartHexInput(letterGradientStart);
-                return;
-              }
-              setLetterGradientStart(normalized);
-              setLetterColor(`${normalized},${letterGradientEnd}`);
-            }}
-            placeholder="#f5f0e8"
-            className="h-10 w-[8.5rem] font-mono text-xs"
-            aria-label="Paste letter gradient start color code"
-          />
-          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2">
-            <Label htmlFor="letter-color-end" className="text-xs text-muted-foreground">
-              End
-            </Label>
-            <input
-              type="color"
-              id="letter-color-end"
-              value={letterGradientEnd}
-              onChange={(e) => {
-                const nextEnd = e.target.value;
-                setLetterGradientEnd(nextEnd);
-                setLetterColor(`${letterGradientStart},${nextEnd}`);
-              }}
-              className="h-8 w-10 cursor-pointer rounded-md border border-border bg-background"
-              aria-label="Choose letter gradient end color"
-            />
-          </div>
-          <Input
-            value={letterEndHexInput}
-            onChange={(event) => setLetterEndHexInput(event.target.value)}
-            onBlur={() => {
-              const normalized = normalizePastedHex(letterEndHexInput);
-              if (!normalized) {
-                setLetterEndHexInput(letterGradientEnd);
-                return;
-              }
-              setLetterGradientEnd(normalized);
-              setLetterColor(`${letterGradientStart},${normalized}`);
-            }}
-            placeholder="#eadfce"
-            className="h-10 w-[8.5rem] font-mono text-xs"
-            aria-label="Paste letter gradient end color code"
-          />
-          {letterColor ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setLetterColor('');
-                setLetterGradientStart(DEFAULT_LETTER_START);
-                setLetterGradientEnd(DEFAULT_LETTER_END);
-                setLetterStartHexInput(DEFAULT_LETTER_START);
-                setLetterEndHexInput(DEFAULT_LETTER_END);
-              }}
-            >
-              Use default
-            </Button>
-          ) : null}
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">You can paste hex values like #f5f0e8, f5f0e8, or #abc.</p>
-
         {(() => {
-          const { start, mid, end, angle } = getEffectiveColors(selectedTheme, letterColor, customThemes);
+          const { start, mid, end, angle } = getEffectiveColors(selectedLetterTheme, letterColor, customThemes);
           return (
             <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
               <div className="order-2 sm:order-1">
@@ -234,13 +142,25 @@ export function WizardStepTheme({
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {selectedDisplayMode === 'story'
-                    ? 'Mirrors the opening envelope layout used on the birthday page.'
+                    ? 'Shows how the letter will appear with your selected letter theme.'
                     : 'Shows the polaroid-style reveal used in Freeform mode.'}
                 </p>
               </div>
             </div>
           );
         })()}
+
+        <div className="mt-6 border-t border-border/40 pt-6">
+          <h3 className="text-base font-semibold text-foreground mb-3">Letter / envelope theme</h3>
+          <p className="text-sm text-muted-foreground mb-4">Pick the letter theme only. The page theme above remains unchanged.</p>
+          <ThemeSelector
+            selectedTheme={selectedLetterTheme}
+            onSelect={onSelectLetterTheme}
+            customThemes={customThemes}
+            recipientName={recipientName}
+            showPreview={false}
+          />
+        </div>
       </div>
 
       <div className="panel-inset mt-8 p-4 sm:p-6">

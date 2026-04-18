@@ -14,7 +14,10 @@ export function getEffectiveColors(
     return { start: first, mid: null as string | null, end: second || first, angle: null as number | null };
   }
 
-  const custom = customThemes.find((t) => t.id === selectedTheme);
+  const selectedCustomId = selectedTheme.startsWith('custom_')
+    ? selectedTheme.slice('custom_'.length)
+    : selectedTheme;
+  const custom = customThemes.find((t) => String(t.id) === selectedCustomId);
   if (custom) {
     return {
       start: custom.gradient_from,

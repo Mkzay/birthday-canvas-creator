@@ -309,6 +309,11 @@ export async function initializeDatabase() {
 
   await sql`
     ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS letter_theme TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
     ADD COLUMN IF NOT EXISTS birthday_notified_year INTEGER;
   `;
 

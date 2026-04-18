@@ -158,6 +158,11 @@ const UpgradePage = () => {
         nextParams.delete('reference');
         nextParams.delete('trxref');
         setSearchParams(nextParams, { replace: true });
+
+        // Navigate to theme builder after a brief delay to ensure session is fully updated
+        setTimeout(() => {
+          navigate('/themes');
+        }, 1500);
       } catch (error) {
         const message = error instanceof ApiError ? error.message : 'Could not verify payment.';
         setVerifyState('failed');
@@ -257,20 +262,33 @@ const UpgradePage = () => {
               </div>
 
               {verifyMessage && (
-                <div
-                  className={cn(
-                    'mt-6 rounded-2xl border p-4 text-sm',
-                    verifyState === 'success' && 'border-emerald-300/60 bg-emerald-100/70 text-emerald-900',
-                    verifyState === 'failed' && 'border-rose-300/60 bg-rose-100/70 text-rose-900',
-                    verifyState === 'verifying' && 'border-amber-300/60 bg-amber-100/70 text-amber-900',
+                <div className="mt-6 space-y-4">
+                  <div
+                    className={cn(
+                      'rounded-2xl border p-4 text-sm',
+                      verifyState === 'success' && 'border-emerald-300/60 bg-emerald-100/70 text-emerald-900',
+                      verifyState === 'failed' && 'border-rose-300/60 bg-rose-100/70 text-rose-900',
+                      verifyState === 'verifying' && 'border-amber-300/60 bg-amber-100/70 text-amber-900',
+                    )}
+                  >
+                    <p className="flex items-center gap-2">
+                      {(checkoutLoading || verifyState === 'verifying') && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {verifyState === 'success' && <Sparkles className="h-4 w-4" />}
+                      {verifyState === 'failed' && <Lock className="h-4 w-4" />}
+                      {verifyMessage}
+                    </p>
+                  </div>
+                  {verifyState === 'success' && (
+                    <Button
+                      variant="hero"
+                      onClick={() => navigate('/themes')}
+                      className="w-full gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Go to Theme Builder
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
                   )}
-                >
-                  <p className="flex items-center gap-2">
-                    {(checkoutLoading || verifyState === 'verifying') && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {verifyState === 'success' && <Sparkles className="h-4 w-4" />}
-                    {verifyState === 'failed' && <Lock className="h-4 w-4" />}
-                    {verifyMessage}
-                  </p>
                 </div>
               )}
 

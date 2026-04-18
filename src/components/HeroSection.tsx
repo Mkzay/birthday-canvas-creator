@@ -49,26 +49,36 @@ const HeroSection = () => {
         </div>
 
         <div className="mt-8 animate-scale-in sm:mt-12 md:mt-16" style={{ animationDelay: '0.5s', opacity: 0 }}>
-          <div className="glass-card mx-auto max-w-sm rounded-2xl p-4 shadow-soft-lg animate-float sm:max-w-md sm:rounded-3xl sm:p-6">
-            <div className="mb-3 flex items-center gap-3 sm:mb-4 sm:gap-4">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-pink-400 text-xl sm:h-14 sm:w-14 sm:rounded-2xl sm:text-2xl">
-                🎂
+          <div className="mx-auto max-w-sm animate-float rounded-[2rem] border border-white/20 bg-white/95 p-4 text-foreground shadow-soft-lg backdrop-blur-sm sm:max-w-md sm:p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Dashboard card preview
+            </p>
+            <div className="mt-3 overflow-hidden rounded-[1.4rem] border border-border/60 bg-card shadow-card">
+              <div className="flex gap-3 p-3 sm:p-4">
+                <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-violet-200 via-fuchsia-200 to-amber-200">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="truncate text-sm font-bold text-foreground sm:text-base">Esther&apos;s Birthday</p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">🎂 Twilight Gold</span>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Collecting wishes</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+                    <div className="rounded-lg border border-border/60 bg-background/80 px-2 py-1.5">
+                      <p className="font-semibold text-foreground">Apr 1, 2026</p>
+                      <p>Birthday</p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-background/80 px-2 py-1.5">
+                      <p className="font-semibold text-foreground">23 collected</p>
+                      <p>Wishes</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="min-w-0 text-left">
-                <h3 className="truncate text-base font-bold text-foreground sm:text-lg">Sarah&apos;s Birthday</h3>
-                <p className="text-xs text-muted-foreground sm:text-sm">23 wishes collected</p>
+              <div className="h-2 overflow-hidden rounded-full bg-muted/70 mx-3 mb-3 sm:mx-4 sm:mb-4">
+                <div className="gradient-cta h-full w-4/5 rounded-full" />
               </div>
-            </div>
-            <div className="mb-3 flex gap-2 sm:mb-4">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-500 to-violet-600 ring-2 ring-white sm:h-10 sm:w-10" />
-              <div className="-ml-3 h-8 w-8 rounded-full bg-gradient-to-br from-pink-400 to-pink-500 ring-2 ring-white sm:h-10 sm:w-10" />
-              <div className="-ml-3 h-8 w-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 ring-2 ring-white sm:h-10 sm:w-10" />
-              <div className="-ml-3 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground ring-2 ring-white sm:h-10 sm:w-10 sm:text-xs">
-                +20
-              </div>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-muted sm:h-2">
-              <div className="h-full w-4/5 rounded-full gradient-cta" />
             </div>
           </div>
         </div>

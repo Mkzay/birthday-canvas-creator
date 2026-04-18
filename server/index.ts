@@ -1267,6 +1267,7 @@ function publicPageQuery(pageId: string) {
       bp.recipient_name,
       bp.birthday_date,
       bp.theme,
+      bp.letter_theme,
       bp.display_mode,
       bp.letter_color,
       ct.emoji AS theme_emoji,
@@ -1276,6 +1277,10 @@ function publicPageQuery(pageId: string) {
       ct.gradient_angle AS theme_gradient_angle,
       ct.accent_color AS theme_accent_color,
       ct.font AS theme_font,
+      lct.gradient_from AS letter_theme_gradient_from,
+      lct.gradient_to AS letter_theme_gradient_to,
+      lct.gradient_mid AS letter_theme_gradient_mid,
+      lct.gradient_angle AS letter_theme_gradient_angle,
       CASE WHEN NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) THEN bp.creator_message ELSE NULL END AS creator_message,
       bp.cover_photo_url,
       bp.soundtrack_id,
@@ -1299,10 +1304,11 @@ function publicPageQuery(pageId: string) {
     FROM birthday_pages bp
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
     LEFT JOIN custom_themes ct ON bp.theme = CONCAT('custom_', ct.id::text)
+    LEFT JOIN custom_themes lct ON bp.letter_theme = CONCAT('custom_', lct.id::text)
     INNER JOIN users u ON u.id = bp.user_id
     WHERE bp.id = ${pageId}
       AND bp.status = 'active'
-    GROUP BY bp.id, ct.id, u.id
+    GROUP BY bp.id, ct.id, lct.id, u.id
   `;
 }
 
@@ -2553,7 +2559,9 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
         recipient_email,
         birthday_date,
         theme,
+        letter_theme,
         display_mode,
+        letter_color,
         creator_message,
         soundtrack_id,
         allow_photos,
@@ -2578,7 +2586,9 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
         ${recipientEmail},
         ${String(request.body.birthdayDate)},
         ${String(request.body.theme || "elegant")},
+        ${String(request.body.letterTheme || request.body.theme || "elegant")},
         ${requestedDisplayMode},
+        ${request.body.letterColor ?? null},
         ${sanitizeDisplayName(request.body.creatorMessage)},
         ${String(request.body.soundtrackId || "golden-hour")},
         ${Boolean(request.body.allowPhotos ?? true)},
@@ -3084,6 +3094,7 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
             recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
             birthday_date = ${String(request.body.birthdayDate)},
             theme = ${String(request.body.theme || "elegant")},
+            letter_theme = ${String(request.body.letterTheme || request.body.theme || "elegant")},
             display_mode = ${requestedDisplayMode},
             creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
             soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},
@@ -3115,6 +3126,7 @@ app.patch("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), vali
             recipient_email = ${sanitizeEmail(request.body.recipientEmail)},
             birthday_date = ${String(request.body.birthdayDate)},
             theme = ${String(request.body.theme || "elegant")},
+            letter_theme = ${String(request.body.letterTheme || request.body.theme || "elegant")},
             display_mode = ${requestedDisplayMode},
             creator_message = ${sanitizeDisplayName(request.body.creatorMessage)},
             soundtrack_id = ${String(request.body.soundtrackId || "golden-hour")},

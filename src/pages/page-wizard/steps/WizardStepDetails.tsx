@@ -68,7 +68,7 @@ export function WizardStepDetails({
             id="name"
             value={recipientName}
             onChange={(e) => setRecipientName(e.target.value)}
-            placeholder={isCreate ? 'e.g., Sarah' : undefined}
+            placeholder={isCreate ? 'e.g., Esther' : undefined}
             className="mt-2"
           />
         </div>
