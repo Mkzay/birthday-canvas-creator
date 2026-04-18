@@ -11,7 +11,6 @@ import {
   Share2,
   Download,
   SkipForward,
-  Sparkles,
   Volume2,
   Trash2,
   Music,
@@ -412,13 +411,14 @@ export const MobileStorySection = memo(function MobileStorySection() {
                 )}
       
                 {slide.kind === 'organizer' && page.creator_message && (
-                  <div className="space-y-4 text-center">
-                    <div className={cn('story-stage-reveal mx-auto flex h-16 w-16 items-center justify-center rounded-[1.5rem] border', experienceInsetClass)} style={{ ...getStoryDelayStyle(40), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
-                      <Heart className={cn('h-8 w-8', theme.text)} />
-                    </div>
-                    <article className={cn('story-stage-reveal-soft rounded-[1.7rem] border p-5', keepsakePaperClass)} style={{ ...getStoryDelayStyle(130), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
-                      <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>A note from the organizer</p>
+                  <div className="flex h-full items-center justify-center">
+                    <article className={cn('story-stage-reveal relative flex h-full w-full flex-col items-center justify-center rounded-[1.7rem] border p-5 text-center', keepsakePaperClass)} style={{ ...getStoryDelayStyle(70), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
+                      <div className={cn('story-stage-reveal-soft mx-auto flex h-16 w-16 items-center justify-center rounded-[1.5rem] border', experienceInsetClass)} style={{ ...getStoryDelayStyle(40), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
+                        <Heart className={cn('h-8 w-8', theme.text)} />
+                      </div>
+                      <p className={cn('mt-4 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>A note from the organizer</p>
                       <p className={cn('mt-4 text-xl italic leading-[1.45]', theme.text)}>&quot;{page.creator_message}&quot;</p>
+                      <p className={cn('mt-4 text-xs opacity-65', theme.text)}>Written before the reveal began.</p>
                     </article>
                   </div>
                 )}
@@ -428,8 +428,8 @@ export const MobileStorySection = memo(function MobileStorySection() {
                   const photoCount = wishPhotos.length;
       
                   return (
-                    <div className="space-y-4">
-                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass, photoCount === 0 && !slide.message.audio_url && 'text-center flex flex-col items-center')} style={{ ...getStoryDelayStyle(40, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
+                    <div className={cn('space-y-4', photoCount === 0 && !slide.message.audio_url && 'flex h-full flex-col justify-center')}>
+                      <article className={cn('story-stage-reveal rounded-[1.7rem] border p-5 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-card-hover', keepsakePaperClass, photoCount === 0 && !slide.message.audio_url && 'flex flex-col justify-center')} style={{ ...getStoryDelayStyle(40, getStoryMotionDuration(slide)), backgroundColor: storyThemePalette.paperBg, borderColor: storyThemePalette.paperBorder }}>
                         <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
                           Letter {slide.index + 1} of {messages.length}
                         </p>
@@ -438,7 +438,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
                           ? <div className={cn('wish-rich-text mt-4 text-lg leading-relaxed', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(slide.message.message) }} />
                           : <p className={cn('mt-4 text-lg leading-relaxed', theme.text)}>&quot;{slide.message.message}&quot;</p>
                         }
-                        <div className={cn("mt-5 flex flex-wrap gap-2", photoCount === 0 && !slide.message.audio_url && "justify-center")}>
+                        <div className="mt-5 flex flex-wrap gap-2">
                           {photoCount > 0 && (
                             <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)} style={{ backgroundColor: storyThemePalette.pillBg, borderColor: storyThemePalette.pillBorder, color: storyThemePalette.pillText }}>
                               {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
@@ -515,13 +515,6 @@ export const MobileStorySection = memo(function MobileStorySection() {
                         </section>
                       )}
       
-                      {photoCount === 0 && (
-                        <article className={cn('story-stage-reveal-soft rounded-[1.45rem] border p-4', keepsakeSoftClass)} style={{ ...getStoryDelayStyle(slide.message.audio_url ? 190 : 130), backgroundColor: storyThemePalette.softBg, borderColor: storyThemePalette.softBorder }}>
-                          <p className={cn('text-sm leading-relaxed opacity-82', theme.text)}>
-                            This one lands through words{slide.message.audio_url ? ' and voice' : ''} alone.
-                          </p>
-                        </article>
-                      )}
                     </div>
                   );
                 })()}
@@ -567,6 +560,44 @@ export const MobileStorySection = memo(function MobileStorySection() {
             </article>
             </Fragment>
           ))}
+
+          {!showRevealIntro && (
+            <div className="story-scroll-reveal pt-2" data-scroll-reveal="true" style={getStoryDelayStyle(240)}>
+              <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+0.45rem)] z-40">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (user) {
+                      void toggleSavePage();
+                    } else {
+                      const redirectPath = `/birthday/${pageId}`;
+                      const params = new URLSearchParams({
+                        redirect: redirectPath,
+                        save: '1',
+                        page: pageId || '',
+                      });
+                      navigate(`/auth?${params.toString()}`);
+                    }
+                  }}
+                  className={cn(
+                    'mx-auto block w-fit max-w-full rounded-2xl border px-4 py-3 text-sm font-semibold shadow-[0_18px_50px_rgba(18,18,23,0.16)] backdrop-blur-md transition-colors',
+                    user && isSaved
+                      ? isDarkExperience
+                        ? 'border-emerald-300/35 bg-emerald-500/90 text-white hover:bg-emerald-500'
+                        : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
+                      : isDarkExperience
+                        ? 'border-white/20 bg-white/10 text-white hover:bg-white/15'
+                        : 'border-white/70 bg-white/80 text-foreground hover:bg-white',
+                  )}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Heart className={cn('h-4 w-4', user && isSaved ? 'fill-current' : '')} />
+                    {user ? (isSaved ? 'Saved to dashboard' : 'Save to dashboard') : 'Save to my dashboard'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
       
           <Link to="/create" className={cn('mx-auto pt-2 text-sm font-medium opacity-70 transition-opacity hover:opacity-100', theme.text)}>
             Create your own

@@ -2590,6 +2590,9 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           aria-label="Close expanded photo"
         >
           <div className="max-w-5xl">
+            <p className="mb-3 text-center text-xs font-medium uppercase tracking-[0.18em] text-white/75 sm:hidden">
+              Tap to close
+            </p>
             <img
               src={resolveAssetUrl(expandedPhoto.url) || expandedPhoto.url}
               alt={`Expanded photo from ${expandedPhoto.senderName}`}
