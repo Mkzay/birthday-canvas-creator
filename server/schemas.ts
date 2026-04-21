@@ -103,6 +103,12 @@ export const poolReleaseBodySchema = z.object({
   token: z.string().max(120).optional(),
 });
 
+export const adminPoolReconcileBodySchema = z.object({
+  reference: z.string().min(6).max(120).transform((s) => s.trim()).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  includeFailed: z.boolean().optional(),
+});
+
 export const paystackResolveAccountBodySchema = z.object({
   bankCode: z.string().trim().min(2).max(12),
   accountNumber: z.string().trim().regex(/^\d{10,20}$/),
