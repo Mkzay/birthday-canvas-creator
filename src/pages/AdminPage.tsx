@@ -12,7 +12,13 @@ import AnimatedBackground from '@/components/AnimatedBackground';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { AdminBirthdayRow, BirthdayNotifyPayload, SystemStatusPayload } from '@/pages/admin';
+import type {
+  AdminBirthdayRow,
+  AdminPoolReconcileRequest,
+  AdminPoolReconcileResponse,
+  BirthdayNotifyPayload,
+  SystemStatusPayload,
+} from '@/pages/admin';
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -28,6 +34,13 @@ const AdminPage = () => {
   const [adminPlanFilter, setAdminPlanFilter] = useState('all');
   const [adminRowsPerPage, setAdminRowsPerPage] = useState(25);
   const [adminCurrentPage, setAdminCurrentPage] = useState(1);
+  const [selectedReconcileRow, setSelectedReconcileRow] = useState<AdminBirthdayRow | null>(null);
+  const [reconcileReference, setReconcileReference] = useState('');
+  const [reconcileLimit, setReconcileLimit] = useState(50);
+  const [reconcileIncludeFailed, setReconcileIncludeFailed] = useState(false);
+  const [reconcileLoading, setReconcileLoading] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<AdminPoolReconcileResponse | null>(null);
+  const [reconcileError, setReconcileError] = useState<string | null>(null);
 
   const [runDate, setRunDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [notifyRunLoading, setNotifyRunLoading] = useState(false);
@@ -105,6 +118,43 @@ const AdminPage = () => {
       setNotifyRunLoading(false);
     }
   }, [runDate]);
+
+  const runPoolReconcile = useCallback(async () => {
+    if (!selectedReconcileRow) return;
+
+    setReconcileLoading(true);
+    setReconcileError(null);
+    setReconcileResult(null);
+
+    try {
+      const payload: AdminPoolReconcileRequest = {
+        includeFailed: reconcileIncludeFailed,
+      };
+
+      const normalizedReference = reconcileReference.trim();
+      if (normalizedReference) {
+        payload.reference = normalizedReference;
+      } else {
+        payload.limit = reconcileLimit;
+      }
+
+      const result = await apiFetch<AdminPoolReconcileResponse>(`/admin/pages/${selectedReconcileRow.id}/pool/reconcile`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      setReconcileResult(result);
+      toast.success(`Reconcile complete. Verified ${result.verified} payment(s).`);
+      await fetchAdminBirthdayRows();
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof ApiError ? error.message : 'Could not reconcile pool payments.';
+      setReconcileError(message);
+      toast.error(message);
+    } finally {
+      setReconcileLoading(false);
+    }
+  }, [fetchAdminBirthdayRows, reconcileIncludeFailed, reconcileLimit, reconcileReference, selectedReconcileRow]);
 
   useEffect(() => {
     if (!user?.isAdmin) return;
@@ -405,6 +455,85 @@ const AdminPage = () => {
             </select>
           </div>
 
+          {selectedReconcileRow && (
+            <div className="mt-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Pool Reconcile</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {selectedReconcileRow.public_code} · {selectedReconcileRow.recipient_name}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Run by reference, or run batch reconcile for pending records.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedReconcileRow(null);
+                    setReconcileReference('');
+                    setReconcileResult(null);
+                    setReconcileError(null);
+                  }}
+                >
+                  Close
+                </Button>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <Input
+                  placeholder="Paystack reference (optional)"
+                  value={reconcileReference}
+                  onChange={(event) => setReconcileReference(event.target.value)}
+                />
+                <Input
+                  type="number"
+                  min={1}
+                  max={200}
+                  disabled={Boolean(reconcileReference.trim())}
+                  value={String(reconcileLimit)}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    if (Number.isFinite(next)) {
+                      setReconcileLimit(Math.max(1, Math.min(200, Math.trunc(next))));
+                    }
+                  }}
+                />
+                <label className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={reconcileIncludeFailed}
+                    onChange={(event) => setReconcileIncludeFailed(event.target.checked)}
+                    disabled={Boolean(reconcileReference.trim())}
+                  />
+                  Include failed refs
+                </label>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <Button onClick={() => void runPoolReconcile()} disabled={reconcileLoading}>
+                  {reconcileLoading ? 'Reconciling...' : 'Run reconcile'}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {reconcileReference.trim() ? 'Reference mode' : `Batch mode · limit ${reconcileLimit}`}
+                </p>
+              </div>
+
+              {reconcileError && (
+                <p className="mt-3 text-sm text-destructive">{reconcileError}</p>
+              )}
+
+              {reconcileResult && (
+                <div className="mt-4 rounded-xl border border-border/60 bg-background/70 p-3 text-xs text-foreground">
+                  <p>Processed: {reconcileResult.processed} · Verified: {reconcileResult.verified}</p>
+                  <p>
+                    Summary: pooled {reconcileResult.summary.pooled_amount_kobo} kobo · success {reconcileResult.summary.success_count} · pending {reconcileResult.summary.pending_count} · failed {reconcileResult.summary.failed_count}
+                  </p>
+                  <p>Skipped: {reconcileResult.skipped.length} · Failures: {reconcileResult.failures.length}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {systemStatusError && (
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
               <AlertTriangle className="mt-0.5 h-4 w-4" />
@@ -425,20 +554,21 @@ const AdminPage = () => {
                   <th className="px-4 py-3 font-semibold">Views</th>
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 font-semibold">Created</th>
+                  <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {adminBirthdayRowsLoading ? (
                   <tr>
-                    <td className="px-4 py-6 text-muted-foreground" colSpan={9}>Loading birthday pages...</td>
+                    <td className="px-4 py-6 text-muted-foreground" colSpan={10}>Loading birthday pages...</td>
                   </tr>
                 ) : adminBirthdayRowsError ? (
                   <tr>
-                    <td className="px-4 py-6 text-destructive" colSpan={9}>{adminBirthdayRowsError}</td>
+                    <td className="px-4 py-6 text-destructive" colSpan={10}>{adminBirthdayRowsError}</td>
                   </tr>
                 ) : filteredAdminBirthdayRows.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-6 text-muted-foreground" colSpan={9}>No birthday pages match your current filters.</td>
+                    <td className="px-4 py-6 text-muted-foreground" colSpan={10}>No birthday pages match your current filters.</td>
                   </tr>
                 ) : (
                   paginatedAdminBirthdayRows.map((row) => (
@@ -464,6 +594,20 @@ const AdminPage = () => {
                         <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-foreground">{row.status}</span>
                       </td>
                       <td className="px-4 py-3 text-foreground">{format(new Date(row.created_at), 'MMM d, yyyy')}</td>
+                      <td className="px-4 py-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedReconcileRow(row);
+                            setReconcileReference('');
+                            setReconcileResult(null);
+                            setReconcileError(null);
+                          }}
+                        >
+                          Reconcile
+                        </Button>
+                      </td>
                     </tr>
                   ))
                 )}

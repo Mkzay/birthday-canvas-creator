@@ -58,3 +58,24 @@ export type BirthdayNotifyPayload = {
   sent: number;
   results: BirthdayNotifyResult[];
 };
+
+export type AdminPoolReconcileRequest = {
+  reference?: string;
+  limit?: number;
+  includeFailed?: boolean;
+};
+
+export type AdminPoolReconcileResponse = {
+  ok: boolean;
+  pageId: string;
+  processed: number;
+  verified: number;
+  skipped: Array<{ reference: string; code: string; reason: string }>;
+  failures: Array<{ reference: string; reason: string }>;
+  summary: {
+    pooled_amount_kobo: number;
+    success_count: number;
+    pending_count: number;
+    failed_count: number;
+  };
+};
