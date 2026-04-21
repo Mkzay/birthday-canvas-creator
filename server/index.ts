@@ -353,6 +353,33 @@ function classifyPayoutProviderError(error: unknown) {
     };
   }
 
+  if (
+    normalized.includes("starter business")
+    || normalized.includes("third party payouts")
+    || normalized.includes("third-party payouts")
+    || normalized.includes("cannot initiate third party")
+    || normalized.includes("upgrade your business")
+    || normalized.includes("complete your business verification")
+    || normalized.includes("kyc")
+  ) {
+    return {
+      status: 502,
+      code: "PAYOUT_PROVIDER_ACCOUNT_UNVERIFIED",
+      message:
+        "Payouts are disabled until the Paystack business account is upgraded from Starter to Registered Business and verified.",
+      rawMessage,
+    };
+  }
+
+  if (normalized.includes("otp") || normalized.includes("two-factor") || normalized.includes("two factor")) {
+    return {
+      status: 502,
+      code: "PAYOUT_PROVIDER_OTP_REQUIRED",
+      message: "Payout provider requires OTP confirmation that is not yet configured.",
+      rawMessage,
+    };
+  }
+
   return {
     status: 502,
     code: "PAYOUT_PROVIDER_REJECTED",

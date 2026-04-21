@@ -921,11 +921,20 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         toast.info('Payout has already been released for this page');
       } else if (
         error instanceof ApiError
+        && error.code === 'PAYOUT_PROVIDER_ACCOUNT_UNVERIFIED'
+      ) {
+        toast.error(
+          error.message
+            || 'Payouts are temporarily unavailable while we finish verifying our payout provider account. Please try again later.',
+        );
+      } else if (
+        error instanceof ApiError
         && (
           error.code === 'PAYOUT_FAILED'
           || error.code === 'PAYOUT_PROVIDER_NOT_CONFIGURED'
           || error.code === 'PAYOUT_PROVIDER_BALANCE_LOW'
           || error.code === 'PAYOUT_PROVIDER_TRANSFER_DISABLED'
+          || error.code === 'PAYOUT_PROVIDER_OTP_REQUIRED'
           || error.code === 'PAYOUT_PROVIDER_REJECTED'
         )
       ) {
