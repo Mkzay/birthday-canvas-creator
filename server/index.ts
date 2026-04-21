@@ -1611,6 +1611,60 @@ app.get("/api/admin/birthday-pages", requireAdmin, async (_request, response) =>
   response.json(rows.map((row) => serializePageDates(row)));
 });
 
+app.get(
+  "/api/admin/pages/:id/pool/payout-attempts",
+  requireAdmin,
+  validateParams(pageIdParamSchema),
+  async (request, response) => {
+    const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
+    if (!resolvedPageId) {
+      response.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const rawLimit = Number(request.query.limit ?? 10);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(Math.trunc(rawLimit), 1), 50)
+      : 10;
+
+    const rows = await sql`
+      SELECT
+        id,
+        status,
+        provider,
+        provider_reference,
+        amount_kobo,
+        gross_pool_amount_kobo,
+        payout_fee_kobo,
+        response_payload,
+        created_by_user_id,
+        created_at,
+        updated_at
+      FROM pool_payouts
+      WHERE page_id = ${resolvedPageId}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+
+    response.json({
+      pageId: resolvedPageId,
+      attempts: rows.map((row) => ({
+        id: String(row.id),
+        status: String(row.status || "unknown"),
+        provider: String(row.provider || "unknown"),
+        provider_reference: row.provider_reference ? String(row.provider_reference) : null,
+        amount_kobo: Number(row.amount_kobo || 0),
+        gross_pool_amount_kobo: Number(row.gross_pool_amount_kobo || 0),
+        payout_fee_kobo: Number(row.payout_fee_kobo || 0),
+        created_by_user_id: row.created_by_user_id ? String(row.created_by_user_id) : null,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        response_payload: row.response_payload || null,
+      })),
+    });
+  },
+);
+
 app.post(
   "/api/admin/pages/:id/pool/reconcile",
   requireAdmin,
