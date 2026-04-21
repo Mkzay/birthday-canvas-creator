@@ -557,7 +557,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
                       <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Pooled gift</p>
                           <p className={cn('mt-2 text-2xl font-semibold', theme.titleClass, theme.font)}>
-                            £2,000
+                            {formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}
                           </p>
                           {poolSummary.pool_description && (
                             <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>{poolSummary.pool_description}</p>

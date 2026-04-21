@@ -1441,6 +1441,7 @@ function privatePageQuery(pageId: string, userId: string) {
   return sql`
     SELECT
       bp.*,
+      NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) AS is_revealed,
       bp.reveal_pin_hash IS NOT NULL AS reveal_pin_set,
       ct.emoji AS theme_emoji,
       ct.gradient_from AS theme_gradient_from,
@@ -2952,12 +2953,7 @@ app.post("/api/pages/:id/pool/release", requireAuth, poolPayoutReleaseLimiter, v
     return;
   }
 
-  const now = Date.now();
-  const revealAtRaw = page.reveal_at ? new Date(String(page.reveal_at)).getTime() : null;
-  const birthdayAtRaw = page.birthday_date ? new Date(`${String(page.birthday_date)}T00:00:00.000Z`).getTime() : null;
-  const gateTime = revealAtRaw || birthdayAtRaw;
-
-  if (!gateTime || now < gateTime) {
+  if (!page.is_revealed) {
     response.status(403).json({ error: "Payout can only be released after reveal time.", code: "PAYOUT_TOO_EARLY" });
     return;
   }
@@ -3772,6 +3768,7 @@ app.post(
         bp.pooled_amount_kobo,
         bp.reveal_at,
         bp.birthday_date,
+        NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) AS is_revealed,
         bp.status,
         u.email AS owner_email,
         u.display_name AS owner_name
@@ -3798,11 +3795,7 @@ app.post(
       return;
     }
 
-    const gateTime = page.reveal_at
-      ? new Date(String(page.reveal_at)).getTime()
-      : new Date(`${String(page.birthday_date)}T00:00:00.000Z`).getTime();
-
-    if (!gateTime || Date.now() < gateTime) {
+    if (!page.is_revealed) {
       response.status(403).json({ error: "Gift can be requested after reveal time.", code: "PAYOUT_TOO_EARLY" });
       return;
     }
