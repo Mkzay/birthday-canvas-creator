@@ -3765,6 +3765,154 @@ app.post(
   },
 );
 
+app.post(
+  "/api/public/pages/:id/pool/verify",
+  validateParams(pageIdParamSchema),
+  validateBody(paystackVerifyBodySchema),
+  async (request, response) => {
+    const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
+    if (!resolvedPageId) {
+      response.status(404).json({ error: "Page not found" });
+      return;
+    }
+
+    const reference = String(request.body.reference || "").trim();
+    if (!reference) {
+      response.status(400).json({ error: "Payment reference is required.", code: "INVALID_REFERENCE" });
+      return;
+    }
+
+    try {
+      const payment = await paystackRequest<PaystackPaymentData>(`/transaction/verify/${encodeURIComponent(reference)}`);
+      if (!payment || payment.status !== "success") {
+        response.status(400).json({ error: "Payment was not completed.", code: "PAYMENT_NOT_SUCCESS" });
+        return;
+      }
+
+      const paymentPurpose = typeof payment.metadata?.purpose === "string" ? payment.metadata.purpose : "";
+      const paymentPageId = typeof payment.metadata?.pageId === "string" ? payment.metadata.pageId : "";
+      const resolvedPaymentPageId = paymentPageId ? await resolvePageId(paymentPageId) : null;
+
+      if (paymentPurpose !== "pool_gift" && !paymentPageId) {
+        response.status(400).json({ error: "Payment is not a pool gift.", code: "PAYMENT_TYPE_MISMATCH" });
+        return;
+      }
+
+      if (resolvedPaymentPageId && resolvedPaymentPageId !== resolvedPageId) {
+        response.status(403).json({ error: "Payment does not belong to this page.", code: "PAYMENT_PAGE_MISMATCH" });
+        return;
+      }
+
+      const contributorName = sanitizeDisplayName(payment.metadata?.contributorName) || "Anonymous";
+      const contributorEmail = sanitizeEmail(payment.metadata?.contributorEmail || payment.customer?.email) || null;
+      const totalChargeKobo = Math.max(0, Number(payment.amount || 0));
+
+      const existingContributionRows = await sql`
+        SELECT page_id, contribution_amount_kobo, platform_fee_kobo, total_charge_kobo, amount_kobo
+        FROM pool_contributions
+        WHERE provider_reference = ${payment.reference}
+        LIMIT 1
+      `;
+
+      const existingContribution = existingContributionRows[0];
+      const existingPageId = existingContribution?.page_id ? String(existingContribution.page_id) : null;
+      if (existingPageId && existingPageId !== resolvedPageId) {
+        response.status(409).json({ error: "Payment reference belongs to another page.", code: "PAYMENT_REFERENCE_CONFLICT" });
+        return;
+      }
+
+      const metadataContributionAmountKobo = sanitizeAmountKobo(payment.metadata?.contributionAmountKobo);
+      const fallbackContributionAmountKobo = Number(existingContribution?.contribution_amount_kobo || 0)
+        || metadataContributionAmountKobo
+        || Number(existingContribution?.amount_kobo || 0)
+        || totalChargeKobo;
+
+      const contributionCharge = calculatePoolContributionCharge(fallbackContributionAmountKobo);
+      const contributionAmountKobo = contributionCharge.contributionAmountKobo;
+      const platformFeeKobo = Number(existingContribution?.platform_fee_kobo || 0) || contributionCharge.platformFeeKobo;
+      const finalTotalChargeKobo = totalChargeKobo || Number(existingContribution?.total_charge_kobo || 0) || contributionCharge.totalChargeKobo;
+      const settlement = calculateNetReceivedKobo(finalTotalChargeKobo);
+
+      await sql`
+        INSERT INTO pool_contributions (
+          page_id,
+          provider,
+          provider_reference,
+          amount_kobo,
+          contribution_amount_kobo,
+          platform_fee_kobo,
+          total_charge_kobo,
+          paystack_fee_kobo,
+          net_received_kobo,
+          contributor_name,
+          contributor_email,
+          status,
+          payment_metadata,
+          verified_at,
+          updated_at
+        )
+        VALUES (
+          ${resolvedPageId},
+          'paystack',
+          ${payment.reference},
+          ${finalTotalChargeKobo},
+          ${contributionAmountKobo},
+          ${platformFeeKobo},
+          ${finalTotalChargeKobo},
+          ${settlement.paystackFeeKobo},
+          ${settlement.netReceivedKobo},
+          ${contributorName},
+          ${contributorEmail},
+          'success',
+          ${JSON.stringify(payment)}::jsonb,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (provider_reference)
+        DO UPDATE SET
+          amount_kobo = EXCLUDED.amount_kobo,
+          contribution_amount_kobo = EXCLUDED.contribution_amount_kobo,
+          platform_fee_kobo = EXCLUDED.platform_fee_kobo,
+          total_charge_kobo = EXCLUDED.total_charge_kobo,
+          paystack_fee_kobo = EXCLUDED.paystack_fee_kobo,
+          net_received_kobo = EXCLUDED.net_received_kobo,
+          contributor_name = EXCLUDED.contributor_name,
+          contributor_email = EXCLUDED.contributor_email,
+          status = EXCLUDED.status,
+          payment_metadata = EXCLUDED.payment_metadata,
+          verified_at = NOW(),
+          updated_at = NOW()
+      `;
+
+      await sql`
+        UPDATE birthday_pages bp
+        SET pooled_amount_kobo = COALESCE(agg.total_kobo, 0),
+            updated_at = NOW()
+        FROM (
+          SELECT page_id, SUM(COALESCE(net_received_kobo, amount_kobo))::bigint AS total_kobo
+          FROM pool_contributions
+          WHERE page_id = ${resolvedPageId}
+            AND status = 'success'
+          GROUP BY page_id
+        ) AS agg
+        WHERE bp.id = ${resolvedPageId}
+      `;
+
+      response.json({ verified: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "pool-verify-failed";
+      logRequestFailure("pool-verify", { pageId: resolvedPageId, reference, message });
+
+      if (message === "PAYSTACK_NOT_CONFIGURED") {
+        response.status(500).json({ error: "Paystack is not configured on the server." });
+        return;
+      }
+
+      response.status(502).json({ error: "Could not verify payment right now." });
+    }
+  },
+);
+
 app.get("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), async (request, response) => {
   const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
   if (!resolvedPageId) {

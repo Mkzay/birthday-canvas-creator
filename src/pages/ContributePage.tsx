@@ -478,24 +478,41 @@ const ContributePage = () => {
       return;
     }
 
-    const storageKey = `pool-payment:${pageId}:${reference}`;
-    const stored = sessionStorage.getItem(storageKey);
-    if (stored) {
+    const finalizeVerifiedPayment = async () => {
+      const storageKey = `pool-payment:${pageId}:${reference}`;
+      const stored = sessionStorage.getItem(storageKey);
+
       try {
-        const payload = JSON.parse(stored) as { amountKobo?: number };
-        if (typeof payload.amountKobo === 'number' && Number.isFinite(payload.amountKobo) && payload.amountKobo > 0) {
-          setRecentContributionKobo(payload.amountKobo);
-          toast.success(`Payment successful! You contributed ${formatKobo(payload.amountKobo)}.`);
+        await apiFetch<{ verified: boolean }>(`/public/pages/${pageId}/pool/verify`, {
+          method: 'POST',
+          body: JSON.stringify({ reference }),
+        });
+
+        await fetchPage();
+
+        if (stored) {
+          try {
+            const payload = JSON.parse(stored) as { amountKobo?: number };
+            if (typeof payload.amountKobo === 'number' && Number.isFinite(payload.amountKobo) && payload.amountKobo > 0) {
+              setRecentContributionKobo(payload.amountKobo);
+              toast.success(`Payment successful! You contributed ${formatKobo(payload.amountKobo)}.`);
+            } else {
+              toast.success('Payment successful!');
+            }
+          } catch {
+            toast.success('Payment successful!');
+          }
+          sessionStorage.removeItem(storageKey);
         } else {
           toast.success('Payment successful!');
         }
-      } catch {
-        toast.success('Payment successful!');
+      } catch (error) {
+        console.error('Pool verify error:', error);
+        toast.error('Payment received but verification is still pending. Please refresh shortly.');
       }
-      sessionStorage.removeItem(storageKey);
-    } else {
-      toast.success('Payment successful!');
-    }
+    };
+
+    void finalizeVerifiedPayment();
 
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete('status');
@@ -509,7 +526,7 @@ const ContributePage = () => {
     }
 
     setSearchParams(nextParams, { replace: true });
-  }, [pageId, searchParams, setSearchParams]);
+  }, [fetchPage, pageId, searchParams, setSearchParams]);
 
   if (loading) {
     return <WishCanvasLoader />;
