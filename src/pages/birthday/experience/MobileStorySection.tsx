@@ -553,6 +553,64 @@ export const MobileStorySection = memo(function MobileStorySection() {
                       <p className={cn('mt-3 text-lg leading-relaxed', theme.text)}>
                         Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                       </p>
+
+                      {poolSummary.pooled_amount_kobo > 0 && (
+                        <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
+                          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Pooled gift</p>
+                          <p className={cn('mt-2 text-2xl font-semibold', theme.titleClass, theme.font)}>
+                            ₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}
+                          </p>
+                          {poolSummary.pool_description && (
+                            <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>{poolSummary.pool_description}</p>
+                          )}
+                          {paidContributorLine && (
+                            <p className={cn('mt-2 text-xs leading-relaxed opacity-75', theme.text)}>Paid by {paidContributorLine}.</p>
+                          )}
+                          {isPageOwner && !isPreview && (
+                            <div className="mt-3">
+                              {poolSummary.is_released ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                                  <Check className="h-3.5 w-3.5" />
+                                  Payout released
+                                </span>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-9 gap-2"
+                                  onClick={handleReleasePoolPayout}
+                                  disabled={releasingPoolPayout || !page?.is_revealed}
+                                >
+                                  {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                                  Release Gift
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
+                            <div className="mt-3">
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-9 gap-2"
+                                onClick={handleRequestGiftRelease}
+                                disabled={requestingGiftRelease || !page?.is_revealed}
+                              >
+                                {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
+                                Request Gift
+                              </Button>
+                            </div>
+                          )}
+                          {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
+                            <div className="mt-3">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                                <Check className="h-3.5 w-3.5" />
+                                Gift requested
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </article>
                   </div>
                 )}
