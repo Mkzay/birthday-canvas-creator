@@ -798,7 +798,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               </p>
                             )}
       
-                            {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
+                            {poolSummary.pooled_amount_kobo > 0 && (
                               <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
                                 <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Pooled gift</p>
                                 <p className={cn('mt-2 text-2xl font-semibold', theme.titleClass, theme.font)}>
@@ -823,7 +823,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                                         size="sm"
                                         className="h-9 gap-2"
                                         onClick={handleReleasePoolPayout}
-                                        disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
+                                        disabled={releasingPoolPayout || !page?.is_revealed}
                                       >
                                         {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
                                         Release Gift
