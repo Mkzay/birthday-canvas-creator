@@ -3052,6 +3052,11 @@ app.post("/api/pages/:id/pool/release", requireAuth, poolPayoutReleaseLimiter, v
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "payout-release-failed";
+    logRequestFailure("pool-payout-release", {
+      pageId: String(page.id),
+      userId: request.user?.id || null,
+      message,
+    });
     await sql`
       INSERT INTO pool_payouts (
         page_id,
@@ -3076,7 +3081,10 @@ app.post("/api/pages/:id/pool/release", requireAuth, poolPayoutReleaseLimiter, v
         NOW()
       )
     `;
-    response.status(500).json({ error: "Could not release payout right now.", code: "PAYOUT_FAILED" });
+    response.status(500).json({
+      error: exposeErrorToClient(error, "Could not release payout right now."),
+      code: "PAYOUT_FAILED",
+    });
   }
 });
 
