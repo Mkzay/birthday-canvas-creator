@@ -554,8 +554,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
                         Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                       </p>
 
-                      {poolSummary.pooled_amount_kobo > 0 && (
-                        <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
+                      <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
                           <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Pooled gift</p>
                           <p className={cn('mt-2 text-2xl font-semibold', theme.titleClass, theme.font)}>
                             ₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}
@@ -610,7 +609,6 @@ export const MobileStorySection = memo(function MobileStorySection() {
                             </div>
                           )}
                         </div>
-                      )}
                     </article>
                   </div>
                 )}
