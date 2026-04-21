@@ -767,7 +767,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         setPoolSummary({
           pool_fundraising_enabled: Boolean(pageData.pool_fundraising_enabled),
           pool_goal_kobo: pageData.pool_goal_kobo ?? null,
-          pooled_amount_kobo: Number(pageData.pooled_amount_kobo || 0),
+          pooled_amount_kobo: Number(publicPoolSummary?.pooled_amount_kobo ?? pageData.pooled_amount_kobo ?? 0),
           pool_description: pageData.pool_description || null,
           contributors: publicPoolSummary?.contributors || [],
           is_requested: Boolean(publicPoolSummary?.is_requested),

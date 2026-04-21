@@ -3472,7 +3472,11 @@ app.get("/api/public/pages/:id/pool/summary", validateParams(pageIdParamSchema),
     SELECT
       bp.pool_fundraising_enabled,
       bp.pool_goal_kobo,
-      bp.pooled_amount_kobo,
+      COALESCE(
+        SUM(COALESCE(pc.net_received_kobo, pc.amount_kobo))
+          FILTER (WHERE pc.status = 'success'),
+        0
+      )::bigint AS pooled_amount_kobo,
       bp.pool_description,
       EXISTS(
         SELECT 1
@@ -3480,9 +3484,15 @@ app.get("/api/public/pages/:id/pool/summary", validateParams(pageIdParamSchema),
         WHERE pp.page_id = bp.id
           AND pp.status = 'processing'
       ) AS is_requested,
-      COALESCE(array_remove(array_agg(DISTINCT pc.contributor_name), NULL), ARRAY[]::text[]) AS contributors
+      COALESCE(
+        array_remove(
+          array_agg(DISTINCT CASE WHEN pc.status = 'success' THEN pc.contributor_name END),
+          NULL
+        ),
+        ARRAY[]::text[]
+      ) AS contributors
     FROM birthday_pages bp
-    LEFT JOIN pool_contributions pc ON pc.page_id = bp.id AND pc.status = 'success'
+    LEFT JOIN pool_contributions pc ON pc.page_id = bp.id
     WHERE bp.id = ${resolvedPageId}
       AND bp.status = 'active'
     GROUP BY bp.id
