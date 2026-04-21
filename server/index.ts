@@ -322,6 +322,45 @@ async function paystackRequest<T>(path: string, init?: RequestInit): Promise<T> 
   return payload.data;
 }
 
+function classifyPayoutProviderError(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : "payout-release-failed";
+  const normalized = rawMessage.toLowerCase();
+
+  if (rawMessage === "PAYSTACK_NOT_CONFIGURED") {
+    return {
+      status: 503,
+      code: "PAYOUT_PROVIDER_NOT_CONFIGURED",
+      message: "Payout provider is not configured.",
+      rawMessage,
+    };
+  }
+
+  if (normalized.includes("insufficient balance")) {
+    return {
+      status: 502,
+      code: "PAYOUT_PROVIDER_BALANCE_LOW",
+      message: "Payout provider balance is insufficient for this transfer.",
+      rawMessage,
+    };
+  }
+
+  if (normalized.includes("transfer has been disabled") || normalized.includes("transfer is not allowed")) {
+    return {
+      status: 502,
+      code: "PAYOUT_PROVIDER_TRANSFER_DISABLED",
+      message: "Payout transfers are not enabled on the provider account.",
+      rawMessage,
+    };
+  }
+
+  return {
+    status: 502,
+    code: "PAYOUT_PROVIDER_REJECTED",
+    message: "Payout provider rejected this transfer.",
+    rawMessage,
+  };
+}
+
 type PaystackPaymentData = {
   status: string;
   amount: number;
@@ -3051,11 +3090,12 @@ app.post("/api/pages/:id/pool/release", requireAuth, poolPayoutReleaseLimiter, v
       transfer_code: transferData.transfer_code,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "payout-release-failed";
+    const classifiedError = classifyPayoutProviderError(error);
     logRequestFailure("pool-payout-release", {
       pageId: String(page.id),
       userId: request.user?.id || null,
-      message,
+      message: classifiedError.rawMessage,
+      code: classifiedError.code,
     });
     await sql`
       INSERT INTO pool_payouts (
@@ -3076,14 +3116,14 @@ app.post("/api/pages/:id/pool/release", requireAuth, poolPayoutReleaseLimiter, v
         ${payout.grossPoolBalanceKobo},
         ${payout.payoutFeeKobo},
         'failed',
-        ${JSON.stringify({ error: message })}::jsonb,
+        ${JSON.stringify({ error: classifiedError.rawMessage, code: classifiedError.code })}::jsonb,
         ${request.user!.id},
         NOW()
       )
     `;
-    response.status(500).json({
-      error: exposeErrorToClient(error, "Could not release payout right now."),
-      code: "PAYOUT_FAILED",
+    response.status(classifiedError.status).json({
+      error: exposeErrorToClient(error, classifiedError.message),
+      code: classifiedError.code,
     });
   }
 });

@@ -919,7 +919,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         toast.error('Recipient bank details are incomplete');
       } else if (error instanceof ApiError && error.code === 'PAYOUT_ALREADY_RELEASED') {
         toast.info('Payout has already been released for this page');
-      } else if (error instanceof ApiError && error.code === 'PAYOUT_FAILED') {
+      } else if (
+        error instanceof ApiError
+        && (
+          error.code === 'PAYOUT_FAILED'
+          || error.code === 'PAYOUT_PROVIDER_NOT_CONFIGURED'
+          || error.code === 'PAYOUT_PROVIDER_BALANCE_LOW'
+          || error.code === 'PAYOUT_PROVIDER_TRANSFER_DISABLED'
+          || error.code === 'PAYOUT_PROVIDER_REJECTED'
+        )
+      ) {
         toast.error(error.message || 'Could not release payout right now');
       } else {
         toast.error('Could not release payout right now');
