@@ -810,7 +810,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                                 {paidContributorLine && (
                                   <p className={cn('mt-2 text-xs leading-relaxed opacity-75', theme.text)}>Paid by {paidContributorLine}.</p>
                                 )}
-                                {isPageOwner && !isPreview && (
+                                {isPageOwner && (
                                   <div className="mt-3">
                                     {poolSummary.is_released ? (
                                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
@@ -831,7 +831,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                                     )}
                                   </div>
                                 )}
-                                {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
+                                {!isPageOwner && !poolSummary.is_released && !poolSummary.is_requested && (
                                   <div className="mt-3">
                                     <Button
                                       type="button"
@@ -845,7 +845,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                                     </Button>
                                   </div>
                                 )}
-                                {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
+                                {!isPageOwner && !poolSummary.is_released && poolSummary.is_requested && (
                                   <div className="mt-3">
                                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
                                       <Check className="h-3.5 w-3.5" />
