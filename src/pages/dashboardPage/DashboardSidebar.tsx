@@ -6,6 +6,7 @@ import {
   Palette,
   Plus,
   Settings,
+  Sparkles,
   Trophy,
 } from 'lucide-react';
 import {
