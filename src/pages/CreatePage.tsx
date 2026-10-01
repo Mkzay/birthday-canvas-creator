@@ -2,23 +2,33 @@ import { Fragment, useCallback, useEffect, useRef, useState, type ChangeEvent } 
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   ArrowLeft,
   ArrowRight,
+  Calendar as CalendarIcon,
   Check,
   Copy,
   Eye,
   Gift,
+  Image as ImageIcon,
   Loader2,
+  Lock,
   Music,
   QrCode,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { BrandMenuIcon } from '@/components/BrandIcons';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import QRCodeModal from '@/components/QRCodeModal';
 import Confetti from '@/components/Confetti';
 import OpenerThemePreview from '@/components/OpenerThemePreview';
+import ThemeSelector from '@/components/ThemeSelector';
+import SoundtrackSelector from '@/components/SoundtrackSelector';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -29,18 +39,24 @@ import { ApiError, apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import { DashboardSidebar } from '@/pages/dashboardPage';
 import type { BirthdayPage } from '@/pages/dashboardPage/types';
-import type { CustomTheme, DisplayMode, PaystackBankOption, Step, Theme } from '@/pages/page-wizard';
+import type { CustomTheme, DisplayMode, PaystackBankOption, Theme } from '@/pages/page-wizard';
 import {
   CreateThemeProFooter,
   DEFAULT_LETTER_END,
   DEFAULT_LETTER_START,
-  WIZARD_STEPS,
-  WizardStepDetails,
-  WizardStepTheme,
+  displayModes,
   toIsoDatetime,
 } from '@/pages/page-wizard';
 import { builtInThemeMap, visualThemeConfig } from '@/lib/themes';
-import { fontClassForValue, fontLabelForValue } from '@/pages/theme-builder';
+import { fontClassForValue } from '@/pages/theme-builder';
+
+const CREATOR_STEPS = [
+  { number: 1, label: 'Honoree' },
+  { number: 2, label: 'Keepsake' },
+  { number: 3, label: 'Palette & View' },
+  { number: 4, label: 'Soundtrack' },
+  { number: 5, label: 'Permissions' },
+];
 
 const CreatePage = () => {
   const navigate = useNavigate();
@@ -71,8 +87,8 @@ const CreatePage = () => {
   // Creator statistics
   const [pages, setPages] = useState<BirthdayPage[]>([]);
 
-  // Wizard state
-  const [step, setStep] = useState<Step>(1);
+  // Fine-grained stepper state (Steps 1 to 5 for configuration, Step 6 for Launchpad)
+  const [currentStep, setCurrentStep] = useState<number>(1);
   const [createdPageId, setCreatedPageId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
@@ -312,8 +328,9 @@ const CreatePage = () => {
     setPageCustomAudioUrl(url);
   };
 
-  const handleNext = async () => {
-    if (step === 1) {
+  // Step transitions with validation
+  const handleNext = () => {
+    if (currentStep === 1) {
       if (!recipientName.trim()) {
         toast.error('Please enter the celebrant name');
         return;
@@ -323,84 +340,105 @@ const CreatePage = () => {
         return;
       }
     }
-    
-    if (step === 2) {
+
+    if (currentStep === 4) {
       if (requiresResolvedPoolRecipient && !hasResolvedPoolRecipient) {
         toast.error('Resolve recipient account details before continuing');
         return;
       }
-
-      setSaving(true);
-      setPublicCodeError(null);
-      const normalizedPublicCode = publicCodeInput.trim().toLowerCase();
-      if (isProUser && normalizedPublicCode && !/^[a-z0-9](?:[a-z0-9-]{4,38}[a-z0-9])$/.test(normalizedPublicCode)) {
-        setPublicCodeError('Use 6-40 chars with lowercase letters, numbers, and hyphens.');
-        setSaving(false);
-        return;
-      }
-
-      try {
-        const data = await apiFetch<{ id: string; public_code: string }>('/pages', {
-          method: 'POST',
-          body: JSON.stringify({
-            recipientName,
-            recipientEmail: recipientEmail.trim() || null,
-            birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
-            theme: selectedTheme,
-            letterTheme: selectedLetterTheme,
-            displayMode: isProUser ? selectedDisplayMode : 'story',
-            letterColor: letterColor || null,
-            creatorMessage: creatorMessage || null,
-            soundtrackId: selectedSoundtrackId,
-            pageCustomAudioUrl,
-            allowPhotos,
-            allowAudio,
-            requireNames,
-            closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate!, 'yyyy-MM-dd'),
-            revealAt: isProUser ? toIsoDatetime(revealAtInput) : undefined,
-            revealPin: isProUser && revealPinInput.trim() ? revealPinInput.trim() : undefined,
-            publicCode: isProUser && normalizedPublicCode ? normalizedPublicCode : undefined,
-            poolFundraisingEnabled,
-            poolGoalKobo: poolGoalNairaInput.trim() ? Math.round(Number(poolGoalNairaInput) * 100) : null,
-            poolDescription: poolDescriptionInput.trim() || null,
-            recipientBankCode: recipientBankCode.trim() || null,
-            recipientAccountNumber: recipientAccountNumber.trim() || null,
-            recipientAccountName: recipientAccountName.trim() || null,
-          }),
-        });
-
-        if (coverPhoto) {
-          const coverUrl = await uploadCoverPhoto(data.id);
-          if (!coverUrl) {
-            setSaving(false);
-            return;
-          }
-        }
-
-        setCreatedPageId(data.id);
-        setCreatedPublicCode(data.public_code);
-        toast.success('Birthday canvas created successfully!');
-      } catch (error) {
-        setSaving(false);
-        if (error instanceof ApiError && error.status === 409) {
-          setPublicCodeError('That custom link is already taken. Try another one.');
-          toast.error('Custom link already taken');
-          return;
-        }
-        toast.error('Failed to create page');
-        console.error(error);
-        return;
-      }
-      setSaving(false);
     }
-    
-    setStep((prev) => Math.min(prev + 1, 3) as Step);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    setCurrentStep((prev) => Math.min(prev + 1, 5));
   };
 
   const handleBack = () => {
-    setStep((prev) => Math.max(prev - 1, 1) as Step);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  // Create page submission at Step 5
+  const handleCreateCanvas = async () => {
+    if (!recipientName.trim()) {
+      toast.error('Please enter the celebrant name');
+      setCurrentStep(1);
+      return;
+    }
+    if (!birthdayDate) {
+      toast.error('Please select a birthday milestone date');
+      setCurrentStep(1);
+      return;
+    }
+    if (requiresResolvedPoolRecipient && !hasResolvedPoolRecipient) {
+      toast.error('Resolve recipient account details before continuing');
+      setCurrentStep(4);
+      return;
+    }
+
+    setSaving(true);
+    setPublicCodeError(null);
+    const normalizedPublicCode = publicCodeInput.trim().toLowerCase();
+    if (isProUser && normalizedPublicCode && !/^[a-z0-9](?:[a-z0-9-]{4,38}[a-z0-9])$/.test(normalizedPublicCode)) {
+      setPublicCodeError('Use 6-40 chars with lowercase letters, numbers, and hyphens.');
+      setSaving(false);
+      setCurrentStep(4);
+      return;
+    }
+
+    try {
+      const data = await apiFetch<{ id: string; public_code: string }>('/pages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipientName,
+          recipientEmail: recipientEmail.trim() || null,
+          birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
+          theme: selectedTheme,
+          letterTheme: selectedLetterTheme,
+          displayMode: isProUser ? selectedDisplayMode : 'story',
+          letterColor: letterColor || null,
+          creatorMessage: creatorMessage || null,
+          soundtrackId: selectedSoundtrackId,
+          pageCustomAudioUrl,
+          allowPhotos,
+          allowAudio,
+          requireNames,
+          closeDate: closeDate ? format(closeDate, 'yyyy-MM-dd') : format(birthdayDate!, 'yyyy-MM-dd'),
+          revealAt: isProUser ? toIsoDatetime(revealAtInput) : undefined,
+          revealPin: isProUser && revealPinInput.trim() ? revealPinInput.trim() : undefined,
+          publicCode: isProUser && normalizedPublicCode ? normalizedPublicCode : undefined,
+          poolFundraisingEnabled,
+          poolGoalKobo: poolGoalNairaInput.trim() ? Math.round(Number(poolGoalNairaInput) * 100) : null,
+          poolDescription: poolDescriptionInput.trim() || null,
+          recipientBankCode: recipientBankCode.trim() || null,
+          recipientAccountNumber: recipientAccountNumber.trim() || null,
+          recipientAccountName: recipientAccountName.trim() || null,
+        }),
+      });
+
+      if (coverPhoto) {
+        const coverUrl = await uploadCoverPhoto(data.id);
+        if (!coverUrl) {
+          setSaving(false);
+          return;
+        }
+      }
+
+      setCreatedPageId(data.id);
+      setCreatedPublicCode(data.public_code);
+      setConfettiActive(true);
+      toast.success('Birthday canvas created successfully!');
+      setCurrentStep(6); // Step 6 is the Launchpad Hub!
+    } catch (error) {
+      setSaving(false);
+      if (error instanceof ApiError && error.status === 409) {
+        setPublicCodeError('That custom link is already taken. Try another one.');
+        toast.error('Custom link already taken');
+        setCurrentStep(4);
+        return;
+      }
+      toast.error('Failed to create page');
+      console.error(error);
+      return;
+    }
+    setSaving(false);
   };
 
   const updateCreatedPageSettings = useCallback(async (nextAllowPhotos: boolean, nextAllowAudio: boolean, nextRequireNames: boolean) => {
@@ -441,17 +479,23 @@ const CreatePage = () => {
 
   const handleAllowPhotosChange = (checked: boolean) => {
     setAllowPhotos(checked);
-    void updateCreatedPageSettings(checked, allowAudio, requireNames);
+    if (createdPageId) {
+      void updateCreatedPageSettings(checked, allowAudio, requireNames);
+    }
   };
 
   const handleAllowAudioChange = (checked: boolean) => {
     setAllowAudio(checked);
-    void updateCreatedPageSettings(allowPhotos, checked, requireNames);
+    if (createdPageId) {
+      void updateCreatedPageSettings(allowPhotos, checked, requireNames);
+    }
   };
 
   const handleRequireNamesChange = (checked: boolean) => {
     setRequireNames(checked);
-    void updateCreatedPageSettings(allowPhotos, allowAudio, checked);
+    if (createdPageId) {
+      void updateCreatedPageSettings(allowPhotos, allowAudio, checked);
+    }
   };
 
   const handlePoolFundraisingToggle = (checked: boolean) => {
@@ -553,7 +597,7 @@ const CreatePage = () => {
 
   return (
     <div className="relative min-h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 flex overflow-hidden">
-      {/* Background Celebratory Glows identical to Dashboard, Settings, Theme Studio */}
+      {/* Background Celebratory Glows */}
       <div className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-amber-200/35 to-rose-200/20 blur-3xl" />
       <div className="pointer-events-none absolute -right-40 top-20 h-[520px] w-[520px] rounded-full bg-gradient-to-bl from-rose-200/30 to-amber-200/25 blur-3xl" />
       <div className="pointer-events-none absolute left-1/3 top-1/2 h-[360px] w-[360px] rounded-full bg-amber-100/30 blur-3xl" />
@@ -620,7 +664,7 @@ const CreatePage = () => {
               </Link>
               <span className="hidden sm:inline-block h-1 w-1 rounded-full bg-stone-300" />
               <span className="hidden sm:inline-block text-[11px] text-stone-500 font-medium">
-                Step {step} of 3: {WIZARD_STEPS[step - 1].label}
+                {currentStep <= 5 ? `Step ${currentStep} of 5: ${CREATOR_STEPS[currentStep - 1].label}` : 'Step 6: Launchpad Activated'}
               </span>
             </div>
           </div>
@@ -664,7 +708,7 @@ const CreatePage = () => {
         </header>
 
         {/* Main Workbench Body with Zero-Scroll Split Studio */}
-        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-7 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
           
           {/* Creator Greeting & Context Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -675,8 +719,8 @@ const CreatePage = () => {
                 </h1>
                 <span className="font-handwriting text-xl text-amber-800">zero-scroll studio</span>
               </div>
-              <p className="mt-1 text-xs sm:text-sm text-stone-500 max-w-xl leading-relaxed">
-                Watch your celebration card update live on the left as you sculpt details, choose palettes, and curate soundtracks.
+              <p className="mt-0.5 text-xs sm:text-sm text-stone-500 max-w-xl leading-relaxed">
+                Step-by-step studio workbench. The form stays compact and never taller than your live preview.
               </p>
             </div>
 
@@ -698,8 +742,8 @@ const CreatePage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
             
             {/* LEFT COLUMN: THE LIVE CELEBRATION CANVAS STAGE (5 cols on LG, sticky in view) */}
-            <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
-              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card flex flex-col relative overflow-hidden">
+            <div className="lg:col-span-5 lg:sticky lg:top-20 self-start space-y-4">
+              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-5 shadow-card flex flex-col relative overflow-hidden">
                 <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-amber-500/10 blur-2xl" />
 
                 {/* Stage Top Bar */}
@@ -963,209 +1007,479 @@ const CreatePage = () => {
               </div>
             </div>
 
-            {/* RIGHT COLUMN: THE CREATION WORKBENCH (7 cols on LG) */}
-            <div className="lg:col-span-7 space-y-6">
+            {/* RIGHT COLUMN: THE COMPACT STEPPER WORKBENCH (7 cols on LG) */}
+            <div className="lg:col-span-7 space-y-4">
 
-              {/* ARTISAN STEPPER PROGRESSION CARD */}
-              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card">
-                <div className="flex items-center justify-between max-w-xl mx-auto relative">
-                  {WIZARD_STEPS.map((s, i) => {
-                    const isCompleted = step > s.number;
-                    const isCurrent = step === s.number;
+              {/* ARTISAN STEPPER BAR (STEPS 1 TO 5) */}
+              {currentStep <= 5 && (
+                <div className="rounded-2xl border border-stone-200/90 bg-white p-3 sm:p-4 shadow-card">
+                  <div className="flex items-center justify-between max-w-xl mx-auto relative">
+                    {CREATOR_STEPS.map((s, i) => {
+                      const isCompleted = currentStep > s.number;
+                      const isCurrent = currentStep === s.number;
 
-                    return (
-                      <Fragment key={s.number}>
-                        <div className="flex flex-col items-center relative z-10">
-                          <div
-                            className={cn(
-                              'w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300 shadow-2xs',
-                              isCurrent
-                                ? 'bg-slate-950 text-white shadow-xs ring-4 ring-amber-400/30'
-                                : isCompleted
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-stone-100 text-stone-400 border border-stone-200',
-                            )}
+                      return (
+                        <Fragment key={s.number}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isCompleted || isCurrent) {
+                                setCurrentStep(s.number);
+                              }
+                            }}
+                            className="flex flex-col items-center relative z-10 group"
                           >
-                            {isCompleted ? <Check className="w-4 h-4 stroke-[3]" /> : s.number}
-                          </div>
-                          <span
-                            className={cn(
-                              'text-[11px] sm:text-xs mt-2 font-bold transition-colors text-center',
-                              isCurrent ? 'text-slate-950' : isCompleted ? 'text-emerald-800' : 'text-stone-400',
-                            )}
-                          >
-                            {s.label}
-                          </span>
-                        </div>
+                            <div
+                              className={cn(
+                                'w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all duration-300 shadow-2xs',
+                                isCurrent
+                                  ? 'bg-slate-950 text-white shadow-xs ring-4 ring-amber-400/30'
+                                  : isCompleted
+                                  ? 'bg-emerald-600 text-white group-hover:bg-emerald-700'
+                                  : 'bg-stone-100 text-stone-400 border border-stone-200',
+                              )}
+                            >
+                              {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : s.number}
+                            </div>
+                            <span
+                              className={cn(
+                                'text-[10px] mt-1.5 font-bold transition-colors text-center hidden sm:inline-block',
+                                isCurrent ? 'text-slate-950' : isCompleted ? 'text-emerald-800' : 'text-stone-400',
+                              )}
+                            >
+                              {s.label}
+                            </span>
+                          </button>
 
-                        {i < WIZARD_STEPS.length - 1 && (
-                          <div
-                            className={cn(
-                              'flex-1 h-0.5 sm:h-1 mx-2 sm:mx-4 rounded-full transition-all duration-300',
-                              step > s.number ? 'bg-emerald-500' : 'bg-stone-200',
-                            )}
-                          />
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* STEP 1: THE CELEBRANT & ESSENTIALS */}
-              {step === 1 && (
-                <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-8 shadow-card">
-                  <WizardStepDetails
-                    variant="create"
-                    recipientName={recipientName}
-                    setRecipientName={setRecipientName}
-                    recipientEmail={recipientEmail}
-                    setRecipientEmail={setRecipientEmail}
-                    birthdayDate={birthdayDate}
-                    setBirthdayDate={setBirthdayDate}
-                    closeDate={closeDate}
-                    setCloseDate={setCloseDate}
-                    creatorMessage={creatorMessage}
-                    setCreatorMessage={setCreatorMessage}
-                    coverPreviewUrl={coverPhotoPreview}
-                    coverInputRef={coverInputRef}
-                    onCoverSelect={handleCoverPhotoSelect}
-                    onRemoveCover={removeCoverPhoto}
-                  />
+                          {i < CREATOR_STEPS.length - 1 && (
+                            <div
+                              className={cn(
+                                'flex-1 h-0.5 mx-1.5 sm:mx-2 rounded-full transition-all duration-300',
+                                currentStep > s.number ? 'bg-emerald-500' : 'bg-stone-200',
+                              )}
+                            />
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {/* STEP 2: AESTHETICS & SOUNDTRACK */}
-              {step === 2 && (
-                <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-8 shadow-card">
-                  <WizardStepTheme
-                    variant="create"
-                    showPreview={false}
-                    recipientName={recipientName}
-                    selectedTheme={selectedTheme}
-                    onSelectTheme={setSelectedTheme}
-                    selectedLetterTheme={selectedLetterTheme}
-                    onSelectLetterTheme={setSelectedLetterTheme}
-                    customThemes={customThemes}
-                    isProUser={isProUser}
-                    selectedDisplayMode={selectedDisplayMode}
-                    onSelectDisplayMode={setSelectedDisplayMode}
-                    letterColor={letterColor}
-                    setLetterColor={setLetterColor}
-                    letterGradientStart={letterGradientStart}
-                    setLetterGradientStart={setLetterGradientStart}
-                    letterGradientEnd={letterGradientEnd}
-                    setLetterGradientEnd={setLetterGradientEnd}
-                    selectedSoundtrackId={selectedSoundtrackId}
-                    onSelectSoundtrackId={setSelectedSoundtrackId}
-                    pageCustomAudioUrl={pageCustomAudioUrl}
-                    onChangeCustomAudioUrl={handleCustomAudioUrlChange}
-                    footer={
-                      <CreateThemeProFooter
-                        isProUser={isProUser}
-                        publicCodeInput={publicCodeInput}
-                        onPublicCodeInputChange={(value) => {
-                          setPublicCodeInput(value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
-                          setPublicCodeError(null);
-                        }}
-                        publicCodeError={publicCodeError}
-                        revealAtInput={revealAtInput}
-                        onRevealAtInputChange={setRevealAtInput}
-                        revealPinInput={revealPinInput}
-                        onRevealPinInputChange={(value) => setRevealPinInput(value.replace(/\D/g, '').slice(0, 12))}
-                        poolFundraisingEnabled={poolFundraisingEnabled}
-                        onPoolFundraisingToggle={handlePoolFundraisingToggle}
-                        poolGoalNairaInput={poolGoalNairaInput}
-                        onPoolGoalNairaInputChange={setPoolGoalNairaInput}
-                        poolDescriptionInput={poolDescriptionInput}
-                        onPoolDescriptionInputChange={setPoolDescriptionInput}
-                        recipientBankCode={recipientBankCode}
-                        onRecipientBankCodeChange={(code) => {
-                          setRecipientBankCode(code);
-                          setRecipientAccountName('');
-                          setRecipientResolveError(null);
-                          lastResolvedRecipientRef.current = null;
-                        }}
-                        recipientAccountNumber={recipientAccountNumber}
-                        onRecipientAccountNumberChange={(value) => {
-                          setRecipientAccountNumber(value.replace(/\D/g, '').slice(0, 20));
-                          setRecipientAccountName('');
-                          setRecipientResolveError(null);
-                          lastResolvedRecipientRef.current = null;
-                        }}
-                        recipientAccountName={recipientAccountName}
-                        loadingBankOptions={loadingBankOptions}
-                        bankOptions={bankOptions}
-                        resolvingRecipientAccount={resolvingRecipientAccount}
-                        recipientResolveError={recipientResolveError}
+              {/* STEP 1: THE HONOREE (COMPACT, NEVER LONGER THAN PREVIEW) */}
+              {currentStep === 1 && (
+                <div className="rounded-3xl border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4 animate-fade-in">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-950">Who are we celebrating?</h2>
+                    <p className="text-xs text-stone-500">Provide the celebrant&apos;s name and birthday date to personalize their canvas.</p>
+                  </div>
+
+                  <div className="space-y-3.5 pt-1">
+                    <div>
+                      <Label htmlFor="recipientName" className="text-xs font-bold text-slate-800">
+                        Celebrant&apos;s Name *
+                      </Label>
+                      <Input
+                        id="recipientName"
+                        value={recipientName}
+                        onChange={(e) => setRecipientName(e.target.value)}
+                        placeholder="e.g., Alex, Chioma, or Sarah"
+                        className="mt-1.5 h-10 rounded-xl"
+                        autoFocus
                       />
-                    }
-                  />
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-bold text-slate-800">Milestone Birthday Date *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              'mt-1.5 w-full justify-start text-left font-normal h-10 rounded-xl border-stone-200',
+                              !birthdayDate && 'text-stone-400',
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4 text-amber-600" />
+                            {birthdayDate ? format(birthdayDate, 'PPP') : <span>Select birthday date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={birthdayDate}
+                            onSelect={setBirthdayDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="recipientEmail" className="text-xs font-bold text-stone-700">
+                        Celebrant Email (optional)
+                      </Label>
+                      <Input
+                        id="recipientEmail"
+                        type="email"
+                        value={recipientEmail}
+                        onChange={(e) => setRecipientEmail(e.target.value)}
+                        placeholder="e.g., alex@example.com"
+                        className="mt-1.5 h-10 rounded-xl"
+                      />
+                      <p className="text-[11px] text-stone-400 mt-1">
+                        If provided, an automated birthday delivery invite can be scheduled.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* STEP 3: CELEBRATION LAUNCHPAD & SHARING HUB */}
-              {step === 3 && (
-                <div className="space-y-6 animate-fade-in">
-                  <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-10 shadow-card text-center space-y-4">
-                    <div className="h-16 w-16 rounded-3xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto text-3xl shadow-xs">
+              {/* STEP 2: COVER PHOTO & WELCOME NOTE (COMPACT) */}
+              {currentStep === 2 && (
+                <div className="rounded-3xl border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4 animate-fade-in">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-950">Cover Portrait &amp; Welcome Note</h2>
+                    <p className="text-xs text-stone-500">Add an optional cover photo and an opening message from you as the organizer.</p>
+                  </div>
+
+                  <div className="space-y-3.5 pt-1">
+                    {/* Cover photo uploader */}
+                    <div>
+                      <Label className="text-xs font-bold text-slate-800">Celebrant Cover Photo (optional)</Label>
+                      <input
+                        ref={coverInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverPhotoSelect}
+                        className="hidden"
+                      />
+
+                      {coverPhotoPreview ? (
+                        <div className="mt-1.5 flex items-center justify-between p-2.5 rounded-xl border border-stone-200 bg-stone-50/70">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={coverPhotoPreview}
+                              alt="Cover thumbnail"
+                              className="h-10 w-10 rounded-lg object-cover border border-stone-300"
+                            />
+                            <div>
+                              <p className="text-xs font-bold text-slate-900">Cover Photo Selected</p>
+                              <p className="text-[10px] text-stone-500">Live preview updated on the left</p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={removeCoverPhoto}
+                            className="h-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs"
+                          >
+                            <X className="h-3.5 w-3.5 mr-1" />
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => coverInputRef.current?.click()}
+                          className="mt-1.5 w-full border-2 border-dashed border-stone-200 hover:border-amber-400 hover:bg-amber-50/20 rounded-xl p-3 text-center transition-all flex items-center justify-center gap-2 text-xs font-semibold text-stone-600"
+                        >
+                          <ImageIcon className="h-4 w-4 text-amber-600" />
+                          <span>Upload Celebrant Portrait (JPG, PNG)</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Organizer Note */}
+                    <div>
+                      <Label htmlFor="creatorMessage" className="text-xs font-bold text-slate-800">
+                        Organizer&apos;s Welcome Note (optional)
+                      </Label>
+                      <Textarea
+                        id="creatorMessage"
+                        value={creatorMessage}
+                        onChange={(e) => setCreatorMessage(e.target.value)}
+                        placeholder="Write a sweet personal greeting to introduce the canvas..."
+                        className="mt-1.5 min-h-[95px] rounded-xl text-xs"
+                        maxLength={400}
+                      />
+                      <p className="text-[11px] text-stone-400 mt-1">
+                        Pinned as the opening keepsake letter on {recipientName || 'the celebrant'}&apos;s canvas.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: PALETTE & VIEW MODE (COMPACT, SHOWPREVIEW=FALSE) */}
+              {currentStep === 3 && (
+                <div className="rounded-3xl border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4 animate-fade-in">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-950">Visual Vibe &amp; Layout</h2>
+                    <p className="text-xs text-stone-500">Select a layout style and color palette. Watch the left stage react instantly.</p>
+                  </div>
+
+                  <div className="space-y-4 pt-1">
+                    {/* Birthday Page View Buttons */}
+                    <div>
+                      <Label className="text-xs font-bold text-slate-800 mb-2 block">
+                        Birthday Page View Style
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {displayModes.map((mode) => (
+                          <button
+                            key={mode.id}
+                            type="button"
+                            onClick={() => {
+                              if (!isProUser && mode.id !== 'story') {
+                                toast.info('Bento and Freeform layouts are part of Pro Atelier.');
+                                return;
+                              }
+                              setSelectedDisplayMode(mode.id);
+                            }}
+                            className={cn(
+                              'rounded-xl border p-2.5 text-left transition-all relative',
+                              selectedDisplayMode === mode.id
+                                ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-400/30'
+                                : 'border-stone-200 hover:border-stone-300 bg-white',
+                            )}
+                          >
+                            <p className="text-xs font-bold text-slate-900 flex items-center justify-between">
+                              <span>{mode.label}</span>
+                              {!isProUser && mode.id !== 'story' && <Lock className="h-3 w-3 text-stone-400" />}
+                            </p>
+                            <p className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">{mode.description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Signature Palette Selector */}
+                    <div>
+                      <Label className="text-xs font-bold text-slate-800 mb-2 block">
+                        Signature Palette
+                      </Label>
+                      <div className="max-h-[190px] overflow-y-auto pr-1">
+                        <ThemeSelector
+                          selectedTheme={selectedTheme}
+                          onSelect={setSelectedTheme}
+                          customThemes={customThemes}
+                          recipientName={recipientName}
+                          showPreview={false}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: SOUNDTRACK & LETTER (COMPACT) */}
+              {currentStep === 4 && (
+                <div className="rounded-3xl border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4 animate-fade-in">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-950">Soundtrack &amp; Envelope</h2>
+                    <p className="text-xs text-stone-500">Pick the reveal soundtrack and envelope styling for the opening surprise.</p>
+                  </div>
+
+                  <div className="space-y-4 pt-1">
+                    {/* Opening Soundtrack */}
+                    <div>
+                      <Label className="text-xs font-bold text-slate-800 mb-2 block">
+                        Opening Reveal Soundtrack
+                      </Label>
+                      <div className="max-h-[140px] overflow-y-auto pr-1">
+                        <SoundtrackSelector
+                          selectedSoundtrackId={selectedSoundtrackId}
+                          onSelectSoundtrackId={setSelectedSoundtrackId}
+                          customAudioUrl={pageCustomAudioUrl}
+                          onChangeCustomAudioUrl={handleCustomAudioUrlChange}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Envelope / Letter Theme */}
+                    <div className="pt-2 border-t border-stone-100">
+                      <Label className="text-xs font-bold text-slate-800 mb-2 block">
+                        Letter &amp; Envelope Theme
+                      </Label>
+                      <div className="max-h-[120px] overflow-y-auto pr-1">
+                        <ThemeSelector
+                          selectedTheme={selectedLetterTheme}
+                          onSelect={setSelectedLetterTheme}
+                          customThemes={customThemes}
+                          recipientName={recipientName}
+                          showPreview={false}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Optional Pro Perks Accordion */}
+                    {isProUser && (
+                      <div className="pt-2 border-t border-stone-100">
+                        <CreateThemeProFooter
+                          isProUser={isProUser}
+                          publicCodeInput={publicCodeInput}
+                          onPublicCodeInputChange={(value) => {
+                            setPublicCodeInput(value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+                            setPublicCodeError(null);
+                          }}
+                          publicCodeError={publicCodeError}
+                          revealAtInput={revealAtInput}
+                          onRevealAtInputChange={setRevealAtInput}
+                          revealPinInput={revealPinInput}
+                          onRevealPinInputChange={(value) => setRevealPinInput(value.replace(/\D/g, '').slice(0, 12))}
+                          poolFundraisingEnabled={poolFundraisingEnabled}
+                          onPoolFundraisingToggle={handlePoolFundraisingToggle}
+                          poolGoalNairaInput={poolGoalNairaInput}
+                          onPoolGoalNairaInputChange={setPoolGoalNairaInput}
+                          poolDescriptionInput={poolDescriptionInput}
+                          onPoolDescriptionInputChange={setPoolDescriptionInput}
+                          recipientBankCode={recipientBankCode}
+                          onRecipientBankCodeChange={(code) => {
+                            setRecipientBankCode(code);
+                            setRecipientAccountName('');
+                            setRecipientResolveError(null);
+                            lastResolvedRecipientRef.current = null;
+                          }}
+                          recipientAccountNumber={recipientAccountNumber}
+                          onRecipientAccountNumberChange={(value) => {
+                            setRecipientAccountNumber(value.replace(/\D/g, '').slice(0, 20));
+                            setRecipientAccountName('');
+                            setRecipientResolveError(null);
+                            lastResolvedRecipientRef.current = null;
+                          }}
+                          recipientAccountName={recipientAccountName}
+                          loadingBankOptions={loadingBankOptions}
+                          bankOptions={bankOptions}
+                          resolvingRecipientAccount={resolvingRecipientAccount}
+                          recipientResolveError={recipientResolveError}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 5: PERMISSIONS & LAUNCH (COMPACT) */}
+              {currentStep === 5 && (
+                <div className="rounded-3xl border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4 animate-fade-in">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-950">Collection Rules &amp; Craft</h2>
+                    <p className="text-xs text-stone-500">Configure contributor rules and launch your milestone canvas.</p>
+                  </div>
+
+                  <div className="space-y-2.5 pt-1">
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/70 border border-stone-200/80">
+                      <Label htmlFor="photos" className="text-xs font-bold text-slate-900 cursor-pointer">
+                        Allow photo attachments from friends
+                      </Label>
+                      <Switch id="photos" checked={allowPhotos} onCheckedChange={handleAllowPhotosChange} />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/70 border border-stone-200/80">
+                      <Label htmlFor="audio" className="text-xs font-bold text-slate-900 cursor-pointer">
+                        Allow voice note audio recordings
+                      </Label>
+                      <Switch id="audio" checked={allowAudio} onCheckedChange={handleAllowAudioChange} />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/70 border border-stone-200/80">
+                      <Label htmlFor="names" className="text-xs font-bold text-slate-900 cursor-pointer">
+                        Require contributor names on wishes
+                      </Label>
+                      <Switch id="names" checked={requireNames} onCheckedChange={handleRequireNamesChange} />
+                    </div>
+
+                    {/* Contribution closing date */}
+                    <div className="p-3 rounded-2xl bg-amber-50/50 border border-amber-200/60 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-amber-950">Milestone Contribution Deadline</p>
+                        <p className="text-[10px] text-amber-800">
+                          {closeDate ? format(closeDate, 'PP') : (birthdayDate ? format(birthdayDate, 'PP') : 'Same as birthday date')}
+                        </p>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8 text-xs rounded-xl bg-white border-amber-300 text-amber-950">
+                            Set Deadline
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <CalendarComponent
+                            mode="single"
+                            selected={closeDate}
+                            onSelect={setCloseDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 6: CELEBRATION LAUNCHPAD & SHARING HUB */}
+              {currentStep === 6 && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="rounded-3xl border border-stone-200/90 bg-white p-5 sm:p-7 shadow-card text-center space-y-2">
+                    <div className="h-12 w-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto text-2xl shadow-xs">
                       🎉
                     </div>
-                    <div className="space-y-1">
+                    <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
                         Keepsake Activated
                       </span>
-                      <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
-                        {recipientName}&apos;s Birthday Canvas is Ready!
+                      <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-slate-950">
+                        {recipientName}&apos;s Canvas is Ready!
                       </h2>
-                      <p className="text-xs sm:text-sm text-stone-500 max-w-md mx-auto leading-relaxed">
-                        Share the invite link with friends and family to start gathering heartfelt wishes before the reveal date.
+                      <p className="text-xs text-stone-500 max-w-sm mx-auto leading-relaxed mt-0.5">
+                        Share the guest invite link to start collecting heartfelt wishes and voice notes.
                       </p>
                     </div>
                   </div>
 
-                  {/* 2-Column Sharing Cards (Guest Invite vs Celebrant Reveal) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {/* 2-Column Sharing Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     
-                    {/* 1. GUEST INVITATION LINK */}
-                    <div className="rounded-[2rem] border border-emerald-200/90 bg-emerald-50/50 p-6 flex flex-col justify-between space-y-4 shadow-xs">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm">
-                          <div className="h-8 w-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shadow-2xs">
+                    {/* GUEST INVITATION LINK */}
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 flex flex-col justify-between space-y-3 shadow-xs">
+                      <div>
+                        <div className="flex items-center gap-2 text-emerald-950 font-bold text-xs">
+                          <div className="h-6 w-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs">
                             ✉️
                           </div>
-                          <span>Guest Contribution Link</span>
+                          <span>Guest Invite Link</span>
                         </div>
-                        <p className="text-xs text-stone-600 leading-relaxed">
-                          Send this to friends, coworkers, and family to leave written notes, photos, and voice messages.
+                        <p className="text-[11px] text-stone-600 mt-1">
+                          Send to friends and family to collect notes, photos, and voice wishes.
                         </p>
                       </div>
 
-                      <div className="space-y-3 pt-2">
+                      <div className="space-y-2 pt-1">
                         <div className="flex items-center gap-2">
                           <Button
                             onClick={() => copyLink('contribute')}
-                            className="flex-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs h-9 gap-1.5 shadow-xs"
+                            className="flex-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs h-8 gap-1.5 shadow-xs"
                           >
-                            <Copy className="h-3.5 w-3.5" />
-                            <span>Copy Invite Link</span>
+                            <Copy className="h-3 w-3" />
+                            <span>Copy Invite</span>
                           </Button>
                           <Button
                             variant="outline"
                             size="icon"
-                            className="rounded-xl border-emerald-300 bg-white text-emerald-900 h-9 w-9 shadow-xs"
+                            className="rounded-xl border-emerald-300 bg-white text-emerald-900 h-8 w-8 shadow-xs"
                             onClick={() => {
                               setQrType('contribute');
                               setQrModalOpen(true);
                             }}
                             title="Show QR Code"
                           >
-                            <QrCode className="h-4 w-4" />
+                            <QrCode className="h-3.5 w-3.5" />
                           </Button>
                         </div>
 
-                        <div className="pt-3 border-t border-emerald-200/60">
-                          <p className="text-[11px] font-bold text-stone-500 mb-2">Share directly on WhatsApp &amp; Social</p>
+                        <div className="pt-2 border-t border-emerald-200/60">
                           <SocialShareButtons
                             url={`${window.location.origin}/contribute/${createdPublicCode || createdPageId}`}
                             message={`🎂 Help me celebrate ${recipientName}'s birthday! Add your heartfelt wish here:`}
@@ -1175,56 +1489,56 @@ const CreatePage = () => {
                       </div>
                     </div>
 
-                    {/* 2. CELEBRANT REVEAL LINK */}
-                    <div className="rounded-[2rem] border border-amber-200/90 bg-amber-50/50 p-6 flex flex-col justify-between space-y-4 shadow-xs">
-                      <div className="space-y-2">
+                    {/* CELEBRANT REVEAL LINK */}
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 flex flex-col justify-between space-y-3 shadow-xs">
+                      <div>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-amber-950 font-bold text-sm">
-                            <div className="h-8 w-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm shadow-2xs">
+                          <div className="flex items-center gap-2 text-amber-950 font-bold text-xs">
+                            <div className="h-6 w-6 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs">
                               🎂
                             </div>
                             <span>Celebrant Reveal Link</span>
                           </div>
-                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                          <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-md">
                             Private
                           </span>
                         </div>
-                        <p className="text-xs text-stone-600 leading-relaxed">
-                          Only give this link to {recipientName} on their birthday to unlock the animated story reveal.
+                        <p className="text-[11px] text-stone-600 mt-1">
+                          Only give this link to {recipientName} on their special day to open the reveal.
                         </p>
                       </div>
 
-                      <div className="space-y-3 pt-2">
+                      <div className="space-y-2 pt-1">
                         <div className="flex items-center gap-2">
                           <Button
                             variant="outline"
                             onClick={() => copyLink('birthday')}
-                            className="flex-1 rounded-xl border-amber-300 bg-white hover:bg-amber-100/60 text-amber-950 font-bold text-xs h-9 gap-1.5 shadow-xs"
+                            className="flex-1 rounded-xl border-amber-300 bg-white hover:bg-amber-100/60 text-amber-950 font-bold text-xs h-8 gap-1.5 shadow-xs"
                           >
-                            <Copy className="h-3.5 w-3.5" />
-                            <span>Copy Reveal Link</span>
+                            <Copy className="h-3 w-3" />
+                            <span>Copy Reveal</span>
                           </Button>
                           <Button
                             variant="outline"
                             size="icon"
-                            className="rounded-xl border-amber-300 bg-white text-amber-900 h-9 w-9 shadow-xs"
+                            className="rounded-xl border-amber-300 bg-white text-amber-900 h-8 w-8 shadow-xs"
                             onClick={() => {
                               setQrType('birthday');
                               setQrModalOpen(true);
                             }}
                             title="Show QR Code"
                           >
-                            <QrCode className="h-4 w-4" />
+                            <QrCode className="h-3.5 w-3.5" />
                           </Button>
                         </div>
 
                         <Link to={`/preview/${createdPublicCode || createdPageId}`} className="block">
                           <Button
                             size="sm"
-                            className="btn-press w-full rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs h-9 gap-1.5 shadow-xs"
+                            className="btn-press w-full rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs h-8 gap-1.5 shadow-xs"
                           >
-                            <Eye className="h-3.5 w-3.5 text-amber-300" />
-                            <span>Preview Celebrant Experience</span>
+                            <Eye className="h-3 w-3 text-amber-300" />
+                            <span>Preview Reveal</span>
                           </Button>
                         </Link>
                       </div>
@@ -1240,87 +1554,64 @@ const CreatePage = () => {
                     title={qrType === 'contribute' ? 'Contribution QR Code' : 'Birthday Reveal QR Code'}
                     recipientName={recipientName}
                   />
-
-                  {/* Live Canvas Settings Card */}
-                  <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-card space-y-4">
-                    <div className="border-b border-stone-100 pb-3">
-                      <h3 className="font-serif font-bold text-slate-950 text-base">
-                        Live Canvas Collection Rules
-                      </h3>
-                      <p className="text-xs text-stone-500 mt-0.5">
-                        Adjust contributor permissions at any time while the canvas is collecting.
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
-                        <Label htmlFor="photos" className="text-xs font-bold text-slate-900 cursor-pointer">
-                          Allow photo attachments by contributors
-                        </Label>
-                        <Switch id="photos" checked={allowPhotos} onCheckedChange={handleAllowPhotosChange} />
-                      </div>
-
-                      <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
-                        <Label htmlFor="audio" className="text-xs font-bold text-slate-900 cursor-pointer">
-                          Allow audio voice note recordings
-                        </Label>
-                        <Switch id="audio" checked={allowAudio} onCheckedChange={handleAllowAudioChange} />
-                      </div>
-
-                      <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
-                        <Label htmlFor="names" className="text-xs font-bold text-slate-900 cursor-pointer">
-                          Require contributor names on messages
-                        </Label>
-                        <Switch id="names" checked={requireNames} onCheckedChange={handleRequireNamesChange} />
-                      </div>
-                    </div>
-                  </div>
-
                 </div>
               )}
 
-              {/* BOTTOM WIZARD NAVIGATION BAR */}
-              <div className="rounded-[2rem] border border-stone-200/90 bg-white p-4 shadow-card flex items-center justify-between gap-4">
-                {step > 1 && step < 3 ? (
+              {/* BOTTOM WIZARD NAVIGATION BAR (ALWAYS COMPACT & VISIBLE) */}
+              <div className="rounded-2xl border border-stone-200/90 bg-white p-3 sm:p-4 shadow-card flex items-center justify-between gap-4">
+                {currentStep > 1 && currentStep <= 5 ? (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleBack}
-                    className="rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 px-5 h-10 gap-1.5"
+                    className="rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 px-4 h-9 gap-1.5"
                   >
-                    <ArrowLeft className="h-4 w-4" />
+                    <ArrowLeft className="h-3.5 w-3.5" />
                     <span>Back</span>
                   </Button>
                 ) : (
                   <div />
                 )}
 
-                {step < 3 ? (
+                {currentStep < 5 && (
                   <Button
                     size="sm"
                     onClick={handleNext}
-                    disabled={saving || uploadingCover || (step === 2 && !hasResolvedPoolRecipient)}
-                    className="btn-press rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-6 h-10 shadow-md shadow-amber-500/25 flex items-center gap-2"
+                    className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-5 h-9 shadow-xs flex items-center gap-1.5"
+                  >
+                    <span>Continue</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+
+                {currentStep === 5 && (
+                  <Button
+                    size="sm"
+                    onClick={handleCreateCanvas}
+                    disabled={saving || uploadingCover}
+                    className="btn-press rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-5 h-9 shadow-md shadow-amber-500/25 flex items-center gap-1.5"
                   >
                     {(saving || uploadingCover) ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin text-white" />
-                        <span>{uploadingCover ? 'Uploading Cover Photo...' : 'Crafting Canvas...'}</span>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+                        <span>Crafting Canvas...</span>
                       </>
                     ) : (
                       <>
-                        <span>{step === 2 ? 'Create Celebration Canvas' : 'Continue to Styling'}</span>
-                        <ArrowRight className="h-4 w-4" />
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>Craft Milestone Canvas</span>
                       </>
                     )}
                   </Button>
-                ) : (
+                )}
+
+                {currentStep === 6 && (
                   <div className="flex items-center gap-2">
                     <Link to={`/edit/${createdPublicCode || createdPageId}`}>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="rounded-2xl border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs px-5 h-10 shadow-xs"
+                        className="rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs px-4 h-9 shadow-xs"
                       >
                         Curate Canvas
                       </Button>
@@ -1328,10 +1619,10 @@ const CreatePage = () => {
                     <Button
                       size="sm"
                       onClick={() => navigate('/dashboard')}
-                      className="btn-press rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-6 h-10 shadow-card flex items-center gap-2"
+                      className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-5 h-9 shadow-card flex items-center gap-1.5"
                     >
                       <span>Go to Timeline</span>
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 )}
