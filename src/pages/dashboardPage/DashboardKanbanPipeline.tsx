@@ -40,6 +40,42 @@ type DashboardKanbanPipelineProps = {
   canShowExportOptions: boolean;
 };
 
+function CelebrationCardCover({
+  page,
+  theme,
+}: {
+  page: BirthdayPage;
+  theme: ThemeDisplay;
+}) {
+  const photoUrl = page.cover_photo_url ? resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url : null;
+
+  return (
+    <div className="relative w-full aspect-[16/10] rounded-xl overflow-hidden bg-stone-100 border border-stone-200/80 mb-2.5 group/cover">
+      {photoUrl ? (
+        <img
+          src={photoUrl}
+          alt={`${page.recipient_name}'s celebration`}
+          className="h-full w-full object-cover object-top transition-transform duration-500 ease-out group-hover:scale-105"
+        />
+      ) : theme.isCustom ? (
+        <div
+          className="h-full w-full flex items-center justify-center text-3xl transition-transform duration-300 group-hover:scale-105"
+          style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+        >
+          <span>{theme.emoji || '🎂'}</span>
+        </div>
+      ) : (
+        <div className={`h-full w-full bg-gradient-to-br ${theme.primary} flex items-center justify-center text-3xl transition-transform duration-300 group-hover:scale-105`}>
+          <span>{theme.emoji || '🎂'}</span>
+        </div>
+      )}
+
+      {/* Subtle bottom vignette so photo cleanly anchors into the card */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-60" />
+    </div>
+  );
+}
+
 export function DashboardKanbanPipeline({
   pages,
   selectedDate,
@@ -135,8 +171,10 @@ export function DashboardKanbanPipeline({
                 <div
                   key={page.id}
                   onClick={() => onSelectPage(page)}
-                  className="group cursor-pointer rounded-2xl border border-stone-200/90 bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-amber-300 space-y-3"
+                  className="group cursor-pointer rounded-2xl border border-stone-200/90 bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-amber-300 space-y-2.5"
                 >
+                  <CelebrationCardCover page={page} theme={theme} />
+
                   <div className="flex items-center justify-between">
                     <span className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-bold text-stone-600">
                       Draft
@@ -200,8 +238,10 @@ export function DashboardKanbanPipeline({
                 <div
                   key={page.id}
                   onClick={() => onSelectPage(page)}
-                  className="group cursor-pointer rounded-2xl border-2 border-amber-300/90 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-amber-400 space-y-3"
+                  className="group cursor-pointer rounded-2xl border-2 border-amber-300/90 bg-white p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-amber-400 space-y-2.5"
                 >
+                  <CelebrationCardCover page={page} theme={theme} />
+
                   <div className="flex items-center justify-between">
                     <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
                       {daysLeft > 0 ? `${daysLeft} days left` : 'Closes today'}
@@ -300,8 +340,10 @@ export function DashboardKanbanPipeline({
                 <div
                   key={page.id}
                   onClick={() => onSelectPage(page)}
-                  className="group cursor-pointer rounded-2xl border-2 border-rose-300 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg space-y-3"
+                  className="group cursor-pointer rounded-2xl border-2 border-rose-300 bg-white p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg space-y-2.5"
                 >
+                  <CelebrationCardCover page={page} theme={theme} />
+
                   <div className="flex items-center justify-between">
                     <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-800">
                       Birthday Arrived!
@@ -366,8 +408,10 @@ export function DashboardKanbanPipeline({
                 <div
                   key={page.id}
                   onClick={() => onSelectPage(page)}
-                  className="group cursor-pointer rounded-2xl border border-stone-200/90 bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md space-y-2.5"
+                  className="group cursor-pointer rounded-2xl border border-stone-200/90 bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md space-y-2.5"
                 >
+                  <CelebrationCardCover page={page} theme={theme} />
+
                   <div className="flex items-center justify-between text-xs text-stone-500">
                     <span>{format(bday, 'MMM d, yyyy')}</span>
                     <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-700">

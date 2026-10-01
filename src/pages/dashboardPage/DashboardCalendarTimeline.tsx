@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { parseLocalDate } from '@/lib/date';
+import { resolveAssetUrl } from '@/lib/api';
 import type { BirthdayPage } from './types';
 
 type DashboardCalendarTimelineProps = {
@@ -250,17 +251,31 @@ export function DashboardCalendarTimeline({
                     )}
                   </div>
 
-                  <p className="mt-1 truncate font-serif text-sm font-bold text-slate-950">
-                    {primaryPage.recipient_name}&apos;s Day 🎂
-                  </p>
-
-                  <div className="mt-1 flex items-center justify-between text-[10px]">
-                    <span className={isLive ? 'font-bold text-emerald-800' : 'font-semibold text-stone-500'}>
-                      {isLive ? 'Active Collection' : 'Delivered'}
-                    </span>
-                    <span className="font-semibold text-stone-600">
-                      {primaryPage.message_count || 0} {(primaryPage.message_count || 0) === 1 ? 'wish' : 'wishes'}
-                    </span>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    {primaryPage.cover_photo_url ? (
+                      <img
+                        src={resolveAssetUrl(primaryPage.cover_photo_url) || primaryPage.cover_photo_url}
+                        alt={primaryPage.recipient_name}
+                        className="h-8 w-8 rounded-lg object-cover object-top border border-amber-300/80 shadow-xs shrink-0"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-lg bg-amber-100/90 border border-amber-200/80 flex items-center justify-center text-sm shrink-0 shadow-xs">
+                        🎂
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-serif text-sm font-bold text-slate-950">
+                        {primaryPage.recipient_name}
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] text-stone-500">
+                        <span className={isLive ? 'font-bold text-emerald-800' : 'font-semibold'}>
+                          {isLive ? 'Collecting' : 'Delivered'}
+                        </span>
+                        <span className="font-medium text-stone-600">
+                          {primaryPage.message_count || 0} {(primaryPage.message_count || 0) === 1 ? 'wish' : 'wishes'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );

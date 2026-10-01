@@ -4,12 +4,15 @@ import {
   Crown,
   LogOut,
   Palette,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   Settings,
   Trophy,
 } from 'lucide-react';
+import {
+  BrandDismissIcon,
+  BrandSidebarExpandIcon,
+  BrandSidebarRetractIcon,
+} from '@/components/BrandIcons';
 import type { UserProfile } from '@/types/user';
 import type { User } from '@/context/AuthContext';
 
@@ -74,25 +77,11 @@ export function DashboardSidebar({
               <button
                 type="button"
                 onClick={onCloseMobile}
-                className="group flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-500 shadow-xs hover:border-stone-400 hover:text-slate-950 transition-all active:scale-95"
+                className="group flex h-8 w-8 items-center justify-center rounded-full border border-stone-200/90 bg-white text-stone-500 shadow-xs hover:border-stone-400 hover:text-slate-950 transition-all active:scale-95"
+                title="Close menu"
                 aria-label="Close menu"
               >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="transition-transform duration-200 group-hover:rotate-90 text-stone-600 group-hover:text-slate-950"
-                >
-                  <path
-                    d="M2 2L10 10M10 2L2 10"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <BrandDismissIcon className="h-3 w-3 transition-transform duration-200 group-hover:rotate-90 text-stone-600 group-hover:text-slate-950" />
               </button>
             )}
           </div>
@@ -109,11 +98,11 @@ export function DashboardSidebar({
               <button
                 type="button"
                 onClick={onToggleCollapse}
-                className="h-7 w-7 rounded-lg border border-stone-200/80 bg-white text-stone-500 hover:text-slate-950 hover:bg-stone-50 flex items-center justify-center transition-colors"
+                className="h-8 w-8 rounded-xl border border-stone-200/80 bg-white text-stone-500 hover:text-slate-950 hover:bg-stone-50 flex items-center justify-center transition-colors shadow-xs"
                 title="Expand sidebar"
                 aria-label="Expand sidebar"
               >
-                <PanelLeftOpen className="h-4 w-4" />
+                <BrandSidebarExpandIcon className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -153,11 +142,11 @@ export function DashboardSidebar({
                 <button
                   type="button"
                   onClick={onToggleCollapse}
-                  className="h-7 w-7 rounded-lg border border-stone-200/80 bg-white text-stone-500 hover:text-slate-950 hover:bg-stone-50 flex items-center justify-center transition-colors ml-0.5"
+                  className="h-8 w-8 rounded-xl border border-stone-200/80 bg-white text-stone-500 hover:text-slate-950 hover:bg-stone-50 flex items-center justify-center transition-colors shadow-xs ml-0.5"
                   title="Collapse sidebar"
                   aria-label="Collapse sidebar"
                 >
-                  <PanelLeftClose className="h-4 w-4" />
+                  <BrandSidebarRetractIcon className="h-4 w-4" />
                 </button>
               )}
             </div>
@@ -191,12 +180,12 @@ export function DashboardSidebar({
           </div>
         )}
 
-        {/* Workspace Navigation */}
+        {/* Navigation */}
         {isCollapsed && !isMobileDrawer ? (
           <nav className="px-2 space-y-3 text-xs flex flex-col items-center">
             <div
               className="h-10 w-10 rounded-xl bg-white border border-stone-200/90 text-slate-950 flex items-center justify-center relative shadow-xs"
-              title={`Timeline and Pipeline: ${totalPagesCount} total`}
+              title={`Celebrations: ${totalPagesCount} total`}
             >
               <CalendarDays className="h-4 w-4 text-amber-700" />
               {totalPagesCount > 0 && (
@@ -242,7 +231,7 @@ export function DashboardSidebar({
           <nav className="px-3 space-y-6 text-xs">
             <div className="space-y-1">
               <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                Workspace
+                Celebrations
               </span>
               <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs">
                 <span className="flex items-center gap-2.5">
@@ -276,7 +265,7 @@ export function DashboardSidebar({
             {/* Design Tools */}
             <div className="space-y-1">
               <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                Studio Tools
+                Creation Atelier
               </span>
               <Link
                 to="/themes"

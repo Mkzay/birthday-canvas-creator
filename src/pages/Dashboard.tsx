@@ -4,15 +4,18 @@ import {
   AlertTriangle,
   CalendarDays,
   Crown,
-  Menu,
   Palette,
-  PanelLeft,
   Plus,
   Search,
   Sparkles,
   Users,
   X,
 } from 'lucide-react';
+import {
+  BrandMenuIcon,
+  BrandSidebarExpandIcon,
+  BrandSidebarRetractIcon,
+} from '@/components/BrandIcons';
 import { differenceInDays, format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
@@ -341,25 +344,30 @@ const Dashboard = () => {
         {/* Top Command Bar (Search moved to main area, sidebar toggle added) */}
         <header className="bg-white/85 backdrop-blur-md border-b border-stone-200/90 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">
           <div className="flex items-center gap-3">
-            {/* Hamburger on Mobile/Tablet */}
+            {/* Custom On-Brand Menu Button on Mobile/Tablet */}
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 transition-colors shadow-xs"
-              aria-label="Open sidebar"
+              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 transition-colors shadow-xs active:scale-95"
+              aria-label="Open sidebar menu"
+              title="Open menu"
             >
-              <Menu className="h-4 w-4" />
+              <BrandMenuIcon className="h-4 w-4 text-stone-700" />
             </button>
 
-            {/* Desktop Sidebar Collapse Toggle */}
+            {/* Custom On-Brand Desktop Sidebar Collapse Toggle */}
             <button
               type="button"
               onClick={toggleSidebarCollapsed}
-              className="hidden lg:flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200/90 bg-white text-stone-600 hover:text-slate-950 hover:bg-stone-50 transition-colors shadow-xs"
+              className="hidden lg:flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200/90 bg-white text-stone-600 hover:text-slate-950 hover:bg-stone-50 transition-colors shadow-xs active:scale-95"
               title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              <PanelLeft className="h-4 w-4" />
+              {isSidebarCollapsed ? (
+                <BrandSidebarExpandIcon className="h-4 w-4" />
+              ) : (
+                <BrandSidebarRetractIcon className="h-4 w-4" />
+              )}
             </button>
 
             {/* Studio Context Title */}
