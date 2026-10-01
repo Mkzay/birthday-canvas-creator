@@ -471,7 +471,15 @@ const Dashboard = () => {
             </div>
           ) : (
             <>
-              {/* Studio Search & Filter Bar (Moved from Header to Main Area) */}
+              {/* HYBRID DECK 1: THE INTERACTIVE CALENDAR MILESTONE TIMELINE */}
+              <DashboardCalendarTimeline
+                pages={searchedPages}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                onSelectPage={handleOpenDrawer}
+              />
+
+              {/* STUDIO SEARCH & FILTER BAR (Directly above the celebration cards) */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-stone-200/90 rounded-2xl p-2.5 sm:px-4 sm:py-3 shadow-xs">
                 <div className="relative flex-1 max-w-md">
                   <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
@@ -505,15 +513,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* HYBRID DECK 1: THE INTERACTIVE CALENDAR MILESTONE TIMELINE */}
-              <DashboardCalendarTimeline
-                pages={searchedPages}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-                onSelectPage={handleOpenDrawer}
-              />
-
-              {/* HYBRID DECK 2: THE LIFECYCLE KANBAN PIPELINE */}
+              {/* HYBRID DECK 2: THE LIFECYCLE KANBAN PIPELINE (CARDS) */}
               <DashboardKanbanPipeline
                 pages={searchedPages}
                 selectedDate={selectedDate}
