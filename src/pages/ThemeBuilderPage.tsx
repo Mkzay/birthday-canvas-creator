@@ -14,12 +14,9 @@ import {
   Image as ImageIcon,
   Loader2,
   Lock,
-  MessageSquare,
-  Music,
   Palette,
   Plus,
   RotateCcw,
-  Save,
   Sparkles,
   Trash2,
   X,
@@ -172,6 +169,7 @@ const ThemeBuilderPage = () => {
     setFont('playfair');
     setIconUrl(null);
     setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleEdit = (theme: CustomTheme) => {
@@ -418,6 +416,48 @@ const ThemeBuilderPage = () => {
             </Link>
           </div>
         </header>
+
+        {/* Mobile Sticky Mini-Preview Dock (Visible on mobile/tablet so user NEVER has to scroll up) */}
+        {showForm && (
+          <div className="lg:hidden sticky top-[57px] z-10 bg-white/95 backdrop-blur-md border-b border-stone-200/90 px-4 py-2.5 flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="h-7 w-7 rounded-lg shadow-2xs shrink-0 flex items-center justify-center text-sm relative overflow-hidden"
+                style={{ background: previewGradient }}
+              >
+                {iconUrl ? (
+                  <img src={iconUrl} alt="seal" className="h-full w-full object-cover" />
+                ) : (
+                  <span>{emoji}</span>
+                )}
+                {accentColor && (
+                  <div
+                    className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full border border-white"
+                    style={{ backgroundColor: accentColor }}
+                  />
+                )}
+              </div>
+              <div className="truncate">
+                <p className={cn('text-xs font-bold text-slate-950 truncate', fontClassForValue(font))}>
+                  {name || 'Theme Preview'}
+                </p>
+                <p className="text-[10px] text-stone-500">
+                  Live Preview: {fontLabelForValue(font)} • {gradientAngle}°
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                document.getElementById('live-preview-card')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="text-[11px] font-bold text-amber-800 hover:text-amber-900 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 shrink-0"
+            >
+              View Canvas
+            </button>
+          </div>
+        )}
 
         {/* Main Workbench Content */}
         <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-7 max-w-7xl w-full mx-auto">
@@ -931,182 +971,247 @@ const ThemeBuilderPage = () => {
 
             </div>
 
-            {/* RIGHT COLUMN: LIVE SIMULATION STAGE & SAVED PALETTES (5 Cols on LG) */}
-            <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
-              
-              {/* LIVE SIMULATION CANVAS STAGE */}
-              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-card space-y-4">
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                    <Eye className="h-3.5 w-3.5 text-amber-600" />
-                    Live Canvas Simulation
-                  </span>
-                  <span className="text-[11px] font-serif italic text-stone-500">
-                    real celebrant preview
-                  </span>
-                </div>
-
-                {/* Simulated Birthday Keepsake Card */}
-                <div
-                  className="rounded-3xl p-6 sm:p-7 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[320px] flex flex-col justify-between"
-                  style={{ background: previewGradient }}
-                >
-                  {/* Subtle top glare */}
-                  <div className="pointer-events-none absolute -top-12 -left-12 h-36 w-36 rounded-full bg-white/20 blur-xl" />
-
-                  {/* Header with seal */}
-                  <div className="flex items-center justify-between relative z-10">
-                    <div className="h-11 w-11 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-md">
-                      {iconUrl ? (
-                        <img src={iconUrl} alt="Theme seal" className="h-full w-full object-cover rounded-2xl" />
-                      ) : (
-                        <span className="text-2xl">{emoji}</span>
-                      )}
-                    </div>
-                    <span className="rounded-full bg-black/25 backdrop-blur-md px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/90 border border-white/20">
-                      Celebration Canvas
+            {/* RIGHT COLUMN: PURE STICKY LIVE SIMULATION CANVAS STAGE (5 Cols on LG - LOCKED IN VIEW) */}
+            <div className="lg:col-span-5">
+              <div id="live-preview-card" className="lg:sticky lg:top-20 space-y-4">
+                
+                <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
+                  <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                      <Eye className="h-3.5 w-3.5 text-amber-600" />
+                      Live Canvas Simulation
+                    </span>
+                    <span className="text-[11px] font-serif italic text-stone-500">
+                      real-time preview
                     </span>
                   </div>
 
-                  {/* Sample celebrant headline */}
-                  <div className="my-6 relative z-10 space-y-2">
-                    <p className="text-xs uppercase tracking-widest text-white/80 font-medium">
-                      Milestone Keepsake
-                    </p>
-                    <h3 className={cn('text-2xl sm:text-3xl font-bold leading-tight drop-shadow-md text-white', fontClassForValue(font))}>
-                      Happy 30th Birthday, Chi!
-                    </h3>
-                    <p className="text-xs text-white/90 leading-relaxed max-w-xs drop-shadow-sm font-sans">
-                      May your year be filled with immense warmth, laughter, and endless adventure.
-                    </p>
-                  </div>
+                  {/* Simulated Birthday Keepsake Card */}
+                  <div
+                    className="rounded-3xl p-5 sm:p-6 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[300px] flex flex-col justify-between"
+                    style={{ background: previewGradient }}
+                  >
+                    {/* Subtle top glare */}
+                    <div className="pointer-events-none absolute -top-12 -left-12 h-36 w-36 rounded-full bg-white/20 blur-xl" />
 
-                  {/* Sample Interactive Button & Pill with Accent */}
-                  <div className="relative z-10 pt-4 border-t border-white/25 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs text-white/90 font-medium">
-                      <Heart className="h-3.5 w-3.5 fill-white" />
-                      <span>28 Heartfelt Wishes</span>
+                    {/* Header with seal */}
+                    <div className="flex items-center justify-between relative z-10">
+                      <div className="h-10 w-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-md">
+                        {iconUrl ? (
+                          <img src={iconUrl} alt="Theme seal" className="h-full w-full object-cover rounded-2xl" />
+                        ) : (
+                          <span className="text-xl">{emoji}</span>
+                        )}
+                      </div>
+                      <span className="rounded-full bg-black/25 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/90 border border-white/20">
+                        Celebration Canvas
+                      </span>
                     </div>
 
-                    <button
-                      type="button"
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white shadow-md transition-transform active:scale-95 flex items-center gap-1.5"
-                      style={{
-                        backgroundColor: accentColor || '#f59e0b',
-                        boxShadow: `0 4px 14px ${accentColor || '#f59e0b'}55`,
-                      }}
+                    {/* Sample celebrant headline */}
+                    <div className="my-5 relative z-10 space-y-1.5">
+                      <p className="text-[10px] uppercase tracking-widest text-white/80 font-medium">
+                        Milestone Keepsake
+                      </p>
+                      <h3 className={cn('text-xl sm:text-2xl font-bold leading-tight drop-shadow-md text-white', fontClassForValue(font))}>
+                        Happy 30th Birthday, Chi!
+                      </h3>
+                      <p className="text-[11px] text-white/90 leading-relaxed max-w-xs drop-shadow-sm font-sans">
+                        May your year be filled with immense warmth, laughter, and endless adventure.
+                      </p>
+                    </div>
+
+                    {/* Sample Interactive Button & Pill with Accent */}
+                    <div className="relative z-10 pt-3 border-t border-white/25 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs text-white/90 font-medium">
+                        <Heart className="h-3.5 w-3.5 fill-white" />
+                        <span>28 Heartfelt Wishes</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow-md transition-transform active:scale-95 flex items-center gap-1.5"
+                        style={{
+                          backgroundColor: accentColor || '#f59e0b',
+                          boxShadow: `0 4px 14px ${accentColor || '#f59e0b'}55`,
+                        }}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        <span>Sign Canvas</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
+                    <span className="truncate">Font: <strong>{fontLabelForValue(font)}</strong></span>
+                    <span className="truncate">Angle: <strong>{gradientAngle}°</strong></span>
+                  </div>
+                </div>
+
+                {/* Quick Save Action Pill pinned below preview */}
+                {showForm && (
+                  <div className="rounded-2xl border border-stone-200/80 bg-white/90 backdrop-blur-xs p-3 flex items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-2 truncate">
+                      <div
+                        className="h-4 w-4 rounded-full border border-stone-300 shrink-0"
+                        style={{ background: previewGradient }}
+                      />
+                      <span className="text-xs font-bold text-slate-950 truncate">
+                        {name || 'Untitled Theme'}
+                      </span>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs h-8 px-3 shadow-xs shrink-0"
                     >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>Sign Canvas</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-stone-500 text-center leading-relaxed">
-                  Reflects the exact gradient angle, seal, typography font, and accent buttons seen by recipients and contributors.
-                </div>
-              </div>
-
-              {/* SAVED CUSTOM PALETTES GALLERY */}
-              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Palette className="h-4 w-4 text-amber-700" />
-                    <h4 className="font-serif font-bold text-slate-950 text-base">
-                      Your Theme Atelier ({themes.length})
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                    {isProPlan ? 'Unlimited' : `${themes.length} of ${FREE_THEME_LIMIT}`}
-                  </span>
-                </div>
-
-                {themes.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-stone-200 p-6 text-center text-xs text-stone-500 space-y-2">
-                    <p>No custom themes created yet.</p>
-                    <p className="text-[11px] text-stone-400">
-                      Use the studio form on the left to design your first signature celebration palette.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {themes.map((theme) => {
-                      const themeGradient = buildGradient(
-                        theme.gradient_from,
-                        theme.gradient_to,
-                        theme.gradient_mid,
-                        theme.gradient_angle || 135,
-                      );
-                      const isCurrentlyEditing = editingId === theme.id;
-
-                      return (
-                        <div
-                          key={theme.id}
-                          className={`rounded-2xl border p-3 flex items-center justify-between gap-3 transition-all ${
-                            isCurrentlyEditing
-                              ? 'border-amber-500 bg-amber-50/40 shadow-xs'
-                              : 'border-stone-200/90 bg-white hover:border-stone-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            {/* Swatch disc */}
-                            <div
-                              className="h-10 w-10 rounded-xl flex items-center justify-center text-lg shadow-2xs shrink-0 relative overflow-hidden"
-                              style={{ background: themeGradient }}
-                            >
-                              {theme.icon_url ? (
-                                <img src={theme.icon_url} alt={theme.name} className="h-full w-full object-cover" />
-                              ) : (
-                                <span>{theme.emoji}</span>
-                              )}
-                              {theme.accent_color && (
-                                <div
-                                  className="absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full border border-white"
-                                  style={{ backgroundColor: theme.accent_color }}
-                                />
-                              )}
-                            </div>
-
-                            <div className="truncate">
-                              <p className={cn('text-xs font-bold text-slate-950 truncate', fontClassForValue(theme.font))}>
-                                {theme.name}
-                              </p>
-                              <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
-                                <span>{fontLabelForValue(theme.font)}</span>
-                                <span>•</span>
-                                <span>{theme.gradient_angle || 135}°</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEdit(theme)}
-                              className="rounded-xl border-stone-200 text-[11px] font-semibold text-stone-700 hover:bg-stone-50 h-8 px-2.5"
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(theme.id)}
-                              className="h-8 w-8 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50"
-                              title="Delete theme"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                      {saving ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <span>Save Palette</span>
+                      )}
+                    </Button>
                   </div>
                 )}
-              </div>
 
+              </div>
             </div>
 
+          </div>
+
+          {/* DEDICATED SAVED CUSTOM PALETTES ARCHIVE (Room to breathe below editor) */}
+          <div className="pt-10 border-t border-stone-200/80 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-amber-700" />
+                  <h3 className="font-serif font-bold text-slate-950 text-xl sm:text-2xl">
+                    Your Custom Atelier Palettes
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Saved themes available when crafting new birthday milestone canvases.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-stone-500 bg-white border border-stone-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
+                  {themes.length} {isProPlan ? 'Crafted (Unlimited)' : `of ${FREE_THEME_LIMIT} Themes`}
+                </span>
+                {!showForm && (
+                  <Button
+                    size="sm"
+                    onClick={startNewTheme}
+                    disabled={isFreeThemeLimitReached}
+                    className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs shadow-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    New Palette
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {themes.length === 0 ? (
+              <div className="rounded-[2.5rem] border border-dashed border-stone-300 p-10 text-center bg-white/60 space-y-3">
+                <div className="h-12 w-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto text-2xl shadow-2xs">
+                  🎨
+                </div>
+                <h4 className="font-serif font-bold text-slate-950 text-lg">
+                  No custom palettes in your atelier yet
+                </h4>
+                <p className="text-xs text-stone-500 max-w-md mx-auto">
+                  Customize colors, angles, and typography above to craft your first signature theme.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {themes.map((theme) => {
+                  const themeGradient = buildGradient(
+                    theme.gradient_from,
+                    theme.gradient_to,
+                    theme.gradient_mid,
+                    theme.gradient_angle || 135,
+                  );
+                  const isCurrentlyEditing = editingId === theme.id;
+
+                  return (
+                    <div
+                      key={theme.id}
+                      className={`rounded-3xl border p-4 flex flex-col justify-between gap-4 transition-all relative overflow-hidden ${
+                        isCurrentlyEditing
+                          ? 'border-amber-500 bg-amber-50/40 shadow-xs ring-2 ring-amber-400/20'
+                          : 'border-stone-200/90 bg-white hover:border-stone-300 shadow-2xs'
+                      }`}
+                    >
+                      {/* Top banner swatch */}
+                      <div
+                        className="h-24 w-full rounded-2xl flex items-center justify-between p-3 relative shadow-inner overflow-hidden text-white"
+                        style={{ background: themeGradient }}
+                      >
+                        <div className="h-9 w-9 rounded-xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-xs">
+                          {theme.icon_url ? (
+                            <img src={theme.icon_url} alt={theme.name} className="h-full w-full object-cover rounded-xl" />
+                          ) : (
+                            <span className="text-lg">{theme.emoji}</span>
+                          )}
+                        </div>
+
+                        {theme.accent_color && (
+                          <div
+                            className="h-4 w-4 rounded-full border-2 border-white shadow-xs"
+                            style={{ backgroundColor: theme.accent_color }}
+                            title="Accent color"
+                          />
+                        )}
+                      </div>
+
+                      {/* Theme details */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className={cn('text-sm font-bold text-slate-950 truncate', fontClassForValue(theme.font))}>
+                            {theme.name}
+                          </h4>
+                          {isCurrentlyEditing && (
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                              Editing
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-stone-500">
+                          <span>{fontLabelForValue(theme.font)}</span>
+                          <span>•</span>
+                          <span>{theme.gradient_angle || 135}° angle</span>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(theme)}
+                          className="flex-1 rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 h-8"
+                        >
+                          Edit Palette
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(theme.id)}
+                          className="h-8 w-8 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50"
+                          title="Delete theme"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
         </main>
