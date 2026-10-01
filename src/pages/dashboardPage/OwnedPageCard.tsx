@@ -62,14 +62,14 @@ export function OwnedPageCard({
   const daysLeft = differenceInDays(closeDate, new Date());
 
   return (
-    <article className="group relative flex flex-col justify-between overflow-hidden rounded-[2.25rem] border border-stone-200/90 bg-white p-4 sm:p-5 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:shadow-card-hover">
+    <article className="group relative flex flex-col justify-between overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] lg:rounded-[2.25rem] border border-stone-200/90 bg-white p-4 sm:p-5 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:shadow-card-hover">
       {/* Subtle top ambient glow */}
       <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-amber-500/5 blur-xl transition-all duration-500 group-hover:bg-amber-500/10" />
 
       <div>
         {/* Archival Polaroid Cover Frame */}
-        <div className="relative h-48 sm:h-52 w-full overflow-hidden rounded-[1.6rem] border border-stone-200/70 bg-stone-100/60 p-2">
-          <div className="relative h-full w-full overflow-hidden rounded-[1.2rem]">
+        <div className="relative h-44 sm:h-52 w-full overflow-hidden rounded-[1.4rem] sm:rounded-[1.6rem] border border-stone-200/70 bg-stone-100/60 p-1.5 sm:p-2">
+          <div className="relative h-full w-full overflow-hidden rounded-[1.1rem] sm:rounded-[1.2rem]">
             {page.cover_photo_url ? (
               <img
                 src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}

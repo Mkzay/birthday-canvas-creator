@@ -302,7 +302,7 @@ const Dashboard = () => {
       <AnimatedBackground showStars={false} showWaves={true} className="opacity-25" />
       <Header showDashboardLabel />
 
-      <main className="relative mx-auto max-w-7xl px-4 pb-12 pt-24 sm:px-6 sm:pb-16 sm:pt-28 space-y-10">
+      <main className="relative mx-auto max-w-7xl px-4 pb-12 pt-20 sm:px-6 sm:pb-16 sm:pt-28 space-y-7 sm:space-y-10">
         {/* 1. Integrated Studio Header with Inline Ledger */}
         <DashboardStudioHeader displayName={displayName} stats={stats} />
 
@@ -335,7 +335,7 @@ const Dashboard = () => {
           />
 
           {pages.length === 0 ? (
-            <div className="relative overflow-hidden rounded-[2.5rem] border border-stone-200/90 bg-white p-10 sm:p-16 text-center shadow-card">
+            <div className="relative overflow-hidden rounded-[1.75rem] sm:rounded-[2.25rem] lg:rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-12 lg:p-16 text-center shadow-card">
               <div className="pointer-events-none absolute -left-12 -top-12 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
               <div className="pointer-events-none absolute -right-12 -bottom-12 h-44 w-44 rounded-full bg-rose-500/10 blur-2xl" />
               <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-amber-200/80 bg-amber-50/80 text-4xl shadow-sm">
@@ -359,7 +359,7 @@ const Dashboard = () => {
               </div>
             </div>
           ) : galleryLivePages.length === 0 && galleryArchivedPages.length === 0 && filteredSavedPages.length === 0 && !spotlightPage ? (
-            <div className="rounded-[2.5rem] border border-dashed border-stone-300/80 bg-white/70 p-10 sm:p-14 text-center shadow-sm">
+            <div className="rounded-[1.75rem] sm:rounded-[2.25rem] border border-dashed border-stone-300/80 bg-white/70 p-6 sm:p-12 text-center shadow-sm">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-2xl text-stone-500">
                 🔍
               </div>
@@ -393,7 +393,7 @@ const Dashboard = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {galleryLivePages.map((page) => {
                       const theme = getThemeDisplay(page.theme);
                       const status = getDashboardStatusBadge(page);
@@ -430,7 +430,7 @@ const Dashboard = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {galleryArchivedPages.map((page) => {
                       const theme = getThemeDisplay(page.theme);
                       const status = { label: 'Revealed', className: 'bg-stone-100 text-stone-700' };
