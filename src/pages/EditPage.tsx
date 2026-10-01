@@ -135,6 +135,7 @@ const EditPage = () => {
   // Live stage preview state
   const [previewView, setPreviewView] = useState<'card' | 'envelope'>(() => getInitialEditPreviewView(pageId));
   const [confettiActive, setConfettiActive] = useState(false);
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
 
   // Auto-persist active editing step and view into session state (not localStorage)
   useEffect(() => {
@@ -782,7 +783,7 @@ const EditPage = () => {
         </header>
 
         {/* Main Workbench Body with Zero-Scroll Split Studio */}
-        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3.5 sm:p-7 lg:p-8 space-y-5 sm:space-y-6 max-w-7xl w-full mx-auto overflow-x-hidden">
           
           {/* Creator Greeting & Context Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -824,40 +825,54 @@ const EditPage = () => {
                 <div className="flex items-center justify-between border-b border-stone-100 pb-3 relative z-10">
                   <div className="flex items-center gap-2">
                     <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-950 flex items-center gap-1.5 font-sans">
                       <Eye className="h-3.5 w-3.5 text-amber-600" />
                       Live Canvas Stage
                     </span>
                   </div>
 
-                  {/* Switch between Canvas Card and Envelope Opener */}
-                  <div className="flex items-center gap-1 bg-stone-100 p-0.5 rounded-xl border border-stone-200/80">
+                  <div className="flex items-center gap-1.5">
+                    {/* Mobile View Toggle */}
                     <button
                       type="button"
-                      onClick={() => setPreviewView('card')}
-                      className={cn(
-                        'px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all',
-                        previewView === 'card'
-                          ? 'bg-white text-slate-950 shadow-xs'
-                          : 'text-stone-500 hover:text-slate-900',
-                      )}
+                      onClick={() => setMobilePreviewOpen((prev) => !prev)}
+                      className="lg:hidden px-2.5 py-1 text-[10px] font-bold rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-all font-sans"
                     >
-                      Reveal Card
+                      {mobilePreviewOpen ? 'Hide' : 'View Preview'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewView('envelope')}
-                      className={cn(
-                        'px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all',
-                        previewView === 'envelope'
-                          ? 'bg-white text-slate-950 shadow-xs'
-                          : 'text-stone-500 hover:text-slate-900',
-                      )}
-                    >
-                      Envelope
-                    </button>
+
+                    {/* Switch between Canvas Card and Envelope Opener */}
+                    <div className="flex items-center gap-1 bg-stone-100 p-0.5 rounded-xl border border-stone-200/80">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewView('card')}
+                        className={cn(
+                          'px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all',
+                          previewView === 'card'
+                            ? 'bg-white text-slate-950 shadow-xs'
+                            : 'text-stone-500 hover:text-slate-900',
+                        )}
+                      >
+                        Reveal Card
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewView('envelope')}
+                        className={cn(
+                          'px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all',
+                          previewView === 'envelope'
+                            ? 'bg-white text-slate-950 shadow-xs'
+                            : 'text-stone-500 hover:text-slate-900',
+                        )}
+                      >
+                        Envelope
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {/* STAGE BODY: Always visible on desktop, toggleable on mobile */}
+                <div className={cn(mobilePreviewOpen ? 'block' : 'hidden lg:block')}>
 
                 {/* PREVIEW VIEW 1: DYNAMIC DISPLAY MODE LIVE STAGE */}
                 {previewView === 'card' ? (
@@ -1094,6 +1109,7 @@ const EditPage = () => {
                   <span>Auto-updates in real time</span>
                   <span className="font-semibold text-amber-800">Celebration Keepsake</span>
                 </div>
+                </div>
               </div>
             </div>
 
@@ -1101,8 +1117,8 @@ const EditPage = () => {
             <div className="lg:col-span-7 space-y-4">
 
               {/* ARTISAN STEPPER BAR (STEPS 1 TO 5) */}
-              <div className="rounded-2xl border border-stone-200/90 bg-white p-3 sm:p-4 shadow-card">
-                <div className="flex items-center justify-between max-w-xl mx-auto relative">
+              <div className="rounded-2xl border border-stone-200/90 bg-white p-2.5 sm:p-4 shadow-card overflow-hidden">
+                <div className="flex items-center justify-between max-w-xl mx-auto relative w-full">
                   {EDIT_STEPS.map((s, i) => {
                     const isCompleted = currentStep > s.number;
                     const isCurrent = currentStep === s.number;
@@ -1112,19 +1128,19 @@ const EditPage = () => {
                         <button
                           type="button"
                           onClick={() => setCurrentStep(s.number)}
-                          className="flex flex-col items-center relative z-10 group"
+                          className="flex flex-col items-center relative z-10 group shrink-0"
                         >
                           <div
                             className={cn(
-                              'w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all duration-300 shadow-2xs',
+                              'w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center text-[11px] sm:text-xs font-bold transition-all duration-300 shadow-2xs',
                               isCurrent
-                                ? 'bg-slate-950 text-white shadow-xs ring-4 ring-amber-400/30'
+                                ? 'bg-slate-950 text-white shadow-xs ring-2 sm:ring-4 ring-amber-400/30'
                                 : isCompleted
                                 ? 'bg-emerald-600 text-white group-hover:bg-emerald-700'
                                 : 'bg-stone-100 text-stone-400 border border-stone-200',
                             )}
                           >
-                            {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : s.number}
+                            {isCompleted ? <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[3]" /> : s.number}
                           </div>
                           <span
                             className={cn(
@@ -1139,7 +1155,7 @@ const EditPage = () => {
                         {i < EDIT_STEPS.length - 1 && (
                           <div
                             className={cn(
-                              'flex-1 h-0.5 mx-1.5 sm:mx-2 rounded-full transition-all duration-300',
+                              'flex-1 h-0.5 mx-1 sm:mx-2 rounded-full transition-all duration-300 min-w-[6px]',
                               currentStep > s.number ? 'bg-emerald-500' : 'bg-stone-200',
                             )}
                           />
@@ -1239,25 +1255,25 @@ const EditPage = () => {
                       />
 
                       {displayCoverUrl ? (
-                        <div className="mt-1.5 flex items-center justify-between p-2.5 rounded-xl border border-stone-200 bg-stone-50/70">
-                          <div className="flex items-center gap-2.5">
+                        <div className="mt-1.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 p-3 rounded-xl border border-stone-200 bg-stone-50/70">
+                          <div className="flex items-center gap-3 min-w-0">
                             <img
                               src={displayCoverUrl}
                               alt="Cover thumbnail"
-                              className="h-10 w-10 rounded-lg object-cover border border-stone-300"
+                              className="h-11 w-11 shrink-0 rounded-xl object-cover border border-stone-300 shadow-2xs"
                             />
-                            <div>
-                              <p className="text-xs font-bold text-slate-900">Cover Photo Attached</p>
-                              <p className="text-[10px] text-stone-500">Live preview updated on the left</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-900 truncate">Cover Photo Attached</p>
+                              <p className="text-[11px] text-stone-500 truncate">Shown on the canvas cover portrait</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => coverInputRef.current?.click()}
-                              className="h-8 rounded-lg text-xs"
+                              className="h-8 rounded-lg text-xs font-semibold px-3"
                             >
                               Replace
                             </Button>
@@ -1266,7 +1282,7 @@ const EditPage = () => {
                               variant="ghost"
                               size="sm"
                               onClick={removeCoverPhoto}
-                              className="h-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs"
+                              className="h-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold px-2.5"
                             >
                               <X className="h-3.5 w-3.5 mr-1" />
                               Remove
@@ -1557,13 +1573,13 @@ const EditPage = () => {
               />
 
               {/* BOTTOM WIZARD NAVIGATION BAR */}
-              <div className="rounded-2xl border border-stone-200/90 bg-white p-3 sm:p-4 shadow-card flex items-center justify-between gap-4">
+              <div className="rounded-2xl border border-stone-200/90 bg-white p-3 sm:p-4 shadow-card flex items-center justify-between gap-2 sm:gap-4">
                 {currentStep > 1 ? (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleBack}
-                    className="rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 px-4 h-9 gap-1.5"
+                    className="rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 px-3 sm:px-4 h-9 gap-1.5 shrink-0"
                   >
                     <ArrowLeft className="h-3.5 w-3.5" />
                     <span>Back</span>
@@ -1576,7 +1592,7 @@ const EditPage = () => {
                   <Button
                     size="sm"
                     onClick={handleNext}
-                    className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-5 h-9 shadow-xs flex items-center gap-1.5"
+                    className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-4 sm:px-5 h-9 shadow-xs flex items-center gap-1.5 shrink-0"
                   >
                     <span>Continue</span>
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -1584,32 +1600,33 @@ const EditPage = () => {
                 )}
 
                 {currentStep === 5 && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <Link to={`/preview/${publicCode || pageId}`}>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs px-4 h-9 shadow-xs"
+                        className="rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs px-2.5 sm:px-4 h-9 shadow-xs flex items-center gap-1"
                       >
-                        <Eye className="h-3.5 w-3.5 mr-1 text-amber-600" />
-                        <span>Preview</span>
+                        <Eye className="h-3.5 w-3.5 text-amber-600" />
+                        <span className="hidden sm:inline">Preview</span>
                       </Button>
                     </Link>
                     <Button
                       size="sm"
                       onClick={handleSave}
                       disabled={saving || uploadingCover || !hasResolvedPoolRecipient}
-                      className="btn-press rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-5 h-9 shadow-md shadow-amber-500/25 flex items-center gap-1.5"
+                      className="btn-press rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-3.5 sm:px-5 h-9 shadow-md shadow-amber-500/25 flex items-center gap-1.5 whitespace-nowrap"
                     >
                       {(saving || uploadingCover) ? (
                         <>
                           <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
-                          <span>Saving Changes...</span>
+                          <span>Saving...</span>
                         </>
                       ) : (
                         <>
                           <Sparkles className="h-3.5 w-3.5" />
-                          <span>Save Canvas Changes</span>
+                          <span className="sm:hidden">Save Changes</span>
+                          <span className="hidden sm:inline">Save Canvas Changes</span>
                         </>
                       )}
                     </Button>
