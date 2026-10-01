@@ -8,31 +8,48 @@ type DashboardHeroProps = {
 
 export function DashboardHero({ displayName }: DashboardHeroProps) {
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(255,246,241,0.98))] p-6 shadow-card-lg sm:p-8">
-      <div className="absolute -right-10 top-8 h-32 w-32 rounded-full bg-secondary/14 blur-3xl" />
-      <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
-      <div className="relative">
-        <span className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-          <Sparkles className="h-3.5 w-3.5" />
-          Birthday studio
-        </span>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground sm:text-5xl">Welcome back, {displayName}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-          Welcome to your WishCanvas dashboard. Create new birthday pages, collect heartfelt wishes from friends and family, and reveal them all in a beautiful birthday story.
+    <div className="card-lift relative overflow-hidden rounded-[2.5rem] border border-stone-200/90 bg-white p-7 shadow-card-lg sm:p-10 text-slate-900">
+      {/* Soft Ambient Glows */}
+      <div className="pointer-events-none absolute -right-12 -top-12 h-56 w-56 rounded-full bg-rose-200/25 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-amber-200/25 blur-3xl" />
+
+      <div className="relative z-10">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-800">
+            Creator Studio
+          </span>
+          <span className="font-caveat text-base text-slate-500 font-bold select-none hidden sm:inline-block">
+            Celebrating the ones who matter most ◡̈
+          </span>
+        </div>
+
+        <h1 className="mt-3 font-playfair text-3xl font-extrabold tracking-tight text-slate-950 sm:text-5xl leading-[1.12]">
+          Welcome back, <br className="sm:hidden" />
+          <span className="italic font-normal text-rose-500">{displayName}</span>
+        </h1>
+
+        <p className="mt-3.5 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
+          Track incoming wishes, listen to contributor voice notes, and coordinate midnight reveals for your loved ones.
         </p>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Link to="/create">
-            <Button variant="hero" size="lg" className="w-full gap-2 sm:w-auto">
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Link to="/create" className="w-full sm:w-auto">
+            <button
+              type="button"
+              className="btn-press w-full sm:w-auto flex items-center justify-center gap-2 rounded-full bg-slate-950 px-7 py-4 text-sm font-bold text-white shadow-xl hover:bg-slate-800 active:scale-[0.98] transition-all"
+            >
               <Plus className="h-4 w-4" />
-              Create birthday page
-            </Button>
+              <span>Create New Canvas</span>
+            </button>
           </Link>
-          <Link to="/themes">
-            <Button variant="outline" size="lg" className="w-full gap-2 sm:w-auto">
-              <Palette className="h-4 w-4" />
-              Open theme builder
-            </Button>
+          <Link to="/themes" className="w-full sm:w-auto">
+            <button
+              type="button"
+              className="btn-press w-full sm:w-auto flex items-center justify-center gap-2 rounded-full border border-stone-200 bg-[#FAF7F2] px-6 py-4 text-sm font-bold text-slate-800 shadow-xs hover:bg-white active:scale-[0.98] transition-all"
+            >
+              <Palette className="h-4 w-4 text-amber-800" />
+              <span>Explore Mood Themes</span>
+            </button>
           </Link>
         </div>
       </div>

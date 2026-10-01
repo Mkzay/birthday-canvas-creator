@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Activity, FileText, MessageSquare } from 'lucide-react';
+import { Sparkles, Radio, Heart } from 'lucide-react';
 
 export type DashboardStats = {
   totalPages: number;
@@ -9,37 +9,33 @@ export type DashboardStats = {
 
 type StatTile = {
   label: string;
-  value: number;
   detail: string;
   icon: LucideIcon;
-  panelClassName: string;
   iconClassName: string;
+  badge?: string;
+  badgeClassName?: string;
 };
 
 const TILES: StatTile[] = [
   {
-    label: 'Pages',
-    value: 0,
-    detail: 'total celebrations',
-    icon: FileText,
-    panelClassName: 'from-amber-50 via-white to-orange-50',
-    iconClassName: 'bg-amber-100 text-amber-700',
+    label: 'Total Canvases',
+    detail: 'organized celebrations',
+    icon: Sparkles,
+    iconClassName: 'bg-amber-50 text-amber-800 border border-amber-200/80',
   },
   {
-    label: 'Active',
-    value: 0,
-    detail: 'still collecting',
-    icon: Activity,
-    panelClassName: 'from-emerald-50 via-white to-teal-50',
-    iconClassName: 'bg-emerald-100 text-emerald-700',
+    label: 'Live Canvases',
+    detail: 'currently gathering wishes',
+    icon: Radio,
+    iconClassName: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
+    badge: 'Live',
+    badgeClassName: 'bg-emerald-100/70 text-emerald-800',
   },
   {
-    label: 'Messages',
-    value: 0,
-    detail: 'wishes collected',
-    icon: MessageSquare,
-    panelClassName: 'from-fuchsia-50 via-white to-pink-50',
-    iconClassName: 'bg-fuchsia-100 text-fuchsia-700',
+    label: 'Heartfelt Wishes',
+    detail: 'voice notes and memories',
+    icon: Heart,
+    iconClassName: 'bg-rose-50 text-rose-600 border border-rose-200/80',
   },
 ];
 
@@ -51,20 +47,36 @@ export function DashboardStatTiles({ stats }: DashboardStatTilesProps) {
   const values = [stats.totalPages, stats.activePages, stats.totalMessages];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3.5">
       {TILES.map((item, index) => (
         <article
           key={item.label}
-          className={`flex items-center gap-4 rounded-[1.35rem] border border-border/60 bg-gradient-to-br ${item.panelClassName} px-5 py-4 shadow-card`}
+          className="card-lift relative flex items-center justify-between overflow-hidden rounded-[2rem] border border-stone-200/80 bg-white p-5 shadow-card hover:shadow-card-lg transition-all text-slate-900"
         >
-          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.iconClassName}`}>
-            <item.icon className="h-5 w-5" />
+          <div className="flex items-center gap-4">
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-xs ${item.iconClassName}`}>
+              <item.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-800">
+                  {item.label}
+                </span>
+                {item.badge && (
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${item.badgeClassName}`}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-slate-500 font-medium">{item.detail}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-lg font-bold text-foreground">
-              {values[index]} <span className="font-semibold">{item.label}</span>
-            </p>
-            <p className="text-sm text-muted-foreground">{item.detail}</p>
+
+          <div className="text-right">
+            <span className="font-playfair text-3xl font-extrabold text-slate-950 tracking-tight sm:text-4xl">
+              {values[index]}
+            </span>
           </div>
         </article>
       ))}

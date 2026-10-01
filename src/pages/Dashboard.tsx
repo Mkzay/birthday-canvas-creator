@@ -273,11 +273,14 @@ const Dashboard = () => {
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.10),transparent_28%),radial-gradient(circle_at_top_right,rgba(236,72,153,0.10),transparent_24%),linear-gradient(180deg,#fffefe_0%,#fffaf5_48%,#ffffff_100%)] relative">
-      <AnimatedBackground showStars={false} showWaves={true} className="opacity-40" />
+    <div className="relative min-h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 overflow-x-hidden">
+      {/* Ambient background glows */}
+      <div className="pointer-events-none absolute -left-40 top-0 h-96 w-96 rounded-full bg-amber-200/25 blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 top-20 h-96 w-96 rounded-full bg-rose-200/20 blur-3xl" />
+      <AnimatedBackground showStars={false} showWaves={true} className="opacity-25" />
       <Header showDashboardLabel />
 
-      <main className="mx-auto max-w-7xl px-4 pb-6 pt-24 sm:px-6 sm:pb-8 sm:pt-28">
+      <main className="relative mx-auto max-w-7xl px-4 pb-12 pt-24 sm:px-6 sm:pb-16 sm:pt-28">
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
           <DashboardHero displayName={displayName} />
           <DashboardStatTiles stats={stats} />
@@ -293,107 +296,139 @@ const Dashboard = () => {
           />
 
           {pages.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-3xl">🎂</div>
-              <h3 className="mt-5 text-xl font-bold text-foreground">No birthday pages yet</h3>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Start with one page, choose a mood, and send the contribution link when you are ready to collect wishes.
+            <div className="relative overflow-hidden rounded-[2.5rem] border border-stone-200/90 bg-white p-10 sm:p-16 text-center shadow-card">
+              <div className="pointer-events-none absolute -left-12 -top-12 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
+              <div className="pointer-events-none absolute -right-12 -bottom-12 h-44 w-44 rounded-full bg-rose-500/10 blur-2xl" />
+              <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-amber-200/80 bg-amber-50/80 text-4xl shadow-sm">
+                🎂
+              </div>
+              <h3 className="relative mt-6 font-serif text-2xl sm:text-3xl font-medium tracking-tight text-slate-950">
+                No birthday pages yet
+              </h3>
+              <p className="relative mx-auto mt-3 max-w-md text-sm sm:text-base leading-relaxed text-stone-600">
+                Start by creating a keepsake canvas for someone special. Choose a mood, gather wishes from friends and family, and reveal it on their day.
               </p>
-              <Link to="/create" className="mt-6 inline-flex">
-                <Button variant="hero" size="lg">
-                  Create your first page
-                </Button>
-              </Link>
+              <div className="relative mt-8 inline-flex">
+                <Link to="/create">
+                  <Button
+                    size="lg"
+                    className="btn-press rounded-2xl bg-slate-950 px-8 py-6 text-sm sm:text-base font-medium text-white shadow-card transition-all hover:bg-slate-900 active:scale-[0.98]"
+                  >
+                    Create your first canvas
+                  </Button>
+                </Link>
+              </div>
             </div>
           ) : filteredLivePages.length === 0 && filteredArchivedPages.length === 0 && filteredSavedPages.length === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-border bg-card/80 px-6 py-14 text-center shadow-card">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-muted text-3xl">🔍</div>
-              <h3 className="mt-5 text-xl font-bold text-foreground">No matching pages</h3>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-                We couldn&apos;t find any pages matching your search and filter criteria.
+            <div className="rounded-[2.5rem] border border-dashed border-stone-300/80 bg-white/70 p-10 sm:p-14 text-center shadow-sm">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-2xl text-stone-500">
+                🔍
+              </div>
+              <h3 className="mt-5 font-serif text-xl sm:text-2xl font-medium text-slate-950">No matching pages</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-stone-600">
+                We could not find any celebration canvases matching your search or filter criteria.
               </p>
-              <Button variant="outline" className="mt-6" onClick={() => { setSearchQuery(''); setPageFilter('all'); }}>
+              <Button
+                variant="outline"
+                className="mt-6 rounded-xl border-stone-200 bg-white font-medium text-stone-800 hover:bg-stone-50 active:scale-[0.98]"
+                onClick={() => {
+                  setSearchQuery('');
+                  setPageFilter('all');
+                }}
+              >
                 Clear filters
               </Button>
             </div>
           ) : (
             <>
-            {filteredLivePages.length > 0 && (
-              <>
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Live</h3>
-                  <span className="text-xs text-muted-foreground">{filteredLivePages.length} active</span>
-                </div>
-                <div className="grid gap-5 md:grid-cols-2 mb-6">
-                  {filteredLivePages.map((page) => {
-                    const theme = getThemeDisplay(page.theme);
-                    const status = getDashboardStatusBadge(page);
-                    return (
-                      <OwnedPageCard
-                        key={page.id}
-                        page={page}
-                        theme={theme}
-                        variant="live"
-                        status={status}
-                        canShowExportOptions={canShowExportOptions}
-                        analytics={analyticsByPage[page.public_code]}
-                        analyticsLoading={analyticsLoadingPage === page.public_code}
-                        exporting={exportingPage === page.public_code}
-                        onCopyContribute={() => void copyLink(page.public_code, 'contribute')}
-                        onCopyBirthday={() => void copyLink(page.public_code, 'birthday')}
-                        onRequestDelete={() => setPagePendingDelete(page)}
-                        onAnalytics={() => handleAnalytics(page.public_code)}
-                        onExport={() => handleExport(page.public_code, page.recipient_name)}
-                      />
-                    );
-                  })}
-                </div>
-              </>
-            )}
+              {filteredLivePages.length > 0 && (
+                <>
+                  <div className="mb-4 mt-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="font-serif text-xl sm:text-2xl font-medium text-slate-950">Live Canvases</h2>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/70 bg-emerald-50/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {filteredLivePages.length} collecting
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mb-8 grid gap-6 md:grid-cols-2">
+                    {filteredLivePages.map((page) => {
+                      const theme = getThemeDisplay(page.theme);
+                      const status = getDashboardStatusBadge(page);
+                      return (
+                        <OwnedPageCard
+                          key={page.id}
+                          page={page}
+                          theme={theme}
+                          variant="live"
+                          status={status}
+                          canShowExportOptions={canShowExportOptions}
+                          analytics={analyticsByPage[page.public_code]}
+                          analyticsLoading={analyticsLoadingPage === page.public_code}
+                          exporting={exportingPage === page.public_code}
+                          onCopyContribute={() => void copyLink(page.public_code, 'contribute')}
+                          onCopyBirthday={() => void copyLink(page.public_code, 'birthday')}
+                          onRequestDelete={() => setPagePendingDelete(page)}
+                          onAnalytics={() => handleAnalytics(page.public_code)}
+                          onExport={() => handleExport(page.public_code, page.recipient_name)}
+                        />
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
-            {filteredArchivedPages.length > 0 && (
-              <>
-                <div className="mt-4 mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Archived & Past</h3>
-                  <span className="text-xs text-muted-foreground">{filteredArchivedPages.length} completed</span>
-                </div>
-                <div className="grid gap-5 md:grid-cols-2 mb-6">
-                  {filteredArchivedPages.map((page) => {
-                    const theme = getThemeDisplay(page.theme);
-                    const status = { label: 'Revealed', className: 'bg-slate-900/8 text-slate-700' };
-                    return (
-                      <OwnedPageCard
-                        key={page.id}
-                        page={page}
-                        theme={theme}
-                        variant="archived"
-                        status={status}
-                        canShowExportOptions={canShowExportOptions}
-                        analytics={analyticsByPage[page.public_code]}
-                        analyticsLoading={analyticsLoadingPage === page.public_code}
-                        exporting={exportingPage === page.public_code}
-                        onCopyContribute={() => void copyLink(page.public_code, 'contribute')}
-                        onCopyBirthday={() => void copyLink(page.public_code, 'birthday')}
-                        onRequestDelete={() => setPagePendingDelete(page)}
-                        onAnalytics={() => handleAnalytics(page.public_code)}
-                        onExport={() => handleExport(page.public_code, page.recipient_name)}
-                      />
-                    );
-                  })}
-                </div>
-              </>
-            )}
+              {filteredArchivedPages.length > 0 && (
+                <>
+                  <div className="mb-4 mt-10 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="font-serif text-xl sm:text-2xl font-medium text-slate-950">Revealed & Past Keepsakes</h2>
+                      <span className="inline-flex items-center rounded-full border border-stone-200/80 bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
+                        {filteredArchivedPages.length} archived
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mb-8 grid gap-6 md:grid-cols-2">
+                    {filteredArchivedPages.map((page) => {
+                      const theme = getThemeDisplay(page.theme);
+                      const status = { label: 'Revealed', className: 'bg-stone-100 text-stone-700' };
+                      return (
+                        <OwnedPageCard
+                          key={page.id}
+                          page={page}
+                          theme={theme}
+                          variant="archived"
+                          status={status}
+                          canShowExportOptions={canShowExportOptions}
+                          analytics={analyticsByPage[page.public_code]}
+                          analyticsLoading={analyticsLoadingPage === page.public_code}
+                          exporting={exportingPage === page.public_code}
+                          onCopyContribute={() => void copyLink(page.public_code, 'contribute')}
+                          onCopyBirthday={() => void copyLink(page.public_code, 'birthday')}
+                          onRequestDelete={() => setPagePendingDelete(page)}
+                          onAnalytics={() => handleAnalytics(page.public_code)}
+                          onExport={() => handleExport(page.public_code, page.recipient_name)}
+                        />
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </>
           )}
         </section>
 
         {filteredSavedPages.length > 0 && (
-          <section className="mt-10 border-t border-border/60 pt-8">
-            <div className="mb-5 flex items-center justify-between gap-3">
+          <section className="mt-14 border-t border-stone-200/80 pt-10">
+            <div className="mb-6 flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Saved for later</p>
-                <h2 className="mt-2 text-xl font-bold text-foreground">Pages you&apos;re keeping</h2>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-800/80">Saved Collection</span>
+                <h2 className="mt-1 font-serif text-2xl font-medium text-slate-950">Pages you&apos;re keeping</h2>
               </div>
+              <span className="inline-flex items-center rounded-full border border-stone-200/80 bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600">
+                {filteredSavedPages.length} saved
+              </span>
             </div>
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredSavedPages.map((page) => {
@@ -404,10 +439,9 @@ const Dashboard = () => {
                 return (
                   <article
                     key={page.id}
-                    className="group overflow-hidden rounded-[2rem] border border-border/60 bg-card/94 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
-                    style={{ borderColor: `${theme.accent}30` }}
+                    className="group relative overflow-hidden rounded-[2rem] border border-stone-200/90 bg-white p-4 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
                   >
-                    <div className="relative h-44 overflow-hidden sm:h-48">
+                    <div className="relative h-48 overflow-hidden rounded-[1.4rem] border border-stone-200/70 bg-stone-100/80">
                       {page.cover_photo_url ? (
                         <>
                           <img
@@ -423,7 +457,7 @@ const Dashboard = () => {
                             className="absolute inset-0 h-full w-full object-contain object-center p-2 transition-transform duration-500 group-hover:scale-[1.02]"
                             loading="lazy"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                         </>
                       ) : theme.isCustom ? (
                         <div
@@ -433,37 +467,36 @@ const Dashboard = () => {
                       ) : (
                         <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
                       )}
-                      <div className="absolute inset-0 flex items-end justify-between px-4 pb-4">
+                      <div className="absolute inset-0 flex items-end justify-between p-4">
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">Saved celebration</p>
-                          <p className="mt-1 text-sm font-semibold text-white">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70">Saved celebration</span>
+                          <p className="mt-0.5 font-serif text-base font-medium text-white">
                             {page.recipient_name}&apos;s birthday
                           </p>
-                          <p className="text-xs text-white/80">Birthday on {birthdayLabel}</p>
+                          <p className="text-xs text-white/80">{birthdayLabel}</p>
                         </div>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>
+                        <span className="inline-flex items-center rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-md">
                           {status.label}
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between gap-3 px-4 pb-4 pt-3">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Users className="h-3.5 w-3.5" />
-                        <span>{page.message_count || 0} wishes</span>
+                    <div className="flex items-center justify-between gap-3 px-1 pt-3.5 pb-1">
+                      <div className="flex items-center gap-1.5 text-xs text-stone-500">
+                        <Users className="h-3.5 w-3.5 text-amber-700" />
+                        <span className="font-medium text-stone-700">{page.message_count || 0} wishes</span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-xs text-muted-foreground hover:text-destructive"
+                          className="h-8 text-xs text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
                           onClick={() => setSavedPagePendingRemove(page)}
                         >
                           Remove
                         </Button>
                         <Button
-                          variant="outline"
                           size="sm"
-                          className="text-xs"
+                          className="h-8 rounded-xl bg-slate-950 hover:bg-slate-900 text-white text-xs font-medium px-3.5 active:scale-[0.98]"
                           onClick={() => navigate(`/birthday/${page.public_code}`)}
                         >
                           Open
