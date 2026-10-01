@@ -14,8 +14,7 @@ import {
   BrandSidebarExpandIcon,
   BrandSidebarRetractIcon,
 } from '@/components/BrandIcons';
-import type { UserProfile } from '@/types/user';
-import type { User } from '@/context/AuthContext';
+import type { User, UserProfile } from '@/context/AuthContext';
 
 type DashboardSidebarProps = {
   user: User | null;

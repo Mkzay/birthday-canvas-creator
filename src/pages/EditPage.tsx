@@ -65,7 +65,7 @@ const EDIT_STEPS = [
 const EditPage = () => {
   const { pageId } = useParams();
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, isPro, loading: authLoading, signOut } = useAuth();
   
   // App Shell navigation and sidebar state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -146,7 +146,7 @@ const EditPage = () => {
   const [recipientResolveError, setRecipientResolveError] = useState<string | null>(null);
   const lastResolvedRecipientRef = useRef<string | null>(null);
 
-  const isProUser = Boolean(user?.isPro || profile?.plan === 'pro' || user?.planTier === 'pro');
+  const isProUser = isPro;
   const requiresResolvedPoolRecipient = isProUser && poolFundraisingEnabled;
   const hasResolvedPoolRecipient = !requiresResolvedPoolRecipient || (
     Boolean(recipientBankCode.trim())
@@ -161,8 +161,8 @@ const EditPage = () => {
   const activePages = pages.filter((p) => p.status === 'active').length;
   const deliveredPages = pages.filter((p) => p.status === 'delivered').length;
 
-  const avatarSrc = resolveAssetUrl(profile?.avatarUrl);
-  const currentDisplayName = profile?.fullName || user?.name || 'Creator';
+  const avatarSrc = resolveAssetUrl(profile?.avatar_url);
+  const currentDisplayName = profile?.display_name || user?.displayName || user?.email?.split('@')[0] || 'Creator';
   const initial = (currentDisplayName.trim()[0] || 'C').toUpperCase();
 
   useEffect(() => {

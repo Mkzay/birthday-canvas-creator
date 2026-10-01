@@ -49,7 +49,7 @@ import {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, isPro, loading: authLoading, signOut } = useAuth();
   const [pages, setPages] = useState<BirthdayPage[]>([]);
   const [savedPages, setSavedPages] = useState<BirthdayPage[]>([]);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
@@ -88,7 +88,7 @@ const Dashboard = () => {
     });
   };
 
-  const isProUser = user?.planTier === 'pro';
+  const isProUser = isPro;
   const canShowExportOptions = !import.meta.env.PROD;
 
   useEffect(() => {

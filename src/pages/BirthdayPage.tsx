@@ -758,7 +758,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
           is_revealed: true,
           is_unlocked: true,
           requires_unlock: false,
-          owner_plan_tier: user?.planTier === 'pro' ? 'pro' : 'free',
+          owner_plan_tier: (user?.planTier === 'pro' || Boolean(user?.isPro || user?.is_pro)) ? 'pro' : 'free',
           message_count: messagesData.length,
         });
         setViewMode(pageData.display_mode || 'story');

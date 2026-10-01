@@ -58,7 +58,7 @@ const QUICK_ACCENTS = [
 
 const ThemeBuilderPage = () => {
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signOut } = useAuth();
+  const { user, profile, isPro, loading: authLoading, signOut } = useAuth();
   
   // App Shell navigation and sidebar state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -105,7 +105,7 @@ const ThemeBuilderPage = () => {
   const [font, setFont] = useState('playfair');
   const [iconUrl, setIconUrl] = useState<string | null>(null);
 
-  const isProPlan = user?.planTier === 'pro' || Boolean(user?.is_pro || profile?.is_pro);
+  const isProPlan = isPro;
   const isFreeThemeLimitReached = !isProPlan && !editingId && themes.length >= FREE_THEME_LIMIT;
 
   const currentDisplayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';

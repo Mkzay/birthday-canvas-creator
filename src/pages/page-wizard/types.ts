@@ -12,6 +12,7 @@ export interface CustomTheme {
   gradient_angle?: number | null;
   accent_color?: string | null;
   font?: string | null;
+  icon_url?: string | null;
 }
 
 export interface PaystackBankOption {

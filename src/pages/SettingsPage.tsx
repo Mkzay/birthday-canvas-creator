@@ -44,6 +44,7 @@ import { toast } from 'sonner';
 import { apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import { themeOptions } from '@/pages/settings';
+import { builtInThemeMap } from '@/lib/themes';
 import type { BirthdayPage } from '@/pages/dashboardPage/types';
 import { DashboardSidebar } from '@/pages/dashboardPage';
 
@@ -51,7 +52,7 @@ type SettingsTab = 'profile' | 'canvas' | 'notifications' | 'security';
 
 const SettingsPage = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut, refreshSession, loading: authLoading } = useAuth();
+  const { user, profile, isPro, signOut, refreshSession, loading: authLoading } = useAuth();
   
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
@@ -108,7 +109,7 @@ const SettingsPage = () => {
   const [savingPassword, setSavingPassword] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isProUser = Boolean(user?.is_pro || profile?.is_pro);
+  const isProUser = isPro;
   const currentDisplayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';
   const initial = currentDisplayName.charAt(0).toUpperCase();
 
@@ -236,10 +237,7 @@ const SettingsPage = () => {
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const response = await apiForm<{ avatarUrl?: string; avatar_url?: string; success: boolean }>('/auth/avatar', {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await apiForm<{ avatarUrl?: string; avatar_url?: string; success: boolean }>('/auth/avatar', formData);
 
       const uploadedUrl = response.avatarUrl || response.avatar_url || '';
       if (!uploadedUrl) {
@@ -789,6 +787,7 @@ const SettingsPage = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {themeOptions.map((opt) => {
                           const isSelected = defaultTheme === opt.value;
+                          const themeMeta = builtInThemeMap[opt.value as keyof typeof builtInThemeMap];
                           return (
                             <button
                               key={opt.value}
@@ -802,9 +801,9 @@ const SettingsPage = () => {
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-base">{opt.emoji}</span>
+                                  <span className="text-base">{themeMeta?.emoji || '🎨'}</span>
                                   <span className="font-serif font-bold text-sm text-slate-950">
-                                    {opt.label}
+                                    {themeMeta?.name || opt.label}
                                   </span>
                                 </div>
                                 {isSelected && (
@@ -814,7 +813,7 @@ const SettingsPage = () => {
                                 )}
                               </div>
                               <p className="text-[11px] text-stone-500 leading-relaxed">
-                                {opt.description}
+                                {themeMeta?.description || opt.label}
                               </p>
                             </button>
                           );

@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useState, type Context, type ReactNode } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 
-interface AuthUser {
+export interface AuthUser {
   id: string;
   email: string;
   isAdmin: boolean;
   planTier: 'free' | 'pro';
+  isPro?: boolean;
+  is_pro?: boolean;
+  plan?: 'free' | 'pro';
   emailVerifiedAt: string | null;
   displayName: string | null;
   avatarUrl: string | null;
@@ -18,11 +21,15 @@ interface AuthUser {
   birthdayReminders: boolean;
 }
 
-interface Profile {
+export interface Profile {
   id: string;
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  planTier: 'free' | 'pro';
+  plan: 'free' | 'pro';
+  is_pro: boolean;
+  isPro: boolean;
   default_theme: string;
   default_allow_photos: boolean;
   default_allow_audio: boolean;
@@ -32,10 +39,14 @@ interface Profile {
   birthday_reminders: boolean;
 }
 
-interface AuthContextType {
+export type User = AuthUser;
+export type UserProfile = Profile;
+
+export interface AuthContextType {
   user: AuthUser | null;
   session: null;
   profile: Profile | null;
+  isPro: boolean;
   loading: boolean;
   signUp: (email: string, password: string, displayName?: string) => Promise<{
     error: Error | null;
@@ -59,14 +70,31 @@ const AuthContext =
 
 window.__wishcanvasAuthContext = AuthContext;
 
+function normalizeAuthUser(user: AuthUser | null): AuthUser | null {
+  if (!user) return null;
+  const isPro = user.planTier === 'pro' || Boolean(user.isPro || user.is_pro || (user as { plan?: string }).plan === 'pro');
+  return {
+    ...user,
+    planTier: isPro ? 'pro' : 'free',
+    isPro,
+    is_pro: isPro,
+    plan: isPro ? 'pro' : 'free',
+  };
+}
+
 function mapProfile(user: AuthUser | null): Profile | null {
   if (!user) return null;
+  const isPro = user.planTier === 'pro' || Boolean(user.isPro || user.is_pro || (user as { plan?: string }).plan === 'pro');
 
   return {
     id: user.id,
     user_id: user.id,
     display_name: user.displayName,
     avatar_url: user.avatarUrl,
+    planTier: isPro ? 'pro' : 'free',
+    plan: isPro ? 'pro' : 'free',
+    is_pro: isPro,
+    isPro,
     default_theme: user.defaultTheme,
     default_allow_photos: user.defaultAllowPhotos,
     default_allow_audio: user.defaultAllowAudio,
@@ -84,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshSession = async () => {
     try {
       const data = await apiFetch<{ user: AuthUser | null }>('/auth/session');
-      setUser(data.user);
+      setUser(normalizeAuthUser(data.user));
     } catch {
       setUser(null);
     } finally {
@@ -119,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         body: JSON.stringify({ email, password, rememberMe }),
       });
-      setUser(data.user);
+      setUser(normalizeAuthUser(data.user));
       return { error: null, code: null };
     } catch (error) {
       const err = error as Error & { code?: string };
@@ -141,12 +169,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const isPro = Boolean(user?.planTier === 'pro' || user?.isPro || user?.is_pro);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         session: null,
         profile: mapProfile(user),
+        isPro,
         loading,
         signUp,
         signIn,

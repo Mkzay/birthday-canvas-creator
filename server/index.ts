@@ -1048,11 +1048,15 @@ async function sendVerificationEmailForUser(row: Record<string, unknown>) {
 }
 
 function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
+  const isPro = row.plan_tier === "pro";
   return {
     id: String(row.id),
     email: String(row.email),
     isAdmin: isAdminEmail(String(row.email)),
-    planTier: row.plan_tier === "pro" ? "pro" : "free",
+    planTier: isPro ? "pro" : "free",
+    isPro,
+    is_pro: isPro,
+    plan: isPro ? "pro" : "free",
     emailVerifiedAt: typeof row.email_verified_at === "string" ? row.email_verified_at : null,
     displayName: typeof row.display_name === "string" ? row.display_name : null,
     avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
@@ -2092,7 +2096,12 @@ app.get("/api/auth/session", authSessionLimiter, async (request, response) => {
     return;
   }
 
-  response.json({ user: sessionUserFromRow(rows[0]) });
+  const freshUser = sessionUserFromRow(rows[0]);
+  if (freshUser.planTier !== session.planTier) {
+    await issueAuthSession(response, freshUser);
+  }
+
+  response.json({ user: freshUser });
 });
 
 app.post("/api/auth/signup", authSignupLimiter, validateBody(signupBodySchema), async (request, response) => {

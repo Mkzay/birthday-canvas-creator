@@ -104,7 +104,7 @@ type VerifyState = 'idle' | 'verifying' | 'success' | 'failed';
 const UpgradePage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, profile, loading: authLoading, refreshSession, signOut } = useAuth();
+  const { user, profile, isPro, loading: authLoading, refreshSession, signOut } = useAuth();
 
   // App Shell Navigation & Sidebar state synced with Dashboard
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -139,7 +139,7 @@ const UpgradePage = () => {
   const [priceLabel, setPriceLabel] = useState('N5,000 one-time');
   const [features, setFeatures] = useState<ProFeature[]>(DEFAULT_FEATURES);
 
-  const isProUser = user?.planTier === 'pro' || Boolean(user?.is_pro || profile?.is_pro);
+  const isProUser = isPro;
   const currentDisplayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';
   const initial = currentDisplayName.charAt(0).toUpperCase();
   const avatarSrc = resolveAssetUrl(profile?.avatar_url);

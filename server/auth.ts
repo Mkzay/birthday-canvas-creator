@@ -68,11 +68,15 @@ function clampSessionExpiry(now: Date, absoluteExpiresAt: Date, rememberMe: bool
 }
 
 function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
+  const isPro = row.plan_tier === "pro";
   return {
     id: String(row.id),
     email: String(row.email),
     isAdmin: isAdminEmail(String(row.email)),
-    planTier: row.plan_tier === "pro" ? "pro" : "free",
+    planTier: isPro ? "pro" : "free",
+    isPro,
+    is_pro: isPro,
+    plan: isPro ? "pro" : "free",
     emailVerifiedAt: typeof row.email_verified_at === "string" ? row.email_verified_at : null,
     displayName: typeof row.display_name === "string" ? row.display_name : null,
     avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
