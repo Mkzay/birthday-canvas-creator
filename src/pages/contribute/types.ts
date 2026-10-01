@@ -20,6 +20,9 @@ export interface PublicBirthdayPageData {
   pool_goal_kobo: number | null;
   pooled_amount_kobo: number;
   pool_description: string | null;
+  display_mode?: string | null;
+  letter_theme?: string | null;
+  cover_photo_url?: string | null;
 }
 
 export interface PendingPhoto {

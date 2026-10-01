@@ -18,6 +18,7 @@ import type { ContributionDraft, PendingPhoto, PublicBirthdayPageData } from '@/
 import {
   CONTRIBUTION_PLATFORM_FEE_RATE,
   ContributeSuccessPanel,
+  ContributorWishPreview,
   MAX_PHOTOS,
   MAX_WISH_MESSAGE_CHARACTERS,
   extractPlainTextFromRichHtml,
@@ -36,6 +37,7 @@ const ContributePage = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [mobileView, setMobileView] = useState<'form' | 'preview'>('form');
   const [selectedPhotos, setSelectedPhotos] = useState<PendingPhoto[]>([]);
   const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
   const [wishAudio, setWishAudio] = useState<File | null>(null);
@@ -581,6 +583,15 @@ const ContributePage = () => {
         style: undefined,
       };
 
+  const customGradient = isCustomTheme
+    ? {
+        from: customGradientFrom,
+        to: customGradientTo,
+        mid: customGradientMid,
+        angle: customGradientAngle,
+      }
+    : undefined;
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -729,7 +740,7 @@ const ContributePage = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className={`mx-auto px-4 py-6 sm:px-6 sm:py-8 ${isSubmitted ? 'max-w-3xl' : 'max-w-7xl'}`}>
         {!isSubmitted ? (
           <>
             <div className="mb-6 text-center animate-fade-in-up sm:mb-8">
@@ -752,17 +763,82 @@ const ContributePage = () => {
               </div>
             </div>
 
-            {!page.can_contribute && (
-              <div className="mb-4 rounded-2xl border border-border bg-card/90 p-4 text-center shadow-soft">
-                <div className="mb-2 flex items-center justify-center gap-2 text-foreground">
-                  <Lock className="h-4 w-4" />
-                  <span className="font-semibold">Wish collection is closed</span>
-                </div>
-                <p className="text-sm text-muted-foreground">This page is no longer accepting new messages or photos.</p>
+            {/* Mobile Mode Switcher Pill */}
+            <div className="sticky top-3 z-30 mb-6 flex justify-center lg:hidden">
+              <div className="inline-flex items-center rounded-full border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={() => setMobileView('form')}
+                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                    mobileView === 'form'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  ✍️ Compose Wish
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileView('preview')}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                    mobileView === 'preview'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  👁️ Live Keepsake Preview
+                  {(selectedPhotos.length > 0 || message.trim() || wishAudioPreviewUrl || stickers.length > 0) && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  )}
+                </button>
               </div>
-            )}
+            </div>
 
-            <form onSubmit={handleSubmit} className="animate-fade-in-up space-y-5" style={{ animationDelay: '0.2s' }}>
+            <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
+              {/* Sticky Live Keepsake Preview Column */}
+              <div className={`lg:col-span-5 lg:sticky lg:top-8 self-start ${mobileView === 'preview' ? 'block' : 'hidden lg:block'}`}>
+                <ContributorWishPreview
+                  recipientName={page.recipient_name}
+                  senderName={senderName}
+                  message={message}
+                  selectedPhotos={selectedPhotos}
+                  wishAudioPreviewUrl={wishAudioPreviewUrl}
+                  recordingDuration={recordingDuration}
+                  isRecording={isRecording}
+                  stickers={stickers}
+                  poolAmountNaira={poolAmountNaira}
+                  poolFundraisingEnabled={Boolean(page.pool_fundraising_enabled)}
+                  themeKey={page.theme}
+                  customGradient={customGradient}
+                  displayMode={page.display_mode}
+                  letterTheme={page.letter_theme}
+                  coverPhotoUrl={page.cover_photo_url}
+                />
+                {mobileView === 'preview' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-4 w-full lg:hidden"
+                    onClick={() => setMobileView('form')}
+                  >
+                    Back to Composing Wish
+                  </Button>
+                )}
+              </div>
+
+              {/* Form Workbench Column */}
+              <div className={`lg:col-span-7 ${mobileView === 'form' ? 'block' : 'hidden lg:block'}`}>
+                {!page.can_contribute && (
+                  <div className="mb-4 rounded-2xl border border-border bg-card/90 p-4 text-center shadow-soft">
+                    <div className="mb-2 flex items-center justify-center gap-2 text-foreground">
+                      <Lock className="h-4 w-4" />
+                      <span className="font-semibold">Wish collection is closed</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">This page is no longer accepting new messages or photos.</p>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="animate-fade-in-up space-y-5" style={{ animationDelay: '0.2s' }}>
               <div className="rounded-[1.9rem] border border-border bg-card/96 p-4 shadow-soft sm:p-6">
                 {page.require_names && (
                   <div className="mb-6">
@@ -1070,6 +1146,8 @@ const ContributePage = () => {
                 </Button>
               </div>
             </form>
+              </div>
+            </div>
           </>
         ) : (
           <ContributeSuccessPanel
