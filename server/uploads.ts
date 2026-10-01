@@ -6,21 +6,16 @@ import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'lomqtnaz',
+  api_key: process.env.CLOUDINARY_API_KEY || '877922888854838',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'MhLDCoLIXjwXjg1vFgr0GQrpGB8'
 });
 
-const createStorage = (folderName: string, isAudio = false) => {
-  return new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: 'birthday-app/' + folderName,
-      resource_type: isAudio ? 'video' : 'auto'
-    } as any
-  });
-};
-
+export const hasCloudinary = Boolean(
+  (process.env.CLOUDINARY_CLOUD_NAME || 'lomqtnaz') &&
+  (process.env.CLOUDINARY_API_KEY || '877922888854838') &&
+  (process.env.CLOUDINARY_API_SECRET || 'MhLDCoLIXjwXjg1vFgr0GQrpGB8')
+);
 
 const configuredUploadsRoot = process.env.UPLOADS_ROOT?.trim();
 
@@ -62,6 +57,23 @@ function buildFilename(originalName: string) {
   return buildFilenameWithExtension(extension);
 }
 
+const createUploadStorage = (folderName: string, diskRoot: string, isAudio = false) => {
+  if (hasCloudinary) {
+    return new CloudinaryStorage({
+      cloudinary: cloudinary,
+      params: {
+        folder: 'birthday-app/' + folderName,
+        resource_type: isAudio ? 'video' : 'auto',
+      } as any,
+    });
+  }
+
+  return multer.diskStorage({
+    destination: (_request, _file, callback) => callback(null, diskRoot),
+    filename: (_request, file, callback) => callback(null, buildFilename(file.originalname)),
+  });
+};
+
 function imageFileFilter(
   _request: Express.Request,
   file: Express.Multer.File,
@@ -97,10 +109,7 @@ function audioFileFilter(
 }
 
 export const coverUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_request, _file, callback) => callback(null, coversRoot),
-    filename: (_request, file, callback) => callback(null, buildFilename(file.originalname)),
-  }),
+  storage: createUploadStorage("covers", coversRoot),
   limits: {
     fileSize: 5 * 1024 * 1024,
   },
@@ -108,10 +117,7 @@ export const coverUpload = multer({
 });
 
 export const messageUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_request, _file, callback) => callback(null, messagesRoot),
-    filename: (_request, file, callback) => callback(null, buildFilename(file.originalname)),
-  }),
+  storage: createUploadStorage("messages", messagesRoot),
   limits: {
     fileSize: 5 * 1024 * 1024,
   },
@@ -119,10 +125,7 @@ export const messageUpload = multer({
 });
 
 export const avatarUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_request, _file, callback) => callback(null, avatarsRoot),
-    filename: (_request, file, callback) => callback(null, buildFilename(file.originalname)),
-  }),
+  storage: createUploadStorage("avatars", avatarsRoot),
   limits: {
     fileSize: 3 * 1024 * 1024,
   },
@@ -130,10 +133,7 @@ export const avatarUpload = multer({
 });
 
 export const themeIconUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_request, _file, callback) => callback(null, themeIconsRoot),
-    filename: (_request, file, callback) => callback(null, buildFilename(file.originalname)),
-  }),
+  storage: createUploadStorage("theme-icons", themeIconsRoot),
   limits: {
     fileSize: 2 * 1024 * 1024,
   },
@@ -141,10 +141,7 @@ export const themeIconUpload = multer({
 });
 
 export const pageAudioUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_request, _file, callback) => callback(null, pageAudioRoot),
-    filename: (_request, file, callback) => callback(null, buildFilename(file.originalname)),
-  }),
+  storage: createUploadStorage("page-audio", pageAudioRoot, true),
   limits: {
     fileSize: 8 * 1024 * 1024,
   },
@@ -152,10 +149,7 @@ export const pageAudioUpload = multer({
 });
 
 export const wishAudioUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_request, _file, callback) => callback(null, wishAudioRoot),
-    filename: (_request, file, callback) => callback(null, buildFilename(file.originalname)),
-  }),
+  storage: createUploadStorage("wish-audio", wishAudioRoot, true),
   limits: {
     fileSize: 8 * 1024 * 1024,
   },
@@ -200,7 +194,26 @@ export async function normalizeCoverUpload(filePath: string) {
 }
 
 export async function removeFileByUrl(url?: string | null) {
-  if (!url || !url.startsWith("/uploads/")) return;
+  if (!url) return;
+
+  // If it is a Cloudinary URL, remove via Cloudinary API
+  if (url.includes("res.cloudinary.com") && hasCloudinary) {
+    try {
+      const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/);
+      if (match && match[1]) {
+        const publicId = match[1];
+        const isVideo = url.includes("/video/upload/");
+        await cloudinary.uploader.destroy(publicId, {
+          resource_type: isVideo ? "video" : "image",
+        });
+      }
+    } catch {
+      // Best-effort cleanup, ignore
+    }
+    return;
+  }
+
+  if (!url.startsWith("/uploads/")) return;
 
   const relativePath = url.slice("/uploads/".length);
   const filePath = path.resolve(uploadsRoot, relativePath);

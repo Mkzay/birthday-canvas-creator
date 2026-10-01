@@ -727,8 +727,10 @@ function routeParamString(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : value;
 }
 
+app.use("/uploads", express.static(uploadsRoot));
 app.use("/uploads", (req, res) => {
-  res.redirect(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/v1${req.path}`);
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "lomqtnaz";
+  res.redirect(`https://res.cloudinary.com/${cloudName}/image/upload/v1/birthday-app${req.path}`);
 });
 
 app.use(
@@ -2591,7 +2593,9 @@ app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async 
   `;
 
   await removeFileByUrl(existingRows[0]?.avatar_url);
-  const url = file.path;
+  const url = file.path.startsWith("http")
+    ? file.path
+    : fileUrl(path.join("avatars", file.filename));
 
   await sql`
     UPDATE users
@@ -2828,7 +2832,9 @@ app.post("/api/uploads/theme-icon", requireAuth, themeIconUpload.single("file"),
     return;
   }
 
-  const url = file.path;
+  const url = file.path.startsWith("http")
+    ? file.path
+    : fileUrl(path.join("theme-icons", file.filename));
   response.json({ url });
 });
 
@@ -3717,9 +3723,11 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), validate
     return;
   }
 
-  const normalizedCover = await normalizeCoverUpload(file.path);
+  const url = file.path.startsWith("http")
+    ? file.path
+    : (await normalizeCoverUpload(file.path)).url;
+
   await removeFileByUrl(page.cover_photo_url);
-  const url = normalizedCover.url;
 
   await sql`
     UPDATE birthday_pages
@@ -3762,7 +3770,9 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
   }
 
   await removeFileByUrl(page.custom_audio_url);
-  const url = file.path;
+  const url = file.path.startsWith("http")
+    ? file.path
+    : fileUrl(path.join("page-audio", file.filename));
 
   await sql`
     UPDATE birthday_pages
@@ -4242,7 +4252,10 @@ app.post("/api/public/pages/:id/message-photo", validateParams(pageIdParamSchema
     return;
   }
 
-  response.json({ url: file.path });
+  const url = file.path.startsWith("http")
+    ? file.path
+    : fileUrl(path.join("messages", file.filename));
+  response.json({ url });
 });
 
 app.post("/api/public/pages/:id/message-audio", validateParams(pageIdParamSchema), publicAudioUploadLimiter, wishAudioUpload.single("file"), async (request, response) => {
@@ -4276,7 +4289,10 @@ app.post("/api/public/pages/:id/message-audio", validateParams(pageIdParamSchema
     return;
   }
 
-  response.json({ url: file.path });
+  const audioUrl = file.path.startsWith("http")
+    ? file.path
+    : fileUrl(path.join("wish-audio", file.filename));
+  response.json({ url: audioUrl });
 });
 
 app.post("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), publicMessageLimiter, validateBody(publicMessageBodySchema), async (request, response) => {

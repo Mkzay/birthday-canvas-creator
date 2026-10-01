@@ -23,9 +23,9 @@ import {
 import AnimatedBackground from '@/components/AnimatedBackground';
 import type { BirthdayPage, CustomTheme, PageAnalytics, ThemeDisplay } from '@/pages/dashboardPage';
 import {
-  DashboardHero,
+  DashboardStudioHeader,
+  DashboardSpotlightStage,
   DashboardPagesToolbar,
-  DashboardStatTiles,
   getDashboardStatusBadge,
   OwnedPageCard,
   themeAccentMap,
@@ -142,6 +142,28 @@ const Dashboard = () => {
       return pageFilter === 'archived' ? archived : !archived;
     });
   }, [pageFilter, savedPages, searchQuery]);
+
+  const spotlightPage = useMemo(() => {
+    if (searchQuery.trim() || pageFilter !== 'all') return null;
+    const live = pages.filter((p) => !isArchivedPage(p));
+    if (live.length > 0) return live[0];
+    if (pages.length > 0) return pages[0];
+    return null;
+  }, [pageFilter, pages, searchQuery]);
+
+  const galleryLivePages = useMemo(() => {
+    if (spotlightPage) {
+      return filteredLivePages.filter((p) => p.id !== spotlightPage.id);
+    }
+    return filteredLivePages;
+  }, [filteredLivePages, spotlightPage]);
+
+  const galleryArchivedPages = useMemo(() => {
+    if (spotlightPage && isArchivedPage(spotlightPage)) {
+      return filteredArchivedPages.filter((p) => p.id !== spotlightPage.id);
+    }
+    return filteredArchivedPages;
+  }, [filteredArchivedPages, spotlightPage]);
 
   const getThemeDisplay = useCallback(
     (themeKey: string): ThemeDisplay => {
@@ -280,13 +302,30 @@ const Dashboard = () => {
       <AnimatedBackground showStars={false} showWaves={true} className="opacity-25" />
       <Header showDashboardLabel />
 
-      <main className="relative mx-auto max-w-7xl px-4 pb-12 pt-24 sm:px-6 sm:pb-16 sm:pt-28">
-        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-          <DashboardHero displayName={displayName} />
-          <DashboardStatTiles stats={stats} />
-        </section>
+      <main className="relative mx-auto max-w-7xl px-4 pb-12 pt-24 sm:px-6 sm:pb-16 sm:pt-28 space-y-10">
+        {/* 1. Integrated Studio Header with Inline Ledger */}
+        <DashboardStudioHeader displayName={displayName} stats={stats} />
 
-        <section className="mt-8">
+        {/* 2. Spotlight Stage (Primary upcoming celebration) */}
+        {spotlightPage && (
+          <DashboardSpotlightStage
+            page={spotlightPage}
+            theme={getThemeDisplay(spotlightPage.theme)}
+            isLive={!isArchivedPage(spotlightPage)}
+            canShowExportOptions={canShowExportOptions}
+            analytics={analyticsByPage[spotlightPage.public_code]}
+            analyticsLoading={analyticsLoadingPage === spotlightPage.public_code}
+            exporting={exportingPage === spotlightPage.public_code}
+            onCopyContribute={() => void copyLink(spotlightPage.public_code, 'contribute')}
+            onCopyBirthday={() => void copyLink(spotlightPage.public_code, 'birthday')}
+            onRequestDelete={() => setPagePendingDelete(spotlightPage)}
+            onAnalytics={() => handleAnalytics(spotlightPage.public_code)}
+            onExport={() => handleExport(spotlightPage.public_code, spotlightPage.recipient_name)}
+          />
+        )}
+
+        {/* 3. Exhibition Gallery & Archive */}
+        <section className="space-y-6">
           <DashboardPagesToolbar
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
@@ -319,7 +358,7 @@ const Dashboard = () => {
                 </Link>
               </div>
             </div>
-          ) : filteredLivePages.length === 0 && filteredArchivedPages.length === 0 && filteredSavedPages.length === 0 ? (
+          ) : galleryLivePages.length === 0 && galleryArchivedPages.length === 0 && filteredSavedPages.length === 0 && !spotlightPage ? (
             <div className="rounded-[2.5rem] border border-dashed border-stone-300/80 bg-white/70 p-10 sm:p-14 text-center shadow-sm">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-2xl text-stone-500">
                 🔍
@@ -341,19 +380,21 @@ const Dashboard = () => {
             </div>
           ) : (
             <>
-              {filteredLivePages.length > 0 && (
-                <>
-                  <div className="mb-4 mt-2 flex items-center justify-between">
+              {galleryLivePages.length > 0 && (
+                <div>
+                  <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <h2 className="font-serif text-xl sm:text-2xl font-medium text-slate-950">Live Canvases</h2>
+                      <h2 className="font-serif text-xl sm:text-2xl font-medium text-slate-950">
+                        {spotlightPage ? 'Other Live Canvases' : 'Live Canvases'}
+                      </h2>
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/70 bg-emerald-50/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {filteredLivePages.length} collecting
+                        {galleryLivePages.length} collecting
                       </span>
                     </div>
                   </div>
-                  <div className="mb-8 grid gap-6 md:grid-cols-2">
-                    {filteredLivePages.map((page) => {
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {galleryLivePages.map((page) => {
                       const theme = getThemeDisplay(page.theme);
                       const status = getDashboardStatusBadge(page);
                       return (
@@ -376,21 +417,21 @@ const Dashboard = () => {
                       );
                     })}
                   </div>
-                </>
+                </div>
               )}
 
-              {filteredArchivedPages.length > 0 && (
-                <>
-                  <div className="mb-4 mt-10 flex items-center justify-between">
+              {galleryArchivedPages.length > 0 && (
+                <div className="mt-8">
+                  <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <h2 className="font-serif text-xl sm:text-2xl font-medium text-slate-950">Revealed & Past Keepsakes</h2>
+                      <h2 className="font-serif text-xl sm:text-2xl font-medium text-slate-950">Keepsake Archive</h2>
                       <span className="inline-flex items-center rounded-full border border-stone-200/80 bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
-                        {filteredArchivedPages.length} archived
+                        {galleryArchivedPages.length} archived
                       </span>
                     </div>
                   </div>
-                  <div className="mb-8 grid gap-6 md:grid-cols-2">
-                    {filteredArchivedPages.map((page) => {
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {galleryArchivedPages.map((page) => {
                       const theme = getThemeDisplay(page.theme);
                       const status = { label: 'Revealed', className: 'bg-stone-100 text-stone-700' };
                       return (
@@ -413,7 +454,7 @@ const Dashboard = () => {
                       );
                     })}
                   </div>
-                </>
+                </div>
               )}
             </>
           )}

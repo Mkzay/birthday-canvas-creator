@@ -8,3 +8,6 @@ export { getDashboardStatusBadge } from './getDashboardStatusBadge';
 export type { DashboardStatusBadge } from './getDashboardStatusBadge';
 export { OwnedPageCard } from './OwnedPageCard';
 export type { OwnedPageCardProps, OwnedPageCardVariant } from './OwnedPageCard';
+export { DashboardStudioHeader } from './DashboardStudioHeader';
+export { DashboardSpotlightStage } from './DashboardSpotlightStage';
+
