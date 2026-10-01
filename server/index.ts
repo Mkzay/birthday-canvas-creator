@@ -725,7 +725,10 @@ function routeParamString(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : value;
 }
 
-app.use("/uploads", express.static(uploadsRoot));
+app.use("/uploads/*", (req, res) => {
+  const path = req.params[0];
+  res.redirect(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME || 'lomqtnaz'}/image/upload/v1/${path}`);
+});
 
 app.use(
   helmet({
@@ -973,11 +976,11 @@ async function rejectInvalidUpload(
   response: Response,
   logScope: string,
 ): Promise<boolean> {
-  const ok = kind === "image" ? await validateImageMagicBytes(file.path) : await validateAudioMagicBytes(file.path);
+  const ok = kind === "image" ? (file.path.startsWith("http") ? true : await validateImageMagicBytes(file.path)) : (file.path.startsWith("http") ? true : await validateAudioMagicBytes(file.path));
   if (ok) {
     return true;
   }
-  await fs.rm(file.path, { force: true });
+  if (!file.path.startsWith("http")) { await fs.rm(file.path, { force: true }); }
   logRequestFailure(logScope, { reason: "invalid-file-signature", filename: file.filename });
   response.status(400).json({ error: "Invalid or corrupted file upload" });
   return false;
@@ -2587,7 +2590,7 @@ app.post("/api/uploads/avatar", requireAuth, avatarUpload.single("file"), async 
   `;
 
   await removeFileByUrl(existingRows[0]?.avatar_url);
-  const url = fileUrl(path.join("avatars", file.filename));
+  const url = file.path;
 
   await sql`
     UPDATE users
@@ -2809,7 +2812,7 @@ app.post("/api/uploads/theme-icon", requireAuth, themeIconUpload.single("file"),
 
   if (!hasProThemeAccess(request.user!)) {
     try {
-      await fs.unlink(file.path);
+      if (!file.path.startsWith("http")) { await fs.unlink(file.path); }
     } catch {
       // Best-effort cleanup for rejected uploads.
     }
@@ -2824,7 +2827,7 @@ app.post("/api/uploads/theme-icon", requireAuth, themeIconUpload.single("file"),
     return;
   }
 
-  const url = fileUrl(path.join("theme-icons", file.filename));
+  const url = file.path;
   response.json({ url });
 });
 
@@ -3708,7 +3711,7 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), validate
   const page = rows[0] as undefined | { id: string; cover_photo_url: string | null };
 
   if (!page) {
-    await fs.rm(file.path, { force: true });
+    if (!file.path.startsWith("http")) { await fs.rm(file.path, { force: true }); }
     response.status(404).json({ error: "Page not found" });
     return;
   }
@@ -3758,7 +3761,7 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
   }
 
   await removeFileByUrl(page.custom_audio_url);
-  const url = fileUrl(path.join("page-audio", file.filename));
+  const url = file.path;
 
   await sql`
     UPDATE birthday_pages
@@ -4238,7 +4241,7 @@ app.post("/api/public/pages/:id/message-photo", validateParams(pageIdParamSchema
     return;
   }
 
-  response.json({ url: fileUrl(path.join("messages", file.filename)) });
+  response.json({ url: file.path });
 });
 
 app.post("/api/public/pages/:id/message-audio", validateParams(pageIdParamSchema), publicAudioUploadLimiter, wishAudioUpload.single("file"), async (request, response) => {
@@ -4272,7 +4275,7 @@ app.post("/api/public/pages/:id/message-audio", validateParams(pageIdParamSchema
     return;
   }
 
-  response.json({ url: fileUrl(path.join("wish-audio", file.filename)) });
+  response.json({ url: file.path });
 });
 
 app.post("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), publicMessageLimiter, validateBody(publicMessageBodySchema), async (request, response) => {

@@ -2,6 +2,25 @@ import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
 import sharp from "sharp";
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'lomqtnaz',
+  api_key: process.env.CLOUDINARY_API_KEY || '877922888854838',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'MhLDCoLIXjwXjg1vFgr0GQrpGB8'
+});
+
+const createStorage = (folderName, isAudio = false) => {
+  return new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'birthday-app/' + folderName,
+      resource_type: isAudio ? 'video' : 'auto'
+    }
+  });
+};
+
 
 const configuredUploadsRoot = process.env.UPLOADS_ROOT?.trim();
 
