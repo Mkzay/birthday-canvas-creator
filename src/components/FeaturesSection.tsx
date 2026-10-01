@@ -1,227 +1,224 @@
 import {
-  Check,
-  Edit,
-  Heart,
-  Image,
-  Infinity as InfinityIcon,
-  Palette,
-  Share2,
   Sparkles,
-  type LucideIcon,
+  Volume2,
+  Gift,
+  Lock,
+  Palette,
+  LayoutGrid,
+  FileDown,
+  CheckCircle2,
+  Share2,
+  Heart,
 } from 'lucide-react';
-
-type SupportingFeature = {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  highlight: string;
-  panelClassName: string;
-  iconClassName: string;
-  wide?: boolean;
-};
-
-const supportingFeatures: SupportingFeature[] = [
-  {
-    icon: Image,
-    title: 'Photo memories',
-    description: 'Let guests attach the moments behind the message, not just text.',
-    highlight: 'Photos stay optional',
-    panelClassName: 'from-amber-50 via-white to-rose-50',
-    iconClassName: 'from-amber-400 to-rose-500',
-  },
-  {
-    icon: Heart,
-    title: 'A real reveal moment',
-    description: 'Birthday pages stay hidden until the date arrives, so the surprise lands properly.',
-    highlight: 'Built for the big day',
-    panelClassName: 'from-fuchsia-50 via-white to-pink-50',
-    iconClassName: 'from-fuchsia-500 to-pink-500',
-  },
-  {
-    icon: Palette,
-    title: 'Themes with personality',
-    description: 'Switch from playful to polished, or build a custom look for the birthday person.',
-    highlight: '10 presets plus custom themes',
-    panelClassName: 'from-violet-50 via-white to-indigo-50',
-    iconClassName: 'from-violet-500 to-indigo-500',
-  },
-  {
-    icon: Share2,
-    title: 'Sharing that feels effortless',
-    description: 'Send one link and let friends contribute from their phones in seconds.',
-    highlight: 'Link-friendly and mobile-first',
-    panelClassName: 'from-sky-50 via-white to-cyan-50',
-    iconClassName: 'from-sky-500 to-cyan-500',
-  },
-  {
-    icon: Edit,
-    title: 'Change your mind without starting over',
-    description: 'Update copy, swap themes, and refine the page as the surprise comes together.',
-    highlight: 'Edit anytime',
-    panelClassName: 'from-emerald-50 via-white to-teal-50',
-    iconClassName: 'from-emerald-500 to-teal-500',
-    wide: true,
-  },
-];
 
 const FeaturesSection = () => {
   return (
-    <section className="relative overflow-hidden bg-card px-4 py-16 sm:px-6 sm:py-20 md:py-24">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[12%] top-20 h-40 w-40 rounded-full bg-primary/8 blur-3xl" />
-        <div className="absolute bottom-10 right-[10%] h-56 w-56 rounded-full bg-secondary/10 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+    <section id="features" className="relative overflow-hidden bg-background py-20 px-4 sm:px-6 sm:py-28">
+      {/* Glows */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-[8%] top-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute right-[8%] bottom-20 h-72 w-72 rounded-full bg-secondary/5 blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-6xl">
-        <div className="mx-auto mb-10 max-w-2xl text-center sm:mb-14 md:mb-16">
-          <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary sm:text-sm">
+        {/* Section Header */}
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
             <Sparkles className="h-3.5 w-3.5" />
-            Features
+            Product Features
           </span>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
-            Built for group surprises, not messy group chats
+          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl md:text-5xl">
+            Crafted for Unforgettable Reactions
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg">
-            Collect wishes, memories, and photos in one place, then reveal everything in a way that still feels personal.
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg">
+            Every feature in Wishcanvas is designed around one goal: making someone feel profoundly loved on their birthday.
           </p>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:gap-6">
-          <article className="relative overflow-hidden rounded-[2rem] border border-border/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(245,241,255,0.96))] p-6 shadow-card-lg sm:p-8">
-            <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-            <div className="absolute -right-10 top-10 h-32 w-32 rounded-full bg-secondary/15 blur-3xl" />
-            <div className="absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
-
-            <div className="relative flex h-full flex-col">
-              <div className="mb-6 flex items-start justify-between gap-4">
-                <div className="gradient-cta flex h-14 w-14 items-center justify-center rounded-2xl shadow-[0_18px_36px_rgba(194,58,196,0.22)]">
-                  <InfinityIcon className="h-7 w-7 text-white" />
-                </div>
-                <div className="flex flex-wrap justify-end gap-2">
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                    No signup for guests
-                  </span>
-                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                    Unlimited wishes
-                  </span>
-                </div>
+        {/* BENTO GRID */}
+        <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          
+          {/* TILE 1: Large Featured Card - Voice Notes (Spans 2 cols on lg) */}
+          <div className="relative flex flex-col justify-between overflow-hidden rounded-[2.2rem] border border-border/70 bg-gradient-to-br from-violet-500/10 via-card to-card p-6 sm:p-8 shadow-card transition-all duration-300 hover:shadow-card-lg lg:col-span-2">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md">
+                  <Volume2 className="h-6 w-6" />
+                </span>
+                <span className="rounded-full bg-violet-100 text-violet-700 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                  Signature Feature
+                </span>
               </div>
 
-              <div className="max-w-xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary/70">
-                  Main advantage
-                </p>
-                <h3 className="mt-3 text-2xl font-bold leading-tight text-foreground sm:text-3xl">
-                  Everyone can leave a message without turning the surprise into admin work
+              <div className="mt-6 max-w-xl">
+                <h3 className="text-2xl font-bold text-foreground sm:text-3xl">
+                  Hear their laughter, not just text emojis
                 </h3>
-                <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                  Share one page, let friends contribute from anywhere, and keep everything organized until reveal time.
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                  Text messages are nice, but hearing your grandmother’s laughter, your best friend singing off-key, or family across the globe brings an emotional depth no greeting card can match.
                 </p>
               </div>
+            </div>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {[
-                  'Collect messages, photos, and names in one flow',
-                  'Keep contributions tidy instead of scattered across chats',
-                  'Reveal everything on the birthday instead of leaking early',
-                  'Update the page while plans are still changing',
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-start gap-3 rounded-2xl border border-border/50 bg-white/70 px-4 py-3 backdrop-blur-sm"
-                  >
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
-                    <p className="text-sm text-foreground">{item}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-[2rem] border border-border/60 bg-white/95 p-4 text-foreground shadow-card sm:p-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Dashboard card preview</p>
-                  <div className="mt-3 overflow-hidden rounded-[1.4rem] border border-border/60 bg-card">
-                    <div className="flex gap-3 p-3 sm:p-4">
-                      <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-violet-200 via-fuchsia-200 to-amber-200">
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-foreground sm:text-base">Esther&apos;s Birthday</p>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">🎂 Twilight Gold</span>
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Collecting wishes</span>
-                        </div>
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
-                          <div className="rounded-lg border border-border/60 bg-background/80 px-2 py-1.5">
-                            <p className="font-semibold text-foreground">Apr 1, 2026</p>
-                            <p>Birthday</p>
-                          </div>
-                          <div className="rounded-lg border border-border/60 bg-background/80 px-2 py-1.5">
-                            <p className="font-semibold text-foreground">23 collected</p>
-                            <p>Wishes</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted/70 px-0 mx-3 mb-3 sm:mx-4 sm:mb-4">
-                      <div className="gradient-cta h-full w-4/5 rounded-full" />
-                    </div>
-                  </div>
+            {/* Visual simulation of voice note component */}
+            <div className="mt-8 rounded-2xl border border-stone-200/80 bg-white/95 p-4 shadow-sm sm:p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white font-bold shadow-sm">
+                  🎙️
                 </div>
-
-                <div className="grid gap-3">
-                  <div className="rounded-[1.5rem] border border-border/60 bg-white/80 p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                      Contribution mode
-                    </p>
-                    <p className="mt-3 text-3xl font-bold text-foreground">2 min</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Typical time for a guest to add a wish from their phone.
-                    </p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span>Auntie Ngozi (London, UK)</span>
+                    <span className="text-muted-foreground">0:48 Voice Wish</span>
                   </div>
-                  <div className="rounded-[1.5rem] border border-border/60 bg-gradient-to-br from-primary/10 via-white to-secondary/10 p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/70">
-                      Surprise-friendly
-                    </p>
-                    <p className="mt-3 text-base font-semibold text-foreground">
-                      Built to feel thoughtful, not chaotic
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      The page keeps the sentiment while removing the coordination friction.
-                    </p>
+                  {/* Waveform graphic */}
+                  <div className="mt-2 flex h-6 items-center gap-1">
+                    {[35, 60, 85, 45, 90, 70, 40, 80, 100, 65, 90, 50, 75, 40, 65, 80, 95, 45, 60, 35, 75, 50].map((h, i) => (
+                      <span
+                        key={i}
+                        className="w-1 rounded-full bg-gradient-to-t from-violet-500 to-purple-400"
+                        style={{ height: `${h}%` }}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
-          </article>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {supportingFeatures.map((feature) => (
-              <article
-                key={feature.title}
-                className={[
-                  'group rounded-[2rem] border border-border/60 bg-gradient-to-br p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_24px_60px_rgba(118,62,186,0.12)] sm:p-6',
-                  feature.panelClassName,
-                  feature.wide ? 'sm:col-span-2' : '',
-                ].join(' ')}
-              >
-                <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${feature.iconClassName} shadow-lg transition-transform duration-300 group-hover:scale-110`}>
-                  <feature.icon className="h-5 w-5 text-white" />
-                </div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary/65">
-                  {feature.highlight}
-                </p>
-                <h3 className="mt-3 text-lg font-bold leading-tight text-foreground">
-                  {feature.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {feature.description}
-                </p>
-              </article>
-            ))}
           </div>
+
+          {/* TILE 2: Cash Gift Pool */}
+          <div className="relative flex flex-col justify-between overflow-hidden rounded-[2.2rem] border border-border/70 bg-gradient-to-br from-emerald-500/10 via-card to-card p-6 sm:p-8 shadow-card transition-all duration-300 hover:shadow-card-lg">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-md">
+                  <Gift className="h-6 w-6" />
+                </span>
+                <span className="rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                  Paystack Powered
+                </span>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-xl font-bold text-foreground sm:text-2xl">
+                  Collaborative Cash Gift Pool
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  Crowdfund their dream gadget, flight ticket, or weekend trip. Guests chip in with bank transfer or cards, without messy WhatsApp tracking.
+                </p>
+              </div>
+            </div>
+
+            {/* Visual Gift Pool Tracker */}
+            <div className="mt-8 rounded-2xl border border-stone-200/80 bg-white/95 p-4 shadow-sm">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-foreground">$380 collected</span>
+                <span className="text-emerald-600">Goal: $500</span>
+              </div>
+              <div className="mt-2 h-2.5 w-full rounded-full bg-stone-100 overflow-hidden">
+                <div className="h-full w-[76%] rounded-full bg-emerald-500" />
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground text-center">12 contributors &middot; Instant payouts</p>
+            </div>
+          </div>
+
+          {/* TILE 3: The Midnight Reveal Lock */}
+          <div className="relative flex flex-col justify-between overflow-hidden rounded-[2.2rem] border border-border/70 bg-gradient-to-br from-amber-500/10 via-card to-card p-6 sm:p-8 shadow-card transition-all duration-300 hover:shadow-card-lg">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md">
+                  <Lock className="h-6 w-6" />
+                </span>
+                <span className="rounded-full bg-amber-100 text-amber-700 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                  Zero Spoilers
+                </span>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-xl font-bold text-foreground sm:text-2xl">
+                  Midnight Reveal Lock
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  The page stays sealed with a live countdown clock until their birthday arrives. Friends can add wishes secretly in advance.
+                </p>
+              </div>
+            </div>
+
+            {/* Countdown Clock preview */}
+            <div className="mt-8 grid grid-cols-3 gap-2 rounded-2xl border border-stone-200/80 bg-white/95 p-3 text-center shadow-sm">
+              <div className="rounded-xl bg-stone-50 p-2">
+                <p className="text-lg font-black text-foreground">03</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Days</p>
+              </div>
+              <div className="rounded-xl bg-stone-50 p-2">
+                <p className="text-lg font-black text-foreground">14</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Hours</p>
+              </div>
+              <div className="rounded-xl bg-stone-50 p-2">
+                <p className="text-lg font-black text-foreground">52</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Mins</p>
+              </div>
+            </div>
+          </div>
+
+          {/* TILE 4: 10+ Aesthetic Themes & Builder */}
+          <div className="relative flex flex-col justify-between overflow-hidden rounded-[2.2rem] border border-border/70 bg-gradient-to-br from-rose-500/10 via-card to-card p-6 sm:p-8 shadow-card transition-all duration-300 hover:shadow-card-lg">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md">
+                  <Palette className="h-6 w-6" />
+                </span>
+                <span className="rounded-full bg-rose-100 text-rose-700 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                  Customizable
+                </span>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-xl font-bold text-foreground sm:text-2xl">
+                  10+ Mood Themes & Builder
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  From golden luxury to playful confetti and cyberpunk cosmic vibes. You can also craft custom gradients, emojis, and typography.
+                </p>
+              </div>
+            </div>
+
+            {/* Themes Palette preview */}
+            <div className="mt-8 flex flex-wrap gap-2">
+              <span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-800 shadow-xs">✨ Twilight</span>
+              <span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-800 shadow-xs">🌹 Rose Velvet</span>
+              <span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-800 shadow-xs">🌌 Cosmic</span>
+              <span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-800 shadow-xs">🌊 Ocean</span>
+            </div>
+          </div>
+
+          {/* TILE 5: Keepsake Memory PDF Export */}
+          <div className="relative flex flex-col justify-between overflow-hidden rounded-[2.2rem] border border-border/70 bg-gradient-to-br from-sky-500/10 via-card to-card p-6 sm:p-8 shadow-card transition-all duration-300 hover:shadow-card-lg">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-md">
+                  <FileDown className="h-6 w-6" />
+                </span>
+                <span className="rounded-full bg-sky-100 text-sky-700 px-3 py-1 text-xs font-bold uppercase tracking-wider">
+                  Keepsake Ready
+                </span>
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-xl font-bold text-foreground sm:text-2xl">
+                  Printable Keepsake PDF
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  Turn the digital experience into a bound memory booklet. Export all wishes, photos, and signatures as a beautifully formatted PDF.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-stone-200/80 bg-white/95 p-3.5 text-xs text-muted-foreground flex items-center gap-2.5 shadow-sm">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              <span>High-resolution export with photo spreads</span>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>

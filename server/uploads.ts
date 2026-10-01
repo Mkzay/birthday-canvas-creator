@@ -11,13 +11,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const createStorage = (folderName, isAudio = false) => {
+const createStorage = (folderName: string, isAudio = false) => {
   return new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
       folder: 'birthday-app/' + folderName,
       resource_type: isAudio ? 'video' : 'auto'
-    }
+    } as any
   });
 };
 

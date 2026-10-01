@@ -1,95 +1,81 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, CheckCircle2, Heart, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
 const CTASection = () => {
   const { user } = useAuth();
-  const scrollToSetupFlow = () => {
-    const section = document.getElementById('setup-flow');
-    if (!section) return;
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   return (
-    <section className="relative overflow-hidden px-4 py-16 sm:px-6 sm:py-20 md:py-24">
+    <section className="relative overflow-hidden px-4 py-20 sm:px-6 sm:py-28 md:py-32">
       <div className="absolute inset-0 gradient-cta" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(0,0,0,0.14),transparent_26%)]" />
-      <div className="absolute left-[8%] top-12 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute right-[12%] bottom-0 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.2),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(0,0,0,0.18),transparent_30%)]" />
+      <div className="absolute left-[8%] top-12 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute right-[12%] bottom-0 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
 
-      <div className="relative mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="rounded-[2rem] border border-white/15 bg-white/10 p-6 text-primary-foreground shadow-[0_24px_90px_rgba(102,37,143,0.24)] backdrop-blur-sm sm:p-8 md:p-10">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/85">
-            <Sparkles className="h-3.5 w-3.5" />
-            Ready when you are
+      <div className="relative mx-auto max-w-5xl text-center text-primary-foreground">
+        <div className="inline-block">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg backdrop-blur-md">
+            <Sparkles className="h-3.5 w-3.5 text-amber-200 animate-pulse" />
+            Make Magic Happen
           </span>
-          <h2 className="mt-5 max-w-xl text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">
-            Start the surprise before the logistics kill the mood
-          </h2>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-primary-foreground/80 sm:text-base md:text-lg">
-            Create the page, send the link, and let the birthday messages collect themselves while you focus on the
-            actual celebration.
-          </p>
+        </div>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link to={user ? '/create' : '/auth'}>
-              <Button variant="light" size="lg" className="group w-full text-base sm:w-auto">
-                {user ? 'Create another page' : 'Get started free'}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
-              </Button>
-            </Link>
-            {user ? (
-              <Link to="/dashboard">
-                <Button variant="glass" size="lg" className="w-full border-white/20 text-base text-primary-foreground hover:bg-white/12 sm:w-auto">
-                  Open dashboard
-                </Button>
-              </Link>
-            ) : (
+        <h2 className="mt-6 text-3xl font-black leading-tight sm:text-5xl md:text-6xl text-white">
+          Ready to Make Someone&apos;s Birthday Unforgettable?
+        </h2>
+
+        <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/90 sm:text-lg md:text-xl font-medium">
+          Create the page in two minutes. Share the link with friends. Sit back and watch the heartfelt messages and voice notes roll in.
+        </p>
+
+        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <Link to={user ? '/create' : '/auth'} className="w-full sm:w-auto">
+            <Button
+              size="lg"
+              className="group w-full rounded-2xl bg-white px-8 py-6 text-base font-extrabold text-foreground shadow-2xl transition-all duration-300 hover:bg-stone-50 hover:scale-105 active:scale-95 sm:w-auto"
+            >
+              <span>{user ? 'Create a Birthday Page' : 'Start a Birthday Page Free'}</span>
+              <ArrowRight className="h-5 w-5 ml-1.5 transition-transform group-hover:translate-x-1" />
+            </Button>
+          </Link>
+          {user ? (
+            <Link to="/dashboard" className="w-full sm:w-auto">
               <Button
                 variant="glass"
                 size="lg"
-                className="w-full border-white/20 text-base text-primary-foreground hover:bg-white/12 sm:w-auto"
-                onClick={scrollToSetupFlow}
+                className="w-full rounded-2xl border-white/30 px-7 py-6 text-base font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-white/15 sm:w-auto"
               >
-                See the setup flow
+                Go to Dashboard
               </Button>
-            )}
-          </div>
+            </Link>
+          ) : (
+            <Link to="/auth" className="w-full sm:w-auto">
+              <Button
+                variant="glass"
+                size="lg"
+                className="w-full rounded-2xl border-white/30 px-7 py-6 text-base font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-white/15 sm:w-auto"
+              >
+                Sign In to Existing Account
+              </Button>
+            </Link>
+          )}
         </div>
 
-        <div className="grid gap-4">
-          <article className="rounded-[1.9rem] border border-white/15 bg-slate-950/22 p-6 text-primary-foreground shadow-[0_20px_70px_rgba(69,24,113,0.22)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/65">What you avoid</p>
-            <div className="mt-4 space-y-3">
-              {[
-                'No digging through chat threads for scattered wishes',
-                'No forcing guests to sign up before they can contribute',
-                'No last-minute scramble to make the reveal feel presentable',
-              ].map((item) => (
-                <div key={item} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/8 px-4 py-3">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary-foreground" />
-                  <p className="text-sm text-primary-foreground/82">{item}</p>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-[1.9rem] border border-white/15 bg-white/12 p-6 text-primary-foreground shadow-[0_20px_70px_rgba(69,24,113,0.18)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/65">Typical setup</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {[
-                { value: '2 min', label: 'to create the page' },
-                { value: '1 link', label: 'to invite everyone' },
-                { value: '0 clutter', label: 'inside the reveal' },
-              ].map((item) => (
-                <div key={item.label} className="rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
-                  <p className="text-2xl font-bold text-primary-foreground">{item.value}</p>
-                  <p className="mt-1 text-sm text-primary-foreground/70">{item.label}</p>
-                </div>
-              ))}
-            </div>
-          </article>
+        {/* Feature Checkpoints */}
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs font-semibold text-white/85 sm:text-sm">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-amber-200" />
+            100% Free to get started
+          </span>
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-amber-200" />
+            No apps or signups for guests
+          </span>
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-amber-200" />
+            Sealed until birthday midnight
+          </span>
         </div>
       </div>
     </section>
