@@ -523,14 +523,21 @@ const CreatePage = () => {
     }
   };
 
+  // Helper to reliably find custom theme by either raw ID or custom_ prefixed key
+  const findCustomTheme = (themeKey: string, customList: CustomTheme[]): CustomTheme | undefined => {
+    const normalizedId = themeKey.startsWith('custom_') ? themeKey.slice('custom_'.length) : themeKey;
+    return customList.find((t) => String(t.id) === normalizedId);
+  };
+
+  const resolvedCustomTheme = findCustomTheme(selectedTheme, customThemes);
+
   // Live Stage Preview Computations
   const getPreviewColors = (): { start: string; end: string; mid?: string | null } => {
-    const custom = customThemes.find((t) => t.id === selectedTheme);
-    if (custom) {
+    if (resolvedCustomTheme) {
       return {
-        start: custom.gradient_from,
-        end: custom.gradient_to,
-        mid: custom.gradient_mid || null,
+        start: resolvedCustomTheme.gradient_from,
+        end: resolvedCustomTheme.gradient_to,
+        mid: resolvedCustomTheme.gradient_mid || null,
       };
     }
     const builtIn = builtInThemeMap[selectedTheme];
@@ -551,13 +558,12 @@ const CreatePage = () => {
   const previewColors = getPreviewColors();
 
   const previewGradient = (() => {
-    const custom = customThemes.find((t) => t.id === selectedTheme);
-    if (custom) {
-      const angle = custom.gradient_angle ?? 135;
-      if (custom.gradient_mid) {
-        return `linear-gradient(${angle}deg, ${custom.gradient_from} 0%, ${custom.gradient_mid} 50%, ${custom.gradient_to} 100%)`;
+    if (resolvedCustomTheme) {
+      const angle = resolvedCustomTheme.gradient_angle ?? 135;
+      if (resolvedCustomTheme.gradient_mid) {
+        return `linear-gradient(${angle}deg, ${resolvedCustomTheme.gradient_from} 0%, ${resolvedCustomTheme.gradient_mid} 50%, ${resolvedCustomTheme.gradient_to} 100%)`;
       }
-      return `linear-gradient(${angle}deg, ${custom.gradient_from} 0%, ${custom.gradient_to} 100%)`;
+      return `linear-gradient(${angle}deg, ${resolvedCustomTheme.gradient_from} 0%, ${resolvedCustomTheme.gradient_to} 100%)`;
     }
     const builtIn = builtInThemeMap[selectedTheme];
     if (builtIn) {
@@ -567,22 +573,21 @@ const CreatePage = () => {
   })();
 
   const previewEmoji = (() => {
-    const custom = customThemes.find((t) => t.id === selectedTheme);
-    if (custom) return custom.emoji || '✨';
+    if (resolvedCustomTheme) return resolvedCustomTheme.emoji || '✨';
     return builtInThemeMap[selectedTheme]?.emoji || '✨';
   })();
 
+  const previewIconUrl = resolvedCustomTheme?.icon_url || null;
+
   const previewFontClass = (() => {
-    const custom = customThemes.find((t) => t.id === selectedTheme);
-    if (custom) {
-      return fontClassForValue(custom.font || 'jakarta');
+    if (resolvedCustomTheme) {
+      return fontClassForValue(resolvedCustomTheme.font || 'jakarta');
     }
     return visualThemeConfig[selectedTheme as keyof typeof visualThemeConfig]?.font || 'font-serif';
   })();
 
   const currentThemeName = (() => {
-    const custom = customThemes.find((t) => t.id === selectedTheme);
-    if (custom) return custom.name;
+    if (resolvedCustomTheme) return resolvedCustomTheme.name;
     return builtInThemeMap[selectedTheme]?.name || 'Signature Gold';
   })();
 
@@ -798,8 +803,12 @@ const CreatePage = () => {
                     {/* Stage Header: Theme Emblem & Mode Badge */}
                     <div className="flex items-center justify-between relative z-10 mb-2">
                       <div className="flex items-center gap-2">
-                        <div className="h-9 w-9 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-lg shadow-md">
-                          {previewEmoji}
+                        <div className="h-9 w-9 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-lg shadow-md overflow-hidden">
+                          {previewIconUrl ? (
+                            <img src={previewIconUrl} alt="Emblem" className="h-full w-full object-cover" />
+                          ) : (
+                            previewEmoji
+                          )}
                         </div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-white/90 drop-shadow-xs">
                           {currentThemeName}
