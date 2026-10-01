@@ -13,8 +13,6 @@ import {
 } from 'lucide-react';
 import {
   BrandMenuIcon,
-  BrandSidebarExpandIcon,
-  BrandSidebarRetractIcon,
 } from '@/components/BrandIcons';
 import { differenceInDays, format } from 'date-fns';
 import { toast } from 'sonner';
@@ -354,21 +352,6 @@ const Dashboard = () => {
               title="Open menu"
             >
               <BrandMenuIcon className="h-4 w-4 text-stone-700" />
-            </button>
-
-            {/* Custom On-Brand Desktop Sidebar Collapse Toggle */}
-            <button
-              type="button"
-              onClick={toggleSidebarCollapsed}
-              className="hidden lg:flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200/90 bg-white text-stone-600 hover:text-slate-950 hover:bg-stone-50 transition-colors shadow-xs active:scale-95"
-              title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {isSidebarCollapsed ? (
-                <BrandSidebarExpandIcon className="h-4 w-4" />
-              ) : (
-                <BrandSidebarRetractIcon className="h-4 w-4" />
-              )}
             </button>
 
             {/* Studio Context Title */}
