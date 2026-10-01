@@ -295,8 +295,9 @@ const Dashboard = () => {
 
       {/* MOBILE SIDEBAR DRAWER (When on phone / tablet) */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-72 bg-[#18181B] text-stone-300 border-r border-stone-800">
+        <SheetContent side="left" className="p-0 w-80 bg-[#FAF7F2] text-slate-900 border-r border-stone-200">
           <DashboardSidebar
+            isMobileDrawer
             user={user}
             profile={profile}
             activePagesCount={stats.activePages}

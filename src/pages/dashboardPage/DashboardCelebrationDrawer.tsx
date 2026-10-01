@@ -7,6 +7,7 @@ import {
   Copy,
   Download,
   Edit,
+  Expand,
   Eye,
   MessageSquare,
   Music4,
@@ -60,6 +61,7 @@ export function DashboardCelebrationDrawer({
   exporting,
 }: DashboardCelebrationDrawerProps) {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [fitMode, setFitMode] = useState<'cover' | 'contain'>('cover');
 
   if (!page || !theme) {
     return null;
@@ -86,71 +88,93 @@ export function DashboardCelebrationDrawer({
         side="right"
         className="w-full sm:max-w-md p-0 bg-white border-l border-stone-200/90 shadow-2xl flex flex-col justify-between overflow-hidden z-50"
       >
-        {/* Drawer Header with Artwork Banner */}
-        <div className="relative shrink-0">
-          {/* Cover Photo / Gradient Banner */}
-          <div className="relative h-44 w-full bg-stone-100 overflow-hidden">
-            {page.cover_photo_url ? (
-              <img
-                src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
-                alt={`${page.recipient_name}'s celebration cover`}
-                className="h-full w-full object-cover object-center"
-              />
-            ) : theme.isCustom ? (
-              <div
-                className="h-full w-full"
-                style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
-              />
-            ) : (
-              <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-
-            {/* Over-image tags */}
-            <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between text-white">
-              <div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-medium backdrop-blur-md">
-                  <span>{theme.emoji}</span>
-                  <span>{theme.name}</span>
-                </span>
-                <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-tight mt-1 drop-shadow-sm">
-                  {page.recipient_name}&apos;s Canvas
-                </h3>
-              </div>
-
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold backdrop-blur-md ${
-                  isLive ? 'bg-emerald-500/90 text-white' : 'bg-white/80 text-stone-900'
-                }`}
-              >
-                {isLive ? 'Active Collection' : 'Delivered'}
-              </span>
-            </div>
-
-            {/* Close button */}
-            <SheetClose className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors">
-              <X className="h-4 w-4" />
-            </SheetClose>
+        {/* Drawer Header (Clean, minimal, uncluttered) */}
+        <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between shrink-0 bg-stone-50/70">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800">
+              Celebration Inspector
+            </span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                isLive ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'
+              }`}
+            >
+              {isLive ? 'Active' : 'Delivered'}
+            </span>
           </div>
+
+          <SheetClose className="h-8 w-8 rounded-full border border-stone-200 hover:bg-stone-100 text-stone-600 flex items-center justify-center transition-colors">
+            <X className="h-4 w-4" />
+          </SheetClose>
         </div>
 
         {/* Drawer Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
           
-          {/* Milestone Status Card */}
-          <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-rose-50 border border-amber-200/80 p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5 text-amber-700" />
-                <span>{birthdayLabel}</span>
-              </span>
-              <span className="font-bold text-amber-900 bg-white/90 px-2 py-0.5 rounded-full text-[11px] border border-amber-200/60">
+          {/* Framed Celebration Portrait (Shows Face & Head Clearly without Awkward Cropping) */}
+          <div className="space-y-2.5">
+            <div className="relative w-full aspect-[4/3] sm:aspect-[16/11] bg-stone-100 rounded-3xl overflow-hidden border border-stone-200/80 shadow-xs group/photo">
+              {page.cover_photo_url ? (
+                <img
+                  src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
+                  alt={`${page.recipient_name}'s celebration portrait`}
+                  className={`h-full w-full object-top transition-all duration-300 ${
+                    fitMode === 'cover' ? 'object-cover' : 'object-contain bg-stone-900/5'
+                  }`}
+                />
+              ) : theme.isCustom ? (
+                <div
+                  className="h-full w-full flex items-center justify-center text-4xl"
+                  style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+                >
+                  🎂
+                </div>
+              ) : (
+                <div className={`h-full w-full bg-gradient-to-br ${theme.primary} flex items-center justify-center text-4xl`}>
+                  🎂
+                </div>
+              )}
+
+              {/* View mode toggle button (Cover vs Contain) */}
+              {page.cover_photo_url && (
+                <button
+                  type="button"
+                  onClick={() => setFitMode((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
+                  className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-[10px] font-semibold backdrop-blur-md transition-colors flex items-center gap-1 shadow-sm"
+                  title="Toggle photo fit"
+                >
+                  <Expand className="h-3 w-3" />
+                  <span>{fitMode === 'cover' ? 'Fit Full' : 'Fill'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Recipient & Celebration Header Placed CLEANLY Below the Photo */}
+            <div className="px-1 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-serif text-2xl font-bold tracking-tight text-slate-950">
+                  {page.recipient_name}&apos;s Canvas
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {birthdayLabel} · {theme.emoji} {theme.name}
+                </p>
+              </div>
+
+              <span className="font-semibold text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full text-xs shrink-0">
                 {isLive ? (daysLeft > 0 ? `${daysLeft} days left` : 'Closes today') : 'Preserved'}
               </span>
             </div>
+          </div>
+
+          {/* Milestone Status Context */}
+          <div className="rounded-2xl bg-gradient-to-br from-amber-50/70 to-rose-50/50 border border-amber-200/70 p-3.5 space-y-1.5">
+            <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+              <CalendarDays className="h-3.5 w-3.5 text-amber-700" />
+              <span>Milestone Schedule</span>
+            </span>
             <p className="text-stone-600 leading-relaxed text-[11px]">
               {isLive
-                ? `Friends and family are leaving audio messages, memories, and photos before collection wraps up on ${closesLabel}.`
+                ? `Wishes, voice recordings, and memories are collecting before the reveal trigger on ${closesLabel}.`
                 : 'This celebration has been safely archived in your keepsake library.'}
             </p>
           </div>
@@ -228,9 +252,9 @@ export function DashboardCelebrationDrawer({
             </div>
           )}
 
-          {/* Share Birthday Link */}
+          {/* Direct celebration link */}
           <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs text-stone-600">
-            <span>Direct celebration link:</span>
+            <span>Celebration reveal link:</span>
             <button
               type="button"
               onClick={() => onCopyBirthday(page)}

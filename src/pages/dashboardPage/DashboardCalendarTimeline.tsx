@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   addMonths,
   eachDayOfInterval,
@@ -36,6 +36,8 @@ export function DashboardCalendarTimeline({
 }: DashboardCalendarTimelineProps) {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [isGridExpanded, setIsGridExpanded] = useState<boolean>(false);
+  const [scrollProgress, setScrollProgress] = useState<number>(0);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -58,6 +60,28 @@ export function DashboardCalendarTimeline({
     setCurrentMonth(new Date());
     onSelectDate(null);
   };
+
+  const handleScroll = (offset: number) => {
+    if (timelineRef.current) {
+      timelineRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+  };
+
+  const updateScrollProgress = () => {
+    const element = timelineRef.current;
+    if (!element) return;
+    const maxScroll = element.scrollWidth - element.clientWidth;
+    if (maxScroll <= 0) {
+      setScrollProgress(0);
+      return;
+    }
+    const current = element.scrollLeft;
+    setScrollProgress(Math.min(100, Math.max(0, (current / maxScroll) * 100)));
+  };
+
+  useEffect(() => {
+    updateScrollProgress();
+  }, [monthDays]);
 
   const monthCelebrationsCount = pages.filter((page) => {
     const pageDate = parseLocalDate(page.birthday_date);
@@ -137,83 +161,121 @@ export function DashboardCalendarTimeline({
         </div>
       </div>
 
-      {/* HORIZONTAL TIMELINE STRIP */}
-      <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
-        {monthDays.map((day) => {
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const dayPages = pagesByDate[dateKey] || [];
-          const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-          const isCurrentDay = isToday(day);
+      {/* HORIZONTAL TIMELINE STRIP (Native OS Scrollbar Hidden) */}
+      <div className="relative group/timeline">
+        <div
+          ref={timelineRef}
+          onScroll={updateScrollProgress}
+          className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide scroll-smooth"
+        >
+          {monthDays.map((day) => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const dayPages = pagesByDate[dateKey] || [];
+            const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+            const isCurrentDay = isToday(day);
 
-          if (dayPages.length > 0) {
-            // Milestone Celebration Chip
-            const primaryPage = dayPages[0];
-            const isLive = primaryPage.status === 'active';
+            if (dayPages.length > 0) {
+              // Milestone Celebration Chip
+              const primaryPage = dayPages[0];
+              const isLive = primaryPage.status === 'active';
 
+              return (
+                <div
+                  key={dateKey}
+                  onClick={() => {
+                    onSelectDate(isSelected ? null : day);
+                    onSelectPage(primaryPage);
+                  }}
+                  className={`flex-1 min-w-[140px] sm:min-w-[160px] p-2.5 rounded-2xl border-2 cursor-pointer transition-all duration-200 text-left relative overflow-hidden shadow-xs hover:shadow-md ${
+                    isSelected
+                      ? 'border-amber-500 bg-gradient-to-br from-amber-100/90 to-rose-100/80 -translate-y-0.5'
+                      : isLive
+                      ? 'border-amber-300/90 bg-gradient-to-br from-amber-50/90 via-white to-rose-50/60 hover:border-amber-400'
+                      : 'border-stone-200 bg-stone-50/80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-bold">
+                    <span className="uppercase text-amber-900">
+                      {format(day, 'EEE · MMM d')}
+                    </span>
+                    {isLive ? (
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                    ) : (
+                      <span className="text-[10px]">✨</span>
+                    )}
+                  </div>
+
+                  <p className="mt-1 truncate font-serif text-sm font-bold text-slate-950">
+                    {primaryPage.recipient_name}&apos;s Day 🎂
+                  </p>
+
+                  <div className="mt-1 flex items-center justify-between text-[10px]">
+                    <span className={isLive ? 'font-bold text-emerald-800' : 'font-semibold text-stone-500'}>
+                      {isLive ? 'Active Collection' : 'Delivered'}
+                    </span>
+                    <span className="font-semibold text-stone-600">
+                      {primaryPage.message_count || 0} {(primaryPage.message_count || 0) === 1 ? 'wish' : 'wishes'}
+                    </span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Regular Day Chip
             return (
               <div
                 key={dateKey}
-                onClick={() => {
-                  onSelectDate(isSelected ? null : day);
-                  onSelectPage(primaryPage);
-                }}
-                className={`flex-1 min-w-[140px] sm:min-w-[160px] p-2.5 rounded-2xl border-2 cursor-pointer transition-all duration-200 text-left relative overflow-hidden shadow-xs hover:shadow-md ${
+                onClick={() => onSelectDate(isSelected ? null : day)}
+                className={`flex-1 min-w-[65px] sm:min-w-[75px] p-2 rounded-2xl border text-center cursor-pointer transition-colors ${
                   isSelected
-                    ? 'border-amber-500 bg-gradient-to-br from-amber-100/90 to-rose-100/80 -translate-y-0.5'
-                    : isLive
-                    ? 'border-amber-300/90 bg-gradient-to-br from-amber-50/90 via-white to-rose-50/60 hover:border-amber-400'
-                    : 'border-stone-200 bg-stone-50/80'
+                    ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold'
+                    : isCurrentDay
+                    ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-semibold'
+                    : 'border-stone-200/70 bg-stone-50/40 text-stone-400 hover:bg-stone-50 hover:text-stone-700'
                 }`}
               >
-                <div className="flex items-center justify-between text-[10px] font-bold">
-                  <span className="uppercase text-amber-900">
-                    {format(day, 'EEE · MMM d')}
-                  </span>
-                  {isLive ? (
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                  ) : (
-                    <span className="text-[10px]">✨</span>
-                  )}
-                </div>
-
-                <p className="mt-1 truncate font-serif text-sm font-bold text-slate-950">
-                  {primaryPage.recipient_name}&apos;s Day 🎂
+                <span className="text-[10px] uppercase font-bold text-stone-400">
+                  {format(day, 'EEE')}
+                </span>
+                <p className={`mt-0.5 text-xs font-bold ${isCurrentDay ? 'text-emerald-700' : ''}`}>
+                  {format(day, 'd')}
                 </p>
-
-                <div className="mt-1 flex items-center justify-between text-[10px]">
-                  <span className={isLive ? 'font-bold text-emerald-800' : 'font-semibold text-stone-500'}>
-                    {isLive ? 'Active Collection' : 'Delivered'}
-                  </span>
-                  <span className="font-semibold text-stone-600">
-                    {primaryPage.message_count || 0} {(primaryPage.message_count || 0) === 1 ? 'wish' : 'wishes'}
-                  </span>
-                </div>
               </div>
             );
-          }
+          })}
+        </div>
 
-          // Regular Day Chip
-          return (
+        {/* CUSTOM ARCHITECTURAL TIMELINE SCRUBBER (Replaces Ugly OS Scrollbar) */}
+        <div className="mt-3 flex items-center gap-3 px-1">
+          <button
+            type="button"
+            onClick={() => handleScroll(-220)}
+            className="h-6 w-6 rounded-full border border-stone-200 bg-stone-50/80 text-stone-500 hover:bg-stone-100 hover:text-slate-950 flex items-center justify-center shrink-0 transition-colors"
+            title="Scroll backward"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Minimalist Scrub Track */}
+          <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden relative border border-stone-200/60">
             <div
-              key={dateKey}
-              onClick={() => onSelectDate(isSelected ? null : day)}
-              className={`flex-1 min-w-[65px] sm:min-w-[75px] p-2 rounded-2xl border text-center cursor-pointer transition-colors ${
-                isSelected
-                  ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold'
-                  : isCurrentDay
-                  ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-semibold'
-                  : 'border-stone-200/70 bg-stone-50/40 text-stone-400 hover:bg-stone-50 hover:text-stone-700'
-              }`}
-            >
-              <span className="text-[10px] uppercase font-bold text-stone-400">
-                {format(day, 'EEE')}
-              </span>
-              <p className={`mt-0.5 text-xs font-bold ${isCurrentDay ? 'text-emerald-700' : ''}`}>
-                {format(day, 'd')}
-              </p>
-            </div>
-          );
-        })}
+              className="h-full bg-slate-900 rounded-full transition-all duration-75"
+              style={{
+                width: '24%',
+                marginLeft: `${scrollProgress * 0.76}%`,
+              }}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleScroll(220)}
+            className="h-6 w-6 rounded-full border border-stone-200 bg-stone-50/80 text-stone-500 hover:bg-stone-100 hover:text-slate-950 flex items-center justify-center shrink-0 transition-colors"
+            title="Scroll forward"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* FULL MONTH CALENDAR MATRIX (TOGGLEABLE) */}
