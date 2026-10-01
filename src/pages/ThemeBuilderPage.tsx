@@ -8,6 +8,8 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   ArrowLeft,
   Check,
+  ChevronDown,
+  ChevronUp,
   Compass,
   Crown,
   Eye,
@@ -104,6 +106,7 @@ const ThemeBuilderPage = () => {
   const [accentColor, setAccentColor] = useState('#f59e0b');
   const [font, setFont] = useState('playfair');
   const [iconUrl, setIconUrl] = useState<string | null>(null);
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
 
   const isProPlan = isPro;
   const isFreeThemeLimitReached = !isProPlan && !editingId && themes.length >= FREE_THEME_LIMIT;
@@ -353,7 +356,7 @@ const ThemeBuilderPage = () => {
       </Sheet>
 
       {/* 2. MAIN STUDIO WORKBENCH */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden">
         
         {/* Top Command Bar */}
         <header className="bg-white/85 backdrop-blur-md border-b border-stone-200/90 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">
@@ -422,7 +425,7 @@ const ThemeBuilderPage = () => {
         </header>
 
         {/* Main Workbench Body */}
-        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-6 max-w-7xl w-full mx-auto overflow-x-hidden">
           
           {/* Creator Greeting & Mode Switcher Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -439,42 +442,42 @@ const ThemeBuilderPage = () => {
             </div>
 
             {/* Mode Switcher Pills (Studio Workbench vs Saved Palettes) */}
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex items-center p-1 bg-stone-200/70 rounded-2xl border border-stone-300/60 shadow-2xs">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto shrink-0">
+              <div className="flex items-center p-1 bg-stone-200/70 rounded-2xl border border-stone-300/60 shadow-2xs w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setActiveView('studio')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                     activeView === 'studio'
                       ? 'bg-white text-slate-950 shadow-xs'
                       : 'text-stone-600 hover:text-slate-950'
                   }`}
                 >
-                  <Palette className="h-3.5 w-3.5 text-amber-600" />
+                  <Palette className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                   <span>Studio Workbench</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setActiveView('gallery')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                     activeView === 'gallery'
                       ? 'bg-white text-slate-950 shadow-xs'
                       : 'text-stone-600 hover:text-slate-950'
                   }`}
                 >
-                  <Layers className="h-3.5 w-3.5 text-amber-600" />
+                  <Layers className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                   <span>Saved Palettes ({themes.length})</span>
                 </button>
               </div>
 
-              <Link to="/create">
+              <Link to="/create" className="w-full sm:w-auto">
                 <Button
                   size="sm"
-                  className="btn-press gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/20 hover:brightness-105 active:scale-[0.98] transition-all"
+                  className="btn-press gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/20 hover:brightness-105 active:scale-[0.98] transition-all w-full sm:w-auto justify-center"
                 >
-                  <Sparkles className="h-4 w-4 text-amber-100" />
-                  Craft Canvas
+                  <Sparkles className="h-4 w-4 text-amber-100 shrink-0" />
+                  <span>Craft Canvas</span>
                 </Button>
               </Link>
             </div>
@@ -505,32 +508,74 @@ const ThemeBuilderPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                 
                 {/* LEFT: THE LIVE CELEBRATION CANVAS STAGE (6 Cols on LG) */}
-                <div className="lg:col-span-6 rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-card flex flex-col justify-between relative overflow-hidden">
+                <div className="lg:col-span-6 rounded-[2.5rem] border border-stone-200/90 bg-white p-4 sm:p-6 shadow-card flex flex-col justify-between relative overflow-hidden">
                   <div className="pointer-events-none absolute -left-16 -top-16 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
 
                   {/* Stage Top Bar */}
-                  <div className="flex items-center justify-between border-b border-stone-100 pb-3 relative z-10">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
-                        <Eye className="h-3.5 w-3.5 text-amber-600" />
-                        Live Canvas Stage
+                  <div className="flex items-center justify-between border-b border-stone-100 pb-3 relative z-10 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-950 flex items-center gap-1.5 whitespace-nowrap">
+                        <Eye className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        <span>Live Canvas Stage</span>
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono text-stone-500 bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-lg">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                      <span className="text-[11px] font-mono text-stone-500 bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-lg whitespace-nowrap">
                         {gradientAngle}°
                       </span>
-                      <span className="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                      <span className="hidden xs:inline-block text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg truncate max-w-[110px]">
                         {fontLabelForValue(font)}
                       </span>
+
+                      {/* Mobile Expand / Collapse Card Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={() => setMobilePreviewOpen(!mobilePreviewOpen)}
+                        className="lg:hidden flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition-colors shadow-2xs whitespace-nowrap active:scale-95"
+                        aria-expanded={mobilePreviewOpen}
+                      >
+                        {mobilePreviewOpen ? (
+                          <>
+                            <ChevronUp className="h-3.5 w-3.5 text-amber-700" />
+                            <span>Hide</span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-3.5 w-3.5 text-amber-700" />
+                            <span>View Card</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
 
+                  {/* Mobile Compact Gradient Ribbon (Shown when preview is collapsed on mobile) */}
+                  {!mobilePreviewOpen && (
+                    <button
+                      type="button"
+                      onClick={() => setMobilePreviewOpen(true)}
+                      className="lg:hidden mt-3 h-12 rounded-2xl p-2.5 flex items-center justify-between shadow-xs border border-white/40 text-left transition-transform active:scale-[0.99] relative overflow-hidden"
+                      style={{ background: previewGradient }}
+                    >
+                      <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md px-2.5 py-1 rounded-xl text-[10px] font-bold text-white uppercase tracking-wider border border-white/20">
+                        <span>{emoji}</span>
+                        <span className="truncate max-w-[140px]">{name || 'Custom Theme'}</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-white/95 bg-black/25 backdrop-blur-xs px-2.5 py-1 rounded-lg flex items-center gap-1 border border-white/10">
+                        <Eye className="h-3 w-3" />
+                        <span>Tap to view card</span>
+                      </span>
+                    </button>
+                  )}
+
                   {/* The Simulated Celebration Canvas Card */}
                   <div
-                    className="my-5 rounded-3xl p-6 sm:p-7 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[340px] flex flex-col justify-between relative"
+                    className={cn(
+                      'my-5 rounded-3xl p-5 sm:p-7 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[320px] sm:min-h-[340px] flex-col justify-between relative',
+                      mobilePreviewOpen ? 'flex' : 'hidden lg:flex'
+                    )}
                     style={{ background: previewGradient }}
                   >
                     {/* Subtle top ambient sheen */}
@@ -585,26 +630,29 @@ const ThemeBuilderPage = () => {
                   </div>
 
                   {/* Stage Bottom Summary Pills */}
-                  <div className="flex items-center justify-between pt-2 text-[11px] text-stone-500 border-t border-stone-100 relative z-10">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-950">{name || 'Custom Theme'}</span>
-                      <span className="h-1 w-1 rounded-full bg-stone-300" />
-                      <span>{editingId ? 'Refining Saved Theme' : 'New Palette Draft'}</span>
+                  <div className={cn(
+                    'items-center justify-between pt-2 text-[11px] text-stone-500 border-t border-stone-100 relative z-10',
+                    mobilePreviewOpen ? 'flex' : 'hidden lg:flex'
+                  )}>
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="font-semibold text-slate-950 truncate">{name || 'Custom Theme'}</span>
+                      <span className="h-1 w-1 rounded-full bg-stone-300 shrink-0" />
+                      <span className="truncate">{editingId ? 'Refining Saved Theme' : 'New Palette Draft'}</span>
                     </div>
-                    <span className="italic font-serif text-amber-800">
+                    <span className="italic font-serif text-amber-800 shrink-0">
                       updates in real-time
                     </span>
                   </div>
                 </div>
 
                 {/* RIGHT: COMPACT TABBED INSPECTOR (6 Cols on LG - ZERO SCROLLING) */}
-                <div className="lg:col-span-6 rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-card flex flex-col justify-between relative overflow-hidden">
+                <div className="lg:col-span-6 rounded-[2.5rem] border border-stone-200/90 bg-white p-4 sm:p-6 shadow-card flex flex-col justify-between relative overflow-hidden">
                   <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-rose-500/10 blur-2xl" />
 
                   <div className="space-y-5">
                     {/* Theme Identity Header */}
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                      <div className="flex items-center gap-2.5 flex-1 mr-3">
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-3 gap-2">
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
                         <div className="h-9 w-9 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center text-lg shadow-2xs shrink-0">
                           {emoji}
                         </div>
@@ -612,63 +660,76 @@ const ThemeBuilderPage = () => {
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           placeholder="Name your theme..."
-                          className="font-serif font-bold text-base sm:text-lg border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:border-b focus-visible:border-amber-400 rounded-none text-slate-950 placeholder:text-stone-400"
+                          className="font-serif font-bold text-base sm:text-lg border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:border-b focus-visible:border-amber-400 rounded-none text-slate-950 placeholder:text-stone-400 min-w-0"
                           maxLength={32}
                         />
                       </div>
 
-                      {editingId && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Mobile quick card peek toggle */}
                         <button
                           type="button"
-                          onClick={resetForm}
-                          className="text-[11px] font-semibold text-stone-500 hover:text-slate-950 flex items-center gap-1 shrink-0"
-                          title="Reset to new draft"
+                          onClick={() => setMobilePreviewOpen(!mobilePreviewOpen)}
+                          className="lg:hidden flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 active:scale-95 transition-transform"
+                          title="Toggle live card preview"
                         >
-                          <RotateCcw className="h-3 w-3" />
-                          <span>Reset</span>
+                          <Eye className="h-3 w-3 text-amber-700" />
+                          <span>{mobilePreviewOpen ? 'Hide' : 'Card'}</span>
                         </button>
-                      )}
+
+                        {editingId && (
+                          <button
+                            type="button"
+                            onClick={resetForm}
+                            className="text-[11px] font-semibold text-stone-500 hover:text-slate-950 flex items-center gap-1 shrink-0"
+                            title="Reset to new draft"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            <span className="hidden xs:inline">Reset</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Segmented Inspector Tab Buttons */}
-                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-stone-100/80 rounded-2xl border border-stone-200/80">
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-stone-100/80 rounded-2xl border border-stone-200/80">
                       <button
                         type="button"
                         onClick={() => setActiveTab('colors')}
-                        className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        className={`py-2 px-1.5 sm:px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 ${
                           activeTab === 'colors'
                             ? 'bg-white text-slate-950 shadow-xs'
                             : 'text-stone-600 hover:text-slate-950'
                         }`}
                       >
-                        <Palette className="h-3.5 w-3.5 text-amber-600" />
+                        <Palette className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                         <span>Colors</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setActiveTab('typography')}
-                        className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        className={`py-2 px-1.5 sm:px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 ${
                           activeTab === 'typography'
                             ? 'bg-white text-slate-950 shadow-xs'
                             : 'text-stone-600 hover:text-slate-950'
                         }`}
                       >
-                        <Type className="h-3.5 w-3.5 text-amber-600" />
-                        <span>Typography</span>
+                        <Type className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        <span>Fonts</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setActiveTab('details')}
-                        className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        className={`py-2 px-1.5 sm:px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 ${
                           activeTab === 'details'
                             ? 'bg-white text-slate-950 shadow-xs'
                             : 'text-stone-600 hover:text-slate-950'
                         }`}
                       >
-                        <Compass className="h-3.5 w-3.5 text-amber-600" />
-                        <span>Emblem &amp; Angle</span>
+                        <Compass className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        <span className="truncate">Emblem &amp; Angle</span>
                       </button>
                     </div>
 
@@ -699,7 +760,7 @@ const ThemeBuilderPage = () => {
                             )}
                           </div>
 
-                          <div className={`grid gap-2.5 ${gradientMid ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                          <div className={`grid gap-2.5 ${gradientMid ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
                             {/* Start */}
                             <div className="p-2.5 rounded-2xl border border-stone-200 bg-stone-50/50 space-y-1">
                               <span className="text-[10px] font-bold uppercase text-stone-500">Start</span>
@@ -880,7 +941,7 @@ const ThemeBuilderPage = () => {
                           <Label className="text-xs font-bold text-slate-900">
                             Flow Direction ({gradientAngle}°)
                           </Label>
-                          <div className="grid grid-cols-8 gap-1">
+                          <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
                             {ANGLE_OPTIONS.map((a) => (
                               <button
                                 key={a.value}
