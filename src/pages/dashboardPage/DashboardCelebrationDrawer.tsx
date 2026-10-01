@@ -86,6 +86,7 @@ export function DashboardCelebrationDrawer({
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
+        hideDefaultClose
         className="w-full sm:max-w-md p-0 bg-white border-l border-stone-200/90 shadow-2xl flex flex-col justify-between overflow-hidden z-50"
       >
         {/* Drawer Header (Clean, minimal, uncluttered) */}
@@ -103,8 +104,30 @@ export function DashboardCelebrationDrawer({
             </span>
           </div>
 
-          <SheetClose className="h-8 w-8 rounded-full border border-stone-200 hover:bg-stone-100 text-stone-600 flex items-center justify-center transition-colors">
-            <X className="h-4 w-4" />
+          {/* Custom Close Icon Button (Single, tactile, rotates gently on hover) */}
+          <SheetClose asChild>
+            <button
+              type="button"
+              className="group relative flex h-8 w-8 items-center justify-center rounded-full border border-stone-200/90 bg-white text-stone-500 shadow-xs transition-all duration-200 hover:border-stone-400 hover:bg-stone-100 hover:text-slate-900 active:scale-95"
+              aria-label="Close celebration inspector"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="transition-transform duration-200 group-hover:rotate-90 text-stone-600 group-hover:text-slate-950"
+              >
+                <path
+                  d="M2 2L10 10M10 2L2 10"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
           </SheetClose>
         </div>
 

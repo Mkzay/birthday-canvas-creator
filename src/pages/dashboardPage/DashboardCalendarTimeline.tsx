@@ -37,7 +37,9 @@ export function DashboardCalendarTimeline({
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [isGridExpanded, setIsGridExpanded] = useState<boolean>(false);
   const [scrollProgress, setScrollProgress] = useState<number>(0);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -66,6 +68,49 @@ export function DashboardCalendarTimeline({
       timelineRef.current.scrollBy({ left: offset, behavior: 'smooth' });
     }
   };
+
+  const handleSeek = (clientX: number, smooth: boolean = true) => {
+    const track = trackRef.current;
+    const timeline = timelineRef.current;
+    if (!track || !timeline) return;
+
+    const rect = track.getBoundingClientRect();
+    const clickX = clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    const maxScroll = timeline.scrollWidth - timeline.clientWidth;
+
+    if (maxScroll <= 0) return;
+
+    timeline.scrollTo({
+      left: ratio * maxScroll,
+      behavior: smooth ? 'smooth' : 'auto',
+    });
+  };
+
+  const handleTrackMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    handleSeek(e.clientX, false);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handleSeek(e.clientX, false);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   const updateScrollProgress = () => {
     const element = timelineRef.current;
@@ -245,8 +290,8 @@ export function DashboardCalendarTimeline({
           })}
         </div>
 
-        {/* CUSTOM ARCHITECTURAL TIMELINE SCRUBBER (Replaces Ugly OS Scrollbar) */}
-        <div className="mt-3 flex items-center gap-3 px-1">
+        {/* CUSTOM ARCHITECTURAL TIMELINE SCRUBBER (Hidden on mobile and tablet where swipe is native) */}
+        <div className="mt-3 hidden lg:flex items-center gap-3 px-1">
           <button
             type="button"
             onClick={() => handleScroll(-220)}
@@ -256,15 +301,26 @@ export function DashboardCalendarTimeline({
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
 
-          {/* Minimalist Scrub Track */}
-          <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden relative border border-stone-200/60">
-            <div
-              className="h-full bg-slate-900 rounded-full transition-all duration-75"
-              style={{
-                width: '24%',
-                marginLeft: `${scrollProgress * 0.76}%`,
-              }}
-            />
+          {/* Minimalist Interactive Scrub Track (Click or Drag to Scrub) */}
+          <div
+            ref={trackRef}
+            onMouseDown={handleTrackMouseDown}
+            className="flex-1 py-2 cursor-pointer group/track flex items-center select-none"
+            title="Click or drag anywhere along the track to scrub through the month"
+          >
+            <div className="w-full h-1.5 bg-stone-100 group-hover/track:bg-stone-200/80 rounded-full overflow-hidden relative border border-stone-200/70 transition-colors">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  isDragging
+                    ? 'bg-amber-600'
+                    : 'bg-slate-900 group-hover/track:bg-amber-600 duration-75'
+                }`}
+                style={{
+                  width: '24%',
+                  marginLeft: `${scrollProgress * 0.76}%`,
+                }}
+              />
+            </div>
           </div>
 
           <button

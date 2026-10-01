@@ -6,6 +6,7 @@ import {
   Crown,
   Menu,
   Palette,
+  PanelLeft,
   Plus,
   Search,
   Sparkles,
@@ -66,6 +67,25 @@ const Dashboard = () => {
   const [drawerPage, setDrawerPage] = useState<BirthdayPage | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('wishcanvas_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebarCollapsed = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('wishcanvas_sidebar_collapsed', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const isProUser = user?.planTier === 'pro';
   const canShowExportOptions = !import.meta.env.PROD;
@@ -291,11 +311,13 @@ const Dashboard = () => {
         totalPagesCount={stats.totalPages}
         isProUser={isProUser}
         onSignOut={signOut}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapsed}
       />
 
       {/* MOBILE SIDEBAR DRAWER (When on phone / tablet) */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-80 bg-[#FAF7F2] text-slate-900 border-r border-stone-200">
+        <SheetContent side="left" hideDefaultClose className="p-0 w-80 bg-[#FAF7F2] text-slate-900 border-r border-stone-200">
           <DashboardSidebar
             isMobileDrawer
             user={user}
@@ -308,6 +330,7 @@ const Dashboard = () => {
               setIsMobileSidebarOpen(false);
               signOut();
             }}
+            onCloseMobile={() => setIsMobileSidebarOpen(false)}
           />
         </SheetContent>
       </Sheet>
@@ -315,28 +338,39 @@ const Dashboard = () => {
       {/* 2. MAIN STUDIO WORKBENCH (Fluid flex container) */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         
-        {/* Top Command Bar */}
+        {/* Top Command Bar (Search moved to main area, sidebar toggle added) */}
         <header className="bg-white/85 backdrop-blur-md border-b border-stone-200/90 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">
-          <div className="flex items-center gap-3 flex-1 max-w-lg">
+          <div className="flex items-center gap-3">
             {/* Hamburger on Mobile/Tablet */}
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-700 hover:bg-stone-50"
+              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 transition-colors shadow-xs"
               aria-label="Open sidebar"
             >
               <Menu className="h-4 w-4" />
             </button>
 
-            {/* Global Search */}
-            <div className="relative w-full">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
-              <Input
-                placeholder="Search celebrations, recipients, or milestones..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 w-full rounded-full border border-stone-200 bg-stone-100/80 pl-9 pr-3 text-xs text-slate-900 placeholder:text-stone-400 focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-500/15 transition-all"
-              />
+            {/* Desktop Sidebar Collapse Toggle */}
+            <button
+              type="button"
+              onClick={toggleSidebarCollapsed}
+              className="hidden lg:flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200/90 bg-white text-stone-600 hover:text-slate-950 hover:bg-stone-50 transition-colors shadow-xs"
+              title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <PanelLeft className="h-4 w-4" />
+            </button>
+
+            {/* Studio Context Title */}
+            <div className="flex items-center gap-2 pl-1">
+              <span className="font-serif font-bold text-slate-950 text-sm sm:text-base tracking-tight">
+                Celebration Atelier
+              </span>
+              <span className="hidden sm:inline-block h-1 w-1 rounded-full bg-stone-300" />
+              <span className="hidden sm:inline-block text-[11px] text-stone-500 font-medium">
+                {stats.totalPages} {stats.totalPages === 1 ? 'Milestone' : 'Milestones'} Total
+              </span>
             </div>
           </div>
 
@@ -362,7 +396,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <Link to="/settings" className="flex items-center gap-2">
+            <Link to="/settings" className="flex items-center gap-2" title="Account settings">
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
@@ -445,6 +479,40 @@ const Dashboard = () => {
             </div>
           ) : (
             <>
+              {/* Studio Search & Filter Bar (Moved from Header to Main Area) */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-stone-200/90 rounded-2xl p-2.5 sm:px-4 sm:py-3 shadow-xs">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+                  <Input
+                    placeholder="Search celebrations, recipients, or milestones..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-stone-200/80 bg-stone-50/80 pl-10 pr-8 text-xs text-slate-900 placeholder:text-stone-400 focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/15 transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full hover:bg-stone-200/70 text-stone-400 hover:text-stone-700 flex items-center justify-center transition-colors text-xs"
+                      aria-label="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-stone-500">
+                  <span className="font-semibold text-slate-700">
+                    {searchedPages.length} {searchedPages.length === 1 ? 'Celebration' : 'Celebrations'}
+                  </span>
+                  {searchQuery && (
+                    <span className="text-[11px] bg-amber-50 text-amber-800 border border-amber-200 rounded-full px-2 py-0.5 font-medium">
+                      filtered
+                    </span>
+                  )}
+                </div>
+              </div>
+
               {/* HYBRID DECK 1: THE INTERACTIVE CALENDAR MILESTONE TIMELINE */}
               <DashboardCalendarTimeline
                 pages={searchedPages}
