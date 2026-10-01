@@ -6,6 +6,7 @@ import {
   Palette,
   Plus,
   Settings,
+  ShieldCheck,
   Sparkles,
   Trophy,
 } from 'lucide-react';
@@ -48,6 +49,7 @@ export function DashboardSidebar({
   const isThemes = location.pathname === '/themes';
   const isBilling = location.pathname === '/billing' || location.pathname.startsWith('/upgrade');
   const isSettings = location.pathname === '/settings';
+  const isAdmin = location.pathname === '/admin';
 
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';
   const initial = displayName.charAt(0).toUpperCase();
@@ -255,6 +257,20 @@ export function DashboardSidebar({
             >
               <Settings className="h-4 w-4 text-amber-700" />
             </Link>
+
+            {user?.isAdmin && (
+              <Link
+                to="/admin"
+                className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${
+                  isAdmin
+                    ? 'bg-purple-100 border border-purple-300 text-purple-950 shadow-xs'
+                    : 'text-stone-600 hover:bg-white hover:text-purple-950'
+                }`}
+                title="Admin Console"
+              >
+                <ShieldCheck className="h-4 w-4 text-purple-700" />
+              </Link>
+            )}
           </nav>
         ) : (
           <nav className="px-3 space-y-6 text-xs">
@@ -353,6 +369,19 @@ export function DashboardSidebar({
                 <Settings className="h-4 w-4 text-amber-700" />
                 <span>Studio Settings</span>
               </Link>
+              {user?.isAdmin && (
+                <Link
+                  to="/admin"
+                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all ${
+                    isAdmin
+                      ? 'bg-purple-50/80 border border-purple-200 text-purple-950 font-bold shadow-xs'
+                      : 'text-stone-600 hover:bg-white hover:text-purple-950 font-medium'
+                  }`}
+                >
+                  <ShieldCheck className="h-4 w-4 text-purple-700" />
+                  <span>Admin Console</span>
+                </Link>
+              )}
             </div>
           </nav>
         )}
