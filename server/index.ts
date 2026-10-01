@@ -97,6 +97,8 @@ import {
 } from "./rateLimits";
 
 const app = express();
+app.get('/', (req, res) => { res.status(200).send('API is awake!'); });
+app.get('/health', (req, res) => { res.status(200).send('OK'); });
 const port = Number(process.env.PORT || process.env.API_PORT || 3001);
 const FREE_THEME_LIMIT = 3;
 const PREMIUM_THEME_FONTS = new Set(["caveat", "sora", "cormorant", "space-grotesk", "dm-serif"]);
