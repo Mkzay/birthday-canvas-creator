@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LockKeyhole, Mail, Sparkles, User2 } from 'lucide-react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { Eye, EyeOff, LockKeyhole, Mail, Sparkles, User2, CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ type PasswordFieldProps = {
   showPassword: boolean;
   onToggleVisibility: () => void;
   placeholder?: string;
+  autoComplete?: string;
 };
 
 const PasswordField = ({
@@ -32,20 +33,22 @@ const PasswordField = ({
   showPassword,
   onToggleVisibility,
   placeholder = 'Enter your password',
+  autoComplete = 'current-password',
 }: PasswordFieldProps) => (
   <div>
-    <Label htmlFor={id} className="text-foreground">
+    <Label htmlFor={id} className="text-xs font-bold text-foreground uppercase tracking-wider">
       {label}
     </Label>
-    <div className="relative mt-2">
-      <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    <div className="relative mt-1.5">
+      <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         id={id}
         type={showPassword ? 'text' : 'password'}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="h-12 rounded-xl border-border/80 bg-white pl-10 pr-12 shadow-sm"
+        autoComplete={autoComplete}
+        className="h-12 rounded-xl border-border/80 bg-background pl-10 pr-12 text-sm shadow-xs transition-colors focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
         required
       />
       <button
@@ -64,7 +67,11 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, signUp, refreshSession, user } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const initialMode = searchParams.get('mode') === 'signup' ? false : true;
+
+  const [isLogin, setIsLogin] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -76,13 +83,22 @@ const AuthPage = () => {
   const [verificationBusy, setVerificationBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
   const [showVerificationResend, setShowVerificationResend] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
-  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const pendingSavePageId = searchParams.get('page');
   const shouldSaveAfterAuth = searchParams.get('save') === '1';
   const verifyToken = searchParams.get('verify');
   const resetToken = searchParams.get('reset');
+
+  // Sync mode from search params if present
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'signup') {
+      setIsLogin(false);
+    } else if (mode === 'login') {
+      setIsLogin(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (user) {
@@ -95,15 +111,14 @@ const AuthPage = () => {
     navigate(`/verify-email?token=${encodeURIComponent(verifyToken)}`, { replace: true });
   }, [navigate, verifyToken]);
 
-  const toggleMode = () => {
-    setIsLogin((current) => !current);
+  const toggleMode = (loginMode: boolean) => {
+    setIsLogin(loginMode);
     setForgotMode(false);
     setPassword('');
     setConfirmPassword('');
     setShowPassword(false);
     setShowConfirmPassword(false);
     setShowVerificationResend(false);
-    setRememberMe(false);
   };
 
   const handleResendVerification = async () => {
@@ -119,7 +134,7 @@ const AuthPage = () => {
         method: 'POST',
         body: JSON.stringify({ email }),
       });
-      toast.success('Verification email sent.');
+      toast.success('Verification email sent. Check your inbox.');
       setShowVerificationResend(false);
     } catch (error) {
       console.error(error);
@@ -182,7 +197,7 @@ const AuthPage = () => {
         body: JSON.stringify({ token: resetToken, password }),
       });
       await refreshSession();
-      toast.success('Password reset complete. You are signed in.');
+      toast.success('Password reset complete. Welcome back!');
       navigate('/dashboard');
     } catch (error) {
       console.error(error);
@@ -222,7 +237,7 @@ const AuthPage = () => {
             toast.error('Please verify your email before signing in.');
             setShowVerificationResend(true);
           } else if (error.message.includes('Invalid')) {
-            toast.error('Invalid email or password');
+            toast.error('Invalid email or password.');
           } else {
             toast.error(error.message);
           }
@@ -255,14 +270,14 @@ const AuthPage = () => {
       }
 
       if (requiresVerification) {
-        toast.success(message || 'Account created. Check your email to verify your account.');
+        toast.success(message || 'Account created! Please check your email to verify.');
         setIsLogin(true);
         setPassword('');
         setConfirmPassword('');
         return;
       }
 
-      toast.success('Account created! Welcome to WishCanvas!');
+      toast.success('Account created! Welcome to WishCanvas.');
       navigate('/dashboard');
     } finally {
       setLoading(false);
@@ -270,68 +285,131 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden gradient-hero px-6 py-10">
-      <AnimatedBackground showWaves={true} showStars={true} className="opacity-80" />
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#FAF7F2] px-4 py-12 sm:px-6 text-slate-900">
+      {/* Background Soft Glows */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[10%] top-16 h-52 w-52 rounded-full bg-white/8 blur-3xl" />
-        <div className="absolute right-[8%] top-1/3 h-72 w-72 rounded-full bg-white/6 blur-3xl" />
-        <div className="absolute bottom-0 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-black/10 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_28%),linear-gradient(180deg,rgba(20,10,36,0.08),rgba(20,10,36,0.18))]" />
+        <div className="absolute left-[10%] top-16 h-72 w-72 rounded-full bg-rose-200/30 blur-3xl" />
+        <div className="absolute right-[8%] bottom-16 h-80 w-80 rounded-full bg-amber-200/30 blur-3xl" />
       </div>
 
-      <div className="relative grid w-full max-w-sm gap-8 sm:max-w-2xl md:max-w-4xl lg:max-w-[68rem] lg:grid-cols-[0.9fr_1.1fr] lg:items-center xl:max-w-[74rem]">
-        <div className="hidden text-primary-foreground lg:block">
-          <BrandLogo compact to="/" textClassName="text-2xl font-bold text-white" />
+      <div className="relative z-10 grid w-full max-w-sm gap-8 sm:max-w-xl md:max-w-3xl lg:max-w-5xl lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        {/* Left Branding & Narrative Column (Desktop) */}
+        <div className="hidden text-slate-900 lg:block lg:pr-6">
+          <BrandLogo compact to="/" textClassName="text-2xl font-black text-slate-950" />
 
-          <div className="mt-10 max-w-xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/80">
-              <Sparkles className="h-3.5 w-3.5" />
-              Surprise-friendly setup
-            </span>
-            <h1 className="mt-5 text-4xl font-bold leading-tight">
-              Build the page before the group chat gets chaotic
-            </h1>
-            <p className="mt-4 text-base leading-relaxed text-primary-foreground/78">
-              Create birthday pages that collect wishes, photos, and memory notes in one place, then reveal everything
-              in a finished layout on the big day.
-            </p>
-          </div>
+          {isLogin ? (
+            <div className="mt-10 animate-fade-in">
+              <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-800">
+                Returning Creator
+              </span>
+              <h1 className="mt-3 font-playfair text-4xl font-extrabold leading-tight text-slate-950 xl:text-5xl">
+                Welcome back to your birthday canvas
+              </h1>
+              <p className="mt-4 text-base leading-relaxed text-slate-600">
+                Your celebrations, gathered memories, and contributor voice notes are right where you left them.
+              </p>
 
-          <div className="mt-8 grid gap-3">
-            {[
-              'Guests can contribute without creating an account',
-              'Themes and covers make each page feel personal',
-              'The final reveal feels like a keepsake, not a thread',
-            ].map((item) => (
-              <div key={item} className="rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm text-primary-foreground/82 backdrop-blur-sm">
-                {item}
+              <div className="mt-8 space-y-3">
+                <div className="flex items-center gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 shadow-xs">
+                  <CheckCircle2 className="h-5 w-5 text-rose-500 shrink-0" />
+                  <p className="text-sm font-medium text-slate-700">Track incoming messages and audio notes in real time</p>
+                </div>
+                <div className="flex items-center gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 shadow-xs">
+                  <CheckCircle2 className="h-5 w-5 text-rose-500 shrink-0" />
+                  <p className="text-sm font-medium text-slate-700">Reorder slides and moderate memories before midnight</p>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="mt-10 animate-fade-in">
+              <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-800">
+                The Doorway to Magic
+              </span>
+              <h1 className="mt-3 font-playfair text-4xl font-extrabold leading-tight text-slate-950 xl:text-5xl">
+                Start something magical for someone you love
+              </h1>
+              <p className="mt-4 text-base leading-relaxed text-slate-600">
+                Create a personalized birthday canvas in 2 minutes. Free to start, no credit card required.
+              </p>
+
+              <div className="mt-8 space-y-3">
+                <div className="flex items-center gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 shadow-xs">
+                  <CheckCircle2 className="h-5 w-5 text-rose-500 shrink-0" />
+                  <p className="text-sm font-medium text-slate-700">Free to create and gather wishes from close circles</p>
+                </div>
+                <div className="flex items-center gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 shadow-xs">
+                  <CheckCircle2 className="h-5 w-5 text-rose-500 shrink-0" />
+                  <p className="text-sm font-medium text-slate-700">Guests contribute voice notes and photos without an account</p>
+                </div>
+                <div className="flex items-center gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 shadow-xs">
+                  <CheckCircle2 className="h-5 w-5 text-rose-500 shrink-0" />
+                  <p className="text-sm font-medium text-slate-700">Sealed with a countdown until their birthday arrives</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
+        {/* Right Form Container */}
         <div className="w-full">
-          <div className="relative mx-auto w-full max-w-[33rem] sm:max-w-[36rem] lg:max-w-[37rem]">
-            <div className="absolute inset-0 rounded-[2rem] bg-white/18 blur-2xl" />
-            <div className="relative rounded-[2rem] border border-white/30 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,248,253,0.92))] p-8 shadow-[0_32px_110px_rgba(18,18,23,0.24)] backdrop-blur-xl sm:p-10 md:px-12 md:py-11">
-              <div className="mb-8 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm">
-                  <Sparkles className="h-6 w-6" />
+          <div className="relative mx-auto w-full max-w-[28rem] sm:max-w-[32rem]">
+            <div className="relative rounded-[2.5rem] border border-stone-200/80 bg-white p-6 sm:p-9 shadow-2xl text-foreground">
+              {/* Mobile Brand Logo */}
+              <div className="mb-6 flex justify-center lg:hidden">
+                <BrandLogo compact to="/" textClassName="text-xl font-black text-foreground" />
+              </div>
+
+              {/* Segmented Switcher for Login / Signup */}
+              {!resetToken && !forgotMode && (
+                <div className="mb-6 flex rounded-xl bg-muted/60 p-1 border border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => toggleMode(true)}
+                    className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
+                      isLogin
+                        ? 'bg-background text-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleMode(false)}
+                    className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
+                      !isLogin
+                        ? 'bg-background text-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Create Account
+                  </button>
                 </div>
-                <h1 className="mt-5 text-2xl font-bold text-foreground">
-                  {resetToken ? 'Reset your password' : forgotMode ? 'Forgot your password?' : isLogin ? 'Welcome back' : 'Create your account'}
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+              )}
+
+              {/* Card Title */}
+              <div className="mb-6 text-center sm:text-left">
+                <h2 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
                   {resetToken
-                    ? 'Set a new password to continue.'
+                    ? 'Reset Your Password'
                     : forgotMode
-                      ? 'Enter your email and we will send a reset link.'
-                      : isLogin
-                        ? 'Sign in to manage your birthday pages'
-                        : 'Start creating polished birthday surprises'}
+                    ? 'Forgot Password?'
+                    : isLogin
+                    ? 'Welcome Back'
+                    : 'Start Your Canvas'}
+                </h2>
+                <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground">
+                  {resetToken
+                    ? 'Choose a secure new password to continue.'
+                    : forgotMode
+                    ? 'Enter your email and we will send a recovery link.'
+                    : isLogin
+                    ? 'Enter your details to access your celebrations.'
+                    : 'Create your account to start a birthday surprise.'}
                 </p>
               </div>
 
+              {/* Reset Password Form */}
               {resetToken ? (
                 <form onSubmit={handleResetPassword} className="space-y-4">
                   <PasswordField
@@ -341,6 +419,7 @@ const AuthPage = () => {
                     onChange={setPassword}
                     showPassword={showPassword}
                     onToggleVisibility={() => setShowPassword((current) => !current)}
+                    autoComplete="new-password"
                   />
                   <PasswordField
                     id="confirmPassword"
@@ -350,70 +429,87 @@ const AuthPage = () => {
                     showPassword={showConfirmPassword}
                     onToggleVisibility={() => setShowConfirmPassword((current) => !current)}
                     placeholder="Repeat your new password"
+                    autoComplete="new-password"
                   />
 
-                  <Button type="submit" variant="hero" size="lg" className="mt-2 w-full" disabled={resetBusy}>
-                    {resetBusy ? 'Please wait...' : 'Reset Password'}
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="mt-3 w-full rounded-full bg-slate-950 py-6 text-sm font-bold text-white shadow-xl transition-all hover:bg-slate-800 active:scale-98"
+                    disabled={resetBusy}
+                  >
+                    {resetBusy ? 'Updating...' : 'Set New Password'}
                   </Button>
                 </form>
               ) : forgotMode ? (
+                /* Forgot Password Form */
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div>
-                    <Label htmlFor="email" className="text-foreground">
-                      Email
+                    <Label htmlFor="email" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                      Account Email
                     </Label>
-                    <div className="relative mt-2">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <div className="relative mt-1.5">
+                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
                         value={email}
                         onChange={(event) => setEmail(event.target.value)}
                         placeholder="you@example.com"
-                        className="h-12 rounded-xl border-border/80 bg-white pl-10 shadow-sm"
+                        autoComplete="email"
+                        className="h-12 rounded-xl border-border/80 bg-background pl-10 text-sm shadow-xs transition-colors focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                         required
                       />
                     </div>
                   </div>
 
-                  <Button type="submit" variant="hero" size="lg" className="mt-2 w-full" disabled={resetBusy}>
-                    {resetBusy ? 'Please wait...' : 'Send Reset Link'}
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="mt-3 w-full rounded-full bg-slate-950 py-6 text-sm font-bold text-white shadow-xl transition-all hover:bg-slate-800 active:scale-98"
+                    disabled={resetBusy}
+                  >
+                    {resetBusy ? 'Sending...' : 'Send Recovery Link'}
                   </Button>
                 </form>
               ) : (
+                /* Main Login / Signup Form */
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {!isLogin && (
                     <div>
-                      <Label htmlFor="displayName" className="text-foreground">
-                        Display Name
+                      <Label htmlFor="displayName" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                        Your Name
                       </Label>
-                      <div className="relative mt-2">
-                        <User2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <div className="relative mt-1.5">
+                        <User2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           id="displayName"
                           type="text"
                           value={displayName}
                           onChange={(event) => setDisplayName(event.target.value)}
-                          placeholder="Your name"
-                          className="h-12 rounded-xl border-border/80 bg-white pl-10 shadow-sm"
+                          placeholder="e.g. Tobi"
+                          autoComplete="name"
+                          className="h-12 rounded-xl border-border/80 bg-background pl-10 text-sm shadow-xs transition-colors focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                          required
                         />
                       </div>
                     </div>
                   )}
 
                   <div>
-                    <Label htmlFor="email" className="text-foreground">
-                      Email
+                    <Label htmlFor="email" className="text-xs font-bold text-foreground uppercase tracking-wider">
+                      Email Address
                     </Label>
-                    <div className="relative mt-2">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <div className="relative mt-1.5">
+                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
                         value={email}
                         onChange={(event) => setEmail(event.target.value)}
                         placeholder="you@example.com"
-                        className="h-12 rounded-xl border-border/80 bg-white pl-10 shadow-sm"
+                        autoComplete="email"
+                        className="h-12 rounded-xl border-border/80 bg-background pl-10 text-sm shadow-xs transition-colors focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                         required
                       />
                     </div>
@@ -426,23 +522,29 @@ const AuthPage = () => {
                     onChange={setPassword}
                     showPassword={showPassword}
                     onToggleVisibility={() => setShowPassword((current) => !current)}
+                    autoComplete={isLogin ? 'current-password' : 'new-password'}
                   />
 
                   {isLogin && (
-                    <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-gradient-to-r from-muted/30 to-background px-4 py-3 text-sm text-foreground shadow-sm transition-colors hover:border-primary/25">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(event) => setRememberMe(event.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                      />
-                      <span className="leading-snug">
-                        <span className="block font-medium">Remember me</span>
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                          Keep this device signed in a little longer.
-                        </span>
-                      </span>
-                    </label>
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer font-medium text-muted-foreground hover:text-foreground">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(event) => setRememberMe(event.target.checked)}
+                          className="h-4 w-4 rounded border-border text-amber-500 focus:ring-amber-400"
+                        />
+                        <span>Remember this device</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => setForgotMode(true)}
+                        className="font-bold text-amber-600 hover:text-amber-500 transition-colors"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
                   )}
 
                   {!isLogin && (
@@ -454,63 +556,95 @@ const AuthPage = () => {
                       showPassword={showConfirmPassword}
                       onToggleVisibility={() => setShowConfirmPassword((current) => !current)}
                       placeholder="Repeat your password"
+                      autoComplete="new-password"
                     />
                   )}
 
-                  <Button type="submit" variant="hero" size="lg" className="mt-2 w-full" disabled={loading}>
-                    {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="mt-3 w-full rounded-full bg-slate-950 py-6 text-sm font-bold text-white shadow-xl transition-all duration-200 hover:bg-slate-800 active:scale-98"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      'Please wait...'
+                    ) : isLogin ? (
+                      <span className="flex items-center justify-center gap-1.5">
+                        <span>Sign In</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-1.5">
+                        <span>Create Free Account</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </span>
+                    )}
                   </Button>
                 </form>
               )}
 
+              {/* Recovery and switch links */}
               {!resetToken && (
-                <div className="mt-6 text-center text-sm text-muted-foreground">
+                <div className="mt-6 border-t border-border/50 pt-5 text-center text-xs text-muted-foreground">
                   {forgotMode ? (
                     <button
                       onClick={() => setForgotMode(false)}
-                      className="font-medium text-foreground transition-opacity hover:opacity-75"
+                      className="font-bold text-foreground hover:underline"
                       type="button"
                     >
-                      Back to sign in
+                      &larr; Back to sign in
                     </button>
                   ) : (
-                    <>
-                      <button onClick={toggleMode} className="font-medium text-foreground transition-opacity hover:opacity-75" type="button">
-                        {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-                      </button>
-                      {isLogin && (
-                        <div className="mt-3 space-y-3 text-xs">
-                          <div className="flex items-center justify-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setForgotMode(true)}
-                              className="text-foreground/80 transition-opacity hover:opacity-75"
-                            >
-                              Forgot password?
-                            </button>
-                          </div>
+                    <div>
+                      {isLogin ? (
+                        <p>
+                          New to WishCanvas?{' '}
+                          <button
+                            onClick={() => toggleMode(false)}
+                            className="font-bold text-amber-600 hover:underline"
+                            type="button"
+                          >
+                            Create a free canvas
+                          </button>
+                        </p>
+                      ) : (
+                        <p>
+                          Already have an account?{' '}
+                          <button
+                            onClick={() => toggleMode(true)}
+                            className="font-bold text-amber-600 hover:underline"
+                            type="button"
+                          >
+                            Sign in here
+                          </button>
+                        </p>
+                      )}
 
-                          {showVerificationResend && (
-                            <div className="flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-muted/35 px-4 py-3 text-center">
-                              <p className="text-foreground/80">
-                                Your account still needs verification. We can resend the email to {email || 'your inbox'}.
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => void handleResendVerification()}
-                                className="font-medium text-foreground transition-opacity hover:opacity-75"
-                                disabled={verificationBusy}
-                              >
-                                {verificationBusy ? 'Sending...' : 'Resend verification email'}
-                              </button>
-                            </div>
-                          )}
+                      {showVerificationResend && (
+                        <div className="mt-4 flex flex-col items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-center">
+                          <p className="text-amber-900 font-medium">
+                            Your account needs email verification before signing in.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => void handleResendVerification()}
+                            className="font-bold text-amber-700 underline hover:text-amber-800"
+                            disabled={verificationBusy}
+                          >
+                            {verificationBusy ? 'Sending link...' : 'Resend verification link'}
+                          </button>
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               )}
+
+              {/* Bottom security reassurance */}
+              <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground font-medium">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Private & safe &middot; Encrypted connections</span>
+              </div>
             </div>
           </div>
         </div>

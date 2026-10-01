@@ -15,13 +15,12 @@ const CTASection = () => {
 
       <div className="relative mx-auto max-w-5xl text-center text-primary-foreground">
         <div className="inline-block">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg backdrop-blur-md">
-            <Sparkles className="h-3.5 w-3.5 text-amber-200 animate-pulse" />
+          <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-200">
             Make Magic Happen
           </span>
         </div>
 
-        <h2 className="mt-6 text-3xl font-black leading-tight sm:text-5xl md:text-6xl text-white">
+        <h2 className="mt-4 font-playfair text-3xl font-extrabold leading-tight sm:text-5xl md:text-6xl text-white">
           Ready to Make Someone&apos;s Birthday Unforgettable?
         </h2>
 
@@ -33,10 +32,10 @@ const CTASection = () => {
           <Link to={user ? '/create' : '/auth'} className="w-full sm:w-auto">
             <Button
               size="lg"
-              className="group w-full rounded-2xl bg-white px-8 py-6 text-base font-extrabold text-foreground shadow-2xl transition-all duration-300 hover:bg-stone-50 hover:scale-105 active:scale-95 sm:w-auto"
+              className="btn-press group w-full rounded-full bg-white px-9 py-6 text-base font-extrabold text-slate-950 shadow-2xl hover:bg-stone-100 hover:shadow-white/20 sm:w-auto"
             >
               <span>{user ? 'Create a Birthday Page' : 'Start a Birthday Page Free'}</span>
-              <ArrowRight className="h-5 w-5 ml-1.5 transition-transform group-hover:translate-x-1" />
+              <ArrowRight className="h-5 w-5 ml-2 transition-transform duration-200 group-hover:translate-x-1" />
             </Button>
           </Link>
           {user ? (
@@ -44,7 +43,7 @@ const CTASection = () => {
               <Button
                 variant="glass"
                 size="lg"
-                className="w-full rounded-2xl border-white/30 px-7 py-6 text-base font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-white/15 sm:w-auto"
+                className="btn-press w-full rounded-2xl border-white/30 px-7 py-6 text-base font-bold text-white shadow-lg backdrop-blur-md hover:bg-white/15 sm:w-auto"
               >
                 Go to Dashboard
               </Button>
@@ -54,7 +53,7 @@ const CTASection = () => {
               <Button
                 variant="glass"
                 size="lg"
-                className="w-full rounded-2xl border-white/30 px-7 py-6 text-base font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-white/15 sm:w-auto"
+                className="btn-press w-full rounded-2xl border-white/30 px-7 py-6 text-base font-bold text-white shadow-lg backdrop-blur-md hover:bg-white/15 sm:w-auto"
               >
                 Sign In to Existing Account
               </Button>

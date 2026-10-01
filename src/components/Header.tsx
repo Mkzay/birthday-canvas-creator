@@ -72,10 +72,10 @@ const Header = ({ showDashboardLabel = false, sectionLabel, backTo }: HeaderProp
 
         {!navLabel && !backTo && (
           <nav className="hidden lg:flex items-center gap-6 text-sm font-bold text-muted-foreground">
-            <a href="#demo" className="transition-colors hover:text-foreground">Demo</a>
             <a href="#how-it-works" className="transition-colors hover:text-foreground">How It Works</a>
-            <a href="#features" className="transition-colors hover:text-foreground">Features</a>
             <a href="#themes" className="transition-colors hover:text-foreground">Themes</a>
+            <a href="#features" className="transition-colors hover:text-foreground">Features</a>
+            <a href="#pricing" className="transition-colors hover:text-foreground">Pricing</a>
             <a href="#faq" className="transition-colors hover:text-foreground">FAQ</a>
           </nav>
         )}
@@ -110,7 +110,7 @@ const Header = ({ showDashboardLabel = false, sectionLabel, backTo }: HeaderProp
             <div className="flex items-center gap-2.5">
               {!navLabel && !backTo && (
                 <Link to="/create" className="hidden sm:inline-block">
-                  <Button size="sm" className="gradient-cta text-white font-bold text-xs shadow-sm hover:opacity-95">
+                  <Button size="sm" className="btn-press gradient-cta text-white font-bold text-xs shadow-sm hover:opacity-95">
                     + New Page
                   </Button>
                 </Link>
@@ -174,12 +174,12 @@ const Header = ({ showDashboardLabel = false, sectionLabel, backTo }: HeaderProp
           ) : (
             <div className="flex items-center gap-2 sm:gap-3">
               <Link to="/auth">
-                <Button variant="ghost" size="sm" className="px-3 text-xs sm:px-4 sm:text-sm font-semibold hover:bg-black/5">
+                <Button variant="ghost" size="sm" className="btn-press px-3 text-xs sm:px-4 sm:text-sm font-semibold hover:bg-black/5">
                   Sign In
                 </Button>
               </Link>
               <Link to="/auth">
-                <Button size="sm" className="gradient-cta text-white font-bold text-xs sm:text-sm shadow-md hover:opacity-95 rounded-xl px-3 sm:px-4">
+                <Button size="sm" className="btn-press gradient-cta text-white font-bold text-xs sm:text-sm shadow-md hover:opacity-95 rounded-xl px-3 sm:px-4">
                   Start Free
                 </Button>
               </Link>
