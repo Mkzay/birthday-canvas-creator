@@ -45,6 +45,7 @@ import {
   DEFAULT_LETTER_END,
   DEFAULT_LETTER_START,
   displayModes,
+  getEffectiveColors,
   toIsoDatetime,
 } from '@/pages/page-wizard';
 import { builtInThemeMap, visualThemeConfig } from '@/lib/themes';
@@ -341,6 +342,12 @@ const CreatePage = () => {
       }
     }
 
+    if (currentStep === 3) {
+      setPreviewView('envelope');
+    } else if (currentStep === 4) {
+      setPreviewView('card');
+    }
+
     if (currentStep === 4) {
       if (requiresResolvedPoolRecipient && !hasResolvedPoolRecipient) {
         toast.error('Resolve recipient account details before continuing');
@@ -352,6 +359,9 @@ const CreatePage = () => {
   };
 
   const handleBack = () => {
+    if (currentStep === 4) {
+      setPreviewView('card');
+    }
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
@@ -589,6 +599,13 @@ const CreatePage = () => {
   const currentThemeName = (() => {
     if (resolvedCustomTheme) return resolvedCustomTheme.name;
     return builtInThemeMap[selectedTheme]?.name || 'Signature Gold';
+  })();
+
+  const resolvedLetterCustomTheme = findCustomTheme(selectedLetterTheme, customThemes);
+  const letterColors = getEffectiveColors(selectedLetterTheme, letterColor, customThemes);
+  const currentLetterThemeName = (() => {
+    if (resolvedLetterCustomTheme) return resolvedLetterCustomTheme.name;
+    return builtInThemeMap[selectedLetterTheme]?.name || 'Signature Gold';
   })();
 
   const triggerConfettiPop = () => {
@@ -995,15 +1012,20 @@ const CreatePage = () => {
                 ) : (
                   /* PREVIEW VIEW 2: ENVELOPE OPENER */
                   <div className="my-3 flex flex-col items-center justify-center min-h-[440px] bg-stone-50/70 rounded-3xl p-6 border border-stone-200/70">
+                    <div className="flex items-center justify-between w-full max-w-[210px] mb-3 px-1 text-xs">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Envelope Theme</span>
+                      <span className="text-xs font-bold text-slate-800">{currentLetterThemeName}</span>
+                    </div>
                     <OpenerThemePreview
                       mode={selectedDisplayMode}
-                      startColor={previewColors.start}
-                      endColor={previewColors.end}
-                      midColor={previewColors.mid}
+                      startColor={letterColors.start}
+                      endColor={letterColors.end}
+                      midColor={letterColors.mid}
+                      gradientAngle={letterColors.angle}
                       recipientName={recipientName}
                     />
                     <p className="text-[11px] text-stone-500 mt-4 text-center">
-                      Interactive wax-seal envelope shown to {recipientName || 'the celebrant'} on initial arrival.
+                      Interactive wax-seal envelope styled with {currentLetterThemeName}, shown to {recipientName || 'the celebrant'} on arrival.
                     </p>
                   </div>
                 )}
@@ -1272,7 +1294,10 @@ const CreatePage = () => {
                       <div className="max-h-[190px] overflow-y-auto pr-1">
                         <ThemeSelector
                           selectedTheme={selectedTheme}
-                          onSelect={setSelectedTheme}
+                          onSelect={(theme) => {
+                            setSelectedTheme(theme);
+                            setPreviewView('card');
+                          }}
                           customThemes={customThemes}
                           recipientName={recipientName}
                           showPreview={false}
@@ -1315,7 +1340,10 @@ const CreatePage = () => {
                       <div className="max-h-[120px] overflow-y-auto pr-1">
                         <ThemeSelector
                           selectedTheme={selectedLetterTheme}
-                          onSelect={setSelectedLetterTheme}
+                          onSelect={(theme) => {
+                            setSelectedLetterTheme(theme);
+                            setPreviewView('envelope');
+                          }}
                           customThemes={customThemes}
                           recipientName={recipientName}
                           showPreview={false}
