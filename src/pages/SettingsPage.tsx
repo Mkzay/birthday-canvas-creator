@@ -34,6 +34,10 @@ import {
   Trash2,
   KeyRound,
   Mail,
+  Camera,
+  Crown,
+  Sparkles,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
@@ -66,8 +70,15 @@ const SettingsPage = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  const [saving, setSaving] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const isProUser = Boolean(user?.is_pro || profile?.is_pro);
+  const currentDisplayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';
+  const initial = currentDisplayName.charAt(0).toUpperCase();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -92,7 +103,7 @@ const SettingsPage = () => {
   const handleSaveProfile = async () => {
     if (!user) return;
     
-    setSaving(true);
+    setSavingProfile(true);
     try {
       await apiFetch('/auth/profile', {
         method: 'PATCH',
@@ -102,20 +113,44 @@ const SettingsPage = () => {
         }),
       });
       await refreshSession();
-      toast.success('Profile updated successfully');
+      toast.success('Creator profile saved');
     } catch (error) {
       toast.error('Failed to update profile');
       console.error(error);
+    } finally {
+      setSavingProfile(false);
     }
-    setSaving(false);
+  };
+
+  const handleSaveNotifications = async () => {
+    if (!user) return;
+    
+    setSavingNotifications(true);
+    try {
+      await apiFetch('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          emailNotifications,
+          newMessageNotifications,
+          birthdayReminders,
+        }),
+      });
+      await refreshSession();
+      toast.success('Notification preferences saved');
+    } catch (error) {
+      toast.error('Failed to update notification settings');
+      console.error(error);
+    } finally {
+      setSavingNotifications(false);
+    }
   };
 
   const handleSavePreferences = async () => {
     if (!user) return;
-
-    setSaving(true);
+    
+    setSavingPreferences(true);
     try {
-      await apiFetch('/auth/preferences', {
+      await apiFetch('/auth/profile', {
         method: 'PATCH',
         body: JSON.stringify({
           defaultTheme,
@@ -125,35 +160,12 @@ const SettingsPage = () => {
         }),
       });
       await refreshSession();
-      toast.success('Default page settings saved');
+      toast.success('Default canvas settings saved');
     } catch (error) {
-      toast.error('Failed to update default settings');
+      toast.error('Failed to update preferences');
       console.error(error);
     } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveNotifications = async () => {
-    if (!user) return;
-
-    setSaving(true);
-    try {
-      await apiFetch('/auth/notifications', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          emailNotifications,
-          newMessageNotifications,
-          birthdayReminders,
-        }),
-      });
-      await refreshSession();
-      toast.success('Notification settings saved');
-    } catch (error) {
-      toast.error('Failed to update notification settings');
-      console.error(error);
-    } finally {
-      setSaving(false);
+      setSavingPreferences(false);
     }
   };
 
@@ -161,31 +173,27 @@ const SettingsPage = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      event.target.value = '';
-      return;
-    }
-
     if (file.size > 3 * 1024 * 1024) {
-      toast.error('Avatar must be less than 3MB');
-      event.target.value = '';
+      toast.error('Avatar image must be under 3MB');
       return;
     }
 
     setUploadingAvatar(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
-      const data = await apiForm<{ url: string }>('/uploads/avatar', formData);
-      setAvatarUrl(data.url);
-      await apiFetch('/auth/profile', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          displayName,
-          avatarUrl: data.url,
-        }),
+      formData.append('avatar', file);
+
+      const response = await apiForm<{ avatarUrl?: string; avatar_url?: string; success: boolean }>('/auth/avatar', {
+        method: 'POST',
+        body: formData,
       });
+
+      const uploadedUrl = response.avatarUrl || response.avatar_url || '';
+      if (!uploadedUrl) {
+        throw new Error('Avatar URL was not returned by server');
+      }
+
+      setAvatarUrl(uploadedUrl);
       await refreshSession();
       toast.success('Avatar updated');
     } catch (error) {
@@ -208,7 +216,7 @@ const SettingsPage = () => {
       return;
     }
 
-    setSaving(true);
+    setSavingPassword(true);
     try {
       await apiFetch<void>('/auth/password', {
         method: 'PATCH',
@@ -225,8 +233,9 @@ const SettingsPage = () => {
       const message = error instanceof Error ? error.message : 'Failed to change password';
       toast.error(message);
       console.error(error);
+    } finally {
+      setSavingPassword(false);
     }
-    setSaving(false);
   };
 
   const handleDeleteWorkspaceData = async () => {
@@ -238,7 +247,7 @@ const SettingsPage = () => {
         method: 'DELETE',
       });
       await signOut();
-      toast.success('Your account and workspace data were deleted');
+      toast.success('Your account and celebration data were deleted');
       navigate('/auth');
     } catch (error) {
       toast.error('Failed to delete account data');
@@ -252,159 +261,273 @@ const SettingsPage = () => {
     return <WishCanvasLoader />;
   }
 
-  return (
-    <div className="min-h-screen app-shell">
-      <Header backTo={{ label: 'Back', useHistory: true, href: '/dashboard' }} />
+  const avatarSrc = resolveAssetUrl(avatarUrl);
 
-      <main className="max-w-5xl mx-auto px-4 pb-6 pt-24 sm:px-6 sm:pb-8 sm:pt-28 space-y-8">
-        <section className="panel-card p-6 sm:p-8">
-          <span className="eyebrow-chip">Workspace settings</span>
-          <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-4xl">Tune the account behind the surprises</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Profile details, notification preferences, and default page settings all save directly to your account.
-          </p>
+  return (
+    <div className="relative min-h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 overflow-x-hidden">
+      {/* Background Celebratory Glows */}
+      <div className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-amber-200/35 to-rose-200/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 top-40 h-[520px] w-[520px] rounded-full bg-gradient-to-bl from-rose-200/30 to-amber-200/25 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/3 top-2/3 h-[380px] w-[380px] rounded-full bg-amber-100/30 blur-3xl" />
+
+      <Header backTo={{ label: 'Back to Atelier', useHistory: false, href: '/dashboard' }} />
+
+      <main className="relative max-w-4xl mx-auto px-4 pb-16 pt-24 sm:px-6 sm:pb-20 sm:pt-28 space-y-8">
+        
+        {/* Creator Hero Header Card */}
+        <section className="relative overflow-hidden rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-10 shadow-xs">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-to-bl from-amber-300/20 to-rose-300/10 blur-2xl" />
+          
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/80 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900 shadow-xs">
+                <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                <span>Creator Atelier Profile</span>
+              </div>
+              <h1 className="font-serif text-2xl sm:text-4xl font-bold tracking-tight text-slate-950">
+                Personalize your creative space
+              </h1>
+              <p className="max-w-xl text-xs sm:text-sm leading-relaxed text-stone-500">
+                Update your public creator identity, notification triggers, and default milestone canvas preferences.
+              </p>
+            </div>
+
+            {/* Plan Tier Showcase Card */}
+            <div className="shrink-0 p-4 rounded-2xl border border-stone-200/90 bg-stone-50/70 sm:max-w-xs space-y-2.5">
+              <div className="flex items-center gap-2">
+                <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${isProUser ? 'bg-amber-100 text-amber-900' : 'bg-stone-200 text-stone-700'}`}>
+                  <Crown className="h-4 w-4 text-amber-700" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-950">
+                    {isProUser ? 'Pro Atelier Membership' : 'Free Creator Atelier'}
+                  </p>
+                  <p className="text-[10px] text-stone-500">
+                    {isProUser ? 'Unlimited Canvases & Exports' : 'Up to 5 Active Canvases'}
+                  </p>
+                </div>
+              </div>
+
+              {!isProUser ? (
+                <Link to="/billing" className="block">
+                  <Button size="sm" className="w-full h-8 text-xs font-bold rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-xs hover:brightness-105">
+                    Unlock Pro Perks
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/billing" className="block text-[11px] font-semibold text-amber-800 hover:underline">
+                  Manage membership &rarr;
+                </Link>
+              )}
+            </div>
+          </div>
         </section>
 
-        {/* Profile Settings */}
-        <section className="panel-card p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <User className="w-5 h-5 text-primary" />
+        {/* 1. Profile Settings Card */}
+        <section className="rounded-3xl border border-stone-200/90 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-800 border border-amber-200/80">
+              <User className="h-5 w-5 text-amber-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">Profile Settings</h2>
-              <p className="text-sm text-muted-foreground">Manage your personal information</p>
+              <h2 className="font-serif text-lg font-bold text-slate-950">Creator Profile</h2>
+              <p className="text-xs text-stone-500">How you appear to friends, family, and contributors</p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                value={user?.email || ''} 
-                disabled 
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-            </div>
+          <div className="space-y-5">
+            {/* Avatar Section */}
+            <div className="grid gap-2.5">
+              <Label className="text-xs font-bold text-slate-800">Profile Portrait</Label>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-stone-200/80 bg-stone-50/60 p-4">
+                <div className="relative shrink-0">
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt={displayName || 'Avatar'}
+                      className={`h-20 w-20 rounded-full object-cover shadow-xs ${
+                        isProUser ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-white' : 'border-2 border-stone-200'
+                      }`}
+                    />
+                  ) : (
+                    <div
+                      className={`flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-serif text-2xl font-bold shadow-xs ${
+                        isProUser ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-white' : ''
+                      }`}
+                    >
+                      {initial}
+                    </div>
+                  )}
 
-            <div className="grid gap-2">
-              <Label htmlFor="displayName">Display Name</Label>
-              <Input 
-                id="displayName" 
-                value={displayName} 
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Enter your display name"
-              />
-            </div>
-
-            <div className="grid gap-3">
-              <Label>Avatar</Label>
-              <div className="flex items-center gap-4 rounded-2xl border border-border/70 bg-background/70 p-4">
-                <img
-                  src={resolveAssetUrl(avatarUrl) || '/brand-mark.svg'}
-                  alt="Avatar preview"
-                  className="h-16 w-16 rounded-full border-2 border-border object-cover"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">Upload a profile image</p>
-                  <p className="mt-1 text-xs text-muted-foreground">PNG or JPG, up to 3MB.</p>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-700 shadow-sm hover:bg-stone-50 active:scale-95 transition-all"
+                    title="Upload portrait photo"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <Button type="button" variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}>
-                  {uploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {uploadingAvatar ? 'Uploading...' : 'Upload'}
-                </Button>
-                <input ref={avatarInputRef} type="file" accept="image/*,.gif" className="hidden" onChange={handleAvatarSelect} />
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-950">Upload your creator photo</p>
+                  <p className="mt-0.5 text-xs text-stone-500 leading-relaxed">
+                    JPG or PNG under 3MB. Displayed across your celebration canvases and creator dashboard.
+                  </p>
+                  
+                  <div className="mt-2.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={uploadingAvatar}
+                      className="h-8 rounded-xl border-stone-200 bg-white text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                    >
+                      {uploadingAvatar ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                      {uploadingAvatar ? 'Uploading image...' : 'Choose image'}
+                    </Button>
+                  </div>
+                </div>
+
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*,.gif"
+                  className="hidden"
+                  onChange={handleAvatarSelect}
+                />
               </div>
             </div>
 
-            <Button onClick={handleSaveProfile} disabled={saving} className="gap-2">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Profile
+            {/* Display Name Input */}
+            <div className="grid gap-2">
+              <Label htmlFor="displayName" className="text-xs font-bold text-slate-800">
+                Display Name
+              </Label>
+              <Input
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Sarah Jenkins"
+                className="h-10 rounded-xl border-stone-200 bg-white text-xs text-slate-900 placeholder:text-stone-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
+              />
+              <p className="text-[11px] text-stone-500">
+                This name is shown as the celebration host and organizer.
+              </p>
+            </div>
+
+            {/* Email Input */}
+            <div className="grid gap-2">
+              <Label htmlFor="email" className="text-xs font-bold text-slate-800">
+                Account Email
+              </Label>
+              <Input
+                id="email"
+                value={user?.email || ''}
+                disabled
+                className="h-10 rounded-xl border-stone-200 bg-stone-100 text-xs text-stone-500 cursor-not-allowed"
+              />
+              <p className="text-[11px] text-stone-500">
+                Email address is linked to your authentication provider.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleSaveProfile}
+              disabled={savingProfile}
+              className="btn-press rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 text-white font-bold text-xs shadow-md shadow-amber-500/20 gap-2 active:scale-[0.98] transition-all"
+            >
+              {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save Profile Details
             </Button>
           </div>
         </section>
 
-        {/* Notification Preferences */}
-        <section className="panel-card p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-              <Bell className="w-5 h-5 text-amber-600" />
+        {/* 2. Notification Preferences Card */}
+        <section className="rounded-3xl border border-stone-200/90 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-800 border border-amber-200/80">
+              <Bell className="h-5 w-5 text-amber-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">Notification Preferences</h2>
-              <p className="text-sm text-muted-foreground">Control how you receive updates</p>
+              <h2 className="font-serif text-lg font-bold text-slate-950">Notification Preferences</h2>
+              <p className="text-xs text-stone-500">Control when you receive celebration alerts and reminders</p>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-1">
               <div>
-                <p className="font-medium text-foreground">Email Notifications</p>
-                <p className="text-sm text-muted-foreground">Receive updates via email</p>
+                <p className="text-xs font-bold text-slate-950">Email Notifications</p>
+                <p className="text-xs text-stone-500">Receive summary digests and account confirmations</p>
               </div>
-              <Switch 
-                checked={emailNotifications} 
+              <Switch
+                checked={emailNotifications}
                 onCheckedChange={setEmailNotifications}
               />
             </div>
 
-            <Separator />
+            <Separator className="bg-stone-100" />
 
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-1">
               <div>
-                <p className="font-medium text-foreground">New Message Alerts</p>
-                <p className="text-sm text-muted-foreground">Get notified when someone leaves a message</p>
+                <p className="text-xs font-bold text-slate-950">New Wish &amp; Memory Alerts</p>
+                <p className="text-xs text-stone-500">Get notified when a friend leaves a new voice note or photo</p>
               </div>
-              <Switch 
-                checked={newMessageNotifications} 
+              <Switch
+                checked={newMessageNotifications}
                 onCheckedChange={setNewMessageNotifications}
               />
             </div>
 
-            <Separator />
+            <Separator className="bg-stone-100" />
 
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-1">
               <div>
-                <p className="font-medium text-foreground">Birthday Reminders</p>
-                <p className="text-sm text-muted-foreground">Reminders before birthday dates</p>
+                <p className="text-xs font-bold text-slate-950">Birthday Milestone Reminders</p>
+                <p className="text-xs text-stone-500">Receive head-up alerts 3 days and 1 day before celebration dates</p>
               </div>
-              <Switch 
-                checked={birthdayReminders} 
+              <Switch
+                checked={birthdayReminders}
                 onCheckedChange={setBirthdayReminders}
               />
             </div>
-          </div>
 
-          <Button onClick={handleSaveNotifications} disabled={saving} className="mt-4 gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save notification settings
-          </Button>
+            <Button
+              onClick={handleSaveNotifications}
+              disabled={savingNotifications}
+              className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs gap-2 active:scale-[0.98] transition-all"
+            >
+              {savingNotifications ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save Notification Preferences
+            </Button>
+          </div>
         </section>
 
-        {/* Default Page Settings */}
-        <section className="panel-card p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-purple-600" />
+        {/* 3. Default Milestone Canvas Settings Card */}
+        <section className="rounded-3xl border border-stone-200/90 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-800 border border-rose-200/80">
+              <Settings className="h-5 w-5 text-rose-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">Default Page Settings</h2>
-              <p className="text-sm text-muted-foreground">Set defaults for new birthday pages</p>
+              <h2 className="font-serif text-lg font-bold text-slate-950">Default Canvas Settings</h2>
+              <p className="text-xs text-stone-500">Preset preferences applied whenever you craft a new canvas</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="grid gap-2">
-              <Label>Default Theme</Label>
+              <Label className="text-xs font-bold text-slate-800">Default Aesthetic Theme</Label>
               <Select value={defaultTheme} onValueChange={setDefaultTheme}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 rounded-xl border-stone-200 bg-white text-xs text-slate-900">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-2xl border-stone-200 bg-white shadow-xl">
                   {themeOptions.map((theme) => (
-                    <SelectItem key={theme.value} value={theme.value}>
+                    <SelectItem key={theme.value} value={theme.value} className="text-xs rounded-xl">
                       {theme.label}
                     </SelectItem>
                   ))}
@@ -412,163 +535,168 @@ const SettingsPage = () => {
               </Select>
             </div>
 
-            <Separator />
+            <Separator className="bg-stone-100" />
 
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-1">
               <div>
-                <p className="font-medium text-foreground">Allow Photo Uploads</p>
-                <p className="text-sm text-muted-foreground">Let contributors add photos to messages</p>
+                <p className="text-xs font-bold text-slate-950">Allow Photo Uploads</p>
+                <p className="text-xs text-stone-500">Allow guests and family to attach photos to their wishes</p>
               </div>
-              <Switch 
-                checked={defaultAllowPhotos} 
+              <Switch
+                checked={defaultAllowPhotos}
                 onCheckedChange={setDefaultAllowPhotos}
               />
             </div>
 
-            <Separator />
+            <Separator className="bg-stone-100" />
 
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-1">
               <div>
-                <p className="font-medium text-foreground">Allow Audio Wishes</p>
-                <p className="text-sm text-muted-foreground">Let contributors record or upload voice notes</p>
+                <p className="text-xs font-bold text-slate-950">Allow Audio Voice Notes</p>
+                <p className="text-xs text-stone-500">Allow guests to record audio greetings or upload voice messages</p>
               </div>
-              <Switch 
-                checked={defaultAllowAudio} 
+              <Switch
+                checked={defaultAllowAudio}
                 onCheckedChange={setDefaultAllowAudio}
               />
             </div>
 
-            <Separator />
+            <Separator className="bg-stone-100" />
 
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-1">
               <div>
-                <p className="font-medium text-foreground">Require Names</p>
-                <p className="text-sm text-muted-foreground">Contributors must provide their name</p>
+                <p className="text-xs font-bold text-slate-950">Require Contributor Names</p>
+                <p className="text-xs text-stone-500">Contributors must enter their name before pinning a wish</p>
               </div>
-              <Switch 
-                checked={defaultRequireNames} 
+              <Switch
+                checked={defaultRequireNames}
                 onCheckedChange={setDefaultRequireNames}
               />
             </div>
-          </div>
 
-          <Button onClick={handleSavePreferences} disabled={saving} className="mt-4 gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save default settings
-          </Button>
+            <Button
+              onClick={handleSavePreferences}
+              disabled={savingPreferences}
+              className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs gap-2 active:scale-[0.98] transition-all"
+            >
+              {savingPreferences ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save Canvas Defaults
+            </Button>
+          </div>
         </section>
 
-        {/* Account Management */}
-        <section className="panel-card p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-red-600" />
+        {/* 4. Account Security & Password Card */}
+        <section className="rounded-3xl border border-stone-200/90 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-stone-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-800 border border-amber-200/80">
+              <KeyRound className="h-5 w-5 text-amber-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">Account Management</h2>
-              <p className="text-sm text-muted-foreground">Security and account options</p>
+              <h2 className="font-serif text-lg font-bold text-slate-950">Account Security</h2>
+              <p className="text-xs text-stone-500">Update your access password and security credentials</p>
             </div>
           </div>
 
-          {/* Change Password */}
-          <div className="mb-6">
-            <h3 className="font-medium text-foreground flex items-center gap-2 mb-4">
-              <KeyRound className="w-4 h-4" />
-              Change Password
-            </h3>
-            <div className="space-y-3">
-              <Input 
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label className="text-xs font-bold text-slate-800">New Password</Label>
+              <Input
                 type="password"
-                placeholder="New password"
+                placeholder="At least 6 characters"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                className="h-10 rounded-xl border-stone-200 bg-white text-xs text-slate-900 placeholder:text-stone-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
               />
-              <Input 
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="text-xs font-bold text-slate-800">Confirm New Password</Label>
+              <Input
                 type="password"
-                placeholder="Confirm new password"
+                placeholder="Re-enter your new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                className="h-10 rounded-xl border-stone-200 bg-white text-xs text-slate-900 placeholder:text-stone-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15"
               />
-              <Button 
-                variant="outline" 
-                onClick={handleChangePassword}
-                disabled={!newPassword || !confirmPassword || saving}
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Update Password
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Password updates take effect immediately for this account.
-              </p>
             </div>
-          </div>
 
-          <Separator className="my-6" />
-
-          {/* Delete Account */}
-          <div>
-            <h3 className="font-medium text-destructive flex items-center gap-2 mb-2">
-              <Trash2 className="w-4 h-4" />
-              Danger Zone
-            </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                This permanently removes your account, birthday pages, custom themes, messages, and stored photos from WishCanvas.
-              </p>
-            
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="gap-2">
-                  <Trash2 className="w-4 h-4" />
-                  Delete My Data
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete your workspace data?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. It will permanently remove your WishCanvas data, including birthday pages, messages, custom themes, and stored photos.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleDeleteWorkspaceData}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    disabled={deleting}
-                  >
-                    {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Yes, delete my data
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Button
+              variant="outline"
+              onClick={handleChangePassword}
+              disabled={!newPassword || !confirmPassword || savingPassword}
+              className="rounded-xl border-stone-200 bg-white text-xs font-semibold text-slate-900 hover:bg-stone-50"
+            >
+              {savingPassword ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+              Update Password
+            </Button>
           </div>
         </section>
 
-        <section className="panel-card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Mail className="w-5 h-5 text-primary" />
+        {/* 5. Direct Support & Assistance */}
+        <section className="rounded-3xl border border-stone-200/90 bg-white p-6 sm:p-8 shadow-xs">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-800 border border-amber-200/80">
+              <Mail className="h-5 w-5 text-amber-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">Support</h2>
-              <p className="text-sm text-muted-foreground">Get help with billing, account, or birthday page issues</p>
+              <h2 className="font-serif text-lg font-bold text-slate-950">Atelier Support &amp; Concierge</h2>
+              <p className="text-xs text-stone-500">Direct assistance with memberships, audio playback, or features</p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Need a hand? Reach us at{' '}
-              <a
-                href="mailto:hello@wishcanvas.app"
-                className="font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
-              >
-                hello@wishcanvas.app
-              </a>
-              .
-            </p>
+          <div className="rounded-2xl border border-stone-200/80 bg-stone-50/60 p-4 text-xs text-stone-600 leading-relaxed">
+            Need a hand with custom audio or setting up a reveal? Write directly to our team at{' '}
+            <a
+              href="mailto:hello@wishcanvas.app"
+              className="font-bold text-amber-900 underline underline-offset-4 hover:text-rose-600 transition-colors"
+            >
+              hello@wishcanvas.app
+            </a>
+            . We typically respond within a few hours.
           </div>
         </section>
+
+        {/* 6. Danger Zone Card */}
+        <section className="rounded-3xl border border-rose-200/80 bg-rose-50/30 p-6 sm:p-8 shadow-xs space-y-4">
+          <div className="flex items-center gap-2.5 text-rose-700">
+            <Trash2 className="h-5 w-5" />
+            <h3 className="font-serif text-base font-bold">Danger Zone</h3>
+          </div>
+          <p className="text-xs text-stone-600 leading-relaxed max-w-xl">
+            Permanently removes your creator account, created birthday pages, audio recordings, custom themes, and guest memories from WishCanvas.
+          </p>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="rounded-xl text-xs font-bold gap-2">
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete My Account &amp; Canvases
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="rounded-3xl bg-white border border-stone-200 p-6">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="font-serif text-xl font-bold text-slate-950">
+                  Delete your creator account and canvas data?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-xs text-stone-600 leading-relaxed">
+                  This action cannot be undone. It permanently removes your WishCanvas account, active collections, audio wishes, and stored keepsake photos.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="mt-4">
+                <AlertDialogCancel className="rounded-xl text-xs">Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteWorkspaceData}
+                  className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-bold"
+                  disabled={deleting}
+                >
+                  {deleting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  Yes, permanently delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </section>
+
       </main>
     </div>
   );
