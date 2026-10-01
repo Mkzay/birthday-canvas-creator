@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   CalendarDays,
   Crown,
@@ -44,6 +44,12 @@ export function DashboardSidebar({
   onToggleCollapse,
   onCloseMobile,
 }: DashboardSidebarProps) {
+  const location = useLocation();
+  const isDashboard = location.pathname === '/dashboard';
+  const isThemes = location.pathname === '/themes';
+  const isBilling = location.pathname === '/billing' || location.pathname.startsWith('/upgrade');
+  const isSettings = location.pathname === '/settings';
+
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';
   const initial = displayName.charAt(0).toUpperCase();
 
@@ -180,8 +186,13 @@ export function DashboardSidebar({
         {/* Navigation */}
         {isCollapsed && !isMobileDrawer ? (
           <nav className="px-2 space-y-3 text-xs flex flex-col items-center">
-            <div
-              className="h-10 w-10 rounded-xl bg-white border border-stone-200/90 text-slate-950 flex items-center justify-center relative shadow-xs"
+            <Link
+              to="/dashboard"
+              className={`h-10 w-10 rounded-xl flex items-center justify-center relative transition-colors ${
+                isDashboard
+                  ? 'bg-white border border-stone-200/90 text-slate-950 shadow-xs'
+                  : 'text-stone-600 hover:bg-white hover:text-slate-950'
+              }`}
               title={`Celebrations: ${totalPagesCount} total`}
             >
               <CalendarDays className="h-4 w-4 text-amber-700" />
@@ -190,27 +201,33 @@ export function DashboardSidebar({
                   {totalPagesCount}
                 </span>
               )}
-            </div>
+            </Link>
 
-            <div
-              className="h-10 w-10 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 flex items-center justify-center relative transition-colors cursor-pointer"
+            <Link
+              to="/dashboard"
+              className="h-10 w-10 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 flex items-center justify-center relative transition-colors"
               title={`Live Collecting: ${activePagesCount}`}
             >
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            </div>
+            </Link>
 
-            <div
-              className="h-10 w-10 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 flex items-center justify-center relative transition-colors cursor-pointer"
+            <Link
+              to="/dashboard"
+              className="h-10 w-10 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 flex items-center justify-center relative transition-colors"
               title={`Delivered Keepsakes: ${deliveredPagesCount}`}
             >
               <Trophy className="h-4 w-4 text-stone-400" />
-            </div>
+            </Link>
 
             <div className="w-8 h-px bg-stone-200/80 my-1" />
 
             <Link
               to="/themes"
-              className="h-10 w-10 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 flex items-center justify-center transition-colors"
+              className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${
+                isThemes
+                  ? 'bg-white border border-stone-200/90 text-slate-950 shadow-xs'
+                  : 'text-stone-600 hover:bg-white hover:text-slate-950'
+              }`}
               title="Custom Themes"
             >
               <Palette className="h-4 w-4 text-amber-700" />
@@ -218,10 +235,26 @@ export function DashboardSidebar({
 
             <Link
               to="/billing"
-              className="h-10 w-10 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 flex items-center justify-center transition-colors"
+              className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${
+                isBilling
+                  ? 'bg-white border border-stone-200/90 text-slate-950 shadow-xs'
+                  : 'text-stone-600 hover:bg-white hover:text-slate-950'
+              }`}
               title={isProUser ? 'Pro Membership' : 'Upgrade to Pro'}
             >
               <Crown className="h-4 w-4 text-amber-700" />
+            </Link>
+
+            <Link
+              to="/settings"
+              className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${
+                isSettings
+                  ? 'bg-white border border-stone-200/90 text-slate-950 shadow-xs'
+                  : 'text-stone-600 hover:bg-white hover:text-slate-950'
+              }`}
+              title="Studio Settings"
+            >
+              <Settings className="h-4 w-4 text-amber-700" />
             </Link>
           </nav>
         ) : (
@@ -230,7 +263,14 @@ export function DashboardSidebar({
               <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400">
                 Celebrations
               </span>
-              <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs">
+              <Link
+                to="/dashboard"
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all ${
+                  isDashboard
+                    ? 'bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs'
+                    : 'text-stone-600 hover:bg-white hover:text-slate-950 font-medium'
+                }`}
+              >
                 <span className="flex items-center gap-2.5">
                   <CalendarDays className="h-4 w-4 text-amber-700" />
                   <span>Timeline &amp; Pipeline</span>
@@ -238,8 +278,11 @@ export function DashboardSidebar({
                 <span className="text-[11px] font-bold bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200/80">
                   {totalPagesCount}
                 </span>
-              </div>
-              <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-600 font-medium">
+              </Link>
+              <Link
+                to="/dashboard"
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 font-medium transition-all"
+              >
                 <span className="flex items-center gap-2.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Live Collecting</span>
@@ -247,8 +290,11 @@ export function DashboardSidebar({
                 <span className="text-[11px] text-stone-500 font-bold">
                   {activePagesCount}
                 </span>
-              </div>
-              <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-600 font-medium">
+              </Link>
+              <Link
+                to="/dashboard"
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 font-medium transition-all"
+              >
                 <span className="flex items-center gap-2.5">
                   <Trophy className="h-4 w-4 text-stone-400" />
                   <span>Delivered Keepsakes</span>
@@ -256,7 +302,7 @@ export function DashboardSidebar({
                 <span className="text-[11px] text-stone-500 font-bold">
                   {deliveredPagesCount}
                 </span>
-              </div>
+              </Link>
             </div>
 
             {/* Design Tools */}
@@ -266,14 +312,22 @@ export function DashboardSidebar({
               </span>
               <Link
                 to="/themes"
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 font-medium transition-all"
+                className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all ${
+                  isThemes
+                    ? 'bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs'
+                    : 'text-stone-600 hover:bg-white hover:text-slate-950 font-medium'
+                }`}
               >
                 <Palette className="h-4 w-4 text-amber-700" />
                 <span>Custom Themes</span>
               </Link>
               <Link
                 to="/billing"
-                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 font-medium transition-all"
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all ${
+                  isBilling
+                    ? 'bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs'
+                    : 'text-stone-600 hover:bg-white hover:text-slate-950 font-medium'
+                }`}
               >
                 <span className="flex items-center gap-2.5">
                   <Crown className="h-4 w-4 text-amber-700" />
@@ -288,6 +342,17 @@ export function DashboardSidebar({
                     Active
                   </span>
                 )}
+              </Link>
+              <Link
+                to="/settings"
+                className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all ${
+                  isSettings
+                    ? 'bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs'
+                    : 'text-stone-600 hover:bg-white hover:text-slate-950 font-medium'
+                }`}
+              >
+                <Settings className="h-4 w-4 text-amber-700" />
+                <span>Studio Settings</span>
               </Link>
             </div>
           </nav>
