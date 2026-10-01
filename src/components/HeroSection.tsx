@@ -136,7 +136,7 @@ const HeroSection = () => {
               <div className="mb-4 flex items-center justify-between border-b border-stone-200/70 pb-3 text-xs">
                 <div className="flex items-center gap-2 font-bold text-amber-900">
                   <Sparkles className="h-4 w-4 text-amber-600" />
-                  <span>Kemi&apos;s 25th Birthday Canvas</span>
+                  <span>Chi&apos;s 23rd Birthday Canvas</span>
                 </div>
                 <div className="flex items-center gap-1.5 rounded-full bg-amber-100/80 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -153,10 +153,10 @@ const HeroSection = () => {
                 />
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   <span>First Note Off The Board</span>
-                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-slate-600 font-semibold">Organized by Tobi</span>
+                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-slate-600 font-semibold">Organized by Ayo</span>
                 </div>
                 <h3 className="mt-2 font-playfair text-xl sm:text-2xl font-bold text-slate-950">
-                  Happy 25th Birthday, Kemi. ✨
+                  Happy 23rd Birthday, Chi. ✨
                 </h3>
                 <p className="mt-1 text-xs text-slate-600 leading-relaxed">
                   Every note, photo, and voice clip here was gathered to make this feel less like a page and more like a warm room full of friends.
@@ -165,7 +165,7 @@ const HeroSection = () => {
                   <span className="rounded-full bg-stone-100 px-2.5 py-0.5">24 wishes</span>
                   <span className="rounded-full bg-stone-100 px-2.5 py-0.5">12 voice notes</span>
                   <span className="rounded-full bg-stone-100 px-2.5 py-0.5">18 photos</span>
-                  <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5">Reveal Oct 12</span>
+                  <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5">Reveal Apr 1</span>
                 </div>
               </div>
 
@@ -179,14 +179,14 @@ const HeroSection = () => {
 
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-pink-500 text-white font-bold text-[10px]">
-                      AF
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-rose-500 text-white font-bold text-[10px]">
+                      AY
                     </div>
                     <div>
                       <p className="font-extrabold uppercase tracking-wider text-slate-900 text-[11px]">
-                        Auntie Folake
+                        Ayomikun
                       </p>
-                      <p className="text-[10px] text-slate-400 font-medium">London, UK · Family</p>
+                      <p className="text-[10px] text-slate-400 font-medium">Lagos, Nigeria · Best Friend</p>
                     </div>
                   </div>
                   <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600 border border-rose-100">
@@ -195,13 +195,13 @@ const HeroSection = () => {
                 </div>
 
                 <p className="mt-3 text-xs leading-relaxed text-slate-700">
-                  &ldquo;Happy 25th my dearest Kem-Kem! May the good Lord enlarge your coast, grant you peace, and fill your days with boundless laughter and favor!&rdquo;
+                  &ldquo;Happy 23rd birthday to my day one, Chi! From late night gist and surviving Lagos traffic to celebrating every big win together, having you in my corner is a blessing. Keep shining!&rdquo;
                 </p>
 
                 {/* Real Interactive Audio Waveform Player */}
                 <div className="mt-3 rounded-xl border border-amber-200/60 bg-amber-50/80 p-2.5">
                   <div className="flex items-center justify-between text-[10px] font-bold text-amber-900 mb-1.5">
-                    <span>Folake&apos;s Birthday Prayer</span>
+                    <span>Ayomikun&apos;s Birthday Note</span>
                     <span>0:{audioTimer < 10 ? `0${audioTimer}` : audioTimer} / 0:48</span>
                   </div>
 
@@ -290,7 +290,7 @@ const HeroSection = () => {
                       &ldquo;Brothers for life, from Akoka to the world!&rdquo;
                     </p>
                     <p className="text-[10px] text-slate-400 font-semibold mt-1">
-                      Attached by Tobi &amp; Femi
+                      Attached by Ebube &amp; Angel
                     </p>
                   </div>
 

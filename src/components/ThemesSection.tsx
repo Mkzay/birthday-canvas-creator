@@ -18,8 +18,8 @@ const DISPLAY_THEMES = [
     tapeColor: 'bg-amber-300/80',
     accentText: 'text-amber-900',
     swatches: ['#fbbf24', '#f59e0b', '#d97706'],
-    quote: 'Happy 25th birthday Kemi! Having you as a sister is one of life’s greatest blessings.',
-    author: 'Tobi & Femi',
+    quote: 'Happy 23rd birthday Chi! Having you as a sister is one of life’s greatest blessings.',
+    author: 'Ebube & Angel',
     description: 'Warm candlelight, soft champagne parchment, and gold foil accents.',
   },
   {
@@ -36,7 +36,7 @@ const DISPLAY_THEMES = [
     accentText: 'text-rose-900',
     swatches: ['#fb7185', '#f43f5e', '#e11d48'],
     quote: 'May this new milestone chapter bring you endless laughter, peace, and abundance.',
-    author: 'Auntie Folake',
+    author: 'Stephanie',
     description: 'Blush pink, peach candlelight, and warm emotional intimacy.',
   },
   {

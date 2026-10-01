@@ -278,7 +278,7 @@ const HowItWorksSection = () => {
                     >
                       <span className="font-caveat text-sm">Theme active:</span>
                       <h4 className="font-playfair text-xl font-bold mt-1">
-                        Happy Birthday, Kemi!
+                        Happy Birthday, Chi!
                       </h4>
                       <p className="text-xs opacity-75 mt-1">
                         Reveal Date: October 12, 2026 · Sound: Golden Hour (Piano)
@@ -309,17 +309,17 @@ const HowItWorksSection = () => {
                         <span className="text-xs font-bold text-emerald-950">Family &amp; Friends Group</span>
                       </div>
                       <p className="text-xs text-slate-800 leading-relaxed">
-                        &ldquo;Hey everyone! Kemi is turning 25 on Oct 12! Leave your audio voice notes, photos, and birthday blessings on this secret canvas before the midnight reveal! 🎂🤫&rdquo;
+                        &ldquo;Hey everyone! Chi is turning 23 on Oct 12! Leave your audio voice notes, photos, and birthday blessings on this secret canvas before the midnight reveal! 🎂🤫&rdquo;
                       </p>
                       <div className="mt-2.5 inline-block rounded-lg bg-white px-2.5 py-1 text-[11px] font-mono font-bold text-emerald-700 shadow-xs border border-emerald-200">
-                        wishcanvas.app/kemi-25
+                        wishcanvas.app/chi-23
                       </div>
                     </div>
 
                     {/* Copy Link Action Button */}
                     <div className="flex items-center justify-between rounded-xl bg-stone-50 border border-stone-200 p-2.5">
                       <span className="text-xs font-mono text-slate-600 truncate mr-2">
-                        https://wishcanvas.app/kemi-25
+                        https://wishcanvas.app/chi-23
                       </span>
                       <Button
                         size="sm"
@@ -359,23 +359,23 @@ const HowItWorksSection = () => {
                       </span>
                     </div>
 
-                    {/* Card 1: Auntie Folake with voice note */}
+                    {/* Card 1: Stephanie with voice note */}
                     <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-3 shadow-xs">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-900">Auntie Folake (London)</span>
+                        <span className="font-bold text-slate-900">Stephanie (Lagos, Nigeria)</span>
                         <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
                           🎙️ Voice (0:48)
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-slate-600">
-                        &ldquo;May the good Lord enlarge your coast Kem-Kem...&rdquo;
+                        &ldquo;May the good Lord enlarge your coast Chi-Chi...&rdquo;
                       </p>
                     </div>
 
-                    {/* Card 2: Tobi & Femi with photo */}
+                    {/* Card 2: Ebube & Angel with photo */}
                     <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-3 shadow-xs">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-900">Tobi &amp; Femi</span>
+                        <span className="font-bold text-slate-900">Ebube &amp; Angel</span>
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
                           📷 Photo Attached
                         </span>

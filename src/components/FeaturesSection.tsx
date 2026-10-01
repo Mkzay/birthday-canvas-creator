@@ -110,7 +110,7 @@ const FeaturesSection = () => {
                   </div>
                   <div>
                     <p className="font-black text-xs uppercase tracking-wider text-slate-900">
-                      Auntie Folake (London, UK)
+                      Stephanie (Lagos, Nigeria)
                     </p>
                     <p className="text-[11px] text-slate-500 font-medium">Family · Birthday Blessing</p>
                   </div>
@@ -123,7 +123,7 @@ const FeaturesSection = () => {
 
               {/* Heartfelt Wish Quote */}
               <blockquote className="mt-4 font-playfair text-base sm:text-lg leading-relaxed text-slate-800 font-medium">
-                &ldquo;Happy 25th my dearest Kem-Kem! May the good Lord enlarge your coast, grant you peace, and fill your days with boundless laughter and divine favor.&rdquo;
+                &ldquo;Happy 23rd my dearest Chi-Chi! May the good Lord enlarge your coast, grant you peace, and fill your days with boundless laughter and divine favor.&rdquo;
               </blockquote>
 
               {/* Clean, Prominent Audio Player Bar */}
@@ -144,7 +144,7 @@ const FeaturesSection = () => {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between text-xs font-bold text-slate-800 mb-1.5">
-                      <span>Folake&apos;s Birthday Prayer</span>
+                      <span>Stephanie&apos;s Birthday Prayer</span>
                       <span className="font-mono text-[11px] text-slate-500">
                         0:{audioSeconds < 10 ? `0${audioSeconds}` : audioSeconds} / 0:48
                       </span>
@@ -178,7 +178,7 @@ const FeaturesSection = () => {
 
               {/* Bottom Card Context: More contributors preview */}
               <div className="mt-3.5 flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-stone-200/50">
-                <span className="font-medium">Attached to Kemi&apos;s 25th Birthday Canvas</span>
+                <span className="font-medium">Attached to Chi&apos;s 23rd Birthday Canvas</span>
                 <span className="font-caveat text-sm text-amber-800 font-bold">12 more voice notes on board ◡̈</span>
               </div>
             </div>
@@ -374,11 +374,11 @@ const FeaturesSection = () => {
               </div>
 
               <p className="text-slate-700 text-[11px] leading-snug">
-                &ldquo;Drop your voice notes and photos for Kemi here! 🎂&rdquo;
+                &ldquo;Drop your voice notes and photos for Chi here! 🎂&rdquo;
               </p>
 
               <div className="mt-2 flex items-center justify-between pt-2 border-t border-emerald-200/60 text-[10px] font-mono text-emerald-800 font-bold">
-                <span>wishcanvas.app/kemi-25</span>
+                <span>wishcanvas.app/chi-23</span>
                 <span className="text-[10px] font-sans font-bold text-slate-500">100% Mobile Ready</span>
               </div>
             </div>

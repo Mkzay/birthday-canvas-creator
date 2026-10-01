@@ -20,12 +20,12 @@ export interface WrappedStoryModalProps {
 export const WRAPPED_SAMPLE_SLIDES = [
   {
     id: 'slide-1',
-    author: 'Tobi & Femi',
+    author: 'Ebube & Angel',
     relation: 'Best Friends since UNILAG',
     avatar: 'TF',
     avatarGradient: 'from-amber-400 to-orange-500',
     quote:
-      'Happy 25th birthday Kemi! From late night coding jams in Akoka to surviving third mainland bridge traffic together, having you as a brother is one of life’s greatest gifts. Keep winning!',
+      'Happy 23rd birthday Chi! From late night coding jams in Akoka to surviving third mainland bridge traffic together, having you as a brother is one of life’s greatest gifts. Keep winning!',
     photoUrl:
       'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=800&q=80',
     photoCaption: 'Convocation Day ’23 · UNILAG',
@@ -36,15 +36,15 @@ export const WRAPPED_SAMPLE_SLIDES = [
   },
   {
     id: 'slide-2',
-    author: 'Auntie Folake',
-    relation: 'London, UK · Family',
+    author: 'Stephanie',
+    relation: 'Lagos, Nigeria · Family',
     avatar: 'AF',
     avatarGradient: 'from-rose-400 to-pink-500',
     quote:
-      'Happy 25th my dearest Kem-Kem! May the good Lord enlarge your coast, grant you peace, and fill your days with boundless laughter and divine favor. You make all of us so proud.',
+      'Happy 23rd my dearest Chi-Chi! May the good Lord enlarge your coast, grant you peace, and fill your days with boundless laughter and divine favor. You make all of us so proud.',
     photoUrl:
       'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
-    photoCaption: 'Family Sunday Brunch · London',
+    photoCaption: 'Family Sunday Brunch · Lagos, Nigeria',
     hasAudio: true,
     audioDuration: '0:48',
     sticker: '🌹',
@@ -52,8 +52,8 @@ export const WRAPPED_SAMPLE_SLIDES = [
   },
   {
     id: 'slide-3',
-    author: 'David & Sarah',
-    relation: 'Colleagues & Mentors',
+    author: 'Purple',
+    relation: 'Friends',
     avatar: 'DS',
     avatarGradient: 'from-purple-400 to-indigo-500',
     quote:
