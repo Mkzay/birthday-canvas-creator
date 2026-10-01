@@ -8,10 +8,12 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   ArrowLeft,
   Check,
+  Compass,
   Crown,
   Eye,
   Heart,
   Image as ImageIcon,
+  Layers,
   Loader2,
   Lock,
   Palette,
@@ -19,6 +21,7 @@ import {
   RotateCcw,
   Sparkles,
   Trash2,
+  Type,
   X,
 } from 'lucide-react';
 import { BrandMenuIcon } from '@/components/BrandIcons';
@@ -40,6 +43,9 @@ import {
   fontLabelForValue,
   normalizeHex,
 } from '@/pages/theme-builder';
+
+type InspectorTab = 'colors' | 'typography' | 'details';
+type StudioView = 'studio' | 'gallery';
 
 const QUICK_ACCENTS = [
   { label: 'Rose Gold', color: '#f43f5e' },
@@ -76,6 +82,11 @@ const ThemeBuilderPage = () => {
     });
   };
 
+  // Studio View: 'studio' (Split Studio) or 'gallery' (Saved Themes List)
+  const [activeView, setActiveView] = useState<StudioView>('studio');
+  // Inspector Tab inside Studio
+  const [activeTab, setActiveTab] = useState<InspectorTab>('colors');
+
   // Creator statistics
   const [pages, setPages] = useState<BirthdayPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +103,6 @@ const ThemeBuilderPage = () => {
   const [gradientAngle, setGradientAngle] = useState(135);
   const [accentColor, setAccentColor] = useState('#f59e0b');
   const [font, setFont] = useState('playfair');
-  const [showForm, setShowForm] = useState(true);
   const [iconUrl, setIconUrl] = useState<string | null>(null);
 
   const isProPlan = user?.planTier === 'pro' || Boolean(user?.is_pro || profile?.is_pro);
@@ -145,7 +155,7 @@ const ThemeBuilderPage = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setName('');
+    setName('Sunset Serenade');
     setEmoji('🎨');
     setGradientFrom('#f472b6');
     setGradientTo('#8b5cf6');
@@ -154,22 +164,15 @@ const ThemeBuilderPage = () => {
     setAccentColor('#f59e0b');
     setFont('playfair');
     setIconUrl(null);
-    setShowForm(false);
+    setActiveTab('colors');
   };
 
   const startNewTheme = () => {
-    setEditingId(null);
+    resetForm();
     setName('New Keepsake Theme');
     setEmoji('✨');
-    setGradientFrom('#f472b6');
-    setGradientTo('#8b5cf6');
-    setGradientMid('');
-    setGradientAngle(135);
-    setAccentColor('#f59e0b');
-    setFont('playfair');
-    setIconUrl(null);
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setActiveView('studio');
+    setActiveTab('colors');
   };
 
   const handleEdit = (theme: CustomTheme) => {
@@ -180,17 +183,18 @@ const ThemeBuilderPage = () => {
     setGradientTo(theme.gradient_to);
     setGradientMid(theme.gradient_mid || '');
     setGradientAngle(theme.gradient_angle || 135);
-    setAccentColor(theme.accent_color || '');
+    setAccentColor(theme.accent_color || '#f59e0b');
     const normalizedFont = theme.font === 'sans' ? 'jakarta' : theme.font === 'serif' ? 'playfair' : theme.font;
     setFont(normalizedFont || 'jakarta');
     setIconUrl(theme.icon_url || null);
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setActiveView('studio');
+    setActiveTab('colors');
   };
 
   const handleSave = async () => {
     if (!name.trim()) {
       toast.error('Please enter a theme name');
+      setActiveTab('details');
       return;
     }
 
@@ -417,802 +421,732 @@ const ThemeBuilderPage = () => {
           </div>
         </header>
 
-        {/* Mobile Sticky Mini-Preview Dock (Visible on mobile/tablet so user NEVER has to scroll up) */}
-        {showForm && (
-          <div className="lg:hidden sticky top-[57px] z-10 bg-white/95 backdrop-blur-md border-b border-stone-200/90 px-4 py-2.5 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className="h-7 w-7 rounded-lg shadow-2xs shrink-0 flex items-center justify-center text-sm relative overflow-hidden"
-                style={{ background: previewGradient }}
-              >
-                {iconUrl ? (
-                  <img src={iconUrl} alt="seal" className="h-full w-full object-cover" />
-                ) : (
-                  <span>{emoji}</span>
-                )}
-                {accentColor && (
-                  <div
-                    className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full border border-white"
-                    style={{ backgroundColor: accentColor }}
-                  />
-                )}
-              </div>
-              <div className="truncate">
-                <p className={cn('text-xs font-bold text-slate-950 truncate', fontClassForValue(font))}>
-                  {name || 'Theme Preview'}
-                </p>
-                <p className="text-[10px] text-stone-500">
-                  Live Preview: {fontLabelForValue(font)} • {gradientAngle}°
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                document.getElementById('live-preview-card')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="text-[11px] font-bold text-amber-800 hover:text-amber-900 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 shrink-0"
-            >
-              View Canvas
-            </button>
-          </div>
-        )}
-
-        {/* Main Workbench Content */}
-        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-7 max-w-7xl w-full mx-auto">
+        {/* Main Workbench Body */}
+        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-6 max-w-7xl w-full mx-auto">
           
-          {/* Creator Greeting & Context Bar */}
+          {/* Creator Greeting & Mode Switcher Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
-                  Bespoke Theme Studio <span className="italic text-rose-500">&amp; Color Lab</span>
+                  Theme Studio <span className="italic text-rose-500">&amp; Color Lab</span>
                 </h1>
-                <span className="font-handwriting text-xl text-amber-800">artisan palettes</span>
+                <span className="font-handwriting text-xl text-amber-800">interactive atelier</span>
               </div>
-              <p className="mt-1 text-xs sm:text-sm text-stone-500 max-w-2xl leading-relaxed">
-                Design signature gradient atmospheres, curated typography, and customized seals for your celebration canvases.
+              <p className="mt-1 text-xs sm:text-sm text-stone-500 max-w-xl leading-relaxed">
+                Design signature gradient atmospheres and test them live against an authentic celebration card.
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
-              <Link to="/dashboard">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 rounded-2xl border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 shadow-xs"
+            {/* Mode Switcher Pills (Studio Workbench vs Saved Palettes) */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center p-1 bg-stone-200/70 rounded-2xl border border-stone-300/60 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setActiveView('studio')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    activeView === 'studio'
+                      ? 'bg-white text-slate-950 shadow-xs'
+                      : 'text-stone-600 hover:text-slate-950'
+                  }`}
                 >
-                  <ArrowLeft className="h-3.5 w-3.5 text-stone-500" />
-                  Return to Timeline
-                </Button>
-              </Link>
-              {!showForm ? (
+                  <Palette className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Studio Workbench</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveView('gallery')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    activeView === 'gallery'
+                      ? 'bg-white text-slate-950 shadow-xs'
+                      : 'text-stone-600 hover:text-slate-950'
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Saved Palettes ({themes.length})</span>
+                </button>
+              </div>
+
+              <Link to="/create">
                 <Button
                   size="sm"
-                  onClick={startNewTheme}
-                  disabled={isFreeThemeLimitReached}
                   className="btn-press gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/20 hover:brightness-105 active:scale-[0.98] transition-all"
                 >
-                  <Plus className="h-4 w-4 text-amber-100" />
-                  Craft New Theme
+                  <Sparkles className="h-4 w-4 text-amber-100" />
+                  Craft Canvas
                 </Button>
-              ) : (
-                <Link to="/create">
-                  <Button
-                    size="sm"
-                    className="btn-press gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/20 hover:brightness-105 active:scale-[0.98] transition-all"
-                  >
-                    <Sparkles className="h-4 w-4 text-amber-100" />
-                    Craft Canvas
-                  </Button>
-                </Link>
-              )}
+              </Link>
             </div>
           </div>
 
-          {/* Tier Limit Reminder Banner (if approaching free cap) */}
-          {!isProPlan && (
-            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/70 p-4 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs">
-              <div className="flex items-center gap-2.5 text-amber-950 font-medium">
-                <Crown className="h-4 w-4 text-amber-700 shrink-0" />
-                <span>
-                  Free Creator tier includes up to {FREE_THEME_LIMIT} custom themes ({themes.length} crafted). Upgrade to Pro Atelier for unlimited themes, midpoint gradients, and premium Google fonts.
-                </span>
-              </div>
-              <Link to="/billing" className="shrink-0">
-                <Button size="sm" variant="outline" className="rounded-xl border-amber-300 bg-white font-bold text-xs text-amber-900 hover:bg-amber-100/60 shadow-xs h-8 px-3">
-                  Upgrade to Pro
-                </Button>
-              </Link>
-            </div>
-          )}
-
-          {/* 2-COLUMN ARTISAN WORKBENCH */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            {/* LEFT COLUMN: THEME PALETTE CONTROLS (7 Cols on LG) */}
-            <div className="lg:col-span-7 space-y-6">
+          {/* VIEW 1: ZERO-SCROLL SPLIT STUDIO (Canvas on Left, Tabbed Inspector on Right) */}
+          {activeView === 'studio' && (
+            <div className="space-y-6">
               
-              {showForm ? (
-                <div className="relative overflow-hidden rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-8 shadow-card space-y-8">
-                  <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-amber-500/10 blur-2xl" />
-
-                  {/* Form Header */}
-                  <div className="flex items-center justify-between border-b border-stone-100 pb-5">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                        {editingId ? 'Refining Palette' : 'New Theme Creation'}
-                      </span>
-                      <h3 className="font-serif text-2xl font-bold tracking-tight text-slate-950 mt-0.5">
-                        {editingId ? `Edit: ${name || 'Theme'}` : 'Craft Custom Atmosphere'}
-                      </h3>
-                    </div>
-                    {editingId && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={resetForm}
-                        className="rounded-xl text-stone-500 hover:text-slate-950 text-xs gap-1"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        <span>Cancel Edit</span>
-                      </Button>
-                    )}
+              {/* Pro / Limit Notice Pill */}
+              {!isProPlan && (
+                <div className="rounded-2xl border border-amber-200/80 bg-amber-50/70 px-4 py-2.5 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2 text-amber-950 font-medium">
+                    <Crown className="h-4 w-4 text-amber-700 shrink-0" />
+                    <span>
+                      Free Creator Tier: {themes.length} of {FREE_THEME_LIMIT} custom themes used. Upgrade to Pro Atelier for unlimited themes and midpoint gradients.
+                    </span>
                   </div>
-
-                  <div className="space-y-6">
-                    {/* Theme Name & Emoji Seal */}
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-                      <div className="sm:col-span-8 space-y-2">
-                        <Label htmlFor="theme-name" className="text-xs font-bold text-slate-900">
-                          Theme Name
-                        </Label>
-                        <Input
-                          id="theme-name"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          placeholder="e.g. Midnight Velvet, Royal Amber"
-                          className="rounded-xl border-stone-200 bg-stone-50/50 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-200/40 text-xs sm:text-sm font-medium"
-                          maxLength={32}
-                        />
-                      </div>
-
-                      <div className="sm:col-span-4 space-y-2">
-                        <Label className="text-xs font-bold text-slate-900">
-                          Active Seal
-                        </Label>
-                        <div className="h-10 rounded-xl border border-stone-200 bg-stone-50/50 flex items-center justify-center text-xl shadow-2xs">
-                          {emoji}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Emoji Seal Picker */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold text-stone-600">
-                        Choose Celebratory Seal Emoji
-                      </Label>
-                      <div className="flex flex-wrap gap-1.5 p-2 rounded-2xl bg-stone-50 border border-stone-200/80">
-                        {EMOJI_OPTIONS.map((e) => (
-                          <button
-                            key={e}
-                            type="button"
-                            onClick={() => setEmoji(e)}
-                            className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition-all ${
-                              emoji === e
-                                ? 'bg-white border-2 border-amber-500 shadow-xs scale-105'
-                                : 'hover:bg-white/80 text-stone-700'
-                            }`}
-                          >
-                            {e}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Gradient Lab */}
-                    <div className="space-y-3 pt-2 border-t border-stone-100">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-bold text-slate-900">
-                          Gradient Color Palette
-                        </Label>
-                        {!gradientMid && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (!isProPlan) {
-                                toast.error('Midpoint color gradients are unlocked on Pro Atelier.');
-                                return;
-                              }
-                              setGradientMid('#a855f7');
-                            }}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 hover:text-amber-900"
-                          >
-                            {!isProPlan && <Lock className="h-3 w-3 text-amber-700" />}
-                            <span>+ Add Midpoint Color</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className={`grid gap-3 ${gradientMid ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
-                        {/* Start Color */}
-                        <div className="p-3 rounded-2xl border border-stone-200 bg-stone-50/50 space-y-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                            1. Start Color
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={normalizeHex(gradientFrom) || '#f472b6'}
-                              onChange={(e) => setGradientFrom(normalizeHex(e.target.value))}
-                              className="h-9 w-9 rounded-xl cursor-pointer border border-stone-300 p-0.5 bg-white shadow-2xs"
-                            />
-                            <Input
-                              value={gradientFrom}
-                              onChange={(e) => setGradientFrom(normalizeHex(e.target.value))}
-                              className="font-mono text-xs uppercase h-9 rounded-xl border-stone-200"
-                              maxLength={7}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Midpoint Color (Optional/Pro) */}
-                        {gradientMid && (
-                          <div className="p-3 rounded-2xl border border-amber-200 bg-amber-50/40 space-y-1.5 relative">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900">
-                                2. Midpoint
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setGradientMid('')}
-                                className="text-[10px] font-bold text-stone-400 hover:text-rose-600"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={normalizeHex(gradientMid) || '#ffffff'}
-                                onChange={(e) => setGradientMid(normalizeHex(e.target.value))}
-                                className="h-9 w-9 rounded-xl cursor-pointer border border-stone-300 p-0.5 bg-white shadow-2xs"
-                              />
-                              <Input
-                                value={gradientMid}
-                                onChange={(e) => setGradientMid(normalizeHex(e.target.value))}
-                                className="font-mono text-xs uppercase h-9 rounded-xl border-stone-200"
-                                maxLength={7}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* End Color */}
-                        <div className="p-3 rounded-2xl border border-stone-200 bg-stone-50/50 space-y-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                            {gradientMid ? '3. End Color' : '2. End Color'}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="color"
-                              value={normalizeHex(gradientTo) || '#8b5cf6'}
-                              onChange={(e) => setGradientTo(normalizeHex(e.target.value))}
-                              className="h-9 w-9 rounded-xl cursor-pointer border border-stone-300 p-0.5 bg-white shadow-2xs"
-                            />
-                            <Input
-                              value={gradientTo}
-                              onChange={(e) => setGradientTo(normalizeHex(e.target.value))}
-                              className="font-mono text-xs uppercase h-9 rounded-xl border-stone-200"
-                              maxLength={7}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Gradient Angle Direction */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold text-slate-900">
-                        Gradient Angle Direction ({gradientAngle}°)
-                      </Label>
-                      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                        {ANGLE_OPTIONS.map((a) => (
-                          <button
-                            key={a.value}
-                            type="button"
-                            onClick={() => setGradientAngle(a.value)}
-                            className={`h-10 rounded-xl text-xs font-bold flex flex-col items-center justify-center transition-all ${
-                              gradientAngle === a.value
-                                ? 'bg-slate-950 text-white shadow-xs scale-105'
-                                : 'bg-stone-50 border border-stone-200 hover:bg-stone-100 text-stone-700'
-                            }`}
-                          >
-                            <span className="text-sm leading-none">{a.label}</span>
-                            <span className="text-[9px] opacity-75">{a.value}°</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Accent Color Selection with Quick Presets */}
-                    <div className="space-y-2 pt-2 border-t border-stone-100">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-xs font-bold text-slate-900">
-                            Accent Color (Buttons &amp; Highlights)
-                          </Label>
-                          <p className="text-[11px] text-stone-400">
-                            Tint for interactive buttons, audio visualizers, and keepsake seals.
-                          </p>
-                        </div>
-                        {accentColor && (
-                          <button
-                            type="button"
-                            onClick={() => setAccentColor('')}
-                            className="text-[11px] font-bold text-stone-400 hover:text-stone-700"
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        <div className="flex items-center gap-2 mr-2">
-                          <input
-                            type="color"
-                            value={normalizeHex(accentColor || '#f59e0b')}
-                            onChange={(e) => setAccentColor(normalizeHex(e.target.value))}
-                            className="h-8 w-8 rounded-xl cursor-pointer border border-stone-300 p-0.5 bg-white shadow-2xs"
-                          />
-                          <Input
-                            value={accentColor}
-                            onChange={(e) => setAccentColor(normalizeHex(e.target.value))}
-                            placeholder="#f59e0b"
-                            className="w-24 font-mono text-xs uppercase h-8 rounded-xl border-stone-200"
-                            maxLength={7}
-                          />
-                        </div>
-
-                        {QUICK_ACCENTS.map((preset) => (
-                          <button
-                            key={preset.color}
-                            type="button"
-                            onClick={() => setAccentColor(preset.color)}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-medium border transition-all ${
-                              accentColor.toLowerCase() === preset.color.toLowerCase()
-                                ? 'border-slate-950 bg-stone-100 text-slate-950 font-bold'
-                                : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-                            }`}
-                          >
-                            <span
-                              className="h-2.5 w-2.5 rounded-full"
-                              style={{ backgroundColor: preset.color }}
-                            />
-                            <span>{preset.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Font Typography Style */}
-                    <div className="space-y-2 pt-2 border-t border-stone-100">
-                      <Label className="text-xs font-bold text-slate-900">
-                        Keepsake Typography &amp; Font Family
-                      </Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                        {FONT_OPTIONS.map((f) => {
-                          const isPremiumFont = PREMIUM_THEME_FONTS.has(f.value);
-                          const isLocked = !isProPlan && isPremiumFont;
-
-                          return (
-                            <button
-                              key={f.value}
-                              type="button"
-                              onClick={() => {
-                                if (isLocked) {
-                                  toast.error('This font is included in Pro Atelier.');
-                                  return;
-                                }
-                                setFont(f.value);
-                              }}
-                              className={`p-3 rounded-2xl border text-left transition-all relative ${
-                                isLocked ? 'opacity-60 bg-stone-50 cursor-not-allowed' : ''
-                              } ${
-                                font === f.value
-                                  ? 'border-amber-500 bg-amber-50/50 shadow-2xs ring-2 ring-amber-400/20'
-                                  : 'border-stone-200 bg-stone-50/30 hover:bg-stone-50 hover:border-stone-300'
-                              }`}
-                              disabled={isLocked}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[11px] font-bold text-stone-600">
-                                  {f.label}
-                                </span>
-                                {isLocked && (
-                                  <span className="flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-md">
-                                    <Lock className="h-3 w-3" />
-                                    PRO
-                                  </span>
-                                )}
-                                {font === f.value && (
-                                  <span className="h-4 w-4 rounded-full bg-amber-500 text-white flex items-center justify-center">
-                                    <Check className="h-2.5 w-2.5 stroke-[3]" />
-                                  </span>
-                                )}
-                              </div>
-                              <span className={cn('block text-base font-bold text-slate-950', f.className)}>
-                                {f.sample}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Pro Custom Seal Icon Upload */}
-                    <div className="pt-2 border-t border-stone-100 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-xs font-bold text-slate-900">
-                            Custom Emblem or Seal Image (Optional)
-                          </Label>
-                          <p className="text-[11px] text-stone-400">
-                            Replaces the default emoji seal with your uploaded monogram or family crest.
-                          </p>
-                        </div>
-                        {!isProPlan && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                            <Crown className="h-3 w-3" />
-                            PRO
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3 pt-1">
-                        <div className="relative h-12 w-12 rounded-2xl border border-stone-200 bg-stone-50 flex items-center justify-center shadow-2xs overflow-hidden">
-                          {iconUrl ? (
-                            <img src={iconUrl} alt="Seal icon" className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="text-2xl">{emoji}</span>
-                          )}
-                        </div>
-
-                        <input
-                          id="theme-icon-file"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleIconFileChange}
-                          disabled={!isProPlan}
-                        />
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl border-stone-200 text-xs font-semibold gap-1.5"
-                          onClick={() => document.getElementById('theme-icon-file')?.click()}
-                          disabled={!isProPlan}
-                        >
-                          <ImageIcon className="h-3.5 w-3.5 text-stone-500" />
-                          <span>{iconUrl ? 'Change Emblem' : 'Upload Custom Emblem'}</span>
-                        </Button>
-
-                        {iconUrl && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs gap-1"
-                            onClick={() => setIconUrl(null)}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            <span>Remove</span>
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* Actions Bar */}
-                  <div className="pt-4 border-t border-stone-100 flex items-center justify-between gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={resetForm}
-                      className="rounded-2xl border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-50 px-5"
-                    >
-                      Reset
+                  <Link to="/billing" className="shrink-0">
+                    <Button size="sm" variant="outline" className="rounded-xl border-amber-300 bg-white font-bold text-[11px] text-amber-900 hover:bg-amber-100/60 shadow-xs h-7 px-2.5">
+                      Upgrade to Pro
                     </Button>
-                    <Button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="btn-press rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-6 py-2.5 shadow-md shadow-amber-500/25 flex items-center gap-2"
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin text-white" />
-                          <span>Saving Palette...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4 text-amber-100" />
-                          <span>{editingId ? 'Update Theme' : 'Save Custom Theme'}</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-[2.5rem] border border-dashed border-stone-300 p-8 text-center bg-white/70 space-y-4 shadow-xs">
-                  <div className="h-16 w-16 rounded-3xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto text-3xl shadow-xs">
-                    🎨
-                  </div>
-                  <div>
-                    <h3 className="font-serif text-xl font-bold text-slate-950">
-                      Craft a New Signature Palette
-                    </h3>
-                    <p className="text-xs text-stone-500 max-w-md mx-auto mt-1">
-                      Pick your own gradient flow, typography, and accent colors to give celebrations a tailored aesthetic.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={startNewTheme}
-                    disabled={isFreeThemeLimitReached}
-                    className="btn-press rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-6 py-2.5 shadow-card gap-2"
-                  >
-                    <Plus className="h-4 w-4 text-amber-400" />
-                    <span>Open Theme Creator</span>
-                  </Button>
+                  </Link>
                 </div>
               )}
 
-            </div>
-
-            {/* RIGHT COLUMN: PURE STICKY LIVE SIMULATION CANVAS STAGE (5 Cols on LG - LOCKED IN VIEW) */}
-            <div className="lg:col-span-5">
-              <div id="live-preview-card" className="lg:sticky lg:top-20 space-y-4">
+              {/* The Split Screen Container */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                 
-                <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card space-y-4">
-                  <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                      <Eye className="h-3.5 w-3.5 text-amber-600" />
-                      Live Canvas Simulation
-                    </span>
-                    <span className="text-[11px] font-serif italic text-stone-500">
-                      real-time preview
-                    </span>
-                  </div>
+                {/* LEFT: THE LIVE CELEBRATION CANVAS STAGE (6 Cols on LG) */}
+                <div className="lg:col-span-6 rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-card flex flex-col justify-between relative overflow-hidden">
+                  <div className="pointer-events-none absolute -left-16 -top-16 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
 
-                  {/* Simulated Birthday Keepsake Card */}
-                  <div
-                    className="rounded-3xl p-5 sm:p-6 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[300px] flex flex-col justify-between"
-                    style={{ background: previewGradient }}
-                  >
-                    {/* Subtle top glare */}
-                    <div className="pointer-events-none absolute -top-12 -left-12 h-36 w-36 rounded-full bg-white/20 blur-xl" />
-
-                    {/* Header with seal */}
-                    <div className="flex items-center justify-between relative z-10">
-                      <div className="h-10 w-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-md">
-                        {iconUrl ? (
-                          <img src={iconUrl} alt="Theme seal" className="h-full w-full object-cover rounded-2xl" />
-                        ) : (
-                          <span className="text-xl">{emoji}</span>
-                        )}
-                      </div>
-                      <span className="rounded-full bg-black/25 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/90 border border-white/20">
-                        Celebration Canvas
+                  {/* Stage Top Bar */}
+                  <div className="flex items-center justify-between border-b border-stone-100 pb-3 relative z-10">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
+                        <Eye className="h-3.5 w-3.5 text-amber-600" />
+                        Live Canvas Stage
                       </span>
                     </div>
 
-                    {/* Sample celebrant headline */}
-                    <div className="my-5 relative z-10 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono text-stone-500 bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-lg">
+                        {gradientAngle}°
+                      </span>
+                      <span className="text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                        {fontLabelForValue(font)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* The Simulated Celebration Canvas Card */}
+                  <div
+                    className="my-5 rounded-3xl p-6 sm:p-7 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[340px] flex flex-col justify-between relative"
+                    style={{ background: previewGradient }}
+                  >
+                    {/* Subtle top ambient sheen */}
+                    <div className="pointer-events-none absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/20 blur-xl" />
+
+                    {/* Canvas Card Header */}
+                    <div className="flex items-center justify-between relative z-10">
+                      <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-md">
+                        {iconUrl ? (
+                          <img src={iconUrl} alt="Emblem" className="h-full w-full object-cover rounded-2xl" />
+                        ) : (
+                          <span className="text-2xl">{emoji}</span>
+                        )}
+                      </div>
+                      <span className="rounded-full bg-black/25 backdrop-blur-md px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white/95 border border-white/20">
+                        Celebration Keepsake
+                      </span>
+                    </div>
+
+                    {/* Celebrant Headline & Note */}
+                    <div className="my-4 relative z-10 space-y-2">
                       <p className="text-[10px] uppercase tracking-widest text-white/80 font-medium">
-                        Milestone Keepsake
+                        Milestone Reveal
                       </p>
-                      <h3 className={cn('text-xl sm:text-2xl font-bold leading-tight drop-shadow-md text-white', fontClassForValue(font))}>
+                      <h2 className={cn('text-2xl sm:text-3xl font-bold leading-tight drop-shadow-md text-white', fontClassForValue(font))}>
                         Happy 30th Birthday, Chi!
-                      </h3>
-                      <p className="text-[11px] text-white/90 leading-relaxed max-w-xs drop-shadow-sm font-sans">
-                        May your year be filled with immense warmth, laughter, and endless adventure.
+                      </h2>
+                      <p className="text-xs text-white/90 leading-relaxed max-w-sm drop-shadow-sm font-sans">
+                        May your new decade be painted with immense laughter, gentle peace, and extraordinary memories.
                       </p>
                     </div>
 
-                    {/* Sample Interactive Button & Pill with Accent */}
-                    <div className="relative z-10 pt-3 border-t border-white/25 flex items-center justify-between">
+                    {/* Interactive Accent Pill & Sign Button */}
+                    <div className="relative z-10 pt-4 border-t border-white/25 flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-xs text-white/90 font-medium">
                         <Heart className="h-3.5 w-3.5 fill-white" />
-                        <span>28 Heartfelt Wishes</span>
+                        <span>32 Wishes Pinned</span>
                       </div>
 
                       <button
                         type="button"
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow-md transition-transform active:scale-95 flex items-center gap-1.5"
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md transition-transform active:scale-95 flex items-center gap-1.5"
                         style={{
                           backgroundColor: accentColor || '#f59e0b',
                           boxShadow: `0 4px 14px ${accentColor || '#f59e0b'}55`,
                         }}
                       >
-                        <Sparkles className="h-3 w-3" />
-                        <span>Sign Canvas</span>
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>Leave a Note</span>
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
-                    <span className="truncate">Font: <strong>{fontLabelForValue(font)}</strong></span>
-                    <span className="truncate">Angle: <strong>{gradientAngle}°</strong></span>
+                  {/* Stage Bottom Summary Pills */}
+                  <div className="flex items-center justify-between pt-2 text-[11px] text-stone-500 border-t border-stone-100 relative z-10">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-950">{name || 'Custom Theme'}</span>
+                      <span className="h-1 w-1 rounded-full bg-stone-300" />
+                      <span>{editingId ? 'Refining Saved Theme' : 'New Palette Draft'}</span>
+                    </div>
+                    <span className="italic font-serif text-amber-800">
+                      updates in real-time
+                    </span>
                   </div>
                 </div>
 
-                {/* Quick Save Action Pill pinned below preview */}
-                {showForm && (
-                  <div className="rounded-2xl border border-stone-200/80 bg-white/90 backdrop-blur-xs p-3 flex items-center justify-between gap-3 shadow-xs">
-                    <div className="flex items-center gap-2 truncate">
-                      <div
-                        className="h-4 w-4 rounded-full border border-stone-300 shrink-0"
-                        style={{ background: previewGradient }}
-                      />
-                      <span className="text-xs font-bold text-slate-950 truncate">
-                        {name || 'Untitled Theme'}
-                      </span>
+                {/* RIGHT: COMPACT TABBED INSPECTOR (6 Cols on LG - ZERO SCROLLING) */}
+                <div className="lg:col-span-6 rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-card flex flex-col justify-between relative overflow-hidden">
+                  <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-rose-500/10 blur-2xl" />
+
+                  <div className="space-y-5">
+                    {/* Theme Identity Header */}
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                      <div className="flex items-center gap-2.5 flex-1 mr-3">
+                        <div className="h-9 w-9 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-center text-lg shadow-2xs shrink-0">
+                          {emoji}
+                        </div>
+                        <Input
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="Name your theme..."
+                          className="font-serif font-bold text-base sm:text-lg border-0 bg-transparent p-0 h-auto focus-visible:ring-0 focus-visible:border-b focus-visible:border-amber-400 rounded-none text-slate-950 placeholder:text-stone-400"
+                          maxLength={32}
+                        />
+                      </div>
+
+                      {editingId && (
+                        <button
+                          type="button"
+                          onClick={resetForm}
+                          className="text-[11px] font-semibold text-stone-500 hover:text-slate-950 flex items-center gap-1 shrink-0"
+                          title="Reset to new draft"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          <span>Reset</span>
+                        </button>
+                      )}
                     </div>
 
+                    {/* Segmented Inspector Tab Buttons */}
+                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-stone-100/80 rounded-2xl border border-stone-200/80">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('colors')}
+                        className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          activeTab === 'colors'
+                            ? 'bg-white text-slate-950 shadow-xs'
+                            : 'text-stone-600 hover:text-slate-950'
+                        }`}
+                      >
+                        <Palette className="h-3.5 w-3.5 text-amber-600" />
+                        <span>Colors</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('typography')}
+                        className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          activeTab === 'typography'
+                            ? 'bg-white text-slate-950 shadow-xs'
+                            : 'text-stone-600 hover:text-slate-950'
+                        }`}
+                      >
+                        <Type className="h-3.5 w-3.5 text-amber-600" />
+                        <span>Typography</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('details')}
+                        className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          activeTab === 'details'
+                            ? 'bg-white text-slate-950 shadow-xs'
+                            : 'text-stone-600 hover:text-slate-950'
+                        }`}
+                      >
+                        <Compass className="h-3.5 w-3.5 text-amber-600" />
+                        <span>Emblem &amp; Angle</span>
+                      </button>
+                    </div>
+
+                    {/* TAB 1: COLORS & ATMOSPHERE */}
+                    {activeTab === 'colors' && (
+                      <div className="space-y-4 animate-fade-in">
+                        {/* 3 Color Pickers */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold text-slate-900">
+                              Gradient Palette
+                            </Label>
+                            {!gradientMid && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!isProPlan) {
+                                    toast.error('Midpoint gradients are available on Pro Atelier.');
+                                    return;
+                                  }
+                                  setGradientMid('#a855f7');
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 hover:text-amber-900"
+                              >
+                                {!isProPlan && <Lock className="h-3 w-3 text-amber-700" />}
+                                <span>+ Add Midpoint</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className={`grid gap-2.5 ${gradientMid ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                            {/* Start */}
+                            <div className="p-2.5 rounded-2xl border border-stone-200 bg-stone-50/50 space-y-1">
+                              <span className="text-[10px] font-bold uppercase text-stone-500">Start</span>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="color"
+                                  value={normalizeHex(gradientFrom) || '#f472b6'}
+                                  onChange={(e) => setGradientFrom(normalizeHex(e.target.value))}
+                                  className="h-8 w-8 rounded-lg cursor-pointer border border-stone-300 p-0.5 bg-white shadow-2xs"
+                                />
+                                <Input
+                                  value={gradientFrom}
+                                  onChange={(e) => setGradientFrom(normalizeHex(e.target.value))}
+                                  className="font-mono text-xs uppercase h-8 rounded-lg border-stone-200 px-2"
+                                  maxLength={7}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Midpoint */}
+                            {gradientMid && (
+                              <div className="p-2.5 rounded-2xl border border-amber-200 bg-amber-50/40 space-y-1 relative">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase text-amber-900">Mid</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setGradientMid('')}
+                                    className="text-[10px] font-bold text-stone-400 hover:text-rose-600"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="color"
+                                    value={normalizeHex(gradientMid) || '#ffffff'}
+                                    onChange={(e) => setGradientMid(normalizeHex(e.target.value))}
+                                    className="h-8 w-8 rounded-lg cursor-pointer border border-stone-300 p-0.5 bg-white shadow-2xs"
+                                  />
+                                  <Input
+                                    value={gradientMid}
+                                    onChange={(e) => setGradientMid(normalizeHex(e.target.value))}
+                                    className="font-mono text-xs uppercase h-8 rounded-lg border-stone-200 px-2"
+                                    maxLength={7}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* End */}
+                            <div className="p-2.5 rounded-2xl border border-stone-200 bg-stone-50/50 space-y-1">
+                              <span className="text-[10px] font-bold uppercase text-stone-500">End</span>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="color"
+                                  value={normalizeHex(gradientTo) || '#8b5cf6'}
+                                  onChange={(e) => setGradientTo(normalizeHex(e.target.value))}
+                                  className="h-8 w-8 rounded-lg cursor-pointer border border-stone-300 p-0.5 bg-white shadow-2xs"
+                                />
+                                <Input
+                                  value={gradientTo}
+                                  onChange={(e) => setGradientTo(normalizeHex(e.target.value))}
+                                  className="font-mono text-xs uppercase h-8 rounded-lg border-stone-200 px-2"
+                                  maxLength={7}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Accent Color & Quick Presets */}
+                        <div className="space-y-2 pt-2 border-t border-stone-100">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold text-slate-900">
+                              Interactive Accent Tint
+                            </Label>
+                            <span className="text-[10px] text-stone-400">
+                              Used for buttons &amp; icons
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-1.5 mr-1">
+                              <input
+                                type="color"
+                                value={normalizeHex(accentColor || '#f59e0b')}
+                                onChange={(e) => setAccentColor(normalizeHex(e.target.value))}
+                                className="h-8 w-8 rounded-lg cursor-pointer border border-stone-300 p-0.5 bg-white shadow-2xs"
+                              />
+                              <Input
+                                value={accentColor}
+                                onChange={(e) => setAccentColor(normalizeHex(e.target.value))}
+                                placeholder="#f59e0b"
+                                className="w-20 font-mono text-xs uppercase h-8 rounded-lg border-stone-200 px-2"
+                                maxLength={7}
+                              />
+                            </div>
+
+                            {QUICK_ACCENTS.map((preset) => (
+                              <button
+                                key={preset.color}
+                                type="button"
+                                onClick={() => setAccentColor(preset.color)}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] border transition-all ${
+                                  accentColor.toLowerCase() === preset.color.toLowerCase()
+                                    ? 'border-slate-950 bg-stone-100 text-slate-950 font-bold shadow-2xs'
+                                    : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                                }`}
+                              >
+                                <span
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: preset.color }}
+                                />
+                                <span>{preset.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 2: TYPOGRAPHY & FONT STYLES */}
+                    {activeTab === 'typography' && (
+                      <div className="space-y-3 animate-fade-in">
+                        <Label className="text-xs font-bold text-slate-900">
+                          Select Font Style
+                        </Label>
+                        <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1">
+                          {FONT_OPTIONS.map((f) => {
+                            const isPremiumFont = PREMIUM_THEME_FONTS.has(f.value);
+                            const isLocked = !isProPlan && isPremiumFont;
+
+                            return (
+                              <button
+                                key={f.value}
+                                type="button"
+                                onClick={() => {
+                                  if (isLocked) {
+                                    toast.error('This font is included in Pro Atelier.');
+                                    return;
+                                  }
+                                  setFont(f.value);
+                                }}
+                                className={`p-2.5 rounded-2xl border text-left transition-all relative ${
+                                  isLocked ? 'opacity-60 bg-stone-50 cursor-not-allowed' : ''
+                                } ${
+                                  font === f.value
+                                    ? 'border-amber-500 bg-amber-50/50 shadow-2xs ring-2 ring-amber-400/20'
+                                    : 'border-stone-200 bg-stone-50/30 hover:bg-stone-50 hover:border-stone-300'
+                                }`}
+                                disabled={isLocked}
+                              >
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-[10px] font-bold text-stone-600 truncate">
+                                    {f.label}
+                                  </span>
+                                  {isLocked ? (
+                                    <Lock className="h-3 w-3 text-amber-700 shrink-0" />
+                                  ) : font === f.value ? (
+                                    <Check className="h-3 w-3 text-amber-600 stroke-[3] shrink-0" />
+                                  ) : null}
+                                </div>
+                                <span className={cn('block text-sm font-bold text-slate-950 truncate', f.className)}>
+                                  {f.sample}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 3: EMBLEM, EMOJI & GRADIENT ANGLE */}
+                    {activeTab === 'details' && (
+                      <div className="space-y-4 animate-fade-in">
+                        {/* Gradient Direction Angle */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-bold text-slate-900">
+                            Flow Direction ({gradientAngle}°)
+                          </Label>
+                          <div className="grid grid-cols-8 gap-1">
+                            {ANGLE_OPTIONS.map((a) => (
+                              <button
+                                key={a.value}
+                                type="button"
+                                onClick={() => setGradientAngle(a.value)}
+                                className={`h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all ${
+                                  gradientAngle === a.value
+                                    ? 'bg-slate-950 text-white shadow-xs'
+                                    : 'bg-stone-50 border border-stone-200 hover:bg-stone-100 text-stone-700'
+                                }`}
+                                title={`${a.value} degrees`}
+                              >
+                                {a.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Celebratory Seal Emoji */}
+                        <div className="space-y-1.5 pt-2 border-t border-stone-100">
+                          <Label className="text-xs font-bold text-slate-900">
+                            Celebratory Seal Emoji
+                          </Label>
+                          <div className="flex flex-wrap gap-1 p-1.5 rounded-xl bg-stone-50 border border-stone-200 max-h-[85px] overflow-y-auto">
+                            {EMOJI_OPTIONS.map((e) => (
+                              <button
+                                key={e}
+                                type="button"
+                                onClick={() => setEmoji(e)}
+                                className={`w-7 h-7 rounded-lg text-base flex items-center justify-center transition-all ${
+                                  emoji === e
+                                    ? 'bg-white border-2 border-amber-500 shadow-xs scale-105'
+                                    : 'hover:bg-white/80 text-stone-700'
+                                }`}
+                              >
+                                {e}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Custom Image Seal Upload (Pro) */}
+                        <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="h-8 w-8 rounded-lg border border-stone-200 bg-stone-50 flex items-center justify-center text-sm overflow-hidden shrink-0">
+                              {iconUrl ? (
+                                <img src={iconUrl} alt="Seal" className="h-full w-full object-cover" />
+                              ) : (
+                                <span>{emoji}</span>
+                              )}
+                            </div>
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-slate-950 truncate">Custom Monogram / Crest</p>
+                              <p className="text-[10px] text-stone-400 truncate">
+                                {isProPlan ? 'Replace emoji with image' : 'Pro Atelier feature'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <input
+                              id="theme-icon-file"
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleIconFileChange}
+                              disabled={!isProPlan}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="rounded-xl border-stone-200 text-xs font-semibold h-7 px-2.5"
+                              onClick={() => document.getElementById('theme-icon-file')?.click()}
+                              disabled={!isProPlan}
+                            >
+                              <ImageIcon className="h-3 w-3 mr-1" />
+                              <span>{iconUrl ? 'Change' : 'Upload'}</span>
+                            </Button>
+                            {iconUrl && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 rounded-lg text-rose-600 hover:bg-rose-50"
+                                onClick={() => setIconUrl(null)}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Inspector Footer Actions (Always visible at bottom) */}
+                  <div className="pt-4 border-t border-stone-100 flex items-center justify-between gap-3 mt-4">
                     <Button
-                      size="sm"
+                      variant="outline"
+                      onClick={resetForm}
+                      className="rounded-2xl border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-50 px-4 h-9"
+                    >
+                      Reset Draft
+                    </Button>
+
+                    <Button
                       onClick={handleSave}
                       disabled={saving}
-                      className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs h-8 px-3 shadow-xs shrink-0"
+                      className="btn-press rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-5 h-9 shadow-md shadow-amber-500/25 flex items-center gap-2"
                     >
                       {saving ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+                          <span>Saving...</span>
+                        </>
                       ) : (
-                        <span>Save Palette</span>
+                        <>
+                          <Sparkles className="h-3.5 w-3.5 text-amber-100" />
+                          <span>{editingId ? 'Update Palette' : 'Save Custom Palette'}</span>
+                        </>
                       )}
                     </Button>
                   </div>
-                )}
-
-              </div>
-            </div>
-
-          </div>
-
-          {/* DEDICATED SAVED CUSTOM PALETTES ARCHIVE (Room to breathe below editor) */}
-          <div className="pt-10 border-t border-stone-200/80 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Palette className="h-5 w-5 text-amber-700" />
-                  <h3 className="font-serif font-bold text-slate-950 text-xl sm:text-2xl">
-                    Your Custom Atelier Palettes
-                  </h3>
                 </div>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  Saved themes available when crafting new birthday milestone canvases.
-                </p>
+
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-stone-500 bg-white border border-stone-200/80 rounded-xl px-3 py-1.5 shadow-2xs">
-                  {themes.length} {isProPlan ? 'Crafted (Unlimited)' : `of ${FREE_THEME_LIMIT} Themes`}
-                </span>
-                {!showForm && (
+            </div>
+          )}
+
+          {/* VIEW 2: SAVED CUSTOM PALETTES GALLERY (Organized Archive View) */}
+          {activeView === 'gallery' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-stone-200/80 pb-4">
+                <div>
+                  <h3 className="font-serif font-bold text-slate-950 text-xl">
+                    Your Saved Celebration Palettes
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Select a palette to edit in the Studio Workbench or craft a new milestone canvas.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <Button
                     size="sm"
                     onClick={startNewTheme}
                     disabled={isFreeThemeLimitReached}
-                    className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs shadow-xs"
+                    className="btn-press rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-4 py-2 shadow-xs gap-1.5"
                   >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    New Palette
+                    <Plus className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Create New Palette</span>
                   </Button>
-                )}
-              </div>
-            </div>
-
-            {themes.length === 0 ? (
-              <div className="rounded-[2.5rem] border border-dashed border-stone-300 p-10 text-center bg-white/60 space-y-3">
-                <div className="h-12 w-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto text-2xl shadow-2xs">
-                  🎨
                 </div>
-                <h4 className="font-serif font-bold text-slate-950 text-lg">
-                  No custom palettes in your atelier yet
-                </h4>
-                <p className="text-xs text-stone-500 max-w-md mx-auto">
-                  Customize colors, angles, and typography above to craft your first signature theme.
-                </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {themes.map((theme) => {
-                  const themeGradient = buildGradient(
-                    theme.gradient_from,
-                    theme.gradient_to,
-                    theme.gradient_mid,
-                    theme.gradient_angle || 135,
-                  );
-                  const isCurrentlyEditing = editingId === theme.id;
 
-                  return (
-                    <div
-                      key={theme.id}
-                      className={`rounded-3xl border p-4 flex flex-col justify-between gap-4 transition-all relative overflow-hidden ${
-                        isCurrentlyEditing
-                          ? 'border-amber-500 bg-amber-50/40 shadow-xs ring-2 ring-amber-400/20'
-                          : 'border-stone-200/90 bg-white hover:border-stone-300 shadow-2xs'
-                      }`}
-                    >
-                      {/* Top banner swatch */}
+              {themes.length === 0 ? (
+                <div className="rounded-[2.5rem] border border-dashed border-stone-300 p-12 text-center bg-white/70 space-y-4 shadow-xs">
+                  <div className="h-14 w-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto text-3xl shadow-xs">
+                    🎨
+                  </div>
+                  <div>
+                    <h4 className="font-serif font-bold text-slate-950 text-lg">
+                      No custom themes crafted yet
+                    </h4>
+                    <p className="text-xs text-stone-500 max-w-md mx-auto mt-1">
+                      Switch to the Studio Workbench to pick your gradient flow, typography, and accent colors.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={startNewTheme}
+                    className="btn-press rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-6 py-2.5 shadow-card gap-2"
+                  >
+                    <Plus className="h-4 w-4 text-amber-400" />
+                    <span>Open Studio Workbench</span>
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {themes.map((theme) => {
+                    const themeGradient = buildGradient(
+                      theme.gradient_from,
+                      theme.gradient_to,
+                      theme.gradient_mid,
+                      theme.gradient_angle || 135,
+                    );
+                    const isCurrentlyEditing = editingId === theme.id;
+
+                    return (
                       <div
-                        className="h-24 w-full rounded-2xl flex items-center justify-between p-3 relative shadow-inner overflow-hidden text-white"
-                        style={{ background: themeGradient }}
+                        key={theme.id}
+                        className={`rounded-3xl border p-4 flex flex-col justify-between gap-4 transition-all relative overflow-hidden ${
+                          isCurrentlyEditing
+                            ? 'border-amber-500 bg-amber-50/40 shadow-xs ring-2 ring-amber-400/20'
+                            : 'border-stone-200/90 bg-white hover:border-stone-300 shadow-2xs'
+                        }`}
                       >
-                        <div className="h-9 w-9 rounded-xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-xs">
-                          {theme.icon_url ? (
-                            <img src={theme.icon_url} alt={theme.name} className="h-full w-full object-cover rounded-xl" />
-                          ) : (
-                            <span className="text-lg">{theme.emoji}</span>
+                        {/* Top Banner Swatch */}
+                        <div
+                          className="h-28 w-full rounded-2xl flex items-center justify-between p-3.5 relative shadow-inner overflow-hidden text-white"
+                          style={{ background: themeGradient }}
+                        >
+                          <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-xs">
+                            {theme.icon_url ? (
+                              <img src={theme.icon_url} alt={theme.name} className="h-full w-full object-cover rounded-xl" />
+                            ) : (
+                              <span className="text-xl">{theme.emoji}</span>
+                            )}
+                          </div>
+
+                          {theme.accent_color && (
+                            <div
+                              className="h-5 w-5 rounded-full border-2 border-white shadow-xs"
+                              style={{ backgroundColor: theme.accent_color }}
+                              title="Accent color"
+                            />
                           )}
                         </div>
 
-                        {theme.accent_color && (
-                          <div
-                            className="h-4 w-4 rounded-full border-2 border-white shadow-xs"
-                            style={{ backgroundColor: theme.accent_color }}
-                            title="Accent color"
-                          />
-                        )}
-                      </div>
-
-                      {/* Theme details */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className={cn('text-sm font-bold text-slate-950 truncate', fontClassForValue(theme.font))}>
-                            {theme.name}
-                          </h4>
-                          {isCurrentlyEditing && (
-                            <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                              Editing
-                            </span>
-                          )}
+                        {/* Theme details */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className={cn('text-sm font-bold text-slate-950 truncate', fontClassForValue(theme.font))}>
+                              {theme.name}
+                            </h4>
+                            {isCurrentlyEditing && (
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                                In Studio
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-stone-500">
+                            <span>{fontLabelForValue(theme.font)}</span>
+                            <span>•</span>
+                            <span>{theme.gradient_angle || 135}° angle</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] text-stone-500">
-                          <span>{fontLabelForValue(theme.font)}</span>
-                          <span>•</span>
-                          <span>{theme.gradient_angle || 135}° angle</span>
+
+                        {/* Action buttons */}
+                        <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(theme)}
+                            className="flex-1 rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 h-8"
+                          >
+                            Edit in Studio
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(theme.id)}
+                            className="h-8 w-8 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50"
+                            title="Delete theme"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
-
-                      {/* Action buttons */}
-                      <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(theme)}
-                          className="flex-1 rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 h-8"
-                        >
-                          Edit Palette
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(theme.id)}
-                          className="h-8 w-8 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-50"
-                          title="Delete theme"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
         </main>
       </div>
