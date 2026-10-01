@@ -59,6 +59,51 @@ const CREATOR_STEPS = [
   { number: 5, label: 'Permissions' },
 ];
 
+const CREATE_FORM_STATE_KEY = 'wishcanvas_create_form_state';
+
+interface CreateFormPersistedState {
+  currentStep: number;
+  recipientName: string;
+  recipientEmail: string;
+  birthdayDate: string | null;
+  creatorMessage: string;
+  selectedTheme: Theme;
+  selectedLetterTheme: Theme;
+  selectedDisplayMode: DisplayMode;
+  letterColor: string;
+  letterGradientStart: string;
+  letterGradientEnd: string;
+  allowPhotos: boolean;
+  allowAudio: boolean;
+  requireNames: boolean;
+  closeDate: string | null;
+  selectedSoundtrackId: string;
+  pageCustomAudioUrl: string | null;
+  publicCodeInput: string;
+  revealAtInput: string;
+  revealPinInput: string;
+  poolFundraisingEnabled: boolean;
+  poolGoalNairaInput: string;
+  poolDescriptionInput: string;
+  recipientBankCode: string;
+  recipientAccountNumber: string;
+  recipientAccountName: string;
+  previewView: 'card' | 'envelope';
+}
+
+function getInitialCreateState(): Partial<CreateFormPersistedState> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = sessionStorage.getItem(CREATE_FORM_STATE_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch {
+    // Ignore malformed session state
+  }
+  return {};
+}
+
 const CreatePage = () => {
   const navigate = useNavigate();
   const { user, profile, isPro, loading: authLoading, signOut } = useAuth();
@@ -88,33 +133,42 @@ const CreatePage = () => {
   // Creator statistics
   const [pages, setPages] = useState<BirthdayPage[]>([]);
 
+  const initialDraft = useRef(getInitialCreateState()).current;
+
   // Fine-grained stepper state (Steps 1 to 5 for configuration, Step 6 for Launchpad)
-  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [currentStep, setCurrentStep] = useState<number>(() => {
+    const step = initialDraft.currentStep;
+    return typeof step === 'number' && step >= 1 && step <= 5 ? step : 1;
+  });
   const [createdPageId, setCreatedPageId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   
   // Live stage preview state
-  const [previewView, setPreviewView] = useState<'card' | 'envelope'>('card');
+  const [previewView, setPreviewView] = useState<'card' | 'envelope'>(() => initialDraft.previewView ?? 'card');
   const [confettiActive, setConfettiActive] = useState(false);
   
   // Form state
-  const [recipientName, setRecipientName] = useState('');
-  const [recipientEmail, setRecipientEmail] = useState('');
-  const [birthdayDate, setBirthdayDate] = useState<Date>();
-  const [creatorMessage, setCreatorMessage] = useState('');
-  const [selectedTheme, setSelectedTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
-  const [selectedLetterTheme, setSelectedLetterTheme] = useState<Theme>(user?.defaultTheme || 'elegant');
-  const [selectedDisplayMode, setSelectedDisplayMode] = useState<DisplayMode>('story');
-  const [letterColor, setLetterColor] = useState<string>('');
-  const [letterGradientStart, setLetterGradientStart] = useState(DEFAULT_LETTER_START);
-  const [letterGradientEnd, setLetterGradientEnd] = useState(DEFAULT_LETTER_END);
-  const [allowPhotos, setAllowPhotos] = useState(user?.defaultAllowPhotos ?? true);
-  const [allowAudio, setAllowAudio] = useState(user?.defaultAllowAudio ?? true);
-  const [requireNames, setRequireNames] = useState(user?.defaultRequireNames ?? true);
-  const [closeDate, setCloseDate] = useState<Date>();
-  const [selectedSoundtrackId, setSelectedSoundtrackId] = useState('golden-hour');
-  const [pageCustomAudioUrl, setPageCustomAudioUrl] = useState<string | null>(null);
+  const [recipientName, setRecipientName] = useState(() => initialDraft.recipientName ?? '');
+  const [recipientEmail, setRecipientEmail] = useState(() => initialDraft.recipientEmail ?? '');
+  const [birthdayDate, setBirthdayDate] = useState<Date | undefined>(() => {
+    return initialDraft.birthdayDate ? new Date(initialDraft.birthdayDate) : undefined;
+  });
+  const [creatorMessage, setCreatorMessage] = useState(() => initialDraft.creatorMessage ?? '');
+  const [selectedTheme, setSelectedTheme] = useState<Theme>(() => initialDraft.selectedTheme ?? user?.defaultTheme ?? 'elegant');
+  const [selectedLetterTheme, setSelectedLetterTheme] = useState<Theme>(() => initialDraft.selectedLetterTheme ?? user?.defaultTheme ?? 'elegant');
+  const [selectedDisplayMode, setSelectedDisplayMode] = useState<DisplayMode>(() => initialDraft.selectedDisplayMode ?? 'story');
+  const [letterColor, setLetterColor] = useState<string>(() => initialDraft.letterColor ?? '');
+  const [letterGradientStart, setLetterGradientStart] = useState(() => initialDraft.letterGradientStart ?? DEFAULT_LETTER_START);
+  const [letterGradientEnd, setLetterGradientEnd] = useState(() => initialDraft.letterGradientEnd ?? DEFAULT_LETTER_END);
+  const [allowPhotos, setAllowPhotos] = useState(() => initialDraft.allowPhotos ?? user?.defaultAllowPhotos ?? true);
+  const [allowAudio, setAllowAudio] = useState(() => initialDraft.allowAudio ?? user?.defaultAllowAudio ?? true);
+  const [requireNames, setRequireNames] = useState(() => initialDraft.requireNames ?? user?.defaultRequireNames ?? true);
+  const [closeDate, setCloseDate] = useState<Date | undefined>(() => {
+    return initialDraft.closeDate ? new Date(initialDraft.closeDate) : undefined;
+  });
+  const [selectedSoundtrackId, setSelectedSoundtrackId] = useState(() => initialDraft.selectedSoundtrackId ?? 'golden-hour');
+  const [pageCustomAudioUrl, setPageCustomAudioUrl] = useState<string | null>(() => initialDraft.pageCustomAudioUrl ?? null);
   
   // Cover photo state
   const [coverPhoto, setCoverPhoto] = useState<File | null>(null);
@@ -126,21 +180,92 @@ const CreatePage = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
   const [createdPublicCode, setCreatedPublicCode] = useState<string | null>(null);
-  const [publicCodeInput, setPublicCodeInput] = useState('');
+  const [publicCodeInput, setPublicCodeInput] = useState(() => initialDraft.publicCodeInput ?? '');
   const [publicCodeError, setPublicCodeError] = useState<string | null>(null);
-  const [revealAtInput, setRevealAtInput] = useState('');
-  const [revealPinInput, setRevealPinInput] = useState('');
-  const [poolFundraisingEnabled, setPoolFundraisingEnabled] = useState(false);
-  const [poolGoalNairaInput, setPoolGoalNairaInput] = useState('');
-  const [poolDescriptionInput, setPoolDescriptionInput] = useState('');
-  const [recipientBankCode, setRecipientBankCode] = useState('');
-  const [recipientAccountNumber, setRecipientAccountNumber] = useState('');
-  const [recipientAccountName, setRecipientAccountName] = useState('');
+  const [revealAtInput, setRevealAtInput] = useState(() => initialDraft.revealAtInput ?? '');
+  const [revealPinInput, setRevealPinInput] = useState(() => initialDraft.revealPinInput ?? '');
+  const [poolFundraisingEnabled, setPoolFundraisingEnabled] = useState(() => initialDraft.poolFundraisingEnabled ?? false);
+  const [poolGoalNairaInput, setPoolGoalNairaInput] = useState(() => initialDraft.poolGoalNairaInput ?? '');
+  const [poolDescriptionInput, setPoolDescriptionInput] = useState(() => initialDraft.poolDescriptionInput ?? '');
+  const [recipientBankCode, setRecipientBankCode] = useState(() => initialDraft.recipientBankCode ?? '');
+  const [recipientAccountNumber, setRecipientAccountNumber] = useState(() => initialDraft.recipientAccountNumber ?? '');
+  const [recipientAccountName, setRecipientAccountName] = useState(() => initialDraft.recipientAccountName ?? '');
   const [bankOptions, setBankOptions] = useState<PaystackBankOption[]>([]);
   const [loadingBankOptions, setLoadingBankOptions] = useState(false);
   const [resolvingRecipientAccount, setResolvingRecipientAccount] = useState(false);
   const [recipientResolveError, setRecipientResolveError] = useState<string | null>(null);
   const lastResolvedRecipientRef = useRef<string | null>(null);
+
+  // Auto-persist form configuration and current step into session state (not localStorage)
+  useEffect(() => {
+    if (createdPageId || currentStep === 6) return;
+
+    const draftToSave: CreateFormPersistedState = {
+      currentStep,
+      recipientName,
+      recipientEmail,
+      birthdayDate: birthdayDate ? birthdayDate.toISOString() : null,
+      creatorMessage,
+      selectedTheme,
+      selectedLetterTheme,
+      selectedDisplayMode,
+      letterColor,
+      letterGradientStart,
+      letterGradientEnd,
+      allowPhotos,
+      allowAudio,
+      requireNames,
+      closeDate: closeDate ? closeDate.toISOString() : null,
+      selectedSoundtrackId,
+      pageCustomAudioUrl,
+      publicCodeInput,
+      revealAtInput,
+      revealPinInput,
+      poolFundraisingEnabled,
+      poolGoalNairaInput,
+      poolDescriptionInput,
+      recipientBankCode,
+      recipientAccountNumber,
+      recipientAccountName,
+      previewView,
+    };
+
+    try {
+      sessionStorage.setItem(CREATE_FORM_STATE_KEY, JSON.stringify(draftToSave));
+      window.history.replaceState({ ...window.history.state, wishcanvasCreateState: draftToSave }, '');
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [
+    currentStep,
+    recipientName,
+    recipientEmail,
+    birthdayDate,
+    creatorMessage,
+    selectedTheme,
+    selectedLetterTheme,
+    selectedDisplayMode,
+    letterColor,
+    letterGradientStart,
+    letterGradientEnd,
+    allowPhotos,
+    allowAudio,
+    requireNames,
+    closeDate,
+    selectedSoundtrackId,
+    pageCustomAudioUrl,
+    publicCodeInput,
+    revealAtInput,
+    revealPinInput,
+    poolFundraisingEnabled,
+    poolGoalNairaInput,
+    poolDescriptionInput,
+    recipientBankCode,
+    recipientAccountNumber,
+    recipientAccountName,
+    previewView,
+    createdPageId,
+  ]);
 
   const isProUser = isPro;
   const hasResolvedPoolRecipient = Boolean(recipientBankCode && recipientAccountNumber.length === 10 && recipientAccountName.trim());
@@ -434,6 +559,11 @@ const CreatePage = () => {
       setCreatedPageId(data.id);
       setCreatedPublicCode(data.public_code);
       setConfettiActive(true);
+      try {
+        sessionStorage.removeItem(CREATE_FORM_STATE_KEY);
+      } catch {
+        // ignore
+      }
       toast.success('Birthday canvas created successfully!');
       setCurrentStep(6); // Step 6 is the Launchpad Hub!
     } catch (error) {

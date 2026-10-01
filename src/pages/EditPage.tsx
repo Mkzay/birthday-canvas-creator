@@ -62,6 +62,40 @@ const EDIT_STEPS = [
   { number: 5, label: 'Permissions & Save' },
 ];
 
+const EDIT_FORM_STATE_KEY_PREFIX = 'wishcanvas_edit_form_state_';
+
+function getInitialEditStep(pageId?: string): number {
+  if (typeof window === 'undefined' || !pageId) return 1;
+  try {
+    const raw = sessionStorage.getItem(`${EDIT_FORM_STATE_KEY_PREFIX}${pageId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.currentStep === 'number' && parsed.currentStep >= 1 && parsed.currentStep <= 5) {
+        return parsed.currentStep;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return 1;
+}
+
+function getInitialEditPreviewView(pageId?: string): 'card' | 'envelope' {
+  if (typeof window === 'undefined' || !pageId) return 'card';
+  try {
+    const raw = sessionStorage.getItem(`${EDIT_FORM_STATE_KEY_PREFIX}${pageId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.previewView === 'card' || parsed.previewView === 'envelope') {
+        return parsed.previewView;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return 'card';
+}
+
 const EditPage = () => {
   const { pageId } = useParams();
   const navigate = useNavigate();
@@ -93,14 +127,27 @@ const EditPage = () => {
   const [pages, setPages] = useState<BirthdayPage[]>([]);
 
   // Stepper state (Steps 1 to 5)
-  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [currentStep, setCurrentStep] = useState<number>(() => getInitialEditStep(pageId));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
 
   // Live stage preview state
-  const [previewView, setPreviewView] = useState<'card' | 'envelope'>('card');
+  const [previewView, setPreviewView] = useState<'card' | 'envelope'>(() => getInitialEditPreviewView(pageId));
   const [confettiActive, setConfettiActive] = useState(false);
+
+  // Auto-persist active editing step and view into session state (not localStorage)
+  useEffect(() => {
+    if (!pageId) return;
+    try {
+      sessionStorage.setItem(`${EDIT_FORM_STATE_KEY_PREFIX}${pageId}`, JSON.stringify({
+        currentStep,
+        previewView,
+      }));
+    } catch {
+      // ignore
+    }
+  }, [currentStep, pageId, previewView]);
 
   // Form state
   const [recipientName, setRecipientName] = useState('');
@@ -527,6 +574,13 @@ const EditPage = () => {
 
       setSaving(false);
       setConfettiActive(true);
+      if (pageId) {
+        try {
+          sessionStorage.removeItem(`${EDIT_FORM_STATE_KEY_PREFIX}${pageId}`);
+        } catch {
+          // ignore
+        }
+      }
       toast.success('Milestone canvas updated successfully!');
     } catch (error) {
       setSaving(false);
