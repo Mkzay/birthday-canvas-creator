@@ -25,7 +25,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.up.railway.app https://*.railway.app https://api.wishcanvas.app https://wishcanvas.app https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io; media-src 'self' https: blob:; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.onrender.com https://api.wishcanvas.app https://wishcanvas.app https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io; media-src 'self' https: blob:; worker-src 'self' blob:; frame-src 'self' https://www.youtube.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
         }
       ]
     }
@@ -33,11 +33,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/:path*"
+      "destination": "https://birthday-canvas-creator.onrender.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://birthday-canvas-creator-production.up.railway.app/uploads/:path*"
+      "destination": "https://birthday-canvas-creator.onrender.com/uploads/:path*"
     },
     {
       "source": "/birthday/:pageId",
@@ -48,7 +48,7 @@
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
-      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId"
+      "destination": "https://birthday-canvas-creator.onrender.com/api/og/:pageId"
     },
     {
       "source": "/birthday/:pageId/",
@@ -59,7 +59,7 @@
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
-      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId"
+      "destination": "https://birthday-canvas-creator.onrender.com/api/og/:pageId"
     },
     {
       "source": "/contribute/:pageId",
@@ -70,7 +70,7 @@
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
-      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId?view=contribute"
+      "destination": "https://birthday-canvas-creator.onrender.com/api/og/:pageId?view=contribute"
     },
     {
       "source": "/contribute/:pageId/",
@@ -81,7 +81,7 @@
           "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
-      "destination": "https://birthday-canvas-creator-production.up.railway.app/api/og/:pageId?view=contribute"
+      "destination": "https://birthday-canvas-creator.onrender.com/api/og/:pageId?view=contribute"
     },
     {
       "source": "/(.*)",
