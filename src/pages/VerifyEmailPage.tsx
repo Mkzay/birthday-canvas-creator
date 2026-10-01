@@ -65,41 +65,46 @@ const VerifyEmailPage = () => {
   }, [navigate, state]);
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden gradient-hero px-6 py-10">
-      <AnimatedBackground showWaves={true} showStars={true} className="opacity-80" />
+    <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#FAF7F2] px-4 py-12 sm:px-6 text-slate-900">
+      {/* Background Soft Glows */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[10%] top-16 h-52 w-52 rounded-full bg-white/8 blur-3xl" />
-        <div className="absolute right-[8%] top-1/3 h-72 w-72 rounded-full bg-white/6 blur-3xl" />
+        <div className="absolute left-[10%] top-16 h-72 w-72 rounded-full bg-rose-200/30 blur-3xl" />
+        <div className="absolute right-[8%] bottom-16 h-80 w-80 rounded-full bg-amber-200/30 blur-3xl" />
       </div>
 
       <div className="relative mx-auto w-full max-w-lg">
-        <div className="absolute inset-0 rounded-[2rem] bg-white/16 blur-2xl" />
-        <div className="relative rounded-[2rem] border border-white/30 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,248,253,0.92))] p-8 shadow-[0_32px_110px_rgba(18,18,23,0.24)] backdrop-blur-xl sm:p-10">
-          <BrandLogo compact to="/" textClassName="text-xl font-semibold text-foreground" />
+        <div className="relative rounded-[2.2rem] sm:rounded-[2.5rem] border border-stone-200/80 bg-white p-8 shadow-card-lg sm:p-10 text-slate-900">
+          <div className="flex justify-center">
+            <BrandLogo compact to="/" textClassName="text-2xl font-black text-slate-950" />
+          </div>
 
           <div className="mt-8 text-center">
             {state === 'verifying' && (
               <div className="flex flex-col items-center gap-5">
-                <div className="overflow-hidden rounded-[1.5rem] shadow-[0_18px_55px_rgba(18,18,23,0.08)]">
-                  <WishCanvasLoader className="relative min-h-[18rem] w-full max-w-[24rem]" />
+                <div className="overflow-hidden rounded-2xl shadow-xs border border-stone-200/70">
+                  <WishCanvasLoader className="relative min-h-[16rem] w-full max-w-[22rem]" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">Verifying your email</h1>
-                  <p className="mt-2 text-sm text-muted-foreground">Please wait while we confirm your account.</p>
+                  <h1 className="font-playfair text-2xl font-extrabold text-slate-950 sm:text-3xl">Verifying your email</h1>
+                  <p className="mt-2 text-sm text-slate-600">Please wait while we confirm your account.</p>
                 </div>
               </div>
             )}
 
             {state === 'success' && (
               <>
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                  <CheckCircle2 className="h-6 w-6" />
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 shadow-xs">
+                  <CheckCircle2 className="h-7 w-7" />
                 </div>
-                <h1 className="mt-5 text-2xl font-bold text-foreground">Email verified</h1>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <h1 className="mt-5 font-playfair text-2xl font-extrabold text-slate-950 sm:text-3xl">Email verified</h1>
+                <p className="mt-2 text-sm text-slate-600">
                   Your account is active. Taking you to your dashboard...
                 </p>
-                <Button variant="hero" size="lg" className="mt-6 w-full" onClick={() => navigate('/dashboard')}>
+                <Button
+                  size="lg"
+                  className="btn-press mt-6 w-full rounded-full bg-slate-950 py-6 text-sm font-bold text-white shadow-xl hover:bg-slate-800"
+                  onClick={() => navigate('/dashboard')}
+                >
                   Continue to dashboard
                 </Button>
               </>
@@ -107,16 +112,25 @@ const VerifyEmailPage = () => {
 
             {state === 'error' && (
               <>
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
-                  <MailWarning className="h-6 w-6" />
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 shadow-xs">
+                  <MailWarning className="h-7 w-7" />
                 </div>
-                <h1 className="mt-5 text-2xl font-bold text-foreground">Verification link issue</h1>
-                <p className="mt-2 text-sm text-muted-foreground">{errorMessage || 'This link is invalid or expired.'}</p>
+                <h1 className="mt-5 font-playfair text-2xl font-extrabold text-slate-950 sm:text-3xl">Verification issue</h1>
+                <p className="mt-2 text-sm text-slate-600">{errorMessage || 'This link is invalid or expired.'}</p>
                 <div className="mt-6 grid gap-3">
-                  <Button variant="hero" size="lg" className="w-full" onClick={() => navigate('/auth')}>
+                  <Button
+                    size="lg"
+                    className="btn-press w-full rounded-full bg-slate-950 py-6 text-sm font-bold text-white shadow-xl hover:bg-slate-800"
+                    onClick={() => navigate('/auth')}
+                  >
                     Go to sign in
                   </Button>
-                  <Button variant="outline" size="lg" className="w-full" asChild>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="btn-press w-full rounded-full border border-stone-200 bg-white py-6 text-sm font-bold text-slate-800 hover:bg-stone-50"
+                    asChild
+                  >
                     <Link to="/auth">Request a new verification email</Link>
                   </Button>
                 </div>

@@ -124,11 +124,11 @@ export default function WrappedStoryModal({ isOpen, onClose }: WrappedStoryModal
     >
       {/* Modal Container: Warm champagne Festivo aesthetic, matching DesktopStorySection */}
       <div
-        className="modal-scale-in relative flex flex-col w-full max-w-4xl max-h-[92vh] overflow-hidden rounded-[2.5rem] border border-amber-200/60 bg-[#FAF7F2] text-slate-900 shadow-2xl"
+        className="modal-scale-in relative flex flex-col w-full max-w-4xl max-h-[96vh] sm:max-h-[92vh] overflow-hidden rounded-[1.5rem] sm:rounded-[2.5rem] border border-amber-200/60 bg-[#FAF7F2] text-slate-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* TOP STORY HEADER (True to DesktopStorySection.tsx) */}
-        <div className="relative border-b border-stone-200/80 bg-white/80 px-6 py-4 backdrop-blur-sm">
+        <div className="relative border-b border-stone-200/80 bg-white/80 px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-sm">
           {/* Segmented Story Progress Bars */}
           <div className="flex gap-2 mb-3">
             {WRAPPED_SAMPLE_SLIDES.map((slide, idx) => (
@@ -156,9 +156,9 @@ export default function WrappedStoryModal({ isOpen, onClose }: WrappedStoryModal
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {/* Spinning Vinyl Soundtrack Indicator */}
-              <div className="flex items-center gap-2 rounded-full border border-stone-200/80 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-900 shadow-xs">
-                <Music4 className="h-3.5 w-3.5 text-amber-600 animate-spin" style={{ animationDuration: '6s' }} />
-                <span>Soundtrack: Golden Hour (Acoustic Piano)</span>
+              <div className="flex items-center gap-2 rounded-full border border-stone-200/80 bg-amber-50/80 px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-semibold text-amber-900 shadow-xs max-w-[180px] sm:max-w-none">
+                <Music4 className="h-3.5 w-3.5 text-amber-600 animate-spin shrink-0" style={{ animationDuration: '6s' }} />
+                <span className="truncate"><span className="hidden sm:inline">Soundtrack: </span>Golden Hour (Piano)</span>
               </div>
 
               {/* Mute button */}
@@ -192,12 +192,12 @@ export default function WrappedStoryModal({ isOpen, onClose }: WrappedStoryModal
         </div>
 
         {/* MAIN SLIDE STAGE: Responsive 2-column layout matching DesktopStorySection */}
-        <div className="relative flex-1 overflow-y-auto p-6 sm:p-8">
+        <div className="relative flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 scrollbar-hide">
           <div key={currentSlideIndex} className="tab-crossfade grid gap-6 lg:grid-cols-12 lg:items-center">
             
             {/* LEFT COLUMN: The Wish Card (Span 7) */}
             <div className="lg:col-span-7">
-              <div className="relative rounded-[2rem] border border-amber-200/80 bg-white p-6 sm:p-8 shadow-card">
+              <div className="relative rounded-[1.5rem] sm:rounded-[2rem] border border-amber-200/80 bg-white p-4 sm:p-6 lg:p-8 shadow-card">
                 {/* Washi Tape Header Decoration */}
                 <div
                   className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 h-4 w-24 rounded-xs bg-amber-200/80 shadow-xs rotate-[-1deg]"
@@ -228,13 +228,13 @@ export default function WrappedStoryModal({ isOpen, onClose }: WrappedStoryModal
                 </div>
 
                 {/* Heartfelt Wish Quote in Playfair Display Serif */}
-                <blockquote className="mt-5 font-playfair text-xl sm:text-2xl leading-relaxed text-slate-900 font-medium">
+                <blockquote className="mt-4 font-playfair text-base sm:text-xl lg:text-2xl leading-relaxed text-slate-900 font-medium">
                   &ldquo;{activeSlide.quote}&rdquo;
                 </blockquote>
 
                 {/* Voice Note Player (True to FreeformSection / DesktopStorySection) */}
                 {activeSlide.hasAudio && (
-                  <div className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/70 p-4 text-left">
+                  <div className="mt-4 sm:mt-6 rounded-xl sm:rounded-2xl border border-amber-200/80 bg-amber-50/70 p-3 sm:p-4 text-left">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <Sparkles className="h-3.5 w-3.5 text-amber-600" />
@@ -313,7 +313,7 @@ export default function WrappedStoryModal({ isOpen, onClose }: WrappedStoryModal
 
             {/* RIGHT COLUMN: Polaroid Photo Keepsake (Span 5) */}
             <div className="lg:col-span-5">
-              <div className="relative mx-auto max-w-sm rounded-[2rem] border border-stone-200/80 bg-white p-4 shadow-xl rotate-[1.5deg] transition-[transform,box-shadow] duration-250 ease-emil hover:rotate-0">
+              <div className="relative mx-auto max-w-[240px] sm:max-w-sm rounded-[1.5rem] sm:rounded-[2rem] border border-stone-200/80 bg-white p-3 sm:p-4 shadow-xl rotate-0 sm:rotate-[1.5deg] transition-[transform,box-shadow] duration-250 ease-emil hover:rotate-0">
                 {/* Polaroid Top Tape */}
                 <div
                   className="pointer-events-none absolute -top-3.5 left-1/2 -translate-x-1/2 h-4 w-28 rounded-xs bg-rose-200/80 shadow-xs rotate-[-2deg]"
@@ -321,7 +321,7 @@ export default function WrappedStoryModal({ isOpen, onClose }: WrappedStoryModal
                 />
 
                 {/* Photo frame */}
-                <div className="aspect-[4/3] overflow-hidden rounded-xl bg-stone-100 shadow-inner">
+                <div className="aspect-[16/10] sm:aspect-[4/3] overflow-hidden rounded-lg sm:rounded-xl bg-stone-100 shadow-inner">
                   <img
                     src={activeSlide.photoUrl}
                     alt={activeSlide.photoCaption}
@@ -346,7 +346,7 @@ export default function WrappedStoryModal({ isOpen, onClose }: WrappedStoryModal
         </div>
 
         {/* FOOTER CONTROLS BAR */}
-        <div className="flex items-center justify-between border-t border-stone-200/80 bg-white px-6 py-4">
+        <div className="flex items-center justify-between border-t border-stone-200/80 bg-white px-4 py-3 sm:px-6 sm:py-4">
           <button
             type="button"
             onClick={() =>

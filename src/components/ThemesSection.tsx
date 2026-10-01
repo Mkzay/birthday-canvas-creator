@@ -119,8 +119,8 @@ const ThemesSection = () => {
       <div className="relative mx-auto max-w-7xl">
         
         {/* Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-12 border-b border-stone-200/60">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 pb-12 border-b border-stone-200/60">
+          <div className="text-center lg:text-left">
             <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-800">
               Personalized Moods
             </span>
@@ -130,16 +130,16 @@ const ThemesSection = () => {
             </h2>
           </div>
 
-          <div className="font-caveat text-xl sm:text-2xl text-slate-600 select-none sm:text-right">
+          <div className="font-caveat text-xl sm:text-2xl text-slate-600 select-none text-center lg:text-right">
             Every birthday has its own mood ◡̈
           </div>
         </div>
 
         {/* INTERACTIVE LIVE THEME EXPLORER STAGE */}
-        <div className="mt-12 rounded-[2.5rem] border border-stone-200/80 bg-white p-6 sm:p-10 shadow-card">
+        <div className="mt-10 sm:mt-12 rounded-[2rem] sm:rounded-[2.5rem] border border-stone-200/80 bg-white p-4 sm:p-10 shadow-card">
           
           {/* Top Pill Switcher */}
-          <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 pb-6">
+          <div className="flex items-center gap-2 border-b border-stone-100 pb-6 overflow-x-auto scrollbar-hide sm:flex-wrap">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-2 hidden sm:inline">
               Select Mood:
             </span>
@@ -148,7 +148,7 @@ const ThemesSection = () => {
                 key={theme.key}
                 type="button"
                 onClick={() => setSelectedThemeIndex(idx)}
-                className={`btn-press flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors ${
+                className={`btn-press flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-2 text-xs font-bold whitespace-nowrap transition-colors ${
                   selectedThemeIndex === idx
                     ? 'bg-slate-950 text-white shadow-md'
                     : 'bg-stone-100 text-slate-700 hover:bg-stone-200'
@@ -219,7 +219,7 @@ const ThemesSection = () => {
             <div className="lg:col-span-7">
               <div
                 key={`theme-preview-${selectedThemeIndex}`}
-                className={`tab-crossfade relative mx-auto w-full max-w-lg overflow-hidden rounded-[2.2rem] border p-6 sm:p-8 shadow-xl bg-gradient-to-br ${activeTheme.bgClass} ${
+                className={`tab-crossfade relative mx-auto w-full max-w-lg overflow-hidden rounded-[1.5rem] sm:rounded-[2.2rem] border p-4 sm:p-8 shadow-xl bg-gradient-to-br ${activeTheme.bgClass} ${
                   isDark ? 'border-indigo-500/30 text-white' : 'border-stone-200 text-slate-900'
                 }`}
               >
@@ -312,7 +312,7 @@ const ThemesSection = () => {
                 <div
                   key={theme.key}
                   onClick={() => setSelectedThemeIndex(idx)}
-                  className={`btn-press card-lift group relative flex flex-col justify-between overflow-hidden rounded-[2rem] border p-6 text-left cursor-pointer ${
+                  className={`btn-press card-lift group relative flex flex-col justify-between overflow-hidden rounded-[1.5rem] sm:rounded-[2rem] border p-4 sm:p-6 text-left cursor-pointer ${
                     isSelected
                       ? 'border-slate-950 bg-white shadow-xl ring-2 ring-slate-950'
                       : 'border-stone-200/80 bg-white shadow-xs hover:border-stone-300'

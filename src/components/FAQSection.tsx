@@ -209,7 +209,7 @@ const FAQSection = () => {
         </div>
 
         {/* Clean Filter Pills */}
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-10 flex items-center gap-2 overflow-x-auto scrollbar-hide sm:flex-wrap sm:justify-center pb-1">
           {[
             { id: 'all', label: 'All Questions' },
             { id: 'guests', label: 'For Guests & Voice' },
@@ -223,7 +223,7 @@ const FAQSection = () => {
                 setActiveCategory(cat.id as any);
                 setOpenIndex(0);
               }}
-              className={`btn-press rounded-full px-4 py-2 text-xs font-bold transition-all ${
+              className={`btn-press rounded-full px-3.5 sm:px-4 py-2 text-xs font-bold whitespace-nowrap transition-all ${
                 activeCategory === cat.id
                   ? 'bg-slate-950 text-white shadow-md'
                   : 'bg-stone-100 text-slate-700 hover:bg-stone-200'
@@ -252,7 +252,7 @@ const FAQSection = () => {
                 <button
                   type="button"
                   onClick={() => toggle(index)}
-                  className="btn-press flex w-full items-center justify-between gap-4 p-5 sm:p-6 text-left transition-colors"
+                  className="btn-press flex w-full items-center justify-between gap-3 sm:gap-4 p-4 sm:p-6 text-left transition-colors"
                   aria-expanded={isOpen}
                 >
                   <div className="flex items-center gap-3.5">
@@ -261,7 +261,7 @@ const FAQSection = () => {
                       <Icon />
                     </div>
 
-                    <span className="text-base sm:text-lg font-extrabold text-slate-950 leading-snug">
+                    <span className="text-sm sm:text-base lg:text-lg font-extrabold text-slate-950 leading-snug">
                       {faq.question}
                     </span>
                   </div>
@@ -306,7 +306,7 @@ const FAQSection = () => {
         </div>
 
         {/* Warm Personal Support Card */}
-        <div className="mt-14 relative overflow-hidden rounded-[2.2rem] border border-amber-200/80 bg-gradient-to-br from-[#FFFDF9] via-[#FAF7F2] to-amber-50/50 p-6 sm:p-8 text-center shadow-xs">
+        <div className="mt-14 relative overflow-hidden rounded-[2.2rem] border border-amber-200/80 bg-gradient-to-br from-[#FFFDF9] via-[#FAF7F2] to-amber-50/50 p-5 sm:p-8 text-center shadow-xs">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-900 mb-3 shadow-xs">
             <MessageCircle className="h-6 w-6 text-amber-800" />
           </div>

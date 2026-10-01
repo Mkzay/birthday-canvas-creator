@@ -246,7 +246,7 @@ export async function sendPasswordResetEmail(params: { to: string; token: string
     body(`
       ${p(`Hi ${safeName},`)}
       ${p(`We received a request to reset your ${escapeHtml(appName)} password. Click the button below to set a new one.`)}
-      ${p(`${highlight("This link expires automatically.")} If you didn't request this, no changes have been made to your account — you can safely ignore this email.`)}
+      ${p(`${highlight("This link expires automatically.")} If you didn't request this, no changes have been made to your account, so you can safely ignore this email.`)}
       <p style="margin:0 0 8px;font-size:12px;color:${MUTED};font-family:Georgia,serif;">Backup link:</p>
       <p style="margin:0;font-size:12px;word-break:break-all;font-family:Georgia,serif;">
         <a href="${url}" style="color:${CORAL};text-decoration:none;">${escapeHtml(url)}</a>

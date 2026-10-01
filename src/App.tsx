@@ -321,6 +321,8 @@ const App = () => (
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/login" element={<Navigate to="/auth?mode=login" replace />} />
               <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
+              <Route path="/forgot-password" element={<Navigate to="/auth?mode=forgot" replace />} />
+              <Route path="/reset-password" element={<Navigate to="/auth?mode=reset" replace />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/admin" element={<AdminPage />} />

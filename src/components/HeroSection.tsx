@@ -37,7 +37,7 @@ const HeroSection = () => {
   }, [isPlayingVoice]);
 
   return (
-    <section className="relative overflow-hidden bg-[#FAF7F2] pt-28 pb-16 sm:pt-36 sm:pb-24">
+    <section className="relative overflow-hidden bg-[#FAF7F2] pt-24 pb-12 sm:pt-36 sm:pb-24">
       {/* Background Soft Glows */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute right-[5%] top-10 h-[550px] w-[550px] rounded-full bg-gradient-to-tr from-rose-200/40 via-amber-200/30 to-pink-100/40 blur-3xl" />
@@ -50,7 +50,7 @@ const HeroSection = () => {
         <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-8">
           
           {/* LEFT COLUMN: Editorial Typography (Span 6 cols on lg) */}
-          <div className="text-left lg:col-span-6">
+          <div className="text-center lg:text-left lg:col-span-6">
             {/* Eyebrow */}
             <div className="mb-4 inline-block">
               <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-800">
@@ -60,8 +60,7 @@ const HeroSection = () => {
 
             {/* Editorial Display Headline */}
             <h1 className="font-playfair text-4xl font-extrabold tracking-tight text-slate-950 sm:text-6xl lg:text-7xl leading-[1.06]">
-              Birthday <br />
-              <span className="italic font-normal text-rose-500">Moments</span> <br />
+              Birthday <span className="italic font-normal text-rose-500">Moments</span> <br />
               That Last
             </h1>
 
@@ -76,9 +75,9 @@ const HeroSection = () => {
             </p>
 
             {/* CTA Buttons Row */}
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="mt-8 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center lg:justify-start gap-3 sm:gap-4">
               <Link to={user ? '/create' : '/auth?mode=signup'}>
-                <Button className="btn-press rounded-full bg-slate-950 px-8 py-6 text-sm font-bold text-white shadow-xl hover:bg-slate-800 hover:shadow-2xl">
+                <Button className="btn-press w-full sm:w-auto justify-center rounded-full bg-slate-950 px-8 py-6 text-sm font-bold text-white shadow-xl hover:bg-slate-800 hover:shadow-2xl">
                   <span>{user ? 'Create a Canvas' : 'Start a Birthday Canvas'}</span>
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
@@ -87,7 +86,7 @@ const HeroSection = () => {
               <button
                 type="button"
                 onClick={() => setShowWrappedModal(true)}
-                className="btn-press group flex items-center gap-3 rounded-full border border-stone-300 bg-white/90 px-6 py-3.5 text-sm font-bold text-slate-900 shadow-sm hover:bg-white hover:border-slate-400"
+                className="btn-press group flex w-full sm:w-auto items-center justify-center gap-3 rounded-full border border-stone-300 bg-white/90 px-6 py-3.5 text-sm font-bold text-slate-900 shadow-sm hover:bg-white hover:border-slate-400"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950 text-white transition-transform duration-200 group-hover:scale-110">
                   <Play className="h-3 w-3 fill-white ml-0.5" />
@@ -97,7 +96,7 @@ const HeroSection = () => {
             </div>
 
             {/* Social Proof + Handwritten Doodle */}
-            <div className="mt-10 flex flex-wrap items-center gap-8 pt-4 border-t border-stone-200/60">
+            <div className="mt-10 flex flex-wrap items-center justify-center lg:justify-start gap-8 pt-4 border-t border-stone-200/60">
               {/* Overlapping Avatar Stack */}
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-2.5 overflow-hidden">
@@ -323,38 +322,38 @@ const HeroSection = () => {
           <div className="grid grid-cols-2 gap-4 rounded-[2rem] border border-stone-200/80 bg-white p-5 sm:p-8 shadow-card lg:grid-cols-4 lg:gap-6">
             
             {/* Col 1: Custom Themes */}
-            <div className="card-lift flex flex-col items-start p-3 text-left rounded-2xl">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 shadow-xs">
+            <div className="card-lift flex flex-col items-center sm:items-start p-3 text-center sm:text-left rounded-2xl">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 shadow-xs">
                 <Palette className="h-5 w-5" />
               </div>
-              <h3 className="mt-3 text-base font-extrabold text-slate-950">Curated Themes</h3>
+              <h3 className="mt-3 text-sm font-extrabold text-slate-950 sm:text-base">Curated Themes</h3>
               <p className="mt-1 text-xs text-slate-500 font-medium">From classic luxury to cosmic night skies</p>
             </div>
 
             {/* Col 2: Audio Voice Notes */}
-            <div className="card-lift flex flex-col items-start p-3 text-left rounded-2xl">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 shadow-xs">
+            <div className="card-lift flex flex-col items-center sm:items-start p-3 text-center sm:text-left rounded-2xl">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 shadow-xs">
                 <Mic className="h-5 w-5" />
               </div>
-              <h3 className="mt-3 text-base font-extrabold text-slate-950">Real Voice Notes</h3>
+              <h3 className="mt-3 text-sm font-extrabold text-slate-950 sm:text-base">Real Voice Notes</h3>
               <p className="mt-1 text-xs text-slate-500 font-medium">Hear blessings, laughter and prayers</p>
             </div>
 
             {/* Col 3: Zero Guest Signup */}
-            <div className="card-lift flex flex-col items-start p-3 text-left rounded-2xl">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-xs">
+            <div className="card-lift flex flex-col items-center sm:items-start p-3 text-center sm:text-left rounded-2xl">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-xs">
                 <Share2 className="h-5 w-5" />
               </div>
-              <h3 className="mt-3 text-base font-extrabold text-slate-950">Zero Guest Signup</h3>
+              <h3 className="mt-3 text-sm font-extrabold text-slate-950 sm:text-base">Zero Guest Signup</h3>
               <p className="mt-1 text-xs text-slate-500 font-medium">Contribute in 60 seconds from any phone</p>
             </div>
 
             {/* Col 4: Wrapped Slide Reveal */}
-            <div className="card-lift flex flex-col items-start p-3 text-left rounded-2xl">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 border border-purple-100 shadow-xs">
+            <div className="card-lift flex flex-col items-center sm:items-start p-3 text-center sm:text-left rounded-2xl">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 border border-purple-100 shadow-xs">
                 <Sparkles className="h-5 w-5" />
               </div>
-              <h3 className="mt-3 text-base font-extrabold text-slate-950">Wrapped Slide Reveal</h3>
+              <h3 className="mt-3 text-sm font-extrabold text-slate-950 sm:text-base">Wrapped Slide Reveal</h3>
               <p className="mt-1 text-xs text-slate-500 font-medium">Delivered as a cinematic musical story</p>
             </div>
 

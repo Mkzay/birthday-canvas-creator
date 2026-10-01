@@ -85,8 +85,8 @@ const HowItWorksSection = () => {
       <div className="relative mx-auto max-w-7xl">
         
         {/* Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-10 border-b border-stone-200/60">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 pb-10 border-b border-stone-200/60">
+          <div className="text-center lg:text-left">
             <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-800">
               The Journey
             </span>
@@ -95,7 +95,7 @@ const HowItWorksSection = () => {
             </h2>
           </div>
 
-          <div className="font-caveat text-xl sm:text-2xl text-slate-600 select-none sm:text-right">
+          <div className="font-caveat text-xl sm:text-2xl text-slate-600 select-none text-center lg:text-right">
             You share the link, everyone shows up ◡̈
           </div>
         </div>
@@ -111,7 +111,7 @@ const HowItWorksSection = () => {
                   key={item.step}
                   type="button"
                   onClick={() => setActiveStep(index)}
-                  className={`btn-press group relative flex flex-col items-start rounded-2xl border p-4 text-left transition-[border-color,background-color,box-shadow] duration-200 ease-emil ${
+                  className={`btn-press group relative flex flex-col items-start rounded-xl sm:rounded-2xl border p-3 sm:p-4 text-left transition-[border-color,background-color,box-shadow] duration-200 ease-emil ${
                     isActive
                       ? 'border-slate-950 bg-[#FAF7F2] shadow-md ring-1 ring-slate-950/10'
                       : 'border-stone-200/80 bg-white hover:border-stone-300 hover:bg-stone-50/50'
@@ -136,7 +136,7 @@ const HowItWorksSection = () => {
                     {item.tabLabel}
                   </p>
                   
-                  <span className="mt-1 font-caveat text-xs text-amber-800">
+                  <span className="mt-1 font-caveat text-xs text-amber-800 hidden sm:inline">
                     {item.doodle}
                   </span>
 
@@ -222,7 +222,7 @@ const HowItWorksSection = () => {
                     </div>
 
                     {/* Theme Swatch Toggles */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                       <button
                         type="button"
                         onClick={() => setSelectedThemePreview('twilight')}
@@ -437,13 +437,13 @@ const HowItWorksSection = () => {
         </div>
 
         {/* 4 CELEBRATORY CONNECTED MILESTONE CARDS WITH PLAYFUL DOODLES */}
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 sm:mt-14 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
           {STEPS_DATA.map((s, index) => {
             const Icon = s.icon;
             return (
               <div
                 key={s.step}
-                className="card-lift relative flex flex-col items-center rounded-3xl border border-stone-200/80 bg-[#FAF7F2] p-7 text-center shadow-xs"
+                className="card-lift relative flex flex-col items-center rounded-2xl sm:rounded-3xl border border-stone-200/80 bg-[#FAF7F2] p-4 sm:p-7 text-center shadow-xs"
               >
                 {/* Ribbon Connector on Desktop */}
                 {index < 3 && (
@@ -483,7 +483,7 @@ const HowItWorksSection = () => {
         </div>
 
         {/* Big Showcase Banner with Wrapped Story Trigger */}
-        <div className="mt-14 relative overflow-hidden rounded-[2.5rem] border border-stone-200/80 bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-purple-500/10 p-8 sm:p-14 text-center shadow-card">
+        <div className="mt-14 relative overflow-hidden rounded-[2.5rem] border border-stone-200/80 bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-purple-500/10 p-6 sm:p-14 text-center shadow-card">
           <div className="pointer-events-none absolute -top-10 -right-10 h-64 w-64 rounded-full bg-amber-200/40 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-10 -left-10 h-64 w-64 rounded-full bg-rose-200/30 blur-3xl" />
 

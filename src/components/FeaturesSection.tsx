@@ -57,8 +57,8 @@ const FeaturesSection = () => {
       <div className="relative mx-auto max-w-7xl">
         
         {/* Section Header with Editorial Flair */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-12 border-b border-stone-200/70">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 pb-12 border-b border-stone-200/70">
+          <div className="text-center lg:text-left">
             <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-800">
               Beyond The Standard Greeting Card
             </span>
@@ -68,7 +68,7 @@ const FeaturesSection = () => {
             </h2>
           </div>
 
-          <div className="font-caveat text-xl sm:text-2xl text-slate-600 select-none sm:text-right">
+          <div className="font-caveat text-xl sm:text-2xl text-slate-600 select-none text-center lg:text-right">
             Every detail built to spark tears of joy 🥹
           </div>
         </div>
@@ -76,16 +76,16 @@ const FeaturesSection = () => {
         {/* HIGH-CRAFT ASYMMETRIC BENTO GRID */}
         <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-12">
           
-          {/* TILE 1: Large Featured Card - Voice Notes & Blessings (Span 7 cols on lg) */}
-          <div className="card-lift relative flex flex-col justify-between rounded-[2.5rem] border border-amber-200/80 bg-white p-6 sm:p-9 shadow-card hover:shadow-card-lg lg:col-span-7 text-left">
+          {/* TILE 1: Large Featured Card - Voice Notes & Blessings (Span 2 cols on tablet, 7 cols on lg) */}
+          <div className="card-lift relative flex flex-col justify-between rounded-[2.5rem] border border-amber-200/80 bg-white p-6 sm:p-8 md:p-8 lg:p-9 shadow-card hover:shadow-card-lg md:col-span-2 lg:col-span-7 text-left">
             <div>
               {/* Card Tag & Clean Consumer Pill */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200/80 px-3.5 py-1 text-xs font-bold text-amber-900 shadow-xs">
                   <Volume2 className="h-4 w-4 text-amber-600" />
                   <span>Voice Notes &amp; Blessings</span>
                 </div>
-                <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-bold text-slate-600">
+                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-slate-600 sm:text-[11px] sm:px-3">
                   Recorded from any phone 📱
                 </span>
               </div>
@@ -151,7 +151,7 @@ const FeaturesSection = () => {
                     </div>
 
                     {/* Animated Waveform Bars */}
-                    <div className="flex h-6 items-center gap-1">
+                    <div className="flex h-6 items-center gap-0.5 sm:gap-1">
                       {[35, 60, 95, 45, 80, 100, 65, 90, 50, 75, 95, 40, 70, 90, 60, 45, 80, 65, 40, 85, 95, 55, 75, 40, 60, 80].map(
                         (h, i) => (
                           <span
@@ -184,11 +184,11 @@ const FeaturesSection = () => {
             </div>
           </div>
 
-          {/* TILE 2: Live Midnight Reveal & Luxury Countdown Lock (Span 5 cols on lg) */}
-          <div className="card-lift relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] border border-amber-200/90 bg-gradient-to-b from-[#FFFDF9] via-[#FAF7F2] to-[#F5EFE6] p-6 sm:p-9 shadow-card hover:shadow-card-lg lg:col-span-5 text-left">
+          {/* TILE 2: Live Midnight Reveal & Luxury Countdown Lock (Span 1 col on tablet, 5 cols on lg) */}
+          <div className="card-lift relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] border border-amber-200/90 bg-gradient-to-b from-[#FFFDF9] via-[#FAF7F2] to-[#F5EFE6] p-6 sm:p-8 md:p-8 lg:p-9 shadow-card hover:shadow-card-lg md:col-span-1 lg:col-span-5 text-left">
             <div>
               {/* Header Badge */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 rounded-full bg-rose-50 border border-rose-200 px-3.5 py-1 text-xs font-bold text-rose-800 shadow-xs">
                   <Lock className="h-3.5 w-3.5 text-rose-600" />
                   <span>The Midnight Reveal</span>
@@ -217,21 +217,21 @@ const FeaturesSection = () => {
               </div>
 
               {/* Flip Card Dials */}
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
                 <div className="rounded-xl bg-[#FAF7F2] border border-stone-200/90 p-2.5 shadow-xs">
-                  <p className="font-mono text-2xl font-black text-slate-950">03</p>
+                  <p className="font-mono text-lg font-black sm:text-2xl text-slate-950">03</p>
                   <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 mt-0.5">Days</p>
                 </div>
                 <div className="rounded-xl bg-[#FAF7F2] border border-stone-200/90 p-2.5 shadow-xs">
-                  <p className="font-mono text-2xl font-black text-slate-950">14</p>
+                  <p className="font-mono text-lg font-black sm:text-2xl text-slate-950">14</p>
                   <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 mt-0.5">Hours</p>
                 </div>
                 <div className="rounded-xl bg-[#FAF7F2] border border-stone-200/90 p-2.5 shadow-xs">
-                  <p className="font-mono text-2xl font-black text-slate-950">52</p>
+                  <p className="font-mono text-lg font-black sm:text-2xl text-slate-950">52</p>
                   <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 mt-0.5">Mins</p>
                 </div>
                 <div className="rounded-xl bg-amber-50 border border-amber-300 p-2.5 shadow-xs ring-2 ring-amber-400/30">
-                  <p className="font-mono text-2xl font-black text-amber-700 animate-pulse">
+                  <p className="font-mono text-lg font-black sm:text-2xl text-amber-700 animate-pulse">
                     {countdownSeconds < 10 ? `0${countdownSeconds}` : countdownSeconds}
                   </p>
                   <p className="text-[10px] uppercase tracking-wider font-extrabold text-amber-800 mt-0.5">Secs</p>
@@ -249,7 +249,7 @@ const FeaturesSection = () => {
           {/* TILE 3: Spotify Wrapped-Style Slide Deck (Span 4 cols on lg) */}
           <div className="card-lift relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] border border-stone-200/80 bg-white p-6 sm:p-8 shadow-card hover:shadow-card-lg lg:col-span-4 text-left">
             <div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 rounded-full bg-purple-50 border border-purple-200 px-3 py-1 text-xs font-bold text-purple-800 shadow-xs">
                   <BookOpen className="h-3.5 w-3.5 text-purple-600" />
                   <span>Cinematic Reveal</span>
@@ -302,7 +302,7 @@ const FeaturesSection = () => {
           {/* TILE 4: Printable Memory Keepsake PDF (Span 4 cols on lg) */}
           <div className="card-lift relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] border border-stone-200/80 bg-white p-6 sm:p-8 shadow-card hover:shadow-card-lg lg:col-span-4 text-left">
             <div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-900 shadow-xs">
                   <FileDown className="h-3.5 w-3.5 text-amber-700" />
                   <span>Physical Keepsake</span>
@@ -344,7 +344,7 @@ const FeaturesSection = () => {
           {/* TILE 5: Zero Guest Signup / WhatsApp Link (Span 4 cols on lg) */}
           <div className="card-lift relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] border border-stone-200/80 bg-white p-6 sm:p-8 shadow-card hover:shadow-card-lg lg:col-span-4 text-left">
             <div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-800 shadow-xs">
                   <Share2 className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Zero Friction</span>
