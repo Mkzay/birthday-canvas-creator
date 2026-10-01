@@ -2,7 +2,6 @@ import { Fragment, useCallback, useEffect, useRef, useState, type ChangeEvent } 
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,18 +9,16 @@ import {
   Copy,
   Eye,
   Gift,
-  Heart,
   Loader2,
-  Mail,
-  Palette,
+  Music,
   QrCode,
-  Share2,
   Sparkles,
-  UserCheck,
 } from 'lucide-react';
 import { BrandMenuIcon } from '@/components/BrandIcons';
 import SocialShareButtons from '@/components/SocialShareButtons';
 import QRCodeModal from '@/components/QRCodeModal';
+import Confetti from '@/components/Confetti';
+import OpenerThemePreview from '@/components/OpenerThemePreview';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -42,6 +39,8 @@ import {
   WizardStepTheme,
   toIsoDatetime,
 } from '@/pages/page-wizard';
+import { builtInThemeMap, visualThemeConfig } from '@/lib/themes';
+import { fontClassForValue, fontLabelForValue } from '@/pages/theme-builder';
 
 const CreatePage = () => {
   const navigate = useNavigate();
@@ -77,6 +76,10 @@ const CreatePage = () => {
   const [createdPageId, setCreatedPageId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
+  
+  // Live stage preview state
+  const [previewView, setPreviewView] = useState<'card' | 'envelope'>('card');
+  const [confettiActive, setConfettiActive] = useState(false);
   
   // Form state
   const [recipientName, setRecipientName] = useState('');
@@ -122,86 +125,32 @@ const CreatePage = () => {
   const [recipientResolveError, setRecipientResolveError] = useState<string | null>(null);
   const lastResolvedRecipientRef = useRef<string | null>(null);
 
-  const isProUser = user?.planTier === 'pro' || Boolean(user?.is_pro || profile?.is_pro);
+  const isProUser = Boolean(user?.isPro || profile?.plan === 'pro');
+  const hasResolvedPoolRecipient = Boolean(recipientBankCode && recipientAccountNumber.length === 10 && recipientAccountName.trim());
   const requiresResolvedPoolRecipient = isProUser && poolFundraisingEnabled;
-  const hasResolvedPoolRecipient = !requiresResolvedPoolRecipient || (
-    Boolean(recipientBankCode.trim())
-    && recipientAccountNumber.replace(/\D/g, '').length >= 10
-    && Boolean(recipientAccountName.trim())
-    && !resolvingRecipientAccount
-    && !recipientResolveError
-  );
-
-  const currentDisplayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';
-  const initial = currentDisplayName.charAt(0).toUpperCase();
-  const avatarSrc = resolveAssetUrl(profile?.avatar_url);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
-
-  useEffect(() => {
-    if (!isProUser && selectedDisplayMode !== 'story') {
-      setSelectedDisplayMode('story');
-    }
-  }, [isProUser, selectedDisplayMode]);
-
-  const fetchCustomThemes = useCallback(async () => {
-    if (!user) return;
-    try {
-      const data = await apiFetch<CustomTheme[]>('/themes');
-      setCustomThemes(data || []);
-    } catch (error) {
-      toast.error('Failed to load custom themes');
-      console.error(error);
-    }
-  }, [user]);
-
-  const fetchUserStats = useCallback(async () => {
-    if (!user) return;
-    try {
-      const data = await apiFetch<BirthdayPage[]>('/pages');
-      setPages(data || []);
-    } catch (error) {
-      console.error('Failed to load stats for canvas creator', error);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user) {
-      setSelectedTheme(user.defaultTheme || 'elegant');
-      setSelectedLetterTheme(user.defaultTheme || 'elegant');
-      setAllowPhotos(user.defaultAllowPhotos ?? true);
-      setAllowAudio(user.defaultAllowAudio ?? true);
-      setRequireNames(user.defaultRequireNames ?? true);
-      void fetchCustomThemes();
-      void fetchUserStats();
-    }
-  }, [fetchCustomThemes, fetchUserStats, user]);
 
   const totalPages = pages.length;
   const totalWishes = pages.reduce((acc, p) => acc + (p.message_count || 0), 0);
   const activePages = pages.filter((p) => p.status === 'active').length;
   const deliveredPages = pages.filter((p) => p.status === 'delivered').length;
 
-  useEffect(() => {
-    if (!user || !isProUser) return;
+  const avatarSrc = resolveAssetUrl(profile?.avatarUrl);
+  const currentDisplayName = profile?.fullName || user?.name || 'Creator';
+  const initial = (currentDisplayName.trim()[0] || 'C').toUpperCase();
 
+  // Load banks for pool contributions
+  useEffect(() => {
     let cancelled = false;
     setLoadingBankOptions(true);
 
-    void apiFetch<{ banks: PaystackBankOption[] }>('/payments/paystack/banks')
-      .then((data) => {
-        if (cancelled) return;
-        setBankOptions(Array.isArray(data?.banks) ? data.banks : []);
+    apiFetch<PaystackBankOption[]>('/paystack/banks')
+      .then((banks) => {
+        if (!cancelled) {
+          setBankOptions(Array.isArray(banks) ? banks : []);
+        }
       })
       .catch((error) => {
-        if (cancelled) return;
-        setBankOptions([]);
-        toast.error('Could not load bank list right now');
-        console.error(error);
+        console.error('Failed to load Paystack banks:', error);
       })
       .finally(() => {
         if (!cancelled) {
@@ -212,31 +161,75 @@ const CreatePage = () => {
     return () => {
       cancelled = true;
     };
-  }, [isProUser, user]);
+  }, []);
 
+  // Free tier forces story display mode
   useEffect(() => {
-    if (!isProUser || !poolFundraisingEnabled) return;
+    if (!isProUser && selectedDisplayMode !== 'story') {
+      setSelectedDisplayMode('story');
+    }
+  }, [isProUser, selectedDisplayMode]);
 
-    const bankCode = recipientBankCode.trim();
-    const accountNumber = recipientAccountNumber.replace(/\D/g, '').slice(0, 20);
+  // Load custom themes created by user
+  const fetchCustomThemes = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await apiFetch<CustomTheme[]>('/themes');
+      setCustomThemes(data || []);
+    } catch (error) {
+      console.error('Failed to fetch custom themes:', error);
+    }
+  }, [user]);
 
-    if (!bankCode || accountNumber.length < 10) {
+  // Preload custom themes and pages stats
+  useEffect(() => {
+    if (user) {
+      setSelectedTheme(user.defaultTheme || 'elegant');
+      setSelectedLetterTheme(user.defaultTheme || 'elegant');
+      setAllowPhotos(user.defaultAllowPhotos ?? true);
+      setAllowAudio(user.defaultAllowAudio ?? true);
+      setRequireNames(user.defaultRequireNames ?? true);
+      void fetchCustomThemes();
+
+      // Fetch user pages for header metrics
+      apiFetch<BirthdayPage[]>('/pages')
+        .then((data) => setPages(data || []))
+        .catch(() => setPages([]));
+    }
+  }, [user, fetchCustomThemes]);
+
+  // Auto-resolve recipient bank account details for pool gifts
+  useEffect(() => {
+    if (!isProUser || !poolFundraisingEnabled) {
       setRecipientAccountName('');
       setRecipientResolveError(null);
       lastResolvedRecipientRef.current = null;
       return;
     }
 
-    const key = `${bankCode}:${accountNumber}`;
-    if (lastResolvedRecipientRef.current === key) return;
+    const cleanAccount = recipientAccountNumber.trim();
+    if (!recipientBankCode || cleanAccount.length !== 10) {
+      setRecipientAccountName('');
+      setRecipientResolveError(null);
+      lastResolvedRecipientRef.current = null;
+      return;
+    }
+
+    const key = `${recipientBankCode}:${cleanAccount}`;
+    if (lastResolvedRecipientRef.current === key) {
+      return;
+    }
 
     const timeoutId = window.setTimeout(() => {
       setResolvingRecipientAccount(true);
       setRecipientResolveError(null);
 
-      void apiFetch<{ accountName: string; accountNumber: string }>('/payments/paystack/resolve-account', {
+      apiFetch<{ accountName: string; accountNumber: string; bankCode: string }>('/paystack/resolve-account', {
         method: 'POST',
-        body: JSON.stringify({ bankCode, accountNumber }),
+        body: JSON.stringify({
+          accountNumber: cleanAccount,
+          bankCode: recipientBankCode,
+        }),
       })
         .then((data) => {
           setRecipientAccountName((data.accountName || '').trim());
@@ -486,16 +479,87 @@ const CreatePage = () => {
     }
   };
 
+  // Live Stage Preview Computations
+  const getPreviewColors = (): { start: string; end: string; mid?: string | null } => {
+    const custom = customThemes.find((t) => t.id === selectedTheme);
+    if (custom) {
+      return {
+        start: custom.gradient_from,
+        end: custom.gradient_to,
+        mid: custom.gradient_mid || null,
+      };
+    }
+    const builtIn = builtInThemeMap[selectedTheme];
+    if (builtIn) {
+      return {
+        start: builtIn.gradientColors[0],
+        end: builtIn.gradientColors[1],
+        mid: null,
+      };
+    }
+    return {
+      start: '#fbbf24',
+      end: '#f97316',
+      mid: null,
+    };
+  };
+
+  const previewColors = getPreviewColors();
+
+  const previewGradient = (() => {
+    const custom = customThemes.find((t) => t.id === selectedTheme);
+    if (custom) {
+      const angle = custom.gradient_angle ?? 135;
+      if (custom.gradient_mid) {
+        return `linear-gradient(${angle}deg, ${custom.gradient_from} 0%, ${custom.gradient_mid} 50%, ${custom.gradient_to} 100%)`;
+      }
+      return `linear-gradient(${angle}deg, ${custom.gradient_from} 0%, ${custom.gradient_to} 100%)`;
+    }
+    const builtIn = builtInThemeMap[selectedTheme];
+    if (builtIn) {
+      return `linear-gradient(135deg, ${builtIn.gradientColors[0]} 0%, ${builtIn.gradientColors[1]} 100%)`;
+    }
+    return 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)';
+  })();
+
+  const previewEmoji = (() => {
+    const custom = customThemes.find((t) => t.id === selectedTheme);
+    if (custom) return custom.emoji || '✨';
+    return builtInThemeMap[selectedTheme]?.emoji || '✨';
+  })();
+
+  const previewFontClass = (() => {
+    const custom = customThemes.find((t) => t.id === selectedTheme);
+    if (custom) {
+      return fontClassForValue(custom.font || 'jakarta');
+    }
+    return visualThemeConfig[selectedTheme as keyof typeof visualThemeConfig]?.font || 'font-serif';
+  })();
+
+  const currentThemeName = (() => {
+    const custom = customThemes.find((t) => t.id === selectedTheme);
+    if (custom) return custom.name;
+    return builtInThemeMap[selectedTheme]?.name || 'Signature Gold';
+  })();
+
+  const triggerConfettiPop = () => {
+    setConfettiActive(true);
+    setTimeout(() => setConfettiActive(false), 3500);
+  };
+
   if (authLoading) {
     return <WishCanvasLoader />;
   }
 
   return (
     <div className="relative min-h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 flex overflow-hidden">
-      {/* Background Celebratory Glows identical to Dashboard & Settings */}
+      {/* Background Celebratory Glows identical to Dashboard, Settings, Theme Studio */}
       <div className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-amber-200/35 to-rose-200/20 blur-3xl" />
       <div className="pointer-events-none absolute -right-40 top-20 h-[520px] w-[520px] rounded-full bg-gradient-to-bl from-rose-200/30 to-amber-200/25 blur-3xl" />
       <div className="pointer-events-none absolute left-1/3 top-1/2 h-[360px] w-[360px] rounded-full bg-amber-100/30 blur-3xl" />
+
+      {/* Floating Interactive Confetti */}
+      {confettiActive && <Confetti />}
 
       {/* 1. PERSISTENT STUDIO APP SHELL SIDEBAR (Desktop) */}
       <DashboardSidebar
@@ -599,8 +663,8 @@ const CreatePage = () => {
           </div>
         </header>
 
-        {/* Main Workbench Body */}
-        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-7 max-w-4xl w-full mx-auto">
+        {/* Main Workbench Body with Zero-Scroll Split Studio */}
+        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-7 max-w-7xl w-full mx-auto">
           
           {/* Creator Greeting & Context Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -609,10 +673,10 @@ const CreatePage = () => {
                 <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
                   Craft Milestone <span className="italic text-rose-500">Celebration Canvas</span>
                 </h1>
-                <span className="font-handwriting text-xl text-amber-800">artisan keepsake</span>
+                <span className="font-handwriting text-xl text-amber-800">zero-scroll studio</span>
               </div>
               <p className="mt-1 text-xs sm:text-sm text-stone-500 max-w-xl leading-relaxed">
-                Assemble heartfelt notes, voice recordings, nostalgic photos, and ambient soundtracks for someone special.
+                Watch your celebration card update live on the left as you sculpt details, choose palettes, and curate soundtracks.
               </p>
             </div>
 
@@ -630,363 +694,548 @@ const CreatePage = () => {
             </div>
           </div>
 
-          {/* ARTISAN STEPPER PROGRESSION CARD */}
-          <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card">
-            <div className="flex items-center justify-between max-w-2xl mx-auto relative">
-              {WIZARD_STEPS.map((s, i) => {
-                const isCompleted = step > s.number;
-                const isCurrent = step === s.number;
+          {/* THE ZERO-SCROLL SPLIT STUDIO CONTAINER */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
+            
+            {/* LEFT COLUMN: THE LIVE CELEBRATION CANVAS STAGE (5 cols on LG, sticky in view) */}
+            <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
+              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card flex flex-col relative overflow-hidden">
+                <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-amber-500/10 blur-2xl" />
 
-                return (
-                  <Fragment key={s.number}>
-                    <div className="flex flex-col items-center relative z-10">
-                      <div
-                        className={cn(
-                          'w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300 shadow-2xs',
-                          isCurrent
-                            ? 'bg-slate-950 text-white shadow-xs ring-4 ring-amber-400/30'
-                            : isCompleted
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-stone-100 text-stone-400 border border-stone-200',
-                        )}
-                      >
-                        {isCompleted ? <Check className="w-4 h-4 stroke-[3]" /> : s.number}
+                {/* Stage Top Bar */}
+                <div className="flex items-center justify-between border-b border-stone-100 pb-3 relative z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
+                      <Eye className="h-3.5 w-3.5 text-amber-600" />
+                      Live Canvas Stage
+                    </span>
+                  </div>
+
+                  {/* Switch between Canvas Card and Envelope Opener */}
+                  <div className="flex items-center gap-1 bg-stone-100 p-0.5 rounded-xl border border-stone-200/80">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewView('card')}
+                      className={cn(
+                        'px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all',
+                        previewView === 'card'
+                          ? 'bg-white text-slate-950 shadow-xs'
+                          : 'text-stone-500 hover:text-slate-900',
+                      )}
+                    >
+                      Reveal Card
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewView('envelope')}
+                      className={cn(
+                        'px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all',
+                        previewView === 'envelope'
+                          ? 'bg-white text-slate-950 shadow-xs'
+                          : 'text-stone-500 hover:text-slate-900',
+                      )}
+                    >
+                      Envelope
+                    </button>
+                  </div>
+                </div>
+
+                {/* PREVIEW VIEW 1: REVEAL CARD */}
+                {previewView === 'card' ? (
+                  <div
+                    className="my-4 rounded-3xl p-5 sm:p-6 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[420px] flex flex-col justify-between"
+                    style={{ background: previewGradient }}
+                  >
+                    {/* Subtle glass ambient sheen */}
+                    <div className="pointer-events-none absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/20 blur-xl" />
+                    <div className="pointer-events-none absolute -bottom-12 -right-12 h-44 w-44 rounded-full bg-black/10 blur-xl" />
+
+                    {/* Card Header: Theme Emblem & Mode Badge */}
+                    <div className="flex items-center justify-between relative z-10">
+                      <div className="flex items-center gap-2">
+                        <div className="h-10 w-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-xl shadow-md">
+                          {previewEmoji}
+                        </div>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-white/90 drop-shadow-xs">
+                          {currentThemeName}
+                        </span>
                       </div>
-                      <span
-                        className={cn(
-                          'text-[11px] sm:text-xs mt-2 font-bold transition-colors text-center',
-                          isCurrent ? 'text-slate-950' : isCompleted ? 'text-emerald-800' : 'text-stone-400',
-                        )}
-                      >
-                        {s.label}
+                      <span className="rounded-full bg-black/25 backdrop-blur-md px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white/95 border border-white/20">
+                        {selectedDisplayMode === 'bento' ? 'Bento Story' : selectedDisplayMode === 'freeform' ? 'Freeform Wall' : 'Celebration Story'}
                       </span>
                     </div>
 
-                    {i < WIZARD_STEPS.length - 1 && (
-                      <div
-                        className={cn(
-                          'flex-1 h-0.5 sm:h-1 mx-2 sm:mx-4 rounded-full transition-all duration-300',
-                          step > s.number ? 'bg-emerald-500' : 'bg-stone-200',
-                        )}
-                      />
-                    )}
-                  </Fragment>
-                );
-              })}
-            </div>
-          </div>
+                    {/* Celebrant Showcase Center */}
+                    <div className="my-4 relative z-10 space-y-3">
+                      {coverPhotoPreview && (
+                        <div className="flex items-center gap-3 bg-white/15 backdrop-blur-md p-2 rounded-2xl border border-white/25 w-fit">
+                          <img
+                            src={coverPhotoPreview}
+                            alt="Celebrant Cover"
+                            className="h-12 w-12 rounded-xl object-cover border border-white/50 shadow-sm"
+                          />
+                          <div className="pr-2">
+                            <span className="text-[9px] uppercase tracking-wider text-white/75 font-semibold block">Cover Portrait</span>
+                            <span className="text-xs font-bold text-white line-clamp-1">{recipientName || 'Celebrant'}</span>
+                          </div>
+                        </div>
+                      )}
 
-          {/* STEP 1: THE CELEBRANT & ESSENTIALS */}
-          {step === 1 && (
-            <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-8 shadow-card">
-              <WizardStepDetails
-                variant="create"
-                recipientName={recipientName}
-                setRecipientName={setRecipientName}
-                recipientEmail={recipientEmail}
-                setRecipientEmail={setRecipientEmail}
-                birthdayDate={birthdayDate}
-                setBirthdayDate={setBirthdayDate}
-                closeDate={closeDate}
-                setCloseDate={setCloseDate}
-                creatorMessage={creatorMessage}
-                setCreatorMessage={setCreatorMessage}
-                coverPreviewUrl={coverPhotoPreview}
-                coverInputRef={coverInputRef}
-                onCoverSelect={handleCoverPhotoSelect}
-                onRemoveCover={removeCoverPhoto}
-              />
-            </div>
-          )}
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-widest text-white/80 font-semibold flex items-center gap-1.5">
+                          <Sparkles className="h-3 w-3 text-amber-300" />
+                          Milestone Celebration
+                        </p>
+                        <h2 className={cn('text-2xl sm:text-3xl font-bold leading-tight drop-shadow-md text-white tracking-tight', previewFontClass)}>
+                          Happy Birthday, {recipientName.trim() ? recipientName.trim() : 'Alex'}!
+                        </h2>
+                        <p className="text-xs text-white/85 font-medium drop-shadow-xs">
+                          {birthdayDate ? format(birthdayDate, 'EEEE, MMMM d, yyyy') : 'Milestone date to be set'}
+                        </p>
+                      </div>
 
-          {/* STEP 2: AESTHETICS & SOUNDTRACK */}
-          {step === 2 && (
-            <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-8 shadow-card">
-              <WizardStepTheme
-                variant="create"
-                recipientName={recipientName}
-                selectedTheme={selectedTheme}
-                onSelectTheme={setSelectedTheme}
-                selectedLetterTheme={selectedLetterTheme}
-                onSelectLetterTheme={setSelectedLetterTheme}
-                customThemes={customThemes}
-                isProUser={isProUser}
-                selectedDisplayMode={selectedDisplayMode}
-                onSelectDisplayMode={setSelectedDisplayMode}
-                letterColor={letterColor}
-                setLetterColor={setLetterColor}
-                letterGradientStart={letterGradientStart}
-                setLetterGradientStart={setLetterGradientStart}
-                letterGradientEnd={letterGradientEnd}
-                setLetterGradientEnd={setLetterGradientEnd}
-                selectedSoundtrackId={selectedSoundtrackId}
-                onSelectSoundtrackId={setSelectedSoundtrackId}
-                pageCustomAudioUrl={pageCustomAudioUrl}
-                onChangeCustomAudioUrl={handleCustomAudioUrlChange}
-                footer={
-                  <CreateThemeProFooter
-                    isProUser={isProUser}
-                    publicCodeInput={publicCodeInput}
-                    onPublicCodeInputChange={(value) => {
-                      setPublicCodeInput(value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
-                      setPublicCodeError(null);
-                    }}
-                    publicCodeError={publicCodeError}
-                    revealAtInput={revealAtInput}
-                    onRevealAtInputChange={setRevealAtInput}
-                    revealPinInput={revealPinInput}
-                    onRevealPinInputChange={(value) => setRevealPinInput(value.replace(/\D/g, '').slice(0, 12))}
-                    poolFundraisingEnabled={poolFundraisingEnabled}
-                    onPoolFundraisingToggle={handlePoolFundraisingToggle}
-                    poolGoalNairaInput={poolGoalNairaInput}
-                    onPoolGoalNairaInputChange={setPoolGoalNairaInput}
-                    poolDescriptionInput={poolDescriptionInput}
-                    onPoolDescriptionInputChange={setPoolDescriptionInput}
-                    recipientBankCode={recipientBankCode}
-                    onRecipientBankCodeChange={(code) => {
-                      setRecipientBankCode(code);
-                      setRecipientAccountName('');
-                      setRecipientResolveError(null);
-                      lastResolvedRecipientRef.current = null;
-                    }}
-                    recipientAccountNumber={recipientAccountNumber}
-                    onRecipientAccountNumberChange={(value) => {
-                      setRecipientAccountNumber(value.replace(/\D/g, '').slice(0, 20));
-                      setRecipientAccountName('');
-                      setRecipientResolveError(null);
-                      lastResolvedRecipientRef.current = null;
-                    }}
-                    recipientAccountName={recipientAccountName}
-                    loadingBankOptions={loadingBankOptions}
-                    bankOptions={bankOptions}
-                    resolvingRecipientAccount={resolvingRecipientAccount}
-                    recipientResolveError={recipientResolveError}
-                  />
-                }
-              />
-            </div>
-          )}
+                      {/* Organizer Welcome Letter Snippet */}
+                      {creatorMessage.trim() && (
+                        <div className="rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 p-3 text-xs leading-relaxed text-white/95 shadow-sm">
+                          <p className="text-[9px] uppercase tracking-wider text-white/70 font-bold mb-1">
+                            Note from the Organizer:
+                          </p>
+                          <p className="italic line-clamp-2">&quot;{creatorMessage}&quot;</p>
+                        </div>
+                      )}
 
-          {/* STEP 3: CELEBRATION LAUNCHPAD & SHARING HUB */}
-          {step === 3 && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-10 shadow-card text-center space-y-4">
-                <div className="h-16 w-16 rounded-3xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto text-3xl shadow-xs">
-                  🎉
+                      {/* Simulated Pinned Wish Note */}
+                      <div className="rounded-2xl bg-white/90 backdrop-blur-md border border-white/60 p-3 text-slate-900 shadow-md transform -rotate-1">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold text-[10px] flex items-center justify-center">
+                              M
+                            </div>
+                            <span className="text-xs font-bold text-slate-800">Maya S.</span>
+                          </div>
+                          <span className="text-[10px] text-stone-400 font-medium">Friend</span>
+                        </div>
+                        <p className="text-xs text-stone-700 leading-snug">
+                          Wishing you the happiest birthday full of joy and laughter! Can&apos;t wait to celebrate! 🎂✨
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Card Footer: Soundtrack & Stats */}
+                    <div className="flex items-center justify-between pt-3 border-t border-white/20 relative z-10 text-xs">
+                      <div className="flex items-center gap-1.5 text-white/90 font-medium text-[11px] bg-black/20 px-2.5 py-1 rounded-xl backdrop-blur-xs">
+                        <Music className="h-3 w-3 text-amber-300" />
+                        <span className="capitalize">{selectedSoundtrackId.replace(/-/g, ' ')}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={triggerConfettiPop}
+                        className="flex items-center gap-1 text-[11px] font-bold text-white bg-white/25 hover:bg-white/35 active:scale-95 px-2.5 py-1 rounded-xl transition-all border border-white/30"
+                      >
+                        <span>🎉 Pop Confetti</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* PREVIEW VIEW 2: ENVELOPE OPENER */
+                  <div className="my-4 flex flex-col items-center justify-center min-h-[420px] bg-stone-50/70 rounded-3xl p-6 border border-stone-200/70">
+                    <OpenerThemePreview
+                      mode={selectedDisplayMode}
+                      startColor={previewColors.start}
+                      endColor={previewColors.end}
+                      midColor={previewColors.mid}
+                      recipientName={recipientName}
+                    />
+                    <p className="text-[11px] text-stone-500 mt-4 text-center">
+                      Interactive wax-seal envelope shown to {recipientName || 'the celebrant'} on initial arrival.
+                    </p>
+                  </div>
+                )}
+
+                {/* Stage Footer: Live sync confirmation */}
+                <div className="pt-2 text-[11px] text-stone-500 flex items-center justify-between border-t border-stone-100">
+                  <span>Auto-updates in real time</span>
+                  <span className="font-semibold text-amber-800">Celebration Keepsake</span>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                    Keepsake Activated
-                  </span>
-                  <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
-                    {recipientName}&apos;s Birthday Canvas is Ready!
-                  </h2>
-                  <p className="text-xs sm:text-sm text-stone-500 max-w-md mx-auto leading-relaxed">
-                    Share the invite link with friends and family to start gathering heartfelt wishes before the reveal date.
-                  </p>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: THE CREATION WORKBENCH (7 cols on LG) */}
+            <div className="lg:col-span-7 space-y-6">
+
+              {/* ARTISAN STEPPER PROGRESSION CARD */}
+              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-5 sm:p-6 shadow-card">
+                <div className="flex items-center justify-between max-w-xl mx-auto relative">
+                  {WIZARD_STEPS.map((s, i) => {
+                    const isCompleted = step > s.number;
+                    const isCurrent = step === s.number;
+
+                    return (
+                      <Fragment key={s.number}>
+                        <div className="flex flex-col items-center relative z-10">
+                          <div
+                            className={cn(
+                              'w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300 shadow-2xs',
+                              isCurrent
+                                ? 'bg-slate-950 text-white shadow-xs ring-4 ring-amber-400/30'
+                                : isCompleted
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-stone-100 text-stone-400 border border-stone-200',
+                            )}
+                          >
+                            {isCompleted ? <Check className="w-4 h-4 stroke-[3]" /> : s.number}
+                          </div>
+                          <span
+                            className={cn(
+                              'text-[11px] sm:text-xs mt-2 font-bold transition-colors text-center',
+                              isCurrent ? 'text-slate-950' : isCompleted ? 'text-emerald-800' : 'text-stone-400',
+                            )}
+                          >
+                            {s.label}
+                          </span>
+                        </div>
+
+                        {i < WIZARD_STEPS.length - 1 && (
+                          <div
+                            className={cn(
+                              'flex-1 h-0.5 sm:h-1 mx-2 sm:mx-4 rounded-full transition-all duration-300',
+                              step > s.number ? 'bg-emerald-500' : 'bg-stone-200',
+                            )}
+                          />
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* 2-Column Sharing Cards (Guest Invite vs Celebrant Reveal) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                
-                {/* 1. GUEST INVITATION LINK */}
-                <div className="rounded-[2rem] border border-emerald-200/90 bg-emerald-50/50 p-6 flex flex-col justify-between space-y-4 shadow-xs">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm">
-                      <div className="h-8 w-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shadow-2xs">
-                        ✉️
-                      </div>
-                      <span>Guest Contribution Link</span>
-                    </div>
-                    <p className="text-xs text-stone-600 leading-relaxed">
-                      Send this to friends, coworkers, and family to leave written notes, photos, and voice messages.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={() => copyLink('contribute')}
-                        className="flex-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs h-9 gap-1.5 shadow-xs"
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Copy Invite Link</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-xl border-emerald-300 bg-white text-emerald-900 h-9 w-9 shadow-xs"
-                        onClick={() => {
-                          setQrType('contribute');
-                          setQrModalOpen(true);
-                        }}
-                        title="Show QR Code"
-                      >
-                        <QrCode className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="pt-3 border-t border-emerald-200/60">
-                      <p className="text-[11px] font-bold text-stone-500 mb-2">Share directly on WhatsApp &amp; Social</p>
-                      <SocialShareButtons
-                        url={`${window.location.origin}/contribute/${createdPublicCode || createdPageId}`}
-                        message={`🎂 Help me celebrate ${recipientName}'s birthday! Add your heartfelt wish here:`}
-                        recipientName={recipientName}
-                      />
-                    </div>
-                  </div>
+              {/* STEP 1: THE CELEBRANT & ESSENTIALS */}
+              {step === 1 && (
+                <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-8 shadow-card">
+                  <WizardStepDetails
+                    variant="create"
+                    recipientName={recipientName}
+                    setRecipientName={setRecipientName}
+                    recipientEmail={recipientEmail}
+                    setRecipientEmail={setRecipientEmail}
+                    birthdayDate={birthdayDate}
+                    setBirthdayDate={setBirthdayDate}
+                    closeDate={closeDate}
+                    setCloseDate={setCloseDate}
+                    creatorMessage={creatorMessage}
+                    setCreatorMessage={setCreatorMessage}
+                    coverPreviewUrl={coverPhotoPreview}
+                    coverInputRef={coverInputRef}
+                    onCoverSelect={handleCoverPhotoSelect}
+                    onRemoveCover={removeCoverPhoto}
+                  />
                 </div>
+              )}
 
-                {/* 2. CELEBRANT REVEAL LINK */}
-                <div className="rounded-[2rem] border border-amber-200/90 bg-amber-50/50 p-6 flex flex-col justify-between space-y-4 shadow-xs">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-amber-950 font-bold text-sm">
-                        <div className="h-8 w-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm shadow-2xs">
-                          🎂
-                        </div>
-                        <span>Celebrant Reveal Link</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                        Private
-                      </span>
+              {/* STEP 2: AESTHETICS & SOUNDTRACK */}
+              {step === 2 && (
+                <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-8 shadow-card">
+                  <WizardStepTheme
+                    variant="create"
+                    recipientName={recipientName}
+                    selectedTheme={selectedTheme}
+                    onSelectTheme={setSelectedTheme}
+                    selectedLetterTheme={selectedLetterTheme}
+                    onSelectLetterTheme={setSelectedLetterTheme}
+                    customThemes={customThemes}
+                    isProUser={isProUser}
+                    selectedDisplayMode={selectedDisplayMode}
+                    onSelectDisplayMode={setSelectedDisplayMode}
+                    letterColor={letterColor}
+                    setLetterColor={setLetterColor}
+                    letterGradientStart={letterGradientStart}
+                    setLetterGradientStart={setLetterGradientStart}
+                    letterGradientEnd={letterGradientEnd}
+                    setLetterGradientEnd={setLetterGradientEnd}
+                    selectedSoundtrackId={selectedSoundtrackId}
+                    onSelectSoundtrackId={setSelectedSoundtrackId}
+                    pageCustomAudioUrl={pageCustomAudioUrl}
+                    onChangeCustomAudioUrl={handleCustomAudioUrlChange}
+                    footer={
+                      <CreateThemeProFooter
+                        isProUser={isProUser}
+                        publicCodeInput={publicCodeInput}
+                        onPublicCodeInputChange={(value) => {
+                          setPublicCodeInput(value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+                          setPublicCodeError(null);
+                        }}
+                        publicCodeError={publicCodeError}
+                        revealAtInput={revealAtInput}
+                        onRevealAtInputChange={setRevealAtInput}
+                        revealPinInput={revealPinInput}
+                        onRevealPinInputChange={(value) => setRevealPinInput(value.replace(/\D/g, '').slice(0, 12))}
+                        poolFundraisingEnabled={poolFundraisingEnabled}
+                        onPoolFundraisingToggle={handlePoolFundraisingToggle}
+                        poolGoalNairaInput={poolGoalNairaInput}
+                        onPoolGoalNairaInputChange={setPoolGoalNairaInput}
+                        poolDescriptionInput={poolDescriptionInput}
+                        onPoolDescriptionInputChange={setPoolDescriptionInput}
+                        recipientBankCode={recipientBankCode}
+                        onRecipientBankCodeChange={(code) => {
+                          setRecipientBankCode(code);
+                          setRecipientAccountName('');
+                          setRecipientResolveError(null);
+                          lastResolvedRecipientRef.current = null;
+                        }}
+                        recipientAccountNumber={recipientAccountNumber}
+                        onRecipientAccountNumberChange={(value) => {
+                          setRecipientAccountNumber(value.replace(/\D/g, '').slice(0, 20));
+                          setRecipientAccountName('');
+                          setRecipientResolveError(null);
+                          lastResolvedRecipientRef.current = null;
+                        }}
+                        recipientAccountName={recipientAccountName}
+                        loadingBankOptions={loadingBankOptions}
+                        bankOptions={bankOptions}
+                        resolvingRecipientAccount={resolvingRecipientAccount}
+                        recipientResolveError={recipientResolveError}
+                      />
+                    }
+                  />
+                </div>
+              )}
+
+              {/* STEP 3: CELEBRATION LAUNCHPAD & SHARING HUB */}
+              {step === 3 && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-10 shadow-card text-center space-y-4">
+                    <div className="h-16 w-16 rounded-3xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mx-auto text-3xl shadow-xs">
+                      🎉
                     </div>
-                    <p className="text-xs text-stone-600 leading-relaxed">
-                      Only give this link to {recipientName} on their birthday to unlock the animated story reveal.
-                    </p>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                        Keepsake Activated
+                      </span>
+                      <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
+                        {recipientName}&apos;s Birthday Canvas is Ready!
+                      </h2>
+                      <p className="text-xs sm:text-sm text-stone-500 max-w-md mx-auto leading-relaxed">
+                        Share the invite link with friends and family to start gathering heartfelt wishes before the reveal date.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => copyLink('birthday')}
-                        className="flex-1 rounded-xl border-amber-300 bg-white hover:bg-amber-100/60 text-amber-950 font-bold text-xs h-9 gap-1.5 shadow-xs"
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Copy Reveal Link</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-xl border-amber-300 bg-white text-amber-900 h-9 w-9 shadow-xs"
-                        onClick={() => {
-                          setQrType('birthday');
-                          setQrModalOpen(true);
-                        }}
-                        title="Show QR Code"
-                      >
-                        <QrCode className="h-4 w-4" />
-                      </Button>
+                  {/* 2-Column Sharing Cards (Guest Invite vs Celebrant Reveal) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    
+                    {/* 1. GUEST INVITATION LINK */}
+                    <div className="rounded-[2rem] border border-emerald-200/90 bg-emerald-50/50 p-6 flex flex-col justify-between space-y-4 shadow-xs">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm">
+                          <div className="h-8 w-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shadow-2xs">
+                            ✉️
+                          </div>
+                          <span>Guest Contribution Link</span>
+                        </div>
+                        <p className="text-xs text-stone-600 leading-relaxed">
+                          Send this to friends, coworkers, and family to leave written notes, photos, and voice messages.
+                        </p>
+                      </div>
+
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => copyLink('contribute')}
+                            className="flex-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs h-9 gap-1.5 shadow-xs"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            <span>Copy Invite Link</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-xl border-emerald-300 bg-white text-emerald-900 h-9 w-9 shadow-xs"
+                            onClick={() => {
+                              setQrType('contribute');
+                              setQrModalOpen(true);
+                            }}
+                            title="Show QR Code"
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <div className="pt-3 border-t border-emerald-200/60">
+                          <p className="text-[11px] font-bold text-stone-500 mb-2">Share directly on WhatsApp &amp; Social</p>
+                          <SocialShareButtons
+                            url={`${window.location.origin}/contribute/${createdPublicCode || createdPageId}`}
+                            message={`🎂 Help me celebrate ${recipientName}'s birthday! Add your heartfelt wish here:`}
+                            recipientName={recipientName}
+                          />
+                        </div>
+                      </div>
                     </div>
 
-                    <Link to={`/preview/${createdPublicCode || createdPageId}`} className="block">
+                    {/* 2. CELEBRANT REVEAL LINK */}
+                    <div className="rounded-[2rem] border border-amber-200/90 bg-amber-50/50 p-6 flex flex-col justify-between space-y-4 shadow-xs">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-amber-950 font-bold text-sm">
+                            <div className="h-8 w-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm shadow-2xs">
+                              🎂
+                            </div>
+                            <span>Celebrant Reveal Link</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                            Private
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-600 leading-relaxed">
+                          Only give this link to {recipientName} on their birthday to unlock the animated story reveal.
+                        </p>
+                      </div>
+
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => copyLink('birthday')}
+                            className="flex-1 rounded-xl border-amber-300 bg-white hover:bg-amber-100/60 text-amber-950 font-bold text-xs h-9 gap-1.5 shadow-xs"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            <span>Copy Reveal Link</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-xl border-amber-300 bg-white text-amber-900 h-9 w-9 shadow-xs"
+                            onClick={() => {
+                              setQrType('birthday');
+                              setQrModalOpen(true);
+                            }}
+                            title="Show QR Code"
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <Link to={`/preview/${createdPublicCode || createdPageId}`} className="block">
+                          <Button
+                            size="sm"
+                            className="btn-press w-full rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs h-9 gap-1.5 shadow-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-amber-300" />
+                            <span>Preview Celebrant Experience</span>
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* QR Code Modal Component */}
+                  <QRCodeModal
+                    open={qrModalOpen}
+                    onOpenChange={setQrModalOpen}
+                    url={`${window.location.origin}/${qrType === 'contribute' ? 'contribute' : 'birthday'}/${createdPublicCode || createdPageId}`}
+                    title={qrType === 'contribute' ? 'Contribution QR Code' : 'Birthday Reveal QR Code'}
+                    recipientName={recipientName}
+                  />
+
+                  {/* Live Canvas Settings Card */}
+                  <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-card space-y-4">
+                    <div className="border-b border-stone-100 pb-3">
+                      <h3 className="font-serif font-bold text-slate-950 text-base">
+                        Live Canvas Collection Rules
+                      </h3>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        Adjust contributor permissions at any time while the canvas is collecting.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
+                        <Label htmlFor="photos" className="text-xs font-bold text-slate-900 cursor-pointer">
+                          Allow photo attachments by contributors
+                        </Label>
+                        <Switch id="photos" checked={allowPhotos} onCheckedChange={handleAllowPhotosChange} />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
+                        <Label htmlFor="audio" className="text-xs font-bold text-slate-900 cursor-pointer">
+                          Allow audio voice note recordings
+                        </Label>
+                        <Switch id="audio" checked={allowAudio} onCheckedChange={handleAllowAudioChange} />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
+                        <Label htmlFor="names" className="text-xs font-bold text-slate-900 cursor-pointer">
+                          Require contributor names on messages
+                        </Label>
+                        <Switch id="names" checked={requireNames} onCheckedChange={handleRequireNamesChange} />
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+
+              {/* BOTTOM WIZARD NAVIGATION BAR */}
+              <div className="rounded-[2rem] border border-stone-200/90 bg-white p-4 shadow-card flex items-center justify-between gap-4">
+                {step > 1 && step < 3 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBack}
+                    className="rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 px-5 h-10 gap-1.5"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back</span>
+                  </Button>
+                ) : (
+                  <div />
+                )}
+
+                {step < 3 ? (
+                  <Button
+                    size="sm"
+                    onClick={handleNext}
+                    disabled={saving || uploadingCover || (step === 2 && !hasResolvedPoolRecipient)}
+                    className="btn-press rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-6 h-10 shadow-md shadow-amber-500/25 flex items-center gap-2"
+                  >
+                    {(saving || uploadingCover) ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                        <span>{uploadingCover ? 'Uploading Cover Photo...' : 'Crafting Canvas...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{step === 2 ? 'Create Celebration Canvas' : 'Continue to Styling'}</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Link to={`/edit/${createdPublicCode || createdPageId}`}>
                       <Button
                         size="sm"
-                        className="btn-press w-full rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs h-9 gap-1.5 shadow-xs"
+                        variant="outline"
+                        className="rounded-2xl border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs px-5 h-10 shadow-xs"
                       >
-                        <Eye className="h-3.5 w-3.5 text-amber-300" />
-                        <span>Preview Celebrant Experience</span>
+                        Curate Canvas
                       </Button>
                     </Link>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate('/dashboard')}
+                      className="btn-press rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-6 h-10 shadow-card flex items-center gap-2"
+                    >
+                      <span>Go to Timeline</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
-
-              </div>
-
-              {/* QR Code Modal Component */}
-              <QRCodeModal
-                open={qrModalOpen}
-                onOpenChange={setQrModalOpen}
-                url={`${window.location.origin}/${qrType === 'contribute' ? 'contribute' : 'birthday'}/${createdPublicCode || createdPageId}`}
-                title={qrType === 'contribute' ? 'Contribution QR Code' : 'Birthday Reveal QR Code'}
-                recipientName={recipientName}
-              />
-
-              {/* Live Canvas Settings Card */}
-              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 shadow-card space-y-4">
-                <div className="border-b border-stone-100 pb-3">
-                  <h3 className="font-serif font-bold text-slate-950 text-base">
-                    Live Canvas Collection Rules
-                  </h3>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    Adjust contributor permissions at any time while the canvas is collecting.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
-                    <Label htmlFor="photos" className="text-xs font-bold text-slate-900 cursor-pointer">
-                      Allow photo attachments by contributors
-                    </Label>
-                    <Switch id="photos" checked={allowPhotos} onCheckedChange={handleAllowPhotosChange} />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
-                    <Label htmlFor="audio" className="text-xs font-bold text-slate-900 cursor-pointer">
-                      Allow audio voice note recordings
-                    </Label>
-                    <Switch id="audio" checked={allowAudio} onCheckedChange={handleAllowAudioChange} />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-stone-50/50 border border-stone-200/70">
-                    <Label htmlFor="names" className="text-xs font-bold text-slate-900 cursor-pointer">
-                      Require contributor names on messages
-                    </Label>
-                    <Switch id="names" checked={requireNames} onCheckedChange={handleRequireNamesChange} />
-                  </div>
-                </div>
+                )}
               </div>
 
             </div>
-          )}
-
-          {/* BOTTOM WIZARD NAVIGATION BAR */}
-          <div className="rounded-[2rem] border border-stone-200/90 bg-white p-4 shadow-card flex items-center justify-between gap-4">
-            {step > 1 && step < 3 ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBack}
-                className="rounded-xl border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 px-5 h-10 gap-1.5"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back</span>
-              </Button>
-            ) : (
-              <div />
-            )}
-
-            {step < 3 ? (
-              <Button
-                size="sm"
-                onClick={handleNext}
-                disabled={saving || uploadingCover || (step === 2 && !hasResolvedPoolRecipient)}
-                className="btn-press rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-6 h-10 shadow-md shadow-amber-500/25 flex items-center gap-2"
-              >
-                {(saving || uploadingCover) ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                    <span>{uploadingCover ? 'Uploading Cover Photo...' : 'Crafting Canvas...'}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{step === 2 ? 'Create Celebration Canvas' : 'Continue to Styling'}</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-                className="btn-press rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-6 h-10 shadow-card flex items-center gap-2"
-              >
-                <span>Go to Atelier Dashboard</span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
           </div>
 
         </main>
