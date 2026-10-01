@@ -764,31 +764,33 @@ const ContributePage = () => {
             </div>
 
             {/* Mobile Mode Switcher Pill */}
-            <div className="sticky top-3 z-30 mb-6 flex justify-center lg:hidden">
-              <div className="inline-flex items-center rounded-full border border-border/80 bg-background/95 p-1 shadow-md backdrop-blur-md">
+            <div className="sticky top-3 z-30 mb-6 flex justify-center font-sans lg:hidden">
+              <div className="inline-flex items-center rounded-full border border-stone-200/90 bg-white/95 p-1 shadow-lg shadow-black/8 backdrop-blur-md">
                 <button
                   type="button"
                   onClick={() => setMobileView('form')}
-                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
                     mobileView === 'form'
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-stone-600 hover:text-slate-900'
                   }`}
                 >
-                  ✍️ Compose Wish
+                  <span>✍️</span>
+                  <span>Compose Wish</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setMobileView('preview')}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
                     mobileView === 'preview'
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-stone-600 hover:text-slate-900'
                   }`}
                 >
-                  👁️ Live Keepsake Preview
+                  <span>👁️</span>
+                  <span>Live Preview</span>
                   {(selectedPhotos.length > 0 || message.trim() || wishAudioPreviewUrl || stickers.length > 0) && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   )}
                 </button>
               </div>
@@ -818,10 +820,14 @@ const ContributePage = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    className="mt-4 w-full lg:hidden"
-                    onClick={() => setMobileView('form')}
+                    size="lg"
+                    className="mt-4 w-full rounded-2xl border-stone-300 bg-white/95 font-sans font-bold text-stone-800 shadow-sm hover:bg-white lg:hidden"
+                    onClick={() => {
+                      setMobileView('form');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
                   >
-                    Back to Composing Wish
+                    ✍️ Return to Editing Wish
                   </Button>
                 )}
               </div>
@@ -1131,6 +1137,21 @@ const ContributePage = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Mobile Preview Peek Action */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="default"
+                  className="mb-3 w-full gap-2 rounded-xl border-stone-300 bg-white/80 font-sans font-semibold text-stone-700 shadow-2xs hover:bg-white lg:hidden"
+                  onClick={() => {
+                    setMobileView('preview');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  <span>👁️</span>
+                  <span>Preview How Your Card Looks</span>
+                </Button>
 
                 <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading || uploadingAudio || isRecording || !page.can_contribute}>
                   {submitting || uploading || uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
