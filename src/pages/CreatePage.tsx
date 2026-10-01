@@ -741,20 +741,20 @@ const CreatePage = () => {
                   </div>
                 </div>
 
-                {/* PREVIEW VIEW 1: REVEAL CARD */}
+                {/* PREVIEW VIEW 1: DYNAMIC DISPLAY MODE LIVE STAGE */}
                 {previewView === 'card' ? (
                   <div
-                    className="my-4 rounded-3xl p-5 sm:p-6 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[420px] flex flex-col justify-between"
+                    className="my-3 rounded-3xl p-5 relative overflow-hidden shadow-lg text-white transition-all duration-300 min-h-[440px] flex flex-col justify-between"
                     style={{ background: previewGradient }}
                   >
                     {/* Subtle glass ambient sheen */}
                     <div className="pointer-events-none absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/20 blur-xl" />
                     <div className="pointer-events-none absolute -bottom-12 -right-12 h-44 w-44 rounded-full bg-black/10 blur-xl" />
 
-                    {/* Card Header: Theme Emblem & Mode Badge */}
-                    <div className="flex items-center justify-between relative z-10">
+                    {/* Stage Header: Theme Emblem & Mode Badge */}
+                    <div className="flex items-center justify-between relative z-10 mb-2">
                       <div className="flex items-center gap-2">
-                        <div className="h-10 w-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-xl shadow-md">
+                        <div className="h-9 w-9 rounded-2xl bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-lg shadow-md">
                           {previewEmoji}
                         </div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-white/90 drop-shadow-xs">
@@ -762,65 +762,166 @@ const CreatePage = () => {
                         </span>
                       </div>
                       <span className="rounded-full bg-black/25 backdrop-blur-md px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white/95 border border-white/20">
-                        {selectedDisplayMode === 'bento' ? 'Bento Story' : selectedDisplayMode === 'freeform' ? 'Freeform Wall' : 'Celebration Story'}
+                        {selectedDisplayMode === 'bento' ? 'Bento Grid' : selectedDisplayMode === 'freeform' ? 'Freeform Wall' : 'Story Reveal'}
                       </span>
                     </div>
 
-                    {/* Celebrant Showcase Center */}
-                    <div className="my-4 relative z-10 space-y-3">
-                      {coverPhotoPreview && (
-                        <div className="flex items-center gap-3 bg-white/15 backdrop-blur-md p-2 rounded-2xl border border-white/25 w-fit">
-                          <img
-                            src={coverPhotoPreview}
-                            alt="Celebrant Cover"
-                            className="h-12 w-12 rounded-xl object-cover border border-white/50 shadow-sm"
-                          />
-                          <div className="pr-2">
-                            <span className="text-[9px] uppercase tracking-wider text-white/75 font-semibold block">Cover Portrait</span>
-                            <span className="text-xs font-bold text-white line-clamp-1">{recipientName || 'Celebrant'}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-1">
-                        <p className="text-[10px] uppercase tracking-widest text-white/80 font-semibold flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3 text-amber-300" />
-                          Milestone Celebration
-                        </p>
-                        <h2 className={cn('text-2xl sm:text-3xl font-bold leading-tight drop-shadow-md text-white tracking-tight', previewFontClass)}>
-                          Happy Birthday, {recipientName.trim() ? recipientName.trim() : 'Alex'}!
-                        </h2>
-                        <p className="text-xs text-white/85 font-medium drop-shadow-xs">
-                          {birthdayDate ? format(birthdayDate, 'EEEE, MMMM d, yyyy') : 'Milestone date to be set'}
-                        </p>
-                      </div>
-
-                      {/* Organizer Welcome Letter Snippet */}
-                      {creatorMessage.trim() && (
-                        <div className="rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 p-3 text-xs leading-relaxed text-white/95 shadow-sm">
-                          <p className="text-[9px] uppercase tracking-wider text-white/70 font-bold mb-1">
-                            Note from the Organizer:
-                          </p>
-                          <p className="italic line-clamp-2">&quot;{creatorMessage}&quot;</p>
-                        </div>
-                      )}
-
-                      {/* Simulated Pinned Wish Note */}
-                      <div className="rounded-2xl bg-white/90 backdrop-blur-md border border-white/60 p-3 text-slate-900 shadow-md transform -rotate-1">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className="h-6 w-6 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold text-[10px] flex items-center justify-center">
-                              M
+                    {/* DYNAMIC MODE 1: STORY FLOW VIEW */}
+                    {selectedDisplayMode === 'story' && (
+                      <div className="my-auto relative z-10 space-y-3 animate-fade-in">
+                        {coverPhotoPreview && (
+                          <div className="flex items-center gap-3 bg-white/15 backdrop-blur-md p-2 rounded-2xl border border-white/25 w-fit">
+                            <img
+                              src={coverPhotoPreview}
+                              alt="Celebrant Cover"
+                              className="h-12 w-12 rounded-xl object-cover border border-white/50 shadow-sm"
+                            />
+                            <div className="pr-2">
+                              <span className="text-[9px] uppercase tracking-wider text-white/75 font-semibold block">Cover Portrait</span>
+                              <span className="text-xs font-bold text-white line-clamp-1">{recipientName || 'Celebrant'}</span>
                             </div>
-                            <span className="text-xs font-bold text-slate-800">Maya S.</span>
                           </div>
-                          <span className="text-[10px] text-stone-400 font-medium">Friend</span>
+                        )}
+
+                        <div className="space-y-1">
+                          <p className="text-[10px] uppercase tracking-widest text-white/80 font-semibold flex items-center gap-1.5">
+                            <Sparkles className="h-3 w-3 text-amber-300" />
+                            Milestone Celebration Story
+                          </p>
+                          <h2 className={cn('text-2xl sm:text-3xl font-bold leading-tight drop-shadow-md text-white tracking-tight', previewFontClass)}>
+                            Happy Birthday, {recipientName.trim() ? recipientName.trim() : 'Alex'}!
+                          </h2>
+                          <p className="text-xs text-white/85 font-medium drop-shadow-xs">
+                            {birthdayDate ? format(birthdayDate, 'EEEE, MMMM d, yyyy') : 'Milestone date to be set'}
+                          </p>
                         </div>
-                        <p className="text-xs text-stone-700 leading-snug">
-                          Wishing you the happiest birthday full of joy and laughter! Can&apos;t wait to celebrate! 🎂✨
-                        </p>
+
+                        {/* Organizer Welcome Letter Snippet */}
+                        {creatorMessage.trim() && (
+                          <div className="rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 p-2.5 text-xs leading-relaxed text-white/95 shadow-sm">
+                            <p className="text-[9px] uppercase tracking-wider text-white/70 font-bold mb-0.5">
+                              Note from Organizer:
+                            </p>
+                            <p className="italic line-clamp-2">&quot;{creatorMessage}&quot;</p>
+                          </div>
+                        )}
+
+                        {/* Story Progress & Chapter Indicators */}
+                        <div className="rounded-2xl bg-black/20 backdrop-blur-md border border-white/20 p-2.5 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-6 rounded-full bg-white shadow-xs" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
+                          </div>
+                          <span className="text-[10px] text-white/80 font-medium">Chapter 1 of 4: Cover Reveal</span>
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* DYNAMIC MODE 2: BENTO GRID VIEW */}
+                    {selectedDisplayMode === 'bento' && (
+                      <div className="my-auto relative z-10 grid grid-cols-2 gap-2 text-white animate-fade-in">
+                        {/* Bento Tile 1: Hero Name (Col Span 2) */}
+                        <div className="col-span-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 p-3.5 space-y-1 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] uppercase tracking-widest text-amber-300 font-bold">
+                              Milestone Bento
+                            </span>
+                            <span className="text-[10px] text-white/80 font-medium">
+                              {birthdayDate ? format(birthdayDate, 'MMM d, yyyy') : 'Milestone'}
+                            </span>
+                          </div>
+                          <h2 className={cn('text-xl font-bold leading-tight text-white', previewFontClass)}>
+                            Happy Birthday, {recipientName.trim() ? recipientName.trim() : 'Alex'}! ✨
+                          </h2>
+                        </div>
+
+                        {/* Bento Tile 2: Cover Photo or Moments Frame */}
+                        <div className="col-span-1 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 p-2.5 flex flex-col items-center justify-center text-center min-h-[90px] shadow-sm">
+                          {coverPhotoPreview ? (
+                            <img
+                              src={coverPhotoPreview}
+                              alt="Cover"
+                              className="h-14 w-14 rounded-xl object-cover border border-white/50 shadow-xs mb-1"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center text-lg mb-1">
+                              📸
+                            </div>
+                          )}
+                          <span className="text-[10px] font-bold text-white/90">Moments Vault</span>
+                        </div>
+
+                        {/* Bento Tile 3: Audio Voice Wish */}
+                        <div className="col-span-1 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 p-2.5 flex flex-col justify-between min-h-[90px] shadow-sm">
+                          <span className="text-[9px] uppercase tracking-wider text-white/70 font-semibold">Voice Wish</span>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <span className="h-3 w-1 bg-amber-300 rounded-full animate-pulse" />
+                              <span className="h-5 w-1 bg-amber-200 rounded-full animate-pulse delay-75" />
+                              <span className="h-2 w-1 bg-white rounded-full" />
+                              <span className="h-4 w-1 bg-amber-300 rounded-full" />
+                              <span className="text-[10px] font-bold text-white ml-1">0:42</span>
+                            </div>
+                            <p className="text-[10px] text-white/80 font-medium line-clamp-1">Sarah M.</p>
+                          </div>
+                        </div>
+
+                        {/* Bento Tile 4: Pinned Wish Card (Col Span 2) */}
+                        <div className="col-span-2 rounded-2xl bg-white/90 backdrop-blur-md border border-white/60 p-3 text-slate-900 shadow-sm">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-slate-800">David K.</span>
+                            <span className="text-[10px] text-stone-500 font-medium">Friend</span>
+                          </div>
+                          <p className="text-xs text-stone-700 leading-snug line-clamp-2">
+                            Wishing you the greatest year yet filled with joy, adventure, and success! 🎂
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* DYNAMIC MODE 3: FREEFORM WALL VIEW */}
+                    {selectedDisplayMode === 'freeform' && (
+                      <div className="my-auto relative z-10 space-y-2.5 py-1 animate-fade-in">
+                        {/* Tilted Polaroid Snapshot */}
+                        <div className="w-48 mx-auto bg-white p-2 pb-3 rounded-xl shadow-md text-slate-900 transform -rotate-2 relative">
+                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-12 h-3.5 bg-amber-200/80 rounded-xs shadow-2xs rotate-1" />
+                          <div className="h-24 bg-stone-100 rounded-lg overflow-hidden flex items-center justify-center border border-stone-200">
+                            {coverPhotoPreview ? (
+                              <img src={coverPhotoPreview} alt="Cover" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-3xl">🎉</span>
+                            )}
+                          </div>
+                          <p className="mt-1.5 text-center font-handwriting text-sm text-slate-800 font-bold">
+                            {recipientName || 'Alex'}&apos;s Big Day
+                          </p>
+                        </div>
+
+                        {/* 2 Staggered Sticky Notes */}
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          {/* Sticky Note 1 */}
+                          <div className="bg-amber-100 text-amber-950 p-2.5 rounded-xl shadow-sm border border-amber-200 transform rotate-2 relative">
+                            <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-2xs" />
+                            <p className="text-[9px] font-bold uppercase text-amber-800 tracking-wider">Maya S.</p>
+                            <p className="text-[11px] leading-tight font-medium mt-0.5">
+                              Happiest birthday! So grateful for you! 🎈
+                            </p>
+                          </div>
+
+                          {/* Sticky Note 2 (Audio memo) */}
+                          <div className="bg-purple-100 text-purple-950 p-2.5 rounded-xl shadow-sm border border-purple-200 transform -rotate-1 relative">
+                            <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-amber-500 shadow-2xs" />
+                            <p className="text-[9px] font-bold uppercase text-purple-800 tracking-wider">Voice Wish</p>
+                            <p className="text-[11px] font-semibold mt-0.5 flex items-center gap-1">
+                              <span>🎙️ 0:38</span>
+                              <span className="text-[10px] text-purple-700 font-normal">Sarah</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Card Footer: Soundtrack & Stats */}
                     <div className="flex items-center justify-between pt-3 border-t border-white/20 relative z-10 text-xs">
@@ -840,7 +941,7 @@ const CreatePage = () => {
                   </div>
                 ) : (
                   /* PREVIEW VIEW 2: ENVELOPE OPENER */
-                  <div className="my-4 flex flex-col items-center justify-center min-h-[420px] bg-stone-50/70 rounded-3xl p-6 border border-stone-200/70">
+                  <div className="my-3 flex flex-col items-center justify-center min-h-[440px] bg-stone-50/70 rounded-3xl p-6 border border-stone-200/70">
                     <OpenerThemePreview
                       mode={selectedDisplayMode}
                       startColor={previewColors.start}
@@ -939,6 +1040,7 @@ const CreatePage = () => {
                 <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-8 shadow-card">
                   <WizardStepTheme
                     variant="create"
+                    showPreview={false}
                     recipientName={recipientName}
                     selectedTheme={selectedTheme}
                     onSelectTheme={setSelectedTheme}

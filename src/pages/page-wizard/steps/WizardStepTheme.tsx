@@ -32,6 +32,8 @@ export type WizardStepThemeProps = {
   onSelectSoundtrackId: (id: string) => void;
   pageCustomAudioUrl: string | null;
   onChangeCustomAudioUrl: (url: string | null) => void;
+  /** When false, hides internal previews because parent container has live canvas preview stage. */
+  showPreview?: boolean;
   /** Create flow: Pro controls panel. Omit on edit (Pro lives on step 3). */
   footer?: React.ReactNode;
 };
@@ -57,6 +59,7 @@ export function WizardStepTheme({
   onSelectSoundtrackId,
   pageCustomAudioUrl,
   onChangeCustomAudioUrl,
+  showPreview = true,
   footer,
 }: WizardStepThemeProps) {
   const isCreate = variant === 'create';
@@ -83,7 +86,13 @@ export function WizardStepTheme({
         <div>
           <h3 className="text-base font-semibold text-foreground mb-3">Birthday page theme</h3>
           <p className="text-sm text-muted-foreground mb-4">This theme applies to the entire birthday page backdrop and wishes display.</p>
-          <ThemeSelector selectedTheme={selectedTheme} onSelect={onSelectTheme} customThemes={customThemes} recipientName={recipientName} />
+          <ThemeSelector
+            selectedTheme={selectedTheme}
+            onSelect={onSelectTheme}
+            customThemes={customThemes}
+            recipientName={recipientName}
+            showPreview={showPreview}
+          />
         </div>
       </div>
 
@@ -118,11 +127,11 @@ export function WizardStepTheme({
             </button>
           ))}
         </div>
-        <ModePreview mode={selectedDisplayMode} />
+        {showPreview && <ModePreview mode={selectedDisplayMode} />}
       </div>
 
       <div className="mt-8">
-        {(() => {
+        {showPreview && (() => {
           const { start, mid, end, angle } = getEffectiveColors(selectedLetterTheme, letterColor, customThemes);
           return (
             <div className="mt-4 flex w-full flex-col items-start gap-3 rounded-2xl border border-border/70 bg-muted/40 p-3 sm:inline-flex sm:w-auto sm:flex-row sm:items-center sm:pr-4">
@@ -150,7 +159,7 @@ export function WizardStepTheme({
           );
         })()}
 
-        <div className="mt-6 border-t border-border/40 pt-6">
+        <div className={cn("border-t border-border/40 pt-6", showPreview ? "mt-6" : "mt-2")}>
           <h3 className="text-base font-semibold text-foreground mb-3">Letter / envelope theme</h3>
           <p className="text-sm text-muted-foreground mb-4">Pick the letter theme only. The page theme above remains unchanged.</p>
           <ThemeSelector
