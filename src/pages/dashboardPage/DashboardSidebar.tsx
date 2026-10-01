@@ -60,7 +60,10 @@ export function DashboardSidebar({
           <div className="flex items-center justify-between pb-4 border-b border-stone-200/80">
             <Link to="/" className="flex items-center gap-2.5">
               <img
-                src="/wish-canvas-logo.svg"
+                src="/wish-canvas-logo.png"
+                onError={(e) => {
+                  e.currentTarget.src = '/wish-canvas-logo.svg';
+                }}
                 alt="WishCanvas"
                 className="h-9 w-9 rounded-xl object-contain shadow-xs shrink-0"
               />
@@ -89,7 +92,10 @@ export function DashboardSidebar({
           <div className="p-3 border-b border-stone-200/80 flex flex-col items-center gap-2">
             <Link to="/" className="flex items-center justify-center" title="WishCanvas">
               <img
-                src="/wish-canvas-logo.svg"
+                src="/wish-canvas-logo.png"
+                onError={(e) => {
+                  e.currentTarget.src = '/wish-canvas-logo.svg';
+                }}
                 alt="WishCanvas"
                 className="h-8 w-8 rounded-xl object-contain shadow-xs shrink-0 transition-transform duration-200 hover:scale-105"
               />
@@ -110,7 +116,10 @@ export function DashboardSidebar({
           <div className="p-4 sm:p-5 border-b border-stone-200/80 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2.5 group min-w-0">
               <img
-                src="/wish-canvas-logo.svg"
+                src="/wish-canvas-logo.png"
+                onError={(e) => {
+                  e.currentTarget.src = '/wish-canvas-logo.svg';
+                }}
                 alt="WishCanvas"
                 className="h-9 w-9 rounded-xl object-contain shadow-xs shrink-0 transition-transform duration-200 group-hover:scale-105"
               />
@@ -125,19 +134,6 @@ export function DashboardSidebar({
             </Link>
 
             <div className="flex items-center gap-1.5 shrink-0">
-              {isProUser ? (
-                <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300 flex items-center gap-1">
-                  <Crown className="h-2.5 w-2.5 text-amber-700" />
-                  PRO
-                </span>
-              ) : (
-                <Link to="/billing">
-                  <span className="text-[10px] font-semibold bg-stone-100 text-stone-600 hover:text-slate-950 px-2 py-0.5 rounded-full border border-stone-200 transition-colors">
-                    Free
-                  </span>
-                </Link>
-              )}
-
               {onToggleCollapse && (
                 <button
                   type="button"
@@ -153,16 +149,16 @@ export function DashboardSidebar({
           </div>
         )}
 
-        {/* Primary Action Button */}
+        {/* Primary Action Button (Celebratory, joyful warmth) */}
         {isCollapsed && !isMobileDrawer ? (
           <div className="p-3 flex justify-center">
             <Link to="/create" title="Craft New Canvas">
               <button
                 type="button"
-                className="btn-press h-10 w-10 rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold shadow-card transition-all flex items-center justify-center active:scale-95"
+                className="btn-press h-10 w-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 text-white font-bold shadow-md shadow-amber-500/25 transition-all flex items-center justify-center active:scale-95"
                 aria-label="Craft New Canvas"
               >
-                <Plus className="h-4 w-4 text-amber-300 stroke-[3]" />
+                <Plus className="h-4 w-4 text-white stroke-[3]" />
               </button>
             </Link>
           </div>
@@ -171,9 +167,9 @@ export function DashboardSidebar({
             <Link to="/create">
               <button
                 type="button"
-                className="btn-press w-full py-3 px-4 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs shadow-card transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                className="btn-press w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 text-white font-bold text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
               >
-                <Plus className="h-4 w-4 text-amber-300 stroke-[3]" />
+                <Sparkles className="h-4 w-4 text-amber-100" />
                 <span>Craft New Canvas</span>
               </button>
             </Link>
@@ -280,11 +276,15 @@ export function DashboardSidebar({
               >
                 <span className="flex items-center gap-2.5">
                   <Crown className="h-4 w-4 text-amber-700" />
-                  <span>Pro Membership</span>
+                  <span>{isProUser ? 'Atelier Perks' : 'Studio Perks'}</span>
                 </span>
-                {!isProUser && (
+                {!isProUser ? (
                   <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
                     Upgrade
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    Active
                   </span>
                 )}
               </Link>
@@ -301,10 +301,16 @@ export function DashboardSidebar({
               <img
                 src={profile.avatar_url}
                 alt={displayName}
-                className="h-8 w-8 rounded-full object-cover border border-amber-300 shadow-xs"
+                className={`h-8 w-8 rounded-full object-cover shadow-xs ${
+                  isProUser ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-[#FAF7F2]' : 'border border-amber-300'
+                }`}
               />
             ) : (
-              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+              <div
+                className={`h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold flex items-center justify-center text-xs shadow-xs ${
+                  isProUser ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-[#FAF7F2]' : ''
+                }`}
+              >
                 {initial}
               </div>
             )}
@@ -327,17 +333,30 @@ export function DashboardSidebar({
                 <img
                   src={profile.avatar_url}
                   alt={displayName}
-                  className="h-8 w-8 rounded-full object-cover border border-amber-300 shrink-0"
+                  className={`h-8 w-8 rounded-full object-cover shrink-0 ${
+                    isProUser ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-[#FAF7F2]' : 'border border-stone-200'
+                  }`}
                 />
               ) : (
-                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold flex items-center justify-center shrink-0">
+                <div
+                  className={`h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold flex items-center justify-center shrink-0 ${
+                    isProUser ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-[#FAF7F2]' : ''
+                  }`}
+                >
                   {initial}
                 </div>
               )}
               <div className="truncate">
-                <p className="font-bold text-slate-950 truncate">{displayName}</p>
+                <div className="flex items-center gap-1.5 truncate">
+                  <p className="font-bold text-slate-950 truncate">{displayName}</p>
+                  {isProUser && (
+                    <span className="text-[9px] font-bold text-amber-900 bg-amber-100 border border-amber-300/80 px-1.5 py-0.2 rounded-full shrink-0">
+                      PRO
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-stone-500 truncate">
-                  {isProUser ? 'Pro Studio Plan' : 'Free Creator'}
+                  {isProUser ? 'Pro Atelier: Unlimited Canvases' : 'Free Creator: 5 Canvases'}
                 </p>
               </div>
             </div>

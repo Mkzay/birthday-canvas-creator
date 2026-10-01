@@ -1,12 +1,16 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CalendarDays,
   Check,
+  ChevronDown,
   Copy,
   Download,
   Edit,
   Eye,
   Gift,
+  LayoutGrid,
+  List,
   Lock,
   MessageSquare,
   MoreVertical,
@@ -88,6 +92,7 @@ export function DashboardKanbanPipeline({
   canShowExportOptions,
 }: DashboardKanbanPipelineProps) {
   const now = new Date();
+  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
 
   // Categorize pages into the 4 life stages
   const draftingPages: BirthdayPage[] = [];
@@ -132,8 +137,9 @@ export function DashboardKanbanPipeline({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
-        <div className="flex items-center gap-2">
+      {/* Kanban Header & Density Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-1">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-amber-800">
             Celebration Lifecycle Pipeline
           </span>
@@ -143,16 +149,47 @@ export function DashboardKanbanPipeline({
             </span>
           )}
         </div>
-        <span className="text-xs text-stone-500 font-medium">
-          Click any card to open the quick sharing and inspection drawer
-        </span>
+
+        {/* View Density Switcher (Comfortable vs Compact) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-stone-400 font-medium hidden md:inline">View density:</span>
+          <div className="inline-flex rounded-xl border border-stone-200 bg-white p-0.5 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setDensity('comfortable')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                density === 'comfortable'
+                  ? 'bg-amber-100 text-amber-900 shadow-xs'
+                  : 'text-stone-500 hover:text-slate-900'
+              }`}
+              title="Comfortable view with large celebration portraits"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Comfortable</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDensity('compact')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                density === 'compact'
+                  ? 'bg-amber-100 text-amber-900 shadow-xs'
+                  : 'text-stone-500 hover:text-slate-900'
+              }`}
+              title="Compact view for managing many celebrations easily"
+            >
+              <List className="h-3.5 w-3.5" />
+              <span>Compact</span>
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* 4-Stage Kanban Pipeline with Contained Internal Column Scrolling */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-start">
         
         {/* COLUMN 1: DRAFTING & PLANNED */}
-        <div className="rounded-3xl border border-stone-200/90 bg-stone-100/90 p-4 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between px-1">
+        <div className="rounded-3xl border border-stone-200/90 bg-stone-100/90 p-4 shadow-xs flex flex-col max-h-[740px]">
+          <div className="sticky top-0 z-10 bg-stone-100/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-stone-200/70 mb-3">
             <div className="flex items-center gap-2 font-bold text-xs text-stone-700">
               <span className="h-2 w-2 rounded-full bg-stone-400" />
               <span>1. Drafting &amp; Planned</span>
@@ -162,10 +199,41 @@ export function DashboardKanbanPipeline({
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto pr-1 flex-1">
             {filteredDrafting.map((page) => {
               const theme = getThemeDisplay(page.theme);
               const bday = parseLocalDate(page.birthday_date);
+
+              if (density === 'compact') {
+                return (
+                  <div
+                    key={page.id}
+                    onClick={() => onSelectPage(page)}
+                    className="group cursor-pointer rounded-xl border border-stone-200 bg-white p-2.5 shadow-xs transition-all hover:border-amber-300 hover:shadow-sm flex items-center justify-between gap-2.5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-8 w-8 rounded-lg bg-stone-100 flex items-center justify-center text-base shrink-0 border border-stone-200">
+                        {theme.emoji || '🎂'}
+                      </div>
+                      <div className="truncate">
+                        <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
+                          {page.recipient_name}&apos;s Birthday
+                        </h4>
+                        <span className="text-[10px] text-stone-500">
+                          {format(bday, 'MMM d')} &middot; Draft
+                        </span>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/edit/${page.public_code}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[11px] font-bold text-amber-800 hover:underline shrink-0"
+                    >
+                      Resume
+                    </Link>
+                  </div>
+                );
+              }
 
               return (
                 <div
@@ -216,8 +284,8 @@ export function DashboardKanbanPipeline({
         </div>
 
         {/* COLUMN 2: LIVE COLLECTING (ACTIVE) */}
-        <div className="rounded-3xl border border-amber-200/90 bg-amber-50/70 p-4 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between px-1">
+        <div className="rounded-3xl border border-amber-200/90 bg-amber-50/70 p-4 shadow-xs flex flex-col max-h-[740px]">
+          <div className="sticky top-0 z-10 bg-amber-50/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-amber-200/70 mb-3">
             <div className="flex items-center gap-2 font-bold text-xs text-amber-950">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>2. Live Collecting</span>
@@ -227,12 +295,64 @@ export function DashboardKanbanPipeline({
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto pr-1 flex-1">
             {filteredCollecting.map((page) => {
               const theme = getThemeDisplay(page.theme);
               const bday = parseLocalDate(page.birthday_date);
               const close = page.close_date ? parseLocalDate(page.close_date) : bday;
               const daysLeft = differenceInDays(close, now);
+
+              if (density === 'compact') {
+                return (
+                  <div
+                    key={page.id}
+                    onClick={() => onSelectPage(page)}
+                    className="group cursor-pointer rounded-xl border border-amber-200 bg-white p-2.5 shadow-xs transition-all hover:border-amber-400 hover:shadow-sm flex items-center justify-between gap-2.5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center text-base shrink-0 border border-amber-200">
+                        {theme.emoji || '🎂'}
+                      </div>
+                      <div className="truncate">
+                        <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
+                          {page.recipient_name}
+                        </h4>
+                        <div className="flex items-center gap-1.5 text-[10px] text-stone-500">
+                          <span className="font-bold text-emerald-700">
+                            {daysLeft > 0 ? `${daysLeft}d left` : 'Today'}
+                          </span>
+                          <span>&middot;</span>
+                          <span>{page.message_count || 0} wishes</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShareWhatsApp(page);
+                        }}
+                        className="rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700 transition-colors"
+                        title="Share on WhatsApp"
+                      >
+                        WA
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCopyContribute(page);
+                        }}
+                        className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-semibold text-stone-700 hover:bg-stone-100"
+                        title="Copy link"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <div
@@ -320,8 +440,8 @@ export function DashboardKanbanPipeline({
         </div>
 
         {/* COLUMN 3: REVEAL READY / SEALED */}
-        <div className="rounded-3xl border border-rose-200/90 bg-rose-50/70 p-4 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between px-1">
+        <div className="rounded-3xl border border-rose-200/90 bg-rose-50/70 p-4 shadow-xs flex flex-col max-h-[740px]">
+          <div className="sticky top-0 z-10 bg-rose-50/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-rose-200/70 mb-3">
             <div className="flex items-center gap-2 font-bold text-xs text-rose-950">
               <span className="h-2 w-2 rounded-full bg-rose-500" />
               <span>3. Reveal Ready</span>
@@ -331,10 +451,41 @@ export function DashboardKanbanPipeline({
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto pr-1 flex-1">
             {filteredRevealReady.map((page) => {
               const theme = getThemeDisplay(page.theme);
               const bday = parseLocalDate(page.birthday_date);
+
+              if (density === 'compact') {
+                return (
+                  <div
+                    key={page.id}
+                    onClick={() => onSelectPage(page)}
+                    className="group cursor-pointer rounded-xl border border-rose-200 bg-white p-2.5 shadow-xs transition-all hover:border-rose-400 hover:shadow-sm flex items-center justify-between gap-2.5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-8 w-8 rounded-lg bg-rose-50 flex items-center justify-center text-base shrink-0 border border-rose-200">
+                        {theme.emoji || '🎉'}
+                      </div>
+                      <div className="truncate">
+                        <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-rose-600">
+                          {page.recipient_name}&apos;s Surprise
+                        </h4>
+                        <span className="text-[10px] text-stone-500">
+                          Ready &middot; {page.message_count || 0} wishes
+                        </span>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/birthday/${page.public_code}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded-md bg-slate-950 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-slate-800 shrink-0"
+                    >
+                      Reveal
+                    </Link>
+                  </div>
+                );
+              }
 
               return (
                 <div
@@ -388,8 +539,8 @@ export function DashboardKanbanPipeline({
         </div>
 
         {/* COLUMN 4: DELIVERED KEEPSAKES */}
-        <div className="rounded-3xl border border-stone-200/90 bg-stone-100/90 p-4 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between px-1">
+        <div className="rounded-3xl border border-stone-200/90 bg-stone-100/90 p-4 shadow-xs flex flex-col max-h-[740px]">
+          <div className="sticky top-0 z-10 bg-stone-100/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-stone-200/70 mb-3">
             <div className="flex items-center gap-2 font-bold text-xs text-stone-700">
               <Gift className="h-3.5 w-3.5 text-stone-500" />
               <span>4. Delivered Keepsakes</span>
@@ -399,10 +550,41 @@ export function DashboardKanbanPipeline({
             </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto pr-1 flex-1">
             {filteredDelivered.map((page) => {
               const theme = getThemeDisplay(page.theme);
               const bday = parseLocalDate(page.birthday_date);
+
+              if (density === 'compact') {
+                return (
+                  <div
+                    key={page.id}
+                    onClick={() => onSelectPage(page)}
+                    className="group cursor-pointer rounded-xl border border-stone-200 bg-white p-2.5 shadow-xs transition-all hover:border-amber-300 hover:shadow-sm flex items-center justify-between gap-2.5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-8 w-8 rounded-lg bg-stone-100 flex items-center justify-center text-base shrink-0 border border-stone-200">
+                        {theme.emoji || '🎁'}
+                      </div>
+                      <div className="truncate">
+                        <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
+                          {page.recipient_name}&apos;s Keepsake
+                        </h4>
+                        <span className="text-[10px] text-stone-500">
+                          {format(bday, 'MMM d, yyyy')} &middot; {page.message_count || 0} wishes
+                        </span>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/birthday/${page.public_code}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[11px] font-bold text-slate-900 hover:underline shrink-0"
+                    >
+                      Revisit
+                    </Link>
+                  </div>
+                );
+              }
 
               return (
                 <div

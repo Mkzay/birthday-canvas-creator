@@ -301,9 +301,10 @@ const Dashboard = () => {
 
   return (
     <div className="relative min-h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 flex overflow-hidden">
-      {/* Background Soft Glows */}
-      <div className="pointer-events-none absolute -left-40 top-0 h-96 w-96 rounded-full bg-amber-200/25 blur-3xl" />
-      <div className="pointer-events-none absolute -right-40 top-20 h-96 w-96 rounded-full bg-rose-200/20 blur-3xl" />
+      {/* Background Celebratory Glows */}
+      <div className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-amber-200/35 to-rose-200/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 top-20 h-[520px] w-[520px] rounded-full bg-gradient-to-bl from-rose-200/30 to-amber-200/25 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/3 top-1/2 h-[360px] w-[360px] rounded-full bg-amber-100/30 blur-3xl" />
 
       {/* 1. PERSISTENT STUDIO APP SHELL SIDEBAR (Desktop) */}
       <DashboardSidebar
@@ -451,9 +452,9 @@ const Dashboard = () => {
               <Link to="/create">
                 <Button
                   size="sm"
-                  className="btn-press gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-card hover:bg-slate-900 active:scale-[0.98]"
+                  className="btn-press gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/20 hover:brightness-105 active:scale-[0.98] transition-all"
                 >
-                  <Plus className="h-4 w-4 text-amber-300 stroke-[3]" />
+                  <Sparkles className="h-4 w-4 text-amber-100" />
                   Craft Canvas
                 </Button>
               </Link>
