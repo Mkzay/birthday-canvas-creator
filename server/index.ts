@@ -725,9 +725,8 @@ function routeParamString(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : value;
 }
 
-app.use("/uploads/*", (req, res) => {
-  const path = req.params[0];
-  res.redirect(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/v1/${path}`);
+app.use("/uploads", (req, res) => {
+  res.redirect(`https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/v1${req.path}`);
 });
 
 app.use(
