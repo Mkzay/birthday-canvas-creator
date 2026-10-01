@@ -1,13 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarDays,
+  Crown,
+  Menu,
+  Palette,
+  Plus,
+  Search,
+  Sparkles,
+  Users,
+  X,
+} from 'lucide-react';
 import { differenceInDays, format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import Header from '@/components/Header';
+import { Input } from '@/components/ui/input';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
-import { ApiError, apiFetch, getApiOrigin, resolveAssetUrl } from '@/lib/api';
+import { ApiError, apiFetch, getApiOrigin } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { builtInThemeMap } from '@/lib/themes';
 import {
@@ -20,32 +31,42 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Sheet,
+  SheetContent,
+} from '@/components/ui/sheet';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import type { BirthdayPage, CustomTheme, PageAnalytics, ThemeDisplay } from '@/pages/dashboardPage';
 import {
-  DashboardStudioHeader,
-  DashboardSpotlightStage,
-  DashboardPagesToolbar,
-  getDashboardStatusBadge,
-  OwnedPageCard,
+  DashboardCalendarTimeline,
+  DashboardCelebrationDrawer,
+  DashboardKanbanPipeline,
+  DashboardSidebar,
   themeAccentMap,
 } from '@/pages/dashboardPage';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const [pages, setPages] = useState<BirthdayPage[]>([]);
   const [savedPages, setSavedPages] = useState<BirthdayPage[]>([]);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Modals & Drawer State
   const [pagePendingDelete, setPagePendingDelete] = useState<BirthdayPage | null>(null);
   const [savedPagePendingRemove, setSavedPagePendingRemove] = useState<BirthdayPage | null>(null);
   const [analyticsByPage, setAnalyticsByPage] = useState<Record<string, PageAnalytics>>({});
   const [analyticsLoadingPage, setAnalyticsLoadingPage] = useState<string | null>(null);
   const [exportingPage, setExportingPage] = useState<string | null>(null);
 
+  // New Hybrid App Shell State
   const [searchQuery, setSearchQuery] = useState('');
-  const [pageFilter, setPageFilter] = useState<'all' | 'live' | 'archived'>('all');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [drawerPage, setDrawerPage] = useState<BirthdayPage | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   const isProUser = user?.planTier === 'pro';
   const canShowExportOptions = !import.meta.env.PROD;
 
@@ -57,7 +78,6 @@ const Dashboard = () => {
 
   const fetchCustomThemes = useCallback(async () => {
     if (!user) return;
-
     try {
       const data = await apiFetch<CustomTheme[]>('/themes');
       setCustomThemes(data || []);
@@ -69,13 +89,12 @@ const Dashboard = () => {
 
   const fetchPages = useCallback(async () => {
     if (!user) return;
-
     setLoading(true);
     try {
       const data = await apiFetch<BirthdayPage[]>('/pages/dashboard');
       setPages(data || []);
     } catch (error) {
-      toast.error('Failed to load pages');
+      toast.error('Failed to load celebration pages');
       console.error(error);
     } finally {
       setLoading(false);
@@ -84,7 +103,6 @@ const Dashboard = () => {
 
   const fetchSavedPages = useCallback(async () => {
     if (!user) return;
-
     try {
       const data = await apiFetch<BirthdayPage[]>('/pages/saved');
       setSavedPages(data || []);
@@ -99,71 +117,19 @@ const Dashboard = () => {
     }
   }, [fetchCustomThemes, fetchPages, fetchSavedPages, user]);
 
-  const isArchivedPage = (page: BirthdayPage) => {
-    const birthdayDate = parseLocalDate(page.birthday_date);
-    const daysUntilBirthday = differenceInDays(birthdayDate, new Date());
-    return page.status === 'delivered' || daysUntilBirthday < 0;
-  };
+  const stats = useMemo(() => {
+    const totalPages = pages.length;
+    const activePages = pages.filter((page) => page.status === 'active').length;
+    const deliveredPages = pages.filter((page) => page.status === 'delivered').length;
+    const totalMessages = pages.reduce((accumulator, page) => accumulator + (page.message_count || 0), 0);
 
-  const filteredLivePages = useMemo(() => {
-    const query = (searchQuery || '').toLowerCase();
-    const showLive = pageFilter === 'all' || pageFilter === 'live';
-    if (!showLive) return [];
-
-    return pages.filter((page) => {
-      const name = page.recipient_name || '';
-      const matchesSearch = name.toLowerCase().includes(query);
-      return matchesSearch && !isArchivedPage(page);
-    });
-  }, [pageFilter, pages, searchQuery]);
-
-  const filteredArchivedPages = useMemo(() => {
-    const query = (searchQuery || '').toLowerCase();
-    const showArchived = pageFilter === 'all' || pageFilter === 'archived';
-    if (!showArchived) return [];
-
-    return pages.filter((page) => {
-      const name = page.recipient_name || '';
-      const matchesSearch = name.toLowerCase().includes(query);
-      return matchesSearch && isArchivedPage(page);
-    });
-  }, [pageFilter, pages, searchQuery]);
-
-  const filteredSavedPages = useMemo(() => {
-    const query = (searchQuery || '').toLowerCase();
-
-    return savedPages.filter((page) => {
-      const name = page.recipient_name || '';
-      const matchesSearch = name.toLowerCase().includes(query);
-      if (!matchesSearch) return false;
-
-      if (pageFilter === 'all') return true;
-      const archived = isArchivedPage(page);
-      return pageFilter === 'archived' ? archived : !archived;
-    });
-  }, [pageFilter, savedPages, searchQuery]);
-
-  const spotlightPage = useMemo(() => {
-    if (searchQuery.trim() || pageFilter !== 'all') return null;
-    const live = pages.filter((p) => !isArchivedPage(p));
-    if (live.length > 0) return live[0];
-    if (pages.length > 0) return pages[0];
-    return null;
-  }, [pageFilter, pages, searchQuery]);
-
-  const galleryLivePages = useMemo(() => {
-    if (spotlightPage) {
-      return filteredLivePages.filter((p) => p.id !== spotlightPage.id);
-    }
-    return filteredLivePages;
-  }, [filteredLivePages, spotlightPage]);
-
-  const galleryArchivedPages = useMemo(() => {
-    if (spotlightPage && isArchivedPage(spotlightPage)) {
-      return filteredArchivedPages.filter((p) => p.id !== spotlightPage.id);
-    }
-    return filteredArchivedPages;
-  }, [filteredArchivedPages, spotlightPage]);
+    return {
+      totalPages,
+      activePages,
+      deliveredPages,
+      totalMessages,
+    };
+  }, [pages]);
 
   const getThemeDisplay = useCallback(
     (themeKey: string): ThemeDisplay => {
@@ -180,13 +146,11 @@ const Dashboard = () => {
             isCustom: true,
             gradientFrom: customTheme.gradient_from,
             gradientTo: customTheme.gradient_to,
-            mood: 'Custom theme',
           };
         }
       }
 
       const builtInTheme = builtInThemeMap[themeKey] || builtInThemeMap.elegant;
-
       return {
         name: builtInTheme.name,
         emoji: builtInTheme.emoji,
@@ -199,22 +163,17 @@ const Dashboard = () => {
     [customThemes],
   );
 
-  const stats = useMemo(
-    () => ({
-      totalPages: pages.length,
-      activePages: pages.filter((page) => page.status === 'active').length,
-      totalMessages: pages.reduce((accumulator, page) => accumulator + (page.message_count || 0), 0),
-    }),
-    [pages],
-  );
-
   const handleDelete = async (id: string, name: string) => {
     try {
       await apiFetch<void>(`/pages/${id}`, {
         method: 'DELETE',
       });
       setPages((currentPages) => currentPages.filter((page) => page.id !== id));
-      toast.success(`"${name}'s" birthday page deleted`);
+      if (drawerPage?.id === id) {
+        setIsDrawerOpen(false);
+        setDrawerPage(null);
+      }
+      toast.success(`"${name}'s" celebration canvas deleted`);
     } catch (error) {
       console.error(error);
       toast.error('Failed to delete page');
@@ -227,10 +186,21 @@ const Dashboard = () => {
 
     try {
       await navigator.clipboard.writeText(link);
-      toast.success(type === 'contribute' ? 'Contribution link copied' : 'Birthday link copied');
+      toast.success(type === 'contribute' ? 'Contribution invite copied' : 'Birthday celebration link copied');
     } catch {
       window.prompt('Copy this link:', link);
     }
+  };
+
+  const handleShareWhatsApp = (page: BirthdayPage) => {
+    const url = `${window.location.origin}/contribute/${page.public_code}`;
+    const text = `Hi! Leave a birthday wish, voice note, or memory for ${page.recipient_name} here: ${url}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleOpenDrawer = (page: BirthdayPage) => {
+    setDrawerPage(page);
+    setIsDrawerOpen(true);
   };
 
   const handleAnalytics = async (pageCode: string) => {
@@ -280,7 +250,7 @@ const Dashboard = () => {
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-      toast.success('PDF export downloaded');
+      toast.success('PDF keepsake downloaded');
     } catch (error) {
       console.error(error);
       toast.error('Failed to export page');
@@ -289,280 +259,316 @@ const Dashboard = () => {
     }
   };
 
+  // Filtered by Search Query
+  const searchedPages = useMemo(() => {
+    const query = (searchQuery || '').trim().toLowerCase();
+    if (!query) return pages;
+
+    return pages.filter((page) => {
+      const name = page.recipient_name || '';
+      return name.toLowerCase().includes(query);
+    });
+  }, [pages, searchQuery]);
+
   if (authLoading || loading) {
     return <WishCanvasLoader />;
   }
 
-  const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
+  const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';
+
   return (
-    <div className="relative min-h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 overflow-x-hidden">
-      {/* Ambient background glows */}
+    <div className="relative min-h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 flex overflow-hidden">
+      {/* Background Soft Glows */}
       <div className="pointer-events-none absolute -left-40 top-0 h-96 w-96 rounded-full bg-amber-200/25 blur-3xl" />
       <div className="pointer-events-none absolute -right-40 top-20 h-96 w-96 rounded-full bg-rose-200/20 blur-3xl" />
-      <AnimatedBackground showStars={false} showWaves={true} className="opacity-25" />
-      <Header showDashboardLabel />
 
-      <main className="relative mx-auto max-w-7xl px-4 pb-12 pt-20 sm:px-6 sm:pb-16 sm:pt-28 space-y-7 sm:space-y-10">
-        {/* 1. Integrated Studio Header with Inline Ledger */}
-        <DashboardStudioHeader displayName={displayName} stats={stats} />
+      {/* 1. PERSISTENT STUDIO APP SHELL SIDEBAR (Desktop) */}
+      <DashboardSidebar
+        user={user}
+        profile={profile}
+        activePagesCount={stats.activePages}
+        deliveredPagesCount={stats.deliveredPages}
+        totalPagesCount={stats.totalPages}
+        isProUser={isProUser}
+        onSignOut={signOut}
+      />
 
-        {/* 2. Spotlight Stage (Primary upcoming celebration) */}
-        {spotlightPage && (
-          <DashboardSpotlightStage
-            page={spotlightPage}
-            theme={getThemeDisplay(spotlightPage.theme)}
-            isLive={!isArchivedPage(spotlightPage)}
-            canShowExportOptions={canShowExportOptions}
-            analytics={analyticsByPage[spotlightPage.public_code]}
-            analyticsLoading={analyticsLoadingPage === spotlightPage.public_code}
-            exporting={exportingPage === spotlightPage.public_code}
-            onCopyContribute={() => void copyLink(spotlightPage.public_code, 'contribute')}
-            onCopyBirthday={() => void copyLink(spotlightPage.public_code, 'birthday')}
-            onRequestDelete={() => setPagePendingDelete(spotlightPage)}
-            onAnalytics={() => handleAnalytics(spotlightPage.public_code)}
-            onExport={() => handleExport(spotlightPage.public_code, spotlightPage.recipient_name)}
-          />
-        )}
-
-        {/* 3. Exhibition Gallery & Archive */}
-        <section className="space-y-6">
-          <DashboardPagesToolbar
-            searchQuery={searchQuery}
-            onSearchQueryChange={setSearchQuery}
-            pageFilter={pageFilter}
-            onPageFilterChange={setPageFilter}
+      {/* MOBILE SIDEBAR DRAWER (When on phone / tablet) */}
+      <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+        <SheetContent side="left" className="p-0 w-72 bg-[#18181B] text-stone-300 border-r border-stone-800">
+          <DashboardSidebar
+            user={user}
+            profile={profile}
+            activePagesCount={stats.activePages}
+            deliveredPagesCount={stats.deliveredPages}
+            totalPagesCount={stats.totalPages}
             isProUser={isProUser}
+            onSignOut={() => {
+              setIsMobileSidebarOpen(false);
+              signOut();
+            }}
           />
+        </SheetContent>
+      </Sheet>
+
+      {/* 2. MAIN STUDIO WORKBENCH (Fluid flex container) */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        
+        {/* Top Command Bar */}
+        <header className="bg-white/85 backdrop-blur-md border-b border-stone-200/90 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">
+          <div className="flex items-center gap-3 flex-1 max-w-lg">
+            {/* Hamburger on Mobile/Tablet */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-700 hover:bg-stone-50"
+              aria-label="Open sidebar"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+
+            {/* Global Search */}
+            <div className="relative w-full">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
+              <Input
+                placeholder="Search celebrations, recipients, or milestones..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-full rounded-full border border-stone-200 bg-stone-100/80 pl-9 pr-3 text-xs text-slate-900 placeholder:text-stone-400 focus:border-amber-500 focus:bg-white focus:ring-4 focus:ring-amber-500/15 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Quick Metrics & User Chip */}
+          <div className="flex items-center gap-3 text-xs shrink-0">
+            <div className="hidden sm:flex items-center gap-4 border-r border-stone-200 pr-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                  Live
+                </span>
+                <p className="font-serif font-bold text-emerald-800 text-sm">
+                  {stats.activePages} Collecting
+                </p>
+              </div>
+              <div className="w-px h-6 bg-stone-200" />
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                  Wishes
+                </span>
+                <p className="font-serif font-bold text-slate-950 text-sm">
+                  {stats.totalMessages} Pinned
+                </p>
+              </div>
+            </div>
+
+            <Link to="/settings" className="flex items-center gap-2">
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={displayName}
+                  className="h-8 w-8 rounded-full object-cover border border-stone-300"
+                />
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </Link>
+          </div>
+        </header>
+
+        {/* Main Workbench Body */}
+        <main className="flex-1 p-4 sm:p-7 lg:p-8 space-y-7 max-w-7xl w-full mx-auto">
+          
+          {/* Creator Greeting & Context Bar (Fulfilling user request for welcome back username) */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
+                  Welcome back, <span className="italic text-rose-500">{displayName}</span>
+                </h1>
+                <span className="font-handwriting text-xl text-amber-800">creator atelier</span>
+              </div>
+              <p className="mt-1 text-xs sm:text-sm text-stone-500 max-w-xl leading-relaxed">
+                Track upcoming birthday milestones on the calendar, gather heartfelt memories, and orchestrate slide reveals.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <Link to="/themes">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 rounded-2xl border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 shadow-xs"
+                >
+                  <Palette className="h-3.5 w-3.5 text-amber-600" />
+                  Custom Themes
+                </Button>
+              </Link>
+              <Link to="/create">
+                <Button
+                  size="sm"
+                  className="btn-press gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-card hover:bg-slate-900 active:scale-[0.98]"
+                >
+                  <Plus className="h-4 w-4 text-amber-300 stroke-[3]" />
+                  Craft Canvas
+                </Button>
+              </Link>
+            </div>
+          </div>
 
           {pages.length === 0 ? (
-            <div className="relative overflow-hidden rounded-[1.75rem] sm:rounded-[2.25rem] lg:rounded-[2.5rem] border border-stone-200/90 bg-white p-6 sm:p-12 lg:p-16 text-center shadow-card">
+            /* Empty State */
+            <div className="relative overflow-hidden rounded-[2.5rem] border border-stone-200/90 bg-white p-8 sm:p-14 text-center shadow-card">
               <div className="pointer-events-none absolute -left-12 -top-12 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
               <div className="pointer-events-none absolute -right-12 -bottom-12 h-44 w-44 rounded-full bg-rose-500/10 blur-2xl" />
               <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-amber-200/80 bg-amber-50/80 text-4xl shadow-sm">
                 🎂
               </div>
-              <h3 className="relative mt-6 font-serif text-2xl sm:text-3xl font-medium tracking-tight text-slate-950">
-                No birthday pages yet
+              <h3 className="relative mt-6 font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
+                No birthday canvases yet
               </h3>
-              <p className="relative mx-auto mt-3 max-w-md text-sm sm:text-base leading-relaxed text-stone-600">
-                Start by creating a keepsake canvas for someone special. Choose a mood, gather wishes from friends and family, and reveal it on their day.
+              <p className="relative mx-auto mt-2 max-w-md text-sm text-stone-600 leading-relaxed">
+                Start by creating a keepsake canvas for someone special. Pick a soundtrack, collect wishes from friends and family, and reveal it on their day.
               </p>
-              <div className="relative mt-8 inline-flex">
+              <div className="relative mt-7 inline-flex">
                 <Link to="/create">
                   <Button
                     size="lg"
-                    className="btn-press rounded-2xl bg-slate-950 px-8 py-6 text-sm sm:text-base font-medium text-white shadow-card transition-all hover:bg-slate-900 active:scale-[0.98]"
+                    className="btn-press rounded-2xl bg-slate-950 px-8 py-5 text-sm font-bold text-white shadow-card hover:bg-slate-900 active:scale-[0.98]"
                   >
-                    Create your first canvas
+                    Craft your first canvas
                   </Button>
                 </Link>
               </div>
             </div>
-          ) : galleryLivePages.length === 0 && galleryArchivedPages.length === 0 && filteredSavedPages.length === 0 && !spotlightPage ? (
-            <div className="rounded-[1.75rem] sm:rounded-[2.25rem] border border-dashed border-stone-300/80 bg-white/70 p-6 sm:p-12 text-center shadow-sm">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-2xl text-stone-500">
-                🔍
-              </div>
-              <h3 className="mt-5 font-serif text-xl sm:text-2xl font-medium text-slate-950">No matching pages</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm text-stone-600">
-                We could not find any celebration canvases matching your search or filter criteria.
-              </p>
-              <Button
-                variant="outline"
-                className="mt-6 rounded-xl border-stone-200 bg-white font-medium text-stone-800 hover:bg-stone-50 active:scale-[0.98]"
-                onClick={() => {
-                  setSearchQuery('');
-                  setPageFilter('all');
-                }}
-              >
-                Clear filters
-              </Button>
-            </div>
           ) : (
             <>
-              {galleryLivePages.length > 0 && (
-                <div>
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="font-serif text-xl sm:text-2xl font-medium text-slate-950">
-                        {spotlightPage ? 'Other Live Canvases' : 'Live Canvases'}
-                      </h2>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/70 bg-emerald-50/80 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {galleryLivePages.length} collecting
-                      </span>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {galleryLivePages.map((page) => {
-                      const theme = getThemeDisplay(page.theme);
-                      const status = getDashboardStatusBadge(page);
-                      return (
-                        <OwnedPageCard
-                          key={page.id}
-                          page={page}
-                          theme={theme}
-                          variant="live"
-                          status={status}
-                          canShowExportOptions={canShowExportOptions}
-                          analytics={analyticsByPage[page.public_code]}
-                          analyticsLoading={analyticsLoadingPage === page.public_code}
-                          exporting={exportingPage === page.public_code}
-                          onCopyContribute={() => void copyLink(page.public_code, 'contribute')}
-                          onCopyBirthday={() => void copyLink(page.public_code, 'birthday')}
-                          onRequestDelete={() => setPagePendingDelete(page)}
-                          onAnalytics={() => handleAnalytics(page.public_code)}
-                          onExport={() => handleExport(page.public_code, page.recipient_name)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              {/* HYBRID DECK 1: THE INTERACTIVE CALENDAR MILESTONE TIMELINE */}
+              <DashboardCalendarTimeline
+                pages={searchedPages}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                onSelectPage={handleOpenDrawer}
+              />
 
-              {galleryArchivedPages.length > 0 && (
-                <div className="mt-8">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="font-serif text-xl sm:text-2xl font-medium text-slate-950">Keepsake Archive</h2>
-                      <span className="inline-flex items-center rounded-full border border-stone-200/80 bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
-                        {galleryArchivedPages.length} archived
-                      </span>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {galleryArchivedPages.map((page) => {
-                      const theme = getThemeDisplay(page.theme);
-                      const status = { label: 'Revealed', className: 'bg-stone-100 text-stone-700' };
-                      return (
-                        <OwnedPageCard
-                          key={page.id}
-                          page={page}
-                          theme={theme}
-                          variant="archived"
-                          status={status}
-                          canShowExportOptions={canShowExportOptions}
-                          analytics={analyticsByPage[page.public_code]}
-                          analyticsLoading={analyticsLoadingPage === page.public_code}
-                          exporting={exportingPage === page.public_code}
-                          onCopyContribute={() => void copyLink(page.public_code, 'contribute')}
-                          onCopyBirthday={() => void copyLink(page.public_code, 'birthday')}
-                          onRequestDelete={() => setPagePendingDelete(page)}
-                          onAnalytics={() => handleAnalytics(page.public_code)}
-                          onExport={() => handleExport(page.public_code, page.recipient_name)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              {/* HYBRID DECK 2: THE LIFECYCLE KANBAN PIPELINE */}
+              <DashboardKanbanPipeline
+                pages={searchedPages}
+                selectedDate={selectedDate}
+                getThemeDisplay={getThemeDisplay}
+                onSelectPage={handleOpenDrawer}
+                onCopyContribute={(page) => void copyLink(page.public_code, 'contribute')}
+                onShareWhatsApp={handleShareWhatsApp}
+                onRequestDelete={(page) => setPagePendingDelete(page)}
+                onExport={(page) => handleExport(page.public_code, page.recipient_name)}
+                canShowExportOptions={canShowExportOptions}
+              />
             </>
           )}
-        </section>
 
-        {filteredSavedPages.length > 0 && (
-          <section className="mt-14 border-t border-stone-200/80 pt-10">
-            <div className="mb-6 flex items-center justify-between gap-3">
-              <div>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-800/80">Saved Collection</span>
-                <h2 className="mt-1 font-serif text-2xl font-medium text-slate-950">Pages you&apos;re keeping</h2>
+          {/* SAVED CELEBRATIONS SECTION (IF ANY) */}
+          {savedPages.length > 0 && (
+            <section className="pt-8 border-t border-stone-200/80 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800">
+                    Saved Keepsakes
+                  </span>
+                  <h3 className="font-serif text-xl font-bold text-slate-950">
+                    Celebrations you&apos;re keeping
+                  </h3>
+                </div>
+                <span className="rounded-full bg-stone-100 border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600">
+                  {savedPages.length} Saved
+                </span>
               </div>
-              <span className="inline-flex items-center rounded-full border border-stone-200/80 bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600">
-                {filteredSavedPages.length} saved
-              </span>
-            </div>
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredSavedPages.map((page) => {
-                const theme = getThemeDisplay(page.theme);
-                const status = getDashboardStatusBadge(page);
-                const birthdayLabel = format(parseLocalDate(page.birthday_date), 'MMM d, yyyy');
 
-                return (
-                  <article
-                    key={page.id}
-                    className="group relative overflow-hidden rounded-[2rem] border border-stone-200/90 bg-white p-4 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
-                  >
-                    <div className="relative h-48 overflow-hidden rounded-[1.4rem] border border-stone-200/70 bg-stone-100/80">
-                      {page.cover_photo_url ? (
-                        <>
-                          <img
-                            src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
-                            alt={`${page.recipient_name}'s cover`}
-                            className="absolute inset-0 h-full w-full scale-110 object-cover object-center blur-xl transition-transform duration-500 group-hover:scale-[1.12]"
-                            aria-hidden="true"
-                            loading="lazy"
-                          />
-                          <img
-                            src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
-                            alt={`${page.recipient_name}'s cover`}
-                            className="absolute inset-0 h-full w-full object-contain object-center p-2 transition-transform duration-500 group-hover:scale-[1.02]"
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                        </>
-                      ) : theme.isCustom ? (
-                        <div
-                          className="h-full w-full"
-                          style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
-                        />
-                      ) : (
-                        <div className={`h-full w-full bg-gradient-to-br ${theme.primary}`} />
-                      )}
-                      <div className="absolute inset-0 flex items-end justify-between p-4">
-                        <div>
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70">Saved celebration</span>
-                          <p className="mt-0.5 font-serif text-base font-medium text-white">
-                            {page.recipient_name}&apos;s birthday
-                          </p>
-                          <p className="text-xs text-white/80">{birthdayLabel}</p>
-                        </div>
-                        <span className="inline-flex items-center rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-md">
-                          {status.label}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {savedPages.map((page) => {
+                  const bday = parseLocalDate(page.birthday_date);
+                  return (
+                    <div
+                      key={page.id}
+                      className="rounded-2xl border border-stone-200 bg-white p-4 shadow-xs flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-stone-400 font-bold uppercase">
+                          {format(bday, 'MMM d, yyyy')}
                         </span>
+                        <h4 className="font-serif font-bold text-slate-950 truncate">
+                          {page.recipient_name}&apos;s Canvas
+                        </h4>
+                        <p className="text-xs text-stone-500">
+                          {page.message_count || 0} wishes collected
+                        </p>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 px-1 pt-3.5 pb-1">
-                      <div className="flex items-center gap-1.5 text-xs text-stone-500">
-                        <Users className="h-3.5 w-3.5 text-amber-700" />
-                        <span className="font-medium text-stone-700">{page.message_count || 0} wishes</span>
-                      </div>
-                      <div className="flex items-center gap-2">
+
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 text-xs text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
+                          className="h-8 text-xs text-stone-500 hover:text-rose-600"
                           onClick={() => setSavedPagePendingRemove(page)}
                         >
                           Remove
                         </Button>
                         <Button
                           size="sm"
-                          className="h-8 rounded-xl bg-slate-950 hover:bg-slate-900 text-white text-xs font-medium px-3.5 active:scale-[0.98]"
+                          className="h-8 rounded-xl bg-slate-950 text-white text-xs font-semibold px-3"
                           onClick={() => navigate(`/birthday/${page.public_code}`)}
                         >
                           Open
                         </Button>
                       </div>
                     </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        )}
-      </main>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
-      <AlertDialog open={Boolean(pagePendingDelete)} onOpenChange={(open) => { if (!open) setPagePendingDelete(null); }}>
+        </main>
+      </div>
+
+      {/* 3. CELEBRATION INSPECTOR DRAWER (Overlay Sheet: Does NOT push or reflow layout!) */}
+      <DashboardCelebrationDrawer
+        page={drawerPage}
+        theme={drawerPage ? getThemeDisplay(drawerPage.theme) : null}
+        isOpen={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
+        onCopyContribute={(page) => void copyLink(page.public_code, 'contribute')}
+        onShareWhatsApp={handleShareWhatsApp}
+        onCopyBirthday={(page) => void copyLink(page.public_code, 'birthday')}
+        onRequestDelete={(page) => {
+          setIsDrawerOpen(false);
+          setPagePendingDelete(page);
+        }}
+        onAnalytics={(page) => handleAnalytics(page.public_code)}
+        onExport={(page) => handleExport(page.public_code, page.recipient_name)}
+        canShowExportOptions={canShowExportOptions}
+        analytics={drawerPage ? analyticsByPage[drawerPage.public_code] : undefined}
+        analyticsLoading={drawerPage ? analyticsLoadingPage === drawerPage.public_code : false}
+        exporting={drawerPage ? exportingPage === drawerPage.public_code : false}
+      />
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      <AlertDialog
+        open={Boolean(pagePendingDelete)}
+        onOpenChange={(open) => {
+          if (!open) setPagePendingDelete(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this birthday page?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this celebration canvas?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the page, wishes, photos, and voice notes attached to it.
+              This permanently removes the canvas, all contributed audio recordings, photos, and messages.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
-            <span>{pagePendingDelete?.recipient_name}&apos;s celebration will be removed for good.</span>
+            <span>{pagePendingDelete?.recipient_name}&apos;s canvas will be deleted permanently.</span>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPagePendingDelete(null)}>Cancel</AlertDialogCancel>
@@ -575,24 +581,26 @@ const Dashboard = () => {
                 setPagePendingDelete(null);
               }}
             >
-              Delete page
+              Delete canvas
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={Boolean(savedPagePendingRemove)} onOpenChange={(open) => { if (!open) setSavedPagePendingRemove(null); }}>
+      {/* REMOVE SAVED PAGE DIALOG */}
+      <AlertDialog
+        open={Boolean(savedPagePendingRemove)}
+        onOpenChange={(open) => {
+          if (!open) setSavedPagePendingRemove(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove saved page?</AlertDialogTitle>
+            <AlertDialogTitle>Remove saved celebration?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will only remove the page from your saved list. The birthday page itself will stay active for its organizer.
+              This only removes the celebration from your dashboard. The canvas remains active for its organizer.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-            <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
-            <span>You&apos;ll still be able to visit this celebration later if you receive the link again.</span>
-          </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSavedPagePendingRemove(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -602,7 +610,7 @@ const Dashboard = () => {
                 try {
                   await apiFetch<void>(`/pages/${savedPagePendingRemove.id}/save`, { method: 'DELETE' });
                   setSavedPages((current) => current.filter((p) => p.id !== savedPagePendingRemove.id));
-                  toast.success('Removed from your dashboard');
+                  toast.success('Removed from saved list');
                 } catch (error) {
                   console.error(error);
                   toast.error('Unable to remove saved page');
@@ -611,7 +619,7 @@ const Dashboard = () => {
                 }
               }}
             >
-              Remove saved page
+              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
