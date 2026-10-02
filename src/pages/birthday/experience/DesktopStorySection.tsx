@@ -20,6 +20,7 @@ import {
   Gift,
   Check,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import BentoGridView from '@/components/BentoGridView';
 import { format } from 'date-fns';
@@ -1013,22 +1014,29 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                             )}
                           </article>
 
-                          <article className={cn('story-stage-reveal-soft rounded-[1.5rem] border p-4 text-left sm:p-4.5 shadow-xs', keepsakePillClass)} data-no-nav="true" style={getStoryDelayStyle(280, 800)}>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <article className={cn('story-stage-reveal-soft rounded-[1.5rem] border p-4.5 text-left sm:p-5 shadow-xs', keepsakePillClass)} data-no-nav="true" style={getStoryDelayStyle(280, 800)}>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 sm:gap-5">
                               <div className="min-w-0 flex-1">
-                                <p className={cn('text-[9px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Make moments unforgettable</p>
-                                <p className={cn('mt-0.5 text-sm sm:text-[0.95rem] font-semibold leading-snug', theme.titleClass, theme.font)}>
+                                <p className={cn('text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.22em] opacity-75', theme.text)}>
+                                  Make moments unforgettable
+                                </p>
+                                <p className={cn('mt-0.5 text-sm sm:text-base font-bold leading-snug', theme.titleClass, theme.font)}>
                                   Create a celebration for someone you love
                                 </p>
-                                <p className={cn('mt-0.5 text-[11px] opacity-75 line-clamp-1 leading-normal', theme.text)}>
+                                <p className={cn('mt-1 text-xs opacity-80 leading-relaxed', theme.text)}>
                                   Gather heartfelt messages, photos, and voice notes into one keepsake.
                                 </p>
                               </div>
-                              <div className="shrink-0">
-                                <Link to="/create" onClick={(e) => e.stopPropagation()}>
-                                  <Button size="sm" className="h-8.5 px-3.5 gap-2 rounded-xl shadow-xs text-xs font-semibold">
-                                    <Sparkles className="h-3.5 w-3.5" />
+                              <div className="shrink-0 flex items-center">
+                                <Link to="/create" onClick={(e) => e.stopPropagation()} className="group inline-flex w-full sm:w-auto">
+                                  <Button
+                                    variant="hero"
+                                    size="sm"
+                                    className="btn-press w-full sm:w-auto h-9 sm:h-10 px-4.5 sm:px-5 gap-2 rounded-full font-bold text-xs sm:text-sm tracking-wide shadow-md shadow-rose-500/25 hover:shadow-lg hover:shadow-rose-500/35 active:scale-95 transition-all text-white border-0"
+                                  >
+                                    <Sparkles className="h-3.5 w-3.5 text-amber-200" />
                                     <span>Create a WishCanvas</span>
+                                    <ArrowRight className="h-3.5 w-3.5 text-white/80 transition-transform group-hover:translate-x-0.5" />
                                   </Button>
                                 </Link>
                               </div>

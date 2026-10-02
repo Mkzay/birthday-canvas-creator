@@ -20,6 +20,7 @@ import {
   Gift,
   Check,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import BentoGridView from '@/components/BentoGridView';
 import { format } from 'date-fns';
@@ -622,11 +623,16 @@ export const MobileStorySection = memo(function MobileStorySection() {
                         <p className={cn('mt-1 text-xs opacity-75 leading-relaxed', theme.text)}>
                           Gather heartfelt messages, photos, and voice notes into one unforgettable digital keepsake.
                         </p>
-                        <div className="mt-3">
-                          <Link to="/create">
-                            <Button size="sm" className="h-9 w-full gap-2 rounded-xl shadow-sm">
-                              <Sparkles className="h-3.5 w-3.5" />
+                        <div className="mt-3.5">
+                          <Link to="/create" className="group block">
+                            <Button
+                              variant="hero"
+                              size="sm"
+                              className="btn-press h-10 w-full gap-2 rounded-full font-bold text-xs sm:text-sm tracking-wide shadow-md shadow-rose-500/25 active:scale-95 transition-all text-white border-0"
+                            >
+                              <Sparkles className="h-3.5 w-3.5 text-amber-200" />
                               <span>Create a WishCanvas</span>
+                              <ArrowRight className="h-3.5 w-3.5 text-white/80 transition-transform group-hover:translate-x-0.5" />
                             </Button>
                           </Link>
                         </div>

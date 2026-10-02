@@ -20,6 +20,7 @@ import {
   Wallet,
   Gift,
   Check,
+  ArrowRight,
 } from 'lucide-react';
 import BentoGridView from '@/components/BentoGridView';
 import { format } from 'date-fns';
@@ -593,10 +594,15 @@ export const FreeformSection = memo(function FreeformSection() {
                                         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Make moments unforgettable</p>
                                         <p className="mt-1 text-xs font-semibold leading-snug">Create a celebration for someone special</p>
                                         <div className="mt-2.5">
-                                          <Link to="/create">
-                                            <Button size="sm" className="h-7 w-full gap-1.5 rounded-lg text-xs shadow-sm">
-                                              <Sparkles className="h-3 w-3" />
+                                          <Link to="/create" className="group block">
+                                            <Button
+                                              variant="hero"
+                                              size="sm"
+                                              className="btn-press h-8 w-full gap-2 rounded-full font-bold text-xs tracking-wide shadow-sm shadow-rose-500/20 active:scale-95 transition-all text-white border-0"
+                                            >
+                                              <Sparkles className="h-3 w-3 text-amber-200" />
                                               <span>Create a WishCanvas</span>
+                                              <ArrowRight className="h-3 w-3 text-white/80 transition-transform group-hover:translate-x-0.5" />
                                             </Button>
                                           </Link>
                                         </div>
@@ -798,10 +804,15 @@ export const FreeformSection = memo(function FreeformSection() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Make moments unforgettable</p>
                   <p className="mt-1 text-xs font-semibold leading-snug">Create a celebration for someone special</p>
                   <div className="mt-2.5">
-                    <Link to="/create">
-                      <Button size="sm" className="h-8 w-full gap-1.5 rounded-lg text-xs shadow-sm">
-                        <Sparkles className="h-3.5 w-3.5" />
+                    <Link to="/create" className="group block">
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        className="btn-press h-8.5 w-full gap-2 rounded-full font-bold text-xs tracking-wide shadow-sm shadow-rose-500/20 active:scale-95 transition-all text-white border-0"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-amber-200" />
                         <span>Create a WishCanvas</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-white/80 transition-transform group-hover:translate-x-0.5" />
                       </Button>
                     </Link>
                   </div>
