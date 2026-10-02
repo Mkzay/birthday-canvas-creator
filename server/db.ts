@@ -555,4 +555,23 @@ export async function initializeDatabase() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_birthday_message_stickers_message_id ON birthday_message_stickers(message_id);
   `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ALTER COLUMN user_id DROP NOT NULL;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS guest_email TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_pages
+    ADD COLUMN IF NOT EXISTS claim_token_hash TEXT;
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_birthday_pages_guest_email ON birthday_pages(guest_email);
+  `;
 }

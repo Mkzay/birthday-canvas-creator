@@ -361,6 +361,18 @@ export async function requireAuth(request: AuthedRequest, response: Response, ne
   next();
 }
 
+export async function optionalAuth(request: AuthedRequest, response: Response, next: NextFunction) {
+  try {
+    const session = await getActiveSession(request, response);
+    if (session) {
+      request.user = session;
+    }
+  } catch {
+    // Ignore invalid session for optional auth
+  }
+  next();
+}
+
 function getAdminEmails() {
   const raw = process.env.ADMIN_EMAILS || "";
   return raw

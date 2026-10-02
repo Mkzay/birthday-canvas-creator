@@ -27,6 +27,8 @@ export const signupBodySchema = z.object({
   email: z.string().email().max(320).transform((s) => s.trim().toLowerCase()),
   password: z.string().min(6).max(256),
   displayName: z.union([z.string().max(120), z.null()]).optional(),
+  claimToken: z.string().max(120).optional(),
+  publicCode: z.string().max(80).optional(),
 });
 
 export const loginBodySchema = z.object({
@@ -117,6 +119,7 @@ export const paystackResolveAccountBodySchema = z.object({
 const displayModeSchema = z.enum(["story", "freeform", "bento"]);
 
 export const pageCreateBodySchema = z.object({
+  guestEmail: z.union([z.string().email().max(320), z.literal(""), z.null()]).optional(),
   recipientEmail: z.union([z.string().email().max(320), z.literal(""), z.null()]).optional(),
   recipientName: z.string().max(200).optional(),
   birthdayDate: dateYmd,

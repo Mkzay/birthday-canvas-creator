@@ -95,6 +95,19 @@ const HeroSection = () => {
               </button>
             </div>
 
+            {/* Direct Guest Studio Access */}
+            {!user && (
+              <div className="mt-3.5 text-center lg:text-left">
+                <Link
+                  to="/create"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-amber-900 transition-colors"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                  <span>No account needed: <span className="underline font-bold text-amber-800">Craft a Canvas as a Guest</span> &rarr;</span>
+                </Link>
+              </div>
+            )}
+
             {/* Social Proof + Handwritten Doodle */}
             <div className="mt-10 flex flex-wrap items-center justify-center lg:justify-start gap-8 pt-4 border-t border-stone-200/60">
               {/* Overlapping Avatar Stack */}

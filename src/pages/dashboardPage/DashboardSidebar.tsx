@@ -442,36 +442,52 @@ export function DashboardSidebar({
               )}
               <div className="truncate">
                 <div className="flex items-center gap-1.5 truncate">
-                  <p className="font-bold text-slate-950 truncate">{displayName}</p>
+                  <p className="font-bold text-slate-950 truncate">{user ? displayName : 'Guest Creator'}</p>
                   {isProUser && (
                     <span className="text-[9px] font-bold text-amber-900 bg-amber-100 border border-amber-300/80 px-1.5 py-0.2 rounded-full shrink-0">
                       PRO
                     </span>
                   )}
+                  {!user && (
+                    <span className="text-[9px] font-bold text-stone-700 bg-stone-100 border border-stone-200 px-1.5 py-0.2 rounded-full shrink-0">
+                      Guest
+                    </span>
+                  )}
                 </div>
                 <p className="text-[10px] text-stone-500 truncate">
-                  {isProUser ? 'Pro Atelier: Unlimited Canvases' : 'Free Creator: 5 Canvases'}
+                  {user ? (isProUser ? 'Pro Atelier: Unlimited Canvases' : 'Free Creator: 5 Canvases') : 'Temporary Atelier Session'}
                 </p>
               </div>
             </div>
 
-            <Link
-              to="/settings"
-              className="p-1.5 text-stone-400 hover:text-slate-950 rounded-lg hover:bg-stone-50 transition-colors"
-              title="Account Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
+            {user && (
+              <Link
+                to="/settings"
+                className="p-1.5 text-stone-400 hover:text-slate-950 rounded-lg hover:bg-stone-50 transition-colors"
+                title="Account Settings"
+              >
+                <Settings className="h-4 w-4" />
+              </Link>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-stone-500 hover:text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-all"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span>Sign Out</span>
-          </button>
+          {user ? (
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-stone-500 hover:text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-all"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Sign Out</span>
+            </button>
+          ) : (
+            <Link
+              to="/auth"
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-950 text-white hover:bg-slate-900 text-xs font-bold transition-all shadow-xs"
+            >
+              <span>Sign In / Create Account</span>
+            </Link>
+          )}
         </div>
       )}
     </aside>

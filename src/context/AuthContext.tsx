@@ -48,7 +48,7 @@ export interface AuthContextType {
   profile: Profile | null;
   isPro: boolean;
   loading: boolean;
-  signUp: (email: string, password: string, displayName?: string) => Promise<{
+  signUp: (email: string, password: string, displayName?: string, claimToken?: string, publicCode?: string) => Promise<{
     error: Error | null;
     session: null;
     requiresVerification: boolean;
@@ -124,11 +124,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refreshSession();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
+  const signUp = async (email: string, password: string, displayName?: string, claimToken?: string, publicCode?: string) => {
     try {
       const data = await apiFetch<{ requiresVerification?: boolean; message?: string }>('/auth/signup', {
         method: 'POST',
-        body: JSON.stringify({ email, password, displayName }),
+        body: JSON.stringify({ email, password, displayName, claimToken, publicCode }),
       });
       return {
         error: null,

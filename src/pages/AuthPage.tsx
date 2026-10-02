@@ -92,11 +92,20 @@ const AuthPage = () => {
   const shouldSaveAfterAuth = searchParams.get('save') === '1';
   const verifyToken = searchParams.get('verify');
   const resetToken = searchParams.get('reset');
+  const claimToken = searchParams.get('claim_token');
+  const claimPublicCode = searchParams.get('public_code');
+  const urlEmail = searchParams.get('email');
+
+  useEffect(() => {
+    if (urlEmail && !email) {
+      setEmail(urlEmail);
+    }
+  }, [urlEmail]);
 
   // Sync mode from search params if present
   useEffect(() => {
     const mode = searchParams.get('mode');
-    if (mode === 'signup') {
+    if (mode === 'signup' || claimToken) {
       setIsLogin(false);
       setForgotMode(false);
       setResetEmailSent(false);
@@ -109,7 +118,7 @@ const AuthPage = () => {
       setForgotMode(false);
       setResetEmailSent(false);
     }
-  }, [searchParams]);
+  }, [searchParams, claimToken]);
 
   useEffect(() => {
     if (user) {
@@ -253,6 +262,18 @@ const AuthPage = () => {
 
         toast.success('Welcome back!');
 
+        if (claimToken) {
+          try {
+            await apiFetch<{ success: boolean }>('/pages/claim', {
+              method: 'POST',
+              body: JSON.stringify({ claimToken }),
+            });
+            toast.success('Your celebration canvas has been claimed!');
+          } catch (claimErr) {
+            console.error('Failed to claim page on sign-in:', claimErr);
+          }
+        }
+
         if (shouldSaveAfterAuth && pendingSavePageId) {
           try {
             await apiFetch<void>(`/pages/${pendingSavePageId}/save`, { method: 'POST' });
@@ -266,7 +287,13 @@ const AuthPage = () => {
         return;
       }
 
-      const { error, requiresVerification, message } = await signUp(email, password, displayName);
+      const { error, requiresVerification, message } = await signUp(
+        email,
+        password,
+        displayName,
+        claimToken || undefined,
+        claimPublicCode || undefined
+      );
       if (error) {
         if (error.message.includes('already registered')) {
           toast.error('This email is already registered. Try signing in instead.');
@@ -284,7 +311,7 @@ const AuthPage = () => {
         return;
       }
 
-      toast.success('Account created! Welcome to WishCanvas.');
+      toast.success(claimToken ? 'Account created and canvas claimed! Welcome to WishCanvas.' : 'Account created! Welcome to WishCanvas.');
       navigate('/dashboard');
     } finally {
       setLoading(false);
@@ -489,6 +516,21 @@ const AuthPage = () => {
               <div className="mb-6 flex justify-center lg:hidden">
                 <BrandLogo compact to="/" textClassName="text-xl font-black text-slate-950" />
               </div>
+
+              {/* Canvas Claim Banner */}
+              {claimToken && (
+                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-xs shadow-xs animate-fade-in">
+                  <div className="flex items-start gap-2.5">
+                    <Sparkles className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-amber-950">Claim Your Birthday Canvas</p>
+                      <p className="text-amber-800/90 mt-0.5 leading-relaxed">
+                        Create your account (or sign in) to take full ownership of your canvas, moderate wishes, and edit settings anytime.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Segmented Switcher for Login / Signup with Emil Button Feedback */}
               {!resetToken && !forgotMode && (
@@ -830,6 +872,16 @@ const AuthPage = () => {
                           </button>
                         </div>
                       )}
+
+                      <div className="mt-4 pt-3 border-t border-stone-100 text-center">
+                        <Link
+                          to="/create"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-amber-900 transition-colors"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Just exploring? <span className="underline font-bold text-amber-800">Craft a Canvas as a Guest</span> without creating an account &rarr;</span>
+                        </Link>
+                      </div>
                     </div>
                   )}
                 </div>

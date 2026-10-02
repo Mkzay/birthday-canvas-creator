@@ -61,6 +61,18 @@ const CTASection = () => {
           )}
         </div>
 
+        {!user && (
+          <div className="mt-4 text-center">
+            <Link
+              to="/create"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/90 hover:text-white underline transition-colors"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-200" />
+              <span>No sign-up required: Craft your canvas as a guest &rarr;</span>
+            </Link>
+          </div>
+        )}
+
         {/* Feature Checkpoints */}
         <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs font-semibold text-white/85 sm:text-sm">
           <span className="flex items-center gap-2">

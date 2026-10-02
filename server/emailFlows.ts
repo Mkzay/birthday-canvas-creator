@@ -408,3 +408,48 @@ export async function sendPoolReleaseRequestEmail(params: {
     tags: [{ name: "type", value: "gift-release-request" }],
   });
 }
+
+export async function sendGuestCanvasCreatedEmail(params: {
+  to: string;
+  recipientName: string;
+  publicCode: string;
+  claimToken: string;
+}) {
+  const siteUrl = getSiteBaseUrl();
+  const safeRecipientName = escapeHtml(params.recipientName.trim() || "the celebrant");
+  const contributeUrl = `${siteUrl}/contribute/${params.publicCode}`;
+  const previewUrl = `${siteUrl}/preview/${params.publicCode}`;
+  const claimUrl = `${siteUrl}/auth?mode=signup&claim_token=${params.claimToken}&public_code=${params.publicCode}&email=${encodeURIComponent(params.to)}`;
+
+  const inner = hero("🎉", "Celebration Canvas", `Your page for ${safeRecipientName} is ready`) +
+    body(`
+      ${p(`Hi there,`)}
+      ${p(`You just created a celebration canvas for ${highlight(safeRecipientName)} on WishCanvas.`)}
+      ${p(`Share your contributor link with friends and family so they can leave heartfelt messages, photos, and voice notes:`)}
+      <div style="background:#FFF3ED;border:1px solid #F0D9CE;border-radius:12px;padding:12px;margin:16px 0;word-break:break-all;">
+        <span style="font-size:11px;font-weight:bold;color:#7A5540;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px;">Shareable Contributor Link</span>
+        <a href="${contributeUrl}" style="color:#E8572A;font-weight:700;text-decoration:underline;font-size:14px;">${contributeUrl}</a>
+      </div>
+      ${p(`You can also preview how the celebration looks anytime:`)}
+      <div style="margin:12px 0;">
+        <a href="${previewUrl}" style="color:#1A0A00;font-weight:600;text-decoration:underline;font-size:13px;">View Live Preview</a>
+      </div>
+      <div style="border-top:1px solid #F0D9CE;margin:24px 0 16px;padding-top:16px;">
+        <span style="display:inline-block;background:#FFE4D6;color:#C0401A;font-weight:800;font-size:11px;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Important Notice</span>
+        ${p(`Because you created this canvas as a guest, editing and wish moderation are locked. To unlock editing, manage wishes, and keep this canvas in your creator atelier, claim your canvas below:`)}
+      </div>
+    `,
+    { label: "Claim Your Canvas Now", href: claimUrl },
+    "Create your account password to claim this canvas and unlock full editing."
+  );
+
+  const html = shell(inner, `Your celebration canvas for ${params.recipientName} is live.`);
+
+  await sendTransactionalEmail({
+    to: params.to,
+    subject: `Your celebration canvas for ${params.recipientName} is live! 🎉`,
+    html,
+    text: `Your celebration canvas for ${params.recipientName} is live!\n\nContributor link: ${contributeUrl}\nPreview link: ${previewUrl}\n\nClaim your canvas: ${claimUrl}`,
+    tags: [{ name: "type", value: "guest-canvas-created" }],
+  });
+}

@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   Loader2,
   Lock,
+  Mail,
   Music,
   QrCode,
   Sparkles,
@@ -65,6 +66,7 @@ interface CreateFormPersistedState {
   currentStep: number;
   recipientName: string;
   recipientEmail: string;
+  guestEmail?: string;
   birthdayDate: string | null;
   creatorMessage: string;
   selectedTheme: Theme;
@@ -152,6 +154,9 @@ const CreatePage = () => {
   // Form state
   const [recipientName, setRecipientName] = useState(() => initialDraft.recipientName ?? '');
   const [recipientEmail, setRecipientEmail] = useState(() => initialDraft.recipientEmail ?? '');
+  const [guestEmail, setGuestEmail] = useState(() => initialDraft.guestEmail ?? '');
+  const [guestClaimToken, setGuestClaimToken] = useState<string | null>(null);
+  const [isGuestCreated, setIsGuestCreated] = useState<boolean>(false);
   const [birthdayDate, setBirthdayDate] = useState<Date | undefined>(() => {
     return initialDraft.birthdayDate ? new Date(initialDraft.birthdayDate) : undefined;
   });
@@ -205,6 +210,7 @@ const CreatePage = () => {
       currentStep,
       recipientName,
       recipientEmail,
+      guestEmail,
       birthdayDate: birthdayDate ? birthdayDate.toISOString() : null,
       creatorMessage,
       selectedTheme,
@@ -241,6 +247,7 @@ const CreatePage = () => {
     currentStep,
     recipientName,
     recipientEmail,
+    guestEmail,
     birthdayDate,
     creatorMessage,
     selectedTheme,
@@ -503,6 +510,14 @@ const CreatePage = () => {
       setCurrentStep(1);
       return;
     }
+    if (!user) {
+      const cleanGuestEmail = guestEmail.trim().toLowerCase();
+      if (!cleanGuestEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanGuestEmail)) {
+        toast.error('Please enter a valid email address to receive your canvas links');
+        setCurrentStep(5);
+        return;
+      }
+    }
     if (requiresResolvedPoolRecipient && !hasResolvedPoolRecipient) {
       toast.error('Resolve recipient account details before continuing');
       setCurrentStep(4);
@@ -520,11 +535,12 @@ const CreatePage = () => {
     }
 
     try {
-      const data = await apiFetch<{ id: string; public_code: string }>('/pages', {
+      const data = await apiFetch<{ id: string; public_code: string; claim_token?: string; is_guest?: boolean }>('/pages', {
         method: 'POST',
         body: JSON.stringify({
           recipientName,
           recipientEmail: recipientEmail.trim() || null,
+          guestEmail: !user ? guestEmail.trim().toLowerCase() : undefined,
           birthdayDate: format(birthdayDate!, 'yyyy-MM-dd'),
           theme: selectedTheme,
           letterTheme: selectedLetterTheme,
@@ -559,13 +575,17 @@ const CreatePage = () => {
 
       setCreatedPageId(data.id);
       setCreatedPublicCode(data.public_code);
+      if (data.claim_token) {
+        setGuestClaimToken(data.claim_token);
+      }
+      setIsGuestCreated(Boolean(data.is_guest || !user));
       setConfettiActive(true);
       try {
         sessionStorage.removeItem(CREATE_FORM_STATE_KEY);
       } catch {
         // ignore
       }
-      toast.success('Birthday canvas created successfully!');
+      toast.success(!user ? 'Guest canvas created! Links sent to your email.' : 'Birthday canvas created successfully!');
       setCurrentStep(6); // Step 6 is the Launchpad Hub!
     } catch (error) {
       setSaving(false);
@@ -810,7 +830,7 @@ const CreatePage = () => {
             {/* Studio Context Title */}
             <div className="flex items-center gap-2 pl-1">
               <Link
-                to="/dashboard"
+                to={user ? '/dashboard' : '/'}
                 className="font-serif font-bold text-slate-950 text-sm sm:text-base tracking-tight hover:text-amber-800 transition-colors"
               >
                 Celebration Atelier
@@ -824,39 +844,55 @@ const CreatePage = () => {
 
           {/* Quick Metrics & User Chip */}
           <div className="flex items-center gap-3 text-xs shrink-0">
-            <div className="hidden sm:flex items-center gap-4 border-r border-stone-200 pr-4">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                  Live
-                </span>
-                <p className="font-serif font-bold text-emerald-800 text-sm">
-                  {activePages} Collecting
-                </p>
-              </div>
-              <div className="w-px h-6 bg-stone-200" />
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                  Wishes
-                </span>
-                <p className="font-serif font-bold text-slate-950 text-sm">
-                  {totalWishes} Pinned
-                </p>
-              </div>
-            </div>
-
-            <Link to="/settings" className="flex items-center gap-2" title="Account settings">
-              {avatarSrc ? (
-                <img
-                  src={avatarSrc}
-                  alt={currentDisplayName}
-                  className="h-8 w-8 rounded-full object-cover border border-stone-300"
-                />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold flex items-center justify-center text-xs shadow-xs">
-                  {initial}
+            {user ? (
+              <>
+                <div className="hidden sm:flex items-center gap-4 border-r border-stone-200 pr-4">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                      Live
+                    </span>
+                    <p className="font-serif font-bold text-emerald-800 text-sm">
+                      {activePages} Collecting
+                    </p>
+                  </div>
+                  <div className="w-px h-6 bg-stone-200" />
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                      Wishes
+                    </span>
+                    <p className="font-serif font-bold text-slate-950 text-sm">
+                      {totalWishes} Pinned
+                    </p>
+                  </div>
                 </div>
-              )}
-            </Link>
+
+                <Link to="/settings" className="flex items-center gap-2" title="Account settings">
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt={currentDisplayName}
+                      className="h-8 w-8 rounded-full object-cover border border-stone-300"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                      {initial}
+                    </div>
+                  )}
+                </Link>
+              </>
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300/80 text-[11px] font-bold shadow-2xs">
+                  <Sparkles className="h-3 w-3 text-amber-700" />
+                  <span>Guest Studio</span>
+                </span>
+                <Link to="/auth">
+                  <Button variant="outline" size="sm" className="h-8 text-xs font-bold rounded-xl border-stone-300 text-stone-700 hover:bg-stone-50">
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </header>
 
@@ -878,14 +914,14 @@ const CreatePage = () => {
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0">
-              <Link to="/dashboard">
+              <Link to={user ? '/dashboard' : '/'}>
                 <Button
                   variant="outline"
                   size="sm"
                   className="gap-2 rounded-2xl border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 shadow-xs"
                 >
                   <ArrowLeft className="h-3.5 w-3.5 text-stone-500" />
-                  Return to Timeline
+                  {user ? 'Return to Timeline' : 'Return Home'}
                 </Button>
               </Link>
             </div>
@@ -1601,6 +1637,45 @@ const CreatePage = () => {
                         </PopoverContent>
                       </Popover>
                     </div>
+
+                    {/* Guest Mode Email & Non-Editable Notice */}
+                    {!user && (
+                      <div className="space-y-3 pt-2 border-t border-stone-200/80">
+                        <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-300/80 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="guestEmailInput" className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                              <Mail className="h-3.5 w-3.5 text-amber-700" />
+                              <span>Your Email Address (Required for Guest Mode)</span>
+                            </Label>
+                            <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                              Required
+                            </span>
+                          </div>
+                          <Input
+                            id="guestEmailInput"
+                            type="email"
+                            value={guestEmail}
+                            onChange={(e) => setGuestEmail(e.target.value)}
+                            placeholder="e.g. yourname@example.com"
+                            className="h-10 rounded-xl bg-white border-amber-300 text-xs text-slate-900 placeholder:text-stone-400 focus:border-amber-500 focus:ring-amber-500/20"
+                            required
+                          />
+                          <p className="text-[11px] text-amber-900/80 leading-relaxed">
+                            We will email your contributor invite link, live preview link, and a private magic claim key to this address.
+                          </p>
+                        </div>
+
+                        <div className="p-3.5 rounded-2xl bg-stone-100 border border-stone-200 space-y-1">
+                          <div className="flex items-center gap-1.5 text-stone-900 font-bold text-xs">
+                            <Lock className="h-3.5 w-3.5 text-stone-600" />
+                            <span>Guest Creation Notice: Non-Editable After Launch</span>
+                          </div>
+                          <p className="text-[11px] text-stone-600 leading-relaxed">
+                            As a guest, your milestone canvas goes live immediately to collect wishes. However, you will not be able to edit details, customize themes, or moderate wishes after creating it unless you create a free account to claim this canvas.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1624,6 +1699,49 @@ const CreatePage = () => {
                       </p>
                     </div>
                   </div>
+
+                  {/* PROMINENT GUEST CLAIM BANNER */}
+                  {(!user || isGuestCreated) && (
+                    <div className="rounded-3xl border-2 border-amber-400/80 bg-gradient-to-br from-amber-50 via-rose-50/40 to-white p-5 sm:p-6 shadow-sm space-y-3.5 text-left animate-fade-in">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
+                            <Sparkles className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-950">Claim Canvas &amp; Unlock Editing</h3>
+                            <p className="text-[11px] text-stone-600">Take full ownership to edit settings, customize themes, and curate wishes.</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full shrink-0">
+                          Guest Canvas
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-stone-600 leading-relaxed">
+                        We sent your contributor invite, preview link, and magic claim key to <span className="font-bold text-slate-900">{guestEmail || 'your email'}</span>. Create a free account now to claim this canvas and manage it anytime.
+                      </p>
+
+                      <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                        <Link
+                          to={`/auth?mode=signup&claim_token=${guestClaimToken || ''}&email=${encodeURIComponent(guestEmail)}&public_code=${createdPublicCode || ''}`}
+                          className="flex-1"
+                        >
+                          <Button className="btn-press w-full rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs h-9 shadow-xs gap-1.5">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                            <span>Create Account to Claim Canvas</span>
+                          </Button>
+                        </Link>
+                        <Link
+                          to={`/auth?mode=login&claim_token=${guestClaimToken || ''}&email=${encodeURIComponent(guestEmail)}&public_code=${createdPublicCode || ''}`}
+                        >
+                          <Button variant="outline" className="w-full sm:w-auto rounded-xl border-stone-300 text-xs font-semibold h-9 px-3.5 hover:bg-stone-50">
+                            Already have an account? Sign in
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
 
                   {/* 2-Column Sharing Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -1794,23 +1912,48 @@ const CreatePage = () => {
 
                 {currentStep === 6 && (
                   <div className="flex items-center gap-2">
-                    <Link to={`/edit/${createdPublicCode || createdPageId}`}>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs px-4 h-9 shadow-xs"
-                      >
-                        Curate Canvas
-                      </Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      onClick={() => navigate('/dashboard')}
-                      className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-5 h-9 shadow-card flex items-center gap-1.5"
-                    >
-                      <span>Go to Timeline</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
+                    {user ? (
+                      <>
+                        <Link to={`/edit/${createdPublicCode || createdPageId}`}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs px-4 h-9 shadow-xs"
+                          >
+                            Curate Canvas
+                          </Button>
+                        </Link>
+                        <Button
+                          size="sm"
+                          onClick={() => navigate('/dashboard')}
+                          className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-5 h-9 shadow-card flex items-center gap-1.5"
+                        >
+                          <span>Go to Timeline</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Link to={`/preview/${createdPublicCode || createdPageId}`}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50 font-bold text-xs px-4 h-9 shadow-xs"
+                          >
+                            Preview Reveal
+                          </Button>
+                        </Link>
+                        <Link to={`/auth?mode=signup&claim_token=${guestClaimToken || ''}&email=${encodeURIComponent(guestEmail)}&public_code=${createdPublicCode || ''}`}>
+                          <Button
+                            size="sm"
+                            className="btn-press rounded-xl bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs px-4 sm:px-5 h-9 shadow-card flex items-center gap-1.5"
+                          >
+                            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                            <span>Claim Canvas</span>
+                          </Button>
+                        </Link>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

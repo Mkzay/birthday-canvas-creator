@@ -17,6 +17,7 @@ import {
   isAdminEmail,
   issueAuthSession,
   requireAdmin,
+  optionalAuth,
   requireAuth,
   revokeAllSessionsForUser,
   revokeCurrentSession,
@@ -31,6 +32,7 @@ import { consumeEmailToken, issueEmailToken, revokeOutstandingEmailTokens } from
 import {
   sendBirthdayRecipientEmail,
   sendBirthdayReminderEmail,
+  sendGuestCanvasCreatedEmail,
   sendNewMessageAlertEmail,
   sendPasswordResetEmail,
   sendPoolReleaseRequestEmail,
@@ -1497,7 +1499,8 @@ function publicPageQuery(pageId: string) {
       bp.allow_audio,
       bp.require_names,
       bp.close_date,
-      u.plan_tier AS owner_plan_tier,
+      COALESCE(u.plan_tier, 'free') AS owner_plan_tier,
+      (bp.user_id IS NULL AND bp.guest_email IS NOT NULL) AS is_guest,
       bp.reveal_pin_hash IS NOT NULL AS requires_unlock,
       NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) AS is_revealed,
       CURRENT_DATE <= COALESCE(bp.close_date, bp.birthday_date) AND bp.status = 'active' AS can_contribute,
@@ -1506,7 +1509,7 @@ function publicPageQuery(pageId: string) {
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
     LEFT JOIN custom_themes ct ON bp.theme = CONCAT('custom_', ct.id::text)
     LEFT JOIN custom_themes lct ON bp.letter_theme = CONCAT('custom_', lct.id::text)
-    INNER JOIN users u ON u.id = bp.user_id
+    LEFT JOIN users u ON u.id = bp.user_id
     WHERE bp.id = ${pageId}
       AND bp.status = 'active'
     GROUP BY bp.id, ct.id, lct.id, u.id
@@ -1632,12 +1635,12 @@ app.get("/api/admin/birthday-pages", requireAdmin, async (_request, response) =>
       bp.pool_fundraising_enabled,
       bp.pooled_amount_kobo,
       u.id AS owner_user_id,
-      u.display_name AS owner_display_name,
-      u.email AS owner_email,
-      u.plan_tier AS owner_plan_tier,
+      COALESCE(u.display_name, 'Guest Creator') AS owner_display_name,
+      COALESCE(u.email, bp.guest_email) AS owner_email,
+      COALESCE(u.plan_tier, 'free') AS owner_plan_tier,
       COUNT(bm.id)::int AS message_count
     FROM birthday_pages bp
-    INNER JOIN users u ON u.id = bp.user_id
+    LEFT JOIN users u ON u.id = bp.user_id
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id
     WHERE bp.owner_deleted IS NOT TRUE
     GROUP BY bp.id, u.id
@@ -2128,6 +2131,21 @@ app.post("/api/auth/signup", authSignupLimiter, validateBody(signupBodySchema), 
     RETURNING id, email, plan_tier, email_verified_at, display_name, avatar_url, default_theme, default_allow_photos, default_allow_audio, default_require_names, email_notifications, new_message_notifications, birthday_reminders
   `;
   const createdUser = rows[0];
+
+  // Automatically claim any guest canvases created with this email
+  try {
+    await sql`
+      UPDATE birthday_pages
+      SET user_id = ${createdUser.id},
+          guest_email = NULL,
+          claim_token_hash = NULL,
+          updated_at = NOW()
+      WHERE (LOWER(guest_email) = LOWER(${email}) OR (public_code = ${request.body.publicCode || null} AND user_id IS NULL))
+        AND user_id IS NULL
+    `;
+  } catch (claimErr) {
+    console.error("Failed to auto-claim guest canvas on signup:", claimErr);
+  }
 
   if (isMailerConfigured()) {
     try {
@@ -2890,12 +2908,28 @@ app.get("/api/pages/saved", requireAuth, async (request: AuthedRequest, response
   response.json(rows.map((row) => serializePageDates(row)));
 });
 
-app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (request: AuthedRequest, response) => {
+app.post("/api/pages", optionalAuth, validateBody(pageCreateBodySchema), async (request: AuthedRequest, response) => {
+  const isGuest = !request.user;
+  const guestEmail = isGuest ? sanitizeEmail(request.body.guestEmail) : null;
+
+  if (isGuest && !guestEmail) {
+    response.status(400).json({ error: "Please enter your email so we can send your canvas links." });
+    return;
+  }
+
+  if (isGuest && request.body.poolFundraisingEnabled) {
+    response.status(403).json({
+      error: "Cash gift pools require a registered creator account.",
+      code: "FEATURE_ACCOUNT_REQUIRED",
+    });
+    return;
+  }
+
   const nextPublicCode = sanitizePublicCode(request.body.publicCode);
   const revealPin = typeof request.body.revealPin === "string" ? request.body.revealPin.trim() : null;
   const requestedDisplayMode = String(request.body.displayMode || "story");
 
-  if (request.body.revealAt && !hasProThemeAccess(request.user!)) {
+  if (request.body.revealAt && (!request.user || !hasProThemeAccess(request.user))) {
     response.status(403).json({
       error: "Scheduled reveal is a Pro feature.",
       code: "FEATURE_PRO_ONLY",
@@ -2903,7 +2937,7 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
     return;
   }
 
-  if (typeof request.body.publicCode === "string" && !hasProThemeAccess(request.user!)) {
+  if (typeof request.body.publicCode === "string" && (!request.user || !hasProThemeAccess(request.user))) {
     response.status(403).json({
       error: "Custom public links are a Pro feature.",
       code: "FEATURE_PRO_ONLY",
@@ -2911,7 +2945,7 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
     return;
   }
 
-  if (revealPin && !hasProThemeAccess(request.user!)) {
+  if (revealPin && (!request.user || !hasProThemeAccess(request.user))) {
     response.status(403).json({
       error: "Secret reveal PIN is a Pro feature.",
       code: "FEATURE_PRO_ONLY",
@@ -2919,7 +2953,7 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
     return;
   }
 
-  if (requestedDisplayMode !== "story" && !hasProThemeAccess(request.user!)) {
+  if (requestedDisplayMode !== "story" && (!request.user || !hasProThemeAccess(request.user))) {
     response.status(403).json({
       error: "Freeform and Bento page views are Pro features.",
       code: "FEATURE_PRO_ONLY",
@@ -2935,11 +2969,21 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
   const publicCode = nextPublicCode || await createUniquePublicCode();
   const revealPinHash = revealPin ? await hashPassword(revealPin) : null;
   const recipientEmail = sanitizeEmail(request.body.recipientEmail);
+
+  let claimToken: string | null = null;
+  let claimTokenHash: string | null = null;
+  if (isGuest) {
+    claimToken = crypto.randomBytes(24).toString("hex");
+    claimTokenHash = await hashPassword(claimToken);
+  }
+
   let rows: Array<Record<string, unknown>> = [];
   try {
     rows = await sql`
       INSERT INTO birthday_pages (
         user_id,
+        guest_email,
+        claim_token_hash,
         public_code,
         recipient_name,
         recipient_email,
@@ -2966,7 +3010,9 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
         custom_audio_url
       )
       VALUES (
-        ${request.user!.id},
+        ${request.user ? request.user.id : null},
+        ${guestEmail},
+        ${claimTokenHash},
         ${publicCode},
         ${String(request.body.recipientName || "").trim()},
         ${recipientEmail},
@@ -3003,7 +3049,88 @@ app.post("/api/pages", requireAuth, validateBody(pageCreateBodySchema), async (r
     throw error;
   }
 
-  response.status(201).json(rows[0]);
+  const createdPage = rows[0];
+
+  // Send guest email in background
+  if (isGuest && guestEmail && claimToken) {
+    void sendGuestCanvasCreatedEmail({
+      to: guestEmail,
+      recipientName: String(request.body.recipientName || "the celebrant"),
+      publicCode,
+      claimToken,
+    }).catch((err) => {
+      console.error("Failed to send guest canvas email:", err);
+    });
+  }
+
+  response.status(201).json({
+    ...createdPage,
+    claim_token: claimToken,
+    is_guest: isGuest,
+  });
+});
+
+app.post("/api/pages/claim", optionalAuth, async (request: AuthedRequest, response) => {
+  const publicCode = String(request.body.publicCode || "").trim();
+  const claimToken = String(request.body.claimToken || "").trim();
+
+  if (!publicCode || !claimToken) {
+    response.status(400).json({ error: "Missing public code or claim token." });
+    return;
+  }
+
+  const rows = await sql`
+    SELECT id, guest_email, claim_token_hash, user_id, recipient_name
+    FROM birthday_pages
+    WHERE public_code = ${publicCode}
+    LIMIT 1
+  `;
+
+  const page = rows[0];
+  if (!page) {
+    response.status(404).json({ error: "Canvas not found." });
+    return;
+  }
+
+  if (page.user_id) {
+    response.status(400).json({ error: "This canvas has already been claimed." });
+    return;
+  }
+
+  if (!page.claim_token_hash) {
+    response.status(400).json({ error: "Invalid claim state for this canvas." });
+    return;
+  }
+
+  const validToken = await verifyPassword(claimToken, String(page.claim_token_hash));
+  if (!validToken) {
+    response.status(403).json({ error: "Invalid or expired claim token." });
+    return;
+  }
+
+  if (request.user) {
+    await sql`
+      UPDATE birthday_pages
+      SET user_id = ${request.user.id},
+          guest_email = NULL,
+          claim_token_hash = NULL,
+          updated_at = NOW()
+      WHERE id = ${page.id}
+    `;
+
+    response.json({
+      success: true,
+      message: "Canvas claimed successfully! It is now in your atelier.",
+      pageId: page.id,
+    });
+    return;
+  }
+
+  response.json({
+    valid: true,
+    email: page.guest_email,
+    recipientName: page.recipient_name,
+  });
 });
 
 app.get("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
@@ -3028,16 +3155,27 @@ app.get("/api/pages/:id/messages", requireAuth, validateParams(pageIdParamSchema
   response.json(messages);
 });
 
-app.get("/api/pages/:id/ownership", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+app.get("/api/pages/:id/ownership", optionalAuth, validateParams(pageIdParamSchema), async (request: express.Request & { user?: SessionUser }, response) => {
   const rows = await sql`
-    SELECT id, public_code
+    SELECT id, public_code, user_id, guest_email
     FROM birthday_pages
     WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-      AND user_id = ${request.user!.id}
     LIMIT 1
   `;
 
-  response.json({ isOwner: Boolean(rows[0]), publicCode: rows[0] ? String(rows[0].public_code) : null });
+  if (!rows[0]) {
+    return response.json({ isOwner: false, publicCode: null, isGuest: false });
+  }
+
+  const page = rows[0];
+  const isOwner = Boolean(request.user && page.user_id && page.user_id === request.user.id);
+  const isGuest = !page.user_id && Boolean(page.guest_email);
+
+  response.json({
+    isOwner: isOwner || isGuest,
+    publicCode: page.public_code ? String(page.public_code) : null,
+    isGuest,
+  });
 });
 
 app.get("/api/pages/:id/pool/summary", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
@@ -3700,7 +3838,7 @@ app.delete("/api/pages/:id", requireAuth, validateParams(pageIdParamSchema), asy
   response.status(204).end();
 });
 
-app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), validateBody(uploadPageIdBodySchema), async (request: AuthedRequest, response) => {
+app.post("/api/uploads/cover", optionalAuth, coverUpload.single("file"), validateBody(uploadPageIdBodySchema), async (request: AuthedRequest, response) => {
   const pageIdOrCode = String(request.body.pageId || "");
   const file = request.file;
 
@@ -3716,13 +3854,25 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), validate
 
   // Allow either the internal UUID id or the public_code to be sent from the client.
   // Compare against id::text to avoid Postgres attempting to cast arbitrary strings to uuid.
-  const rows = await sql`
-    SELECT id, cover_photo_url
-    FROM birthday_pages
-    WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
-      AND user_id = ${request.user!.id}
-    LIMIT 1
-  `;
+  let rows: Array<Record<string, unknown>> = [];
+  if (request.user) {
+    rows = await sql`
+      SELECT id, cover_photo_url
+      FROM birthday_pages
+      WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
+        AND (user_id = ${request.user.id} OR (user_id IS NULL AND guest_email IS NOT NULL))
+      LIMIT 1
+    `;
+  } else {
+    rows = await sql`
+      SELECT id, cover_photo_url
+      FROM birthday_pages
+      WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
+        AND user_id IS NULL
+        AND guest_email IS NOT NULL
+      LIMIT 1
+    `;
+  }
 
   const page = rows[0] as undefined | { id: string; cover_photo_url: string | null };
 
@@ -3742,13 +3892,12 @@ app.post("/api/uploads/cover", requireAuth, coverUpload.single("file"), validate
     UPDATE birthday_pages
     SET cover_photo_url = ${url}, updated_at = NOW()
     WHERE id = ${page.id}
-      AND user_id = ${request.user!.id}
   `;
 
   response.json({ url });
 });
 
-app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("file"), validateBody(uploadPageIdBodySchema), async (request: AuthedRequest, response) => {
+app.post("/api/uploads/page-soundtrack", optionalAuth, pageAudioUpload.single("file"), validateBody(uploadPageIdBodySchema), async (request: AuthedRequest, response) => {
   const pageIdOrCode = String(request.body.pageId || "");
   const file = request.file;
 
@@ -3763,13 +3912,25 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
 
   // Allow either the internal UUID id or the public_code to be sent from the client.
   // Compare against id::text to avoid Postgres attempting to cast arbitrary strings to uuid.
-  const rows = await sql`
-    SELECT id, custom_audio_url
-    FROM birthday_pages
-    WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
-      AND user_id = ${request.user!.id}
-    LIMIT 1
-  `;
+  let rows: Array<Record<string, unknown>> = [];
+  if (request.user) {
+    rows = await sql`
+      SELECT id, custom_audio_url
+      FROM birthday_pages
+      WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
+        AND (user_id = ${request.user.id} OR (user_id IS NULL AND guest_email IS NOT NULL))
+      LIMIT 1
+    `;
+  } else {
+    rows = await sql`
+      SELECT id, custom_audio_url
+      FROM birthday_pages
+      WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
+        AND user_id IS NULL
+        AND guest_email IS NOT NULL
+      LIMIT 1
+    `;
+  }
 
   const page = rows[0] as undefined | { id: string; custom_audio_url: string | null };
 
@@ -3787,7 +3948,6 @@ app.post("/api/uploads/page-soundtrack", requireAuth, pageAudioUpload.single("fi
     UPDATE birthday_pages
     SET custom_audio_url = ${url}, updated_at = NOW()
     WHERE id = ${page.id}
-      AND user_id = ${request.user!.id}
   `;
 
   response.json({ url });
@@ -4459,12 +4619,12 @@ app.post("/api/public/pages/:id/messages", validateParams(pageIdParamSchema), pu
     try {
       const ownerRows = await sql`
         SELECT
-          u.email,
-          u.display_name,
-          u.email_notifications,
-          u.new_message_notifications
+          COALESCE(u.email, bp.guest_email) AS email,
+          COALESCE(u.display_name, 'Guest Creator') AS display_name,
+          COALESCE(u.email_notifications, true) AS email_notifications,
+          COALESCE(u.new_message_notifications, true) AS new_message_notifications
         FROM birthday_pages bp
-        INNER JOIN users u ON u.id = bp.user_id
+        LEFT JOIN users u ON u.id = bp.user_id
         WHERE bp.id = ${resolvedPageId}
         LIMIT 1
       `;

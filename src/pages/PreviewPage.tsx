@@ -14,14 +14,16 @@ const PreviewPage = () => {
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [publicCode, setPublicCode] = useState<string | null>(null);
 
   const checkOwnership = useCallback(async () => {
     if (!pageId) return;
 
     try {
-      const data = await apiFetch<{ isOwner: boolean; publicCode: string | null }>(`/pages/${pageId}/ownership`);
+      const data = await apiFetch<{ isOwner: boolean; publicCode: string | null; isGuest?: boolean }>(`/pages/${pageId}/ownership`);
       setIsOwner(data.isOwner);
+      setIsGuest(Boolean(data.isGuest));
       setPublicCode(data.publicCode);
       
       if (!data.isOwner) {
@@ -41,12 +43,10 @@ const PreviewPage = () => {
   }, [navigate, pageId]);
 
   useEffect(() => {
-    if (pageId && user) {
+    if (pageId && !authLoading) {
       void checkOwnership();
-    } else if (!authLoading && !user) {
-      navigate('/auth');
     }
-  }, [authLoading, checkOwnership, navigate, pageId, user]);
+  }, [authLoading, checkOwnership, pageId]);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -88,9 +88,9 @@ const PreviewPage = () => {
     <div className="relative">
       {/* Preview Banner */}
       {isOwner && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-foreground/90 text-primary-foreground px-4 py-3">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className={`fixed top-0 left-0 right-0 z-50 px-4 py-2.5 shadow-md ${isGuest ? 'bg-amber-950/95 text-amber-50 backdrop-blur-md' : 'bg-foreground/90 text-primary-foreground'}`}>
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -98,24 +98,40 @@ const PreviewPage = () => {
                     navigate(-1);
                     return;
                   }
-                  navigate('/dashboard');
+                  navigate(user ? '/dashboard' : '/');
                 }}
-                className="flex items-center gap-2 text-sm hover:opacity-80 transition-opacity"
+                className="flex items-center gap-1.5 text-xs hover:opacity-80 transition-opacity font-semibold"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Back</span>
               </button>
-              <span className="text-sm opacity-70">Preview Mode</span>
+              <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${isGuest ? 'bg-amber-500/25 text-amber-300' : 'bg-white/10 text-white'}`}>
+                {isGuest ? 'Guest Preview' : 'Preview Mode'}
+              </span>
+              {isGuest && (
+                <span className="hidden md:inline text-amber-200/90 text-[11px]">
+                  Created as guest. Claim to edit details or moderate wishes.
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <Link to={`/edit/${pageId}`}>
-                <Button variant="glass" size="sm" className="gap-1">
-                  <Edit className="w-4 h-4" />
-                  <span className="hidden sm:inline">Edit</span>
-                </Button>
-              </Link>
-              <Button variant="glass" size="sm" className="gap-1" onClick={copyLink}>
-                <Share2 className="w-4 h-4" />
+
+            <div className="flex items-center gap-2 shrink-0">
+              {isGuest ? (
+                <Link to={`/auth?mode=signup&public_code=${publicCode || pageId}`}>
+                  <Button size="sm" className="btn-press h-7 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs px-3 shadow-xs">
+                    Claim Canvas
+                  </Button>
+                </Link>
+              ) : (
+                <Link to={`/edit/${pageId}`}>
+                  <Button variant="glass" size="sm" className="gap-1 h-7 text-xs">
+                    <Edit className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Edit</span>
+                  </Button>
+                </Link>
+              )}
+              <Button variant="glass" size="sm" className="gap-1 h-7 text-xs" onClick={copyLink}>
+                <Share2 className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Share</span>
               </Button>
             </div>
@@ -124,7 +140,7 @@ const PreviewPage = () => {
       )}
 
       {/* Add padding for the banner */}
-      <div className={isOwner ? "pt-14" : ""}>
+      <div className={isOwner ? "pt-12" : ""}>
         <BirthdayPage isPreview={isOwner} showRevealIntroInPreview={isOwner} />
       </div>
     </div>
