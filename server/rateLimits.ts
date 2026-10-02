@@ -3,7 +3,20 @@ import rateLimit from "express-rate-limit";
 const window15m = 15 * 60 * 1000;
 const strictAuthMax = Number(process.env.AUTH_STRICT_RATE_LIMIT_MAX || 10);
 
-const jsonMessage = { error: "Too many requests. Please try again shortly." };
+const jsonMessage = {
+  error: "You are moving fast! Please wait a moment before trying again.",
+  code: "RATE_LIMIT_EXCEEDED",
+};
+
+const uploadJsonMessage = {
+  error: "You have uploaded several files in a short time. Please wait a minute before uploading more.",
+  code: "RATE_LIMIT_UPLOADS",
+};
+
+const messageJsonMessage = {
+  error: "You are writing fast! Please pause a minute before submitting another wish.",
+  code: "RATE_LIMIT_MESSAGES",
+};
 
 /** Cheap health checks — still bounded to avoid abuse. */
 export const healthEndpointLimiter = rateLimit({
@@ -136,7 +149,7 @@ export const publicPhotoUploadLimiter = rateLimit({
   max: 18,
   standardHeaders: true,
   legacyHeaders: false,
-  message: jsonMessage,
+  message: uploadJsonMessage,
 });
 
 export const publicAudioUploadLimiter = rateLimit({
@@ -144,7 +157,7 @@ export const publicAudioUploadLimiter = rateLimit({
   max: 12,
   standardHeaders: true,
   legacyHeaders: false,
-  message: jsonMessage,
+  message: uploadJsonMessage,
 });
 
 export const publicMessageLimiter = rateLimit({
@@ -152,7 +165,7 @@ export const publicMessageLimiter = rateLimit({
   max: 24,
   standardHeaders: true,
   legacyHeaders: false,
-  message: jsonMessage,
+  message: messageJsonMessage,
 });
 
 export const publicPoolContributionInitLimiter = rateLimit({

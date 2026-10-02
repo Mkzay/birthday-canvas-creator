@@ -22,6 +22,7 @@ import {
   SkipForward,
   Sparkles,
   Volume2,
+  VolumeX,
   Trash2,
   Music,
   Image as ImageIcon,
@@ -130,6 +131,7 @@ const BirthdayPage = ({
   const presetControllerRef = useRef<SoundtrackController | null>(null);
   const youtubeIframeRef = useRef<HTMLIFrameElement | null>(null);
   const [startYoutube, setStartYoutube] = useState(false);
+  const [isSoundtrackMuted, setIsSoundtrackMuted] = useState(false);
   const ytId = useMemo(() => extractYouTubeId(page?.custom_audio_url), [page?.custom_audio_url]);
   const shouldResumeSoundtrackRef = useRef(false);
   const userPausedSoundtrackRef = useRef(false);
@@ -339,6 +341,28 @@ const BirthdayPage = ({
     },
     [isCoarsePointerDevice, page, ytId],
   );
+
+  const toggleSoundtrackMute = useCallback(() => {
+    setIsSoundtrackMuted((muted) => {
+      const nextMuted = !muted;
+      if (nextMuted) {
+        userPausedSoundtrackRef.current = true;
+        if (soundtrackAudioRef.current) {
+          soundtrackAudioRef.current.pause();
+        }
+        if (presetControllerRef.current) {
+          presetControllerRef.current.stop();
+        }
+        if (youtubeIframeRef.current?.contentWindow) {
+          youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+        }
+      } else {
+        userPausedSoundtrackRef.current = false;
+        void startSoundtrack(true);
+      }
+      return nextMuted;
+    });
+  }, [startSoundtrack]);
 
   const pauseSoundtrackForWishAudio = useCallback(() => {
     let hadPlayingSoundtrack = false;
@@ -2676,6 +2700,36 @@ const BirthdayPage = ({
         <Suspense fallback={null}>
           <LazyFreeformSection />
         </Suspense>
+      )}
+
+      {!showRevealIntro && (page.custom_audio_url || page.soundtrack_id) && (
+        <div className="fixed top-3 right-3 z-50 pointer-events-auto">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={toggleSoundtrackMute}
+            aria-label={isSoundtrackMuted ? "Unmute celebration music" : "Mute celebration music"}
+            className={cn(
+              "h-8 px-2.5 gap-1.5 rounded-full text-xs font-semibold backdrop-blur-md shadow-md border transition-all duration-200",
+              isSoundtrackMuted
+                ? "bg-black/70 text-white border-white/20 hover:bg-black/85"
+                : "bg-white/85 text-foreground border-black/10 hover:bg-white shadow-sm"
+            )}
+          >
+            {isSoundtrackMuted ? (
+              <>
+                <VolumeX className="h-3.5 w-3.5 text-rose-400" />
+                <span>Unmute</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="h-3.5 w-3.5 text-emerald-500 animate-pulse" />
+                <span>Sound on</span>
+              </>
+            )}
+          </Button>
+        </div>
       )}
 
 

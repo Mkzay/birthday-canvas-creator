@@ -37,6 +37,7 @@ import OpenerThemePreview from '@/components/OpenerThemePreview';
 import ThemeSelector from '@/components/ThemeSelector';
 import SoundtrackSelector from '@/components/SoundtrackSelector';
 import { ApiError, apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
+import { compressImageFile } from '@/lib/imageCompressor';
 import { parseLocalDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
@@ -410,7 +411,7 @@ const EditPage = () => {
     }
   }, [isProUser, selectedDisplayMode]);
 
-  const handleCoverPhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleCoverPhotoSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -419,13 +420,14 @@ const EditPage = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be less than 5MB');
-      return;
+    try {
+      const optimizedFile = await compressImageFile(file, { maxDimension: 1800, quality: 0.84 });
+      setCoverPhoto(optimizedFile);
+      setCoverPhotoPreview(URL.createObjectURL(optimizedFile));
+    } catch {
+      setCoverPhoto(file);
+      setCoverPhotoPreview(URL.createObjectURL(file));
     }
-
-    setCoverPhoto(file);
-    setCoverPhotoPreview(URL.createObjectURL(file));
   };
 
   const removeCoverPhoto = () => {

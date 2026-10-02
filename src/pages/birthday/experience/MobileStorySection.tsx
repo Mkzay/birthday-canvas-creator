@@ -19,6 +19,7 @@ import {
   Wallet,
   Gift,
   Check,
+  Sparkles,
 } from 'lucide-react';
 import BentoGridView from '@/components/BentoGridView';
 import { format } from 'date-fns';
@@ -265,7 +266,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
               >
                 <div
                 className={cn(
-                'inline-flex w-max items-center gap-1.5 rounded-2xl border px-1.5 py-1.5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl',
+                'inline-flex w-max items-center gap-2 rounded-2xl border px-2 py-1.5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl',
                   isDarkExperience ? 'border-white/18 bg-white/10 text-white' : 'border-white/70 bg-white/80 text-foreground',
                 )}
               >
@@ -273,33 +274,33 @@ export const MobileStorySection = memo(function MobileStorySection() {
                   type="button"
                   onClick={() => setShowShareCard(true)}
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
+                    'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
                     isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                   )}
                 >
-                  <Share2 className="h-3.5 w-3.5" />
+                  <Share2 className="h-4 w-4" />
                   Share
                 </button>
                 <button
                   type="button"
                   onClick={handlePlayControl}
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
+                    'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
                     isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                   )}
                 >
-                  <Music4 className="h-3.5 w-3.5" />
+                  <Music4 className="h-4 w-4" />
                   Play
                 </button>
                 <button
                   type="button"
                   onClick={handlePauseControl}
                   className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
+                    'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
                     isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                   )}
                 >
-                  <Volume2 className="h-3.5 w-3.5" />
+                  <Volume2 className="h-4 w-4" />
                   Pause
                 </button>
                 {canShowKeepsakeDownload && (
@@ -309,22 +310,22 @@ export const MobileStorySection = memo(function MobileStorySection() {
                       onClick={() => void handleDownloadKeepsake()}
                       disabled={downloadingPdf}
                       className={cn(
-                        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                        'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
                         isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                       )}
                     >
-                      <Download className="h-3.5 w-3.5" />
+                      <Download className="h-4 w-4" />
                       {downloadingPdf ? 'Preparing' : 'PDF'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setIncludeSoundtrackInVideo((current) => !current)}
                       className={cn(
-                        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
+                        'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
                         isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                       )}
                     >
-                      <Music className="h-3.5 w-3.5" />
+                      <Music className="h-4 w-4" />
                       {includeSoundtrackInVideo ? 'Sound on' : 'Sound off'}
                     </button>
                     <button
@@ -332,11 +333,11 @@ export const MobileStorySection = memo(function MobileStorySection() {
                       onClick={() => void handleDownloadVideoKeepsake()}
                       disabled={downloadingVideo}
                       className={cn(
-                        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                        'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
                         isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
                       )}
                     >
-                      <Video className="h-3.5 w-3.5" />
+                      <Video className="h-4 w-4" />
                       {downloadingVideo ? 'Rendering' : 'Video'}
                     </button>
                   </>
@@ -614,60 +615,22 @@ export const MobileStorySection = memo(function MobileStorySection() {
                       </p>
 
                       <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
-                          <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Pooled gift</p>
-                          <p className={cn('mt-2 text-2xl font-semibold', theme.titleClass, theme.font)}>
-                            {formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}
-                          </p>
-                          {poolSummary.pool_description && (
-                            <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>{poolSummary.pool_description}</p>
-                          )}
-                          {paidContributorLine && (
-                            <p className={cn('mt-2 text-xs leading-relaxed opacity-75', theme.text)}>Paid by {paidContributorLine}.</p>
-                          )}
-                          {isPageOwner && (
-                            <div className="mt-3">
-                              {poolSummary.is_released ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                                  <Check className="h-3.5 w-3.5" />
-                                  Payout released
-                                </span>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="h-9 gap-2"
-                                  onClick={handleReleasePoolPayout}
-                                  disabled={releasingPoolPayout || !page?.is_revealed}
-                                >
-                                  {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
-                                  Release Gift
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                          {!isPageOwner && !poolSummary.is_released && !poolSummary.is_requested && (
-                            <div className="mt-3">
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="h-9 gap-2"
-                                onClick={handleRequestGiftRelease}
-                                disabled={requestingGiftRelease || !page?.is_revealed}
-                              >
-                                {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
-                                Request Gift
-                              </Button>
-                            </div>
-                          )}
-                          {!isPageOwner && !poolSummary.is_released && poolSummary.is_requested && (
-                            <div className="mt-3">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                                <Check className="h-3.5 w-3.5" />
-                                Gift requested
-                              </span>
-                            </div>
-                          )}
+                        <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Make moments unforgettable</p>
+                        <p className={cn('mt-1.5 text-base font-semibold leading-snug', theme.titleClass, theme.font)}>
+                          Create a celebration for someone special
+                        </p>
+                        <p className={cn('mt-1 text-xs opacity-75 leading-relaxed', theme.text)}>
+                          Gather heartfelt messages, photos, and voice notes into one unforgettable digital keepsake.
+                        </p>
+                        <div className="mt-3">
+                          <Link to="/create">
+                            <Button size="sm" className="h-9 w-full gap-2 rounded-xl shadow-sm">
+                              <Sparkles className="h-3.5 w-3.5" />
+                              <span>Create a WishCanvas</span>
+                            </Button>
+                          </Link>
                         </div>
+                      </div>
                     </article>
                   </div>
                 )}

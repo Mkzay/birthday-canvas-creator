@@ -13,6 +13,7 @@ import { ApiError, apiFetch, apiForm } from '@/lib/api';
 import BrandLogo from '@/components/BrandLogo';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import StickerPicker, { type StickerData } from '@/components/StickerPicker';
+import { compressImageFile } from '@/lib/imageCompressor';
 import { visualThemeConfig, fontClassMap } from '@/lib/themes';
 import type { ContributionDraft, PendingPhoto, PublicBirthdayPageData } from '@/pages/contribute';
 import {
@@ -314,7 +315,7 @@ const ContributePage = () => {
     });
   };
 
-  const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
@@ -325,27 +326,40 @@ const ContributePage = () => {
       return;
     }
 
-    const acceptedFiles: PendingPhoto[] = [];
     const incomingFiles = files.slice(0, availableSlots);
-
-    incomingFiles.forEach((file) => {
+    const validImageFiles = incomingFiles.filter((file) => {
       if (!file.type.startsWith('image/')) {
         toast.error(`${file.name} is not an image`);
-        return;
+        return false;
       }
-
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} is larger than 5MB`);
-        return;
-      }
-
-      acceptedFiles.push({
-        id: crypto.randomUUID(),
-        file,
-        previewUrl: URL.createObjectURL(file),
-        caption: '',
-      });
+      return true;
     });
+
+    if (!validImageFiles.length) {
+      event.target.value = '';
+      return;
+    }
+
+    // Automatically optimize images to ensure fast uploads on mobile networks
+    const acceptedFiles: PendingPhoto[] = [];
+    for (const file of validImageFiles) {
+      try {
+        const optimizedFile = await compressImageFile(file, { maxDimension: 1600, quality: 0.82 });
+        acceptedFiles.push({
+          id: crypto.randomUUID(),
+          file: optimizedFile,
+          previewUrl: URL.createObjectURL(optimizedFile),
+          caption: '',
+        });
+      } catch {
+        acceptedFiles.push({
+          id: crypto.randomUUID(),
+          file,
+          previewUrl: URL.createObjectURL(file),
+          caption: '',
+        });
+      }
+    }
 
     if (files.length > availableSlots) {
       toast.error(`Only ${availableSlots} more photo${availableSlots === 1 ? '' : 's'} can be added`);

@@ -1,4 +1,6 @@
 import { useState, useRef, type FC } from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import {
   Heart,
@@ -621,6 +623,14 @@ const BentoGridView: FC<BentoGridViewProps> = ({
               <p className={cn('mt-1 text-xs opacity-70 font-medium max-w-sm', theme.text)}>
                 Every photo, voice note, and wish was gathered with love.
               </p>
+              <div className="mt-3.5">
+                <Link to="/create">
+                  <Button size="sm" className="h-8 gap-1.5 rounded-xl text-xs shadow-sm">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Create a WishCanvas</span>
+                  </Button>
+                </Link>
+              </div>
             </div>
           )}
 

@@ -417,13 +417,14 @@ export const FreeformSection = memo(function FreeformSection() {
                                         key={photo.id}
                                         type="button"
                                         className="relative aspect-square overflow-hidden rounded-lg border border-white/45 bg-white/35"
-                                        onClick={() =>
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           setExpandedPhoto({
                                             url: resolvedPhotoUrl,
                                             caption: photo.caption,
                                             senderName: message.sender_name,
-                                          })
-                                        }
+                                          });
+                                        }}
                                       >
                                         {renderStoryImage(resolvedPhotoUrl, `Photo from ${message.sender_name}`, { disableParallax: true })}
                                       </button>
@@ -432,7 +433,15 @@ export const FreeformSection = memo(function FreeformSection() {
                                 </div>
                               )}
       
-                              {voiceCount > 0 && <div className="mt-3 space-y-2">{renderWishAudioPlayer(message, 'w-full')}</div>}
+                              {voiceCount > 0 && (
+                                <div
+                                  className="mt-3 space-y-2"
+                                  data-no-nav="true"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {renderWishAudioPlayer(message, 'w-full')}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </article>
@@ -580,61 +589,18 @@ export const FreeformSection = memo(function FreeformSection() {
                                         <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold opacity-85" style={{ backgroundColor: freeformThemePalette.chipBg, color: freeformThemePalette.chipText }}>{totalAudioWishes} voices</span>
                                       </div>
       
-                                      {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
-                                        <div className="mt-3 rounded-lg border border-black/10 bg-white/35 p-3">
-                                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Pooled gift</p>
-                                          <p className="mt-1 text-sm font-semibold">₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}</p>
-                                          {poolSummary.pool_description && (
-                                            <p className="mt-1 text-xs leading-relaxed opacity-80">{poolSummary.pool_description}</p>
-                                          )}
-                                          {paidContributorLine && (
-                                            <p className="mt-1 text-xs leading-relaxed opacity-75">Paid by {paidContributorLine}.</p>
-                                          )}
-                                          {isPageOwner && !isPreview && (
-                                            <div className="mt-2" data-no-nav="true">
-                                              {poolSummary.is_released ? (
-                                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                                                  <Check className="h-3.5 w-3.5" />
-                                                  Payout released
-                                                </span>
-                                              ) : (
-                                                <Button
-                                                  type="button"
-                                                  size="sm"
-                                                  className="h-8 gap-1.5"
-                                                  onClick={handleReleasePoolPayout}
-                                                  disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
-                                                >
-                                                  {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
-                                                  Release Gift
-                                                </Button>
-                                              )}
-                                            </div>
-                                          )}
-                                          {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
-                                            <div className="mt-2" data-no-nav="true">
-                                              <Button
-                                                type="button"
-                                                size="sm"
-                                                className="h-8 gap-1.5"
-                                                onClick={handleRequestGiftRelease}
-                                                disabled={requestingGiftRelease || !page?.is_revealed}
-                                              >
-                                                {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
-                                                Request Gift
-                                              </Button>
-                                            </div>
-                                          )}
-                                          {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
-                                            <div className="mt-2" data-no-nav="true">
-                                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                                                <Check className="h-3.5 w-3.5" />
-                                                Gift requested
-                                              </span>
-                                            </div>
-                                          )}
+                                      <div className="mt-3 rounded-xl border border-black/10 bg-white/35 p-3" data-no-nav="true">
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Make moments unforgettable</p>
+                                        <p className="mt-1 text-xs font-semibold leading-snug">Create a celebration for someone special</p>
+                                        <div className="mt-2.5">
+                                          <Link to="/create">
+                                            <Button size="sm" className="h-7 w-full gap-1.5 rounded-lg text-xs shadow-sm">
+                                              <Sparkles className="h-3 w-3" />
+                                              <span>Create a WishCanvas</span>
+                                            </Button>
+                                          </Link>
                                         </div>
-                                      )}
+                                      </div>
       
                                       <p className="mt-3 border-t pt-2 text-xs leading-relaxed opacity-80" style={{ borderColor: freeformThemePalette.dividerColor }}>
                                         Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
@@ -828,61 +794,18 @@ export const FreeformSection = memo(function FreeformSection() {
                   <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalPhotos} photos</span>
                   <span className="rounded-full bg-white/55 px-2.5 py-1 text-[11px] font-semibold opacity-85">{totalAudioWishes} voices</span>
                 </div>
-                {poolSummary.pool_fundraising_enabled && poolSummary.pooled_amount_kobo > 0 && (
-                  <div className="mt-3 rounded-lg border border-black/10 bg-white/45 p-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Pooled gift</p>
-                    <p className="mt-1 text-sm font-semibold">₦{formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}</p>
-                    {poolSummary.pool_description && (
-                      <p className="mt-1 text-xs leading-relaxed opacity-80">{poolSummary.pool_description}</p>
-                    )}
-                    {paidContributorLine && (
-                      <p className="mt-1 text-xs leading-relaxed opacity-75">Paid by {paidContributorLine}.</p>
-                    )}
-                    {isPageOwner && !isPreview && (
-                      <div className="mt-2" data-no-nav="true">
-                        {poolSummary.is_released ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-                            <Check className="h-3.5 w-3.5" />
-                            Payout released
-                          </span>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-8 gap-1.5"
-                            onClick={handleReleasePoolPayout}
-                            disabled={releasingPoolPayout || poolSummary.pooled_amount_kobo <= 0 || !page?.is_revealed}
-                          >
-                            {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
-                            Release Gift
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    {!isPageOwner && !isPreview && !poolSummary.is_released && !poolSummary.is_requested && (
-                      <div className="mt-2" data-no-nav="true">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-8 gap-1.5"
-                          onClick={handleRequestGiftRelease}
-                          disabled={requestingGiftRelease || !page?.is_revealed}
-                        >
-                          {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
-                          Request Gift
-                        </Button>
-                      </div>
-                    )}
-                    {!isPageOwner && !isPreview && !poolSummary.is_released && poolSummary.is_requested && (
-                      <div className="mt-2" data-no-nav="true">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">
-                          <Check className="h-3.5 w-3.5" />
-                          Gift requested
-                        </span>
-                      </div>
-                    )}
+                <div className="mt-3 rounded-xl border border-black/10 bg-white/45 p-3" data-no-nav="true">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">Make moments unforgettable</p>
+                  <p className="mt-1 text-xs font-semibold leading-snug">Create a celebration for someone special</p>
+                  <div className="mt-2.5">
+                    <Link to="/create">
+                      <Button size="sm" className="h-8 w-full gap-1.5 rounded-lg text-xs shadow-sm">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>Create a WishCanvas</span>
+                      </Button>
+                    </Link>
                   </div>
-                )}
+                </div>
                 <p className="mt-3 border-t border-black/10 pt-2 text-xs leading-relaxed opacity-80">
                   Signed by{contributorLine ? ` ${contributorLine}` : ' everyone who wrote'}. Happy birthday, {page.recipient_name}. You were worth gathering all of this for.
                 </p>

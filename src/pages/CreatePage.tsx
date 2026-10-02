@@ -39,6 +39,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ApiError, apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
+import { compressImageFile } from '@/lib/imageCompressor';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import { DashboardSidebar } from '@/pages/dashboardPage';
 import type { BirthdayPage } from '@/pages/dashboardPage/types';
@@ -411,7 +412,7 @@ const CreatePage = () => {
     };
   }, [coverPhotoPreview]);
 
-  const handleCoverPhotoSelect = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleCoverPhotoSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -420,13 +421,14 @@ const CreatePage = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be less than 5MB');
-      return;
+    try {
+      const optimizedFile = await compressImageFile(file, { maxDimension: 1800, quality: 0.84 });
+      setCoverPhoto(optimizedFile);
+      setCoverPhotoPreview(URL.createObjectURL(optimizedFile));
+    } catch {
+      setCoverPhoto(file);
+      setCoverPhotoPreview(URL.createObjectURL(file));
     }
-
-    setCoverPhoto(file);
-    setCoverPhotoPreview(URL.createObjectURL(file));
   };
 
   const removeCoverPhoto = () => {

@@ -734,7 +734,7 @@ const AdminPage = () => {
                       Master Celebration Canvas Registry
                     </h2>
                     <p className="text-xs text-stone-500">
-                      Inspect all created canvases across the platform, verify engagement, and reconcile gift pool pledges.
+                      Inspect all created canvases across the platform, verify engagement, and manage milestone delivery.
                     </p>
                   </div>
                 </div>

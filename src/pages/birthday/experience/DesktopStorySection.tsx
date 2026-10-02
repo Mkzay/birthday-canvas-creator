@@ -19,6 +19,7 @@ import {
   Wallet,
   Gift,
   Check,
+  Sparkles,
 } from 'lucide-react';
 import BentoGridView from '@/components/BentoGridView';
 import { format } from 'date-fns';
@@ -991,61 +992,23 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               </p>
                             )}
       
-                            <div className={cn('mt-4 rounded-2xl border p-4', keepsakePillClass)} data-no-nav="true">
-                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Pooled gift</p>
-                                <p className={cn('mt-2 text-2xl font-semibold', theme.titleClass, theme.font)}>
-                                  {formatNairaNumberFromKobo(poolSummary.pooled_amount_kobo)}
-                                </p>
-                                {poolSummary.pool_description && (
-                                  <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>{poolSummary.pool_description}</p>
-                                )}
-                                {paidContributorLine && (
-                                  <p className={cn('mt-2 text-xs leading-relaxed opacity-75', theme.text)}>Paid by {paidContributorLine}.</p>
-                                )}
-                                {isPageOwner && (
-                                  <div className="mt-3">
-                                    {poolSummary.is_released ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                                        <Check className="h-3.5 w-3.5" />
-                                        Payout released
-                                      </span>
-                                    ) : (
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        className="h-9 gap-2"
-                                        onClick={handleReleasePoolPayout}
-                                        disabled={releasingPoolPayout || !page?.is_revealed}
-                                      >
-                                        {releasingPoolPayout ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
-                                        Release Gift
-                                      </Button>
-                                    )}
-                                  </div>
-                                )}
-                                {!isPageOwner && !poolSummary.is_released && !poolSummary.is_requested && (
-                                  <div className="mt-3">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      className="h-9 gap-2"
-                                      onClick={handleRequestGiftRelease}
-                                      disabled={requestingGiftRelease || !page?.is_revealed}
-                                    >
-                                      {requestingGiftRelease ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gift className="h-3.5 w-3.5" />}
-                                      Request Gift
-                                    </Button>
-                                  </div>
-                                )}
-                                {!isPageOwner && !poolSummary.is_released && poolSummary.is_requested && (
-                                  <div className="mt-3">
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                                      <Check className="h-3.5 w-3.5" />
-                                      Gift requested
-                                    </span>
-                                  </div>
-                                )}
+                            <div className={cn('mt-4 rounded-2xl border p-4.5', keepsakePillClass)} data-no-nav="true">
+                              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Make moments unforgettable</p>
+                              <p className={cn('mt-1.5 text-base font-semibold leading-snug', theme.titleClass, theme.font)}>
+                                Create a birthday celebration for someone you love
+                              </p>
+                              <p className={cn('mt-1 text-xs opacity-75 leading-relaxed', theme.text)}>
+                                Gather heartfelt messages, photos, and voice notes into one unforgettable digital keepsake.
+                              </p>
+                              <div className="mt-3">
+                                <Link to="/create">
+                                  <Button size="sm" className="h-9 w-full sm:w-auto gap-2 rounded-xl shadow-sm">
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                    <span>Create a WishCanvas</span>
+                                  </Button>
+                                </Link>
                               </div>
+                            </div>
                           </article>
                         </div>
                       </div>

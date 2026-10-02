@@ -136,7 +136,7 @@ const UpgradePage = () => {
   const [verifyState, setVerifyState] = useState<VerifyState>('idle');
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
   const [offerLoading, setOfferLoading] = useState(true);
-  const [priceLabel, setPriceLabel] = useState('N5,000 one-time');
+  const [priceLabel, setPriceLabel] = useState('₦5,000 one-time');
   const [features, setFeatures] = useState<ProFeature[]>(DEFAULT_FEATURES);
 
   const isProUser = isPro;
@@ -185,7 +185,7 @@ const UpgradePage = () => {
 
         const amountNaira = Math.round((offer.amountKobo || 0) / 100);
         const formatted = new Intl.NumberFormat('en-NG').format(amountNaira);
-        setPriceLabel(`N${formatted} one-time`);
+        setPriceLabel(`₦${formatted} one-time`);
         if (Array.isArray(offer.features) && offer.features.length) {
           setFeatures(offer.features);
         }
@@ -653,6 +653,11 @@ const UpgradePage = () => {
                       <span>Cards, Bank Transfer, USSD</span>
                       <span>•</span>
                       <span>Instant verification</span>
+                    </div>
+                    <div className="pt-1 text-center">
+                      <p className="text-[11px] text-stone-500">
+                        Paid via bank transfer? Your atelier unlocks automatically within 1 to 2 minutes once confirmed.
+                      </p>
                     </div>
                   </div>
                 )}
