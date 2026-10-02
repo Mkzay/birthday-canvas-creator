@@ -9,6 +9,7 @@ interface OpenerThemePreviewProps {
   midColor?: string | null;
   gradientAngle?: number | null;
   recipientName: string;
+  coverPhotoUrl?: string | null;
 }
 
 function mixHue(a: number, b: number) {
@@ -80,7 +81,7 @@ function StoryOpenerPreview({ startColor, endColor, midColor, gradientAngle, rec
   );
 }
 
-function FreeformOpenerPreview({ startColor, endColor, midColor, gradientAngle, recipientName }: Omit<OpenerThemePreviewProps, 'mode'>) {
+function FreeformOpenerPreview({ startColor, endColor, midColor, gradientAngle, recipientName, coverPhotoUrl }: Omit<OpenerThemePreviewProps, 'mode'>) {
   const resolvedMid = midColor || endColor;
   const angle = Number.isFinite(gradientAngle) ? Number(gradientAngle) : 145;
   const { h: hStart, s: sStart, l: lStart } = hexToHsl(startColor);
@@ -102,40 +103,121 @@ function FreeformOpenerPreview({ startColor, endColor, midColor, gradientAngle, 
   const overlay = `linear-gradient(180deg, hsl(${hEnd} ${Math.max(24, sEnd * 0.6)}% ${Math.max(12, lEnd * 0.36)}% / 0.78), hsl(${hMid} ${Math.max(26, sMid * 0.62)}% ${Math.max(11, lMid * 0.34)}% / 0.86) 52%, hsl(${overlayHue} ${Math.max(30, overlaySat * 0.68)}% ${Math.max(10, overlayLight * 0.34)}% / 0.92))`;
 
   return (
-    <div className="relative h-44 w-52 overflow-hidden rounded-[1.35rem] border border-border/60 p-2.5 shadow-card-sm" style={{ background: `${overlay}, ${backdrop}` }}>
+    <div className="relative h-44 w-56 overflow-hidden rounded-[1.35rem] border border-border/60 p-2.5 shadow-card-sm" style={{ background: `${overlay}, ${backdrop}` }}>
       <div className="pointer-events-none absolute inset-0" style={{ background: `repeating-linear-gradient(180deg, hsl(${overlayHue} ${Math.max(8, overlaySat * 0.24)}% 96% / 0.035) 0px, hsl(${overlayHue} ${Math.max(8, overlaySat * 0.24)}% 96% / 0.035) 1px, transparent 1px, transparent 4px)` }} />
       <div className="pointer-events-none absolute left-[6%] top-[12%] h-9 w-16 rotate-[-6deg] rounded-md border" style={{ borderColor: floatCardBorder, backgroundColor: floatCardFill }} />
       <div className="pointer-events-none absolute right-[8%] top-[16%] h-8 w-14 rotate-[5deg] rounded-md border" style={{ borderColor: floatCardBorder, backgroundColor: floatCardFill }} />
       <div className="pointer-events-none absolute left-[14%] bottom-[11%] h-9 w-14 rotate-[2deg] rounded-md border" style={{ borderColor: floatCardBorder, backgroundColor: floatCardFill }} />
 
-      <div className="relative mx-auto w-fit rounded-md px-3 pb-3 pt-2.5 shadow-[0_12px_32px_rgba(0,0,0,0.35)]" style={{ backgroundColor: paperColor }}>
-        <div className="relative mx-auto h-3 w-10 -translate-y-1.5 rounded-sm" style={{ backgroundColor: `${endColor}cc` }} />
-        <div className="relative h-[8.3rem] w-[9.1rem] overflow-hidden rounded-sm p-2 text-center" style={{ background: `linear-gradient(${angle}deg, ${startColor}, ${resolvedMid} 52%, ${endColor})` }}>
-          <p className="text-[7px] font-semibold uppercase tracking-[0.2em]" style={{ color: textSecondary }}>Happy Birthday</p>
-          <p className="mt-1 text-base font-bold leading-tight" style={{ color: textPrimary }}>{recipientName || 'Name'}</p>
-          <div className="mx-auto mt-2 h-0.5 w-6 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.45)' }} />
+      <div className="relative mx-auto w-fit rounded-md px-3 pb-2.5 pt-2 shadow-[0_12px_32px_rgba(0,0,0,0.35)]" style={{ backgroundColor: paperColor }}>
+        <div className="relative mx-auto h-2.5 w-10 -translate-y-1.5 rounded-xs" style={{ backgroundColor: `${endColor}cc` }} />
+        <div className="relative h-[7.2rem] w-[8.6rem] overflow-hidden rounded-xs text-center" style={{ background: `linear-gradient(${angle}deg, ${startColor}, ${resolvedMid} 52%, ${endColor})` }}>
+          {coverPhotoUrl ? (
+            <img src={coverPhotoUrl} alt="Cover" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full p-2 flex flex-col justify-center items-center">
+              <p className="text-[7px] font-semibold uppercase tracking-[0.2em]" style={{ color: textSecondary }}>Happy Birthday</p>
+              <p className="mt-1 text-sm font-bold leading-tight line-clamp-1" style={{ color: textPrimary }}>{recipientName || 'Alex'}</p>
+              <div className="mx-auto mt-1.5 h-0.5 w-6 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.45)' }} />
+            </div>
+          )}
         </div>
-        <p className="mt-2 text-center text-xs font-semibold leading-none" style={{ color: nameText }}>{recipientName || 'Name'}</p>
+        <p className="mt-1.5 text-center text-[11px] font-semibold leading-none line-clamp-1" style={{ color: nameText }}>{recipientName || 'Alex'}</p>
       </div>
 
-      <div className="relative mt-2.5 flex items-center justify-center gap-1.5 text-[9px] font-medium">
-        <span className="rounded-full border px-2 py-1" style={{ backgroundColor: chipBg, borderColor: chipBorder, color: chipText }}>Wishes</span>
-        <span className="rounded-full border px-2 py-1" style={{ backgroundColor: chipBg, borderColor: chipBorder, color: chipText }}>Photos</span>
+      <div className="relative mt-1.5 flex items-center justify-center gap-1.5 text-[8.5px] font-medium">
+        <span className="rounded-full border px-2 py-0.5" style={{ backgroundColor: chipBg, borderColor: chipBorder, color: chipText }}>Wishes</span>
+        <span className="rounded-full border px-2 py-0.5" style={{ backgroundColor: chipBg, borderColor: chipBorder, color: chipText }}>Photos</span>
       </div>
     </div>
   );
 }
 
-export default function OpenerThemePreview({ mode, startColor, endColor, midColor, gradientAngle, recipientName }: OpenerThemePreviewProps) {
-  if (mode === 'story') {
-    return <StoryOpenerPreview startColor={startColor} endColor={endColor} midColor={midColor} gradientAngle={gradientAngle} recipientName={recipientName} />;
-  }
-  if (mode === 'freeform') {
-    return <FreeformOpenerPreview startColor={startColor} endColor={endColor} midColor={midColor} gradientAngle={gradientAngle} recipientName={recipientName} />;
-  }
+function BentoOpenerPreview({ startColor, endColor, midColor, gradientAngle, recipientName, coverPhotoUrl }: Omit<OpenerThemePreviewProps, 'mode'>) {
+  const resolvedMid = midColor || endColor;
+  const angle = Number.isFinite(gradientAngle) ? Number(gradientAngle) : 145;
+  const backdropGradient = `linear-gradient(${angle}deg, ${startColor} 0%, ${resolvedMid} 52%, ${endColor} 100%)`;
+
   return (
-    <div className="flex h-36 w-52 items-center justify-center rounded-[1.35rem] border border-dashed border-border/60 bg-muted/20 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-      Bento Preview
+    <div className="relative h-44 w-56 overflow-hidden rounded-[1.35rem] border border-border/60 p-2 shadow-card-sm bg-slate-950 flex flex-col justify-between">
+      {/* Ambient background glows */}
+      <div
+        className="pointer-events-none absolute -top-8 -left-8 h-28 w-28 rounded-full blur-xl opacity-45"
+        style={{ background: startColor }}
+      />
+      <div
+        className="pointer-events-none absolute -bottom-8 -right-8 h-28 w-28 rounded-full blur-xl opacity-45"
+        style={{ background: endColor }}
+      />
+
+      {/* 3D Bento Vault Shell Container */}
+      <div className="relative z-10 rounded-[1.1rem] border border-white/20 bg-slate-900/80 p-2 shadow-md backdrop-blur-md ring-1 ring-white/10 flex-1 flex flex-col justify-between">
+        {/* Bento Compartments Grid */}
+        <div className="grid grid-cols-2 gap-1.5 text-left">
+          {/* Tile 1: Milestone Honoree Header (Spans 2 cols) */}
+          <div
+            className="col-span-2 rounded-xl p-2 border border-white/20 shadow-2xs relative overflow-hidden"
+            style={{
+              background: `linear-gradient(${angle}deg, ${startColor}33, ${resolvedMid}22, ${endColor}33)`,
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-400/25 border border-amber-300/40 px-1.5 py-0.2 text-[7.5px] font-bold uppercase tracking-wider text-amber-200">
+                <span>✨ Vault</span>
+              </span>
+              <span className="text-[7.5px] font-semibold text-white/75">
+                Milestone
+              </span>
+            </div>
+            <h3 className="mt-1 font-serif text-[11px] font-bold text-white tracking-tight leading-tight line-clamp-1">
+              Happy Birthday, {recipientName || 'Alex'}! ✨
+            </h3>
+          </div>
+
+          {/* Tile 2: Cover Photo Portrait */}
+          <div className="col-span-1 rounded-lg bg-white/10 border border-white/15 p-1 flex flex-col items-center justify-center text-center h-12 relative overflow-hidden">
+            {coverPhotoUrl ? (
+              <img src={coverPhotoUrl} alt="Cover" className="absolute inset-0 h-full w-full object-cover opacity-80" />
+            ) : (
+              <span className="text-sm">📸</span>
+            )}
+            <div className="relative z-10 mt-auto bg-black/60 rounded px-1 text-[7.5px] font-semibold text-amber-200">
+              Portrait
+            </div>
+          </div>
+
+          {/* Tile 3: Collected Memories Metrics */}
+          <div className="col-span-1 rounded-lg bg-white/10 border border-white/15 p-1.5 flex flex-col justify-between h-12">
+            <span className="text-[7.5px] font-bold uppercase text-white/70">Wishes</span>
+            <div className="flex items-center justify-between text-[8px] text-white/90 font-medium">
+              <span className="font-bold text-[10px] text-white">12</span>
+              <span>📸 6 · 🎙️ 3</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button: Unwrap Bento */}
+        <div className="mt-1.5 pt-1.5 border-t border-white/15 flex flex-col items-center gap-0.5">
+          <div
+            className="w-full py-1 px-2 rounded-lg text-white font-bold text-[9px] flex items-center justify-center gap-1 shadow-sm"
+            style={{ background: backdropGradient }}
+          >
+            <span>🎁</span>
+            <span className="line-clamp-1">Unwrap Celebration Bento</span>
+          </div>
+          <span className="text-[7px] text-white/50 tracking-wider">skip intro</span>
+        </div>
+      </div>
     </div>
   );
+}
+
+export default function OpenerThemePreview({ mode, startColor, endColor, midColor, gradientAngle, recipientName, coverPhotoUrl }: OpenerThemePreviewProps) {
+  if (mode === 'story') {
+    return <StoryOpenerPreview startColor={startColor} endColor={endColor} midColor={midColor} gradientAngle={gradientAngle} recipientName={recipientName} coverPhotoUrl={coverPhotoUrl} />;
+  }
+  if (mode === 'freeform') {
+    return <FreeformOpenerPreview startColor={startColor} endColor={endColor} midColor={midColor} gradientAngle={gradientAngle} recipientName={recipientName} coverPhotoUrl={coverPhotoUrl} />;
+  }
+  return <BentoOpenerPreview startColor={startColor} endColor={endColor} midColor={midColor} gradientAngle={gradientAngle} recipientName={recipientName} coverPhotoUrl={coverPhotoUrl} />;
 }

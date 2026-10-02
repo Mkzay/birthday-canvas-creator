@@ -106,6 +106,7 @@ export type PageDisplayMode = 'story' | 'freeform' | 'bento';
 export interface BirthdayPageProps {
   isPreview?: boolean;
   showRevealIntroInPreview?: boolean;
+  forceMobileView?: boolean;
 }
 
 export type PendingDeleteAction =

@@ -11,6 +11,8 @@ import {
   ArrowRight,
   Calendar as CalendarIcon,
   Check,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Eye,
   Gift,
@@ -932,54 +934,71 @@ const CreatePage = () => {
             
             {/* LEFT COLUMN: THE LIVE CELEBRATION CANVAS STAGE (5 cols on LG, sticky in view) */}
             <div className="lg:col-span-5 lg:sticky lg:top-20 self-start space-y-4">
-              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-4 sm:p-5 shadow-card flex flex-col relative overflow-hidden">
+              <div className="rounded-[2.5rem] border border-stone-200/90 bg-white p-3.5 sm:p-5 shadow-card flex flex-col relative overflow-hidden">
                 <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-amber-500/10 blur-2xl" />
 
                 {/* Stage Top Bar */}
-                <div className="flex items-center justify-between border-b border-stone-100 pb-3 relative z-10">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-950 flex items-center gap-1.5 font-sans">
-                      <Eye className="h-3.5 w-3.5 text-amber-600" />
-                      Live Canvas Stage
+                <div className="flex items-center justify-between border-b border-stone-100 pb-3 relative z-10 gap-1.5 sm:gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-950 flex items-center gap-1.5 font-sans whitespace-nowrap">
+                      <Eye className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                      <span className="hidden sm:inline">Live Canvas Stage</span>
+                      <span className="sm:hidden">Live Stage</span>
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                     {/* Mobile View Toggle */}
                     <button
                       type="button"
                       onClick={() => setMobilePreviewOpen((prev) => !prev)}
-                      className="lg:hidden px-2.5 py-1 text-[10px] font-bold rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-all font-sans"
+                      className={cn(
+                        'lg:hidden flex items-center gap-1 px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all font-sans whitespace-nowrap shrink-0 shadow-2xs active:scale-95',
+                        mobilePreviewOpen
+                          ? 'bg-slate-950 text-white shadow-xs'
+                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                      )}
+                      aria-label={mobilePreviewOpen ? 'Hide stage preview' : 'Show stage preview'}
                     >
-                      {mobilePreviewOpen ? 'Hide' : 'View Preview'}
+                      {mobilePreviewOpen ? (
+                        <>
+                          <ChevronUp className="h-3 w-3 text-stone-400" />
+                          <span>Hide</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-3 w-3 text-stone-500" />
+                          <span>Preview</span>
+                        </>
+                      )}
                     </button>
 
                     {/* Switch between Canvas Card and Envelope Opener */}
-                    <div className="flex items-center gap-1 bg-stone-100 p-0.5 rounded-xl border border-stone-200/80">
+                    <div className="flex items-center gap-0.5 bg-stone-100 p-0.5 rounded-xl border border-stone-200/80 shrink-0">
                       <button
                         type="button"
                         onClick={() => setPreviewView('card')}
                         className={cn(
-                          'px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all',
+                          'px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all whitespace-nowrap shrink-0',
                           previewView === 'card'
                             ? 'bg-white text-slate-950 shadow-xs'
                             : 'text-stone-500 hover:text-slate-900',
                         )}
                       >
-                        Reveal Card
+                        <span className="hidden xs:inline">Reveal </span>Card
                       </button>
                       <button
                         type="button"
                         onClick={() => setPreviewView('envelope')}
                         className={cn(
-                          'px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all',
+                          'px-2 sm:px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all whitespace-nowrap shrink-0',
                           previewView === 'envelope'
                             ? 'bg-white text-slate-950 shadow-xs'
                             : 'text-stone-500 hover:text-slate-900',
                         )}
                       >
-                        Envelope
+                        {selectedDisplayMode === 'bento' ? 'Vault Opener' : selectedDisplayMode === 'freeform' ? 'Board Opener' : 'Envelope'}
                       </button>
                     </div>
                   </div>
@@ -1072,62 +1091,104 @@ const CreatePage = () => {
 
                     {/* DYNAMIC MODE 2: BENTO GRID VIEW */}
                     {selectedDisplayMode === 'bento' && (
-                      <div className="my-auto relative z-10 grid grid-cols-2 gap-2 text-white animate-fade-in">
-                        {/* Bento Tile 1: Hero Name (Col Span 2) */}
-                        <div className="col-span-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 p-3.5 space-y-1 shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] uppercase tracking-widest text-amber-300 font-bold">
-                              Milestone Bento
-                            </span>
-                            <span className="text-[10px] text-white/80 font-medium">
-                              {birthdayDate ? format(birthdayDate, 'MMM d, yyyy') : 'Milestone'}
+                      <div className="my-auto relative z-10 space-y-2 text-white animate-fade-in">
+                        {/* Bento Header Bar */}
+                        <div className="flex items-center justify-between px-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-white/80">
+                              Bento Vault
                             </span>
                           </div>
-                          <h2 className={cn('text-xl font-bold leading-tight text-white', previewFontClass)}>
-                            Happy Birthday, {recipientName.trim() ? recipientName.trim() : 'Alex'}! ✨
-                          </h2>
+                          <div className="flex items-center gap-1.5 text-[8.5px] font-semibold text-white/80">
+                            <span className="rounded-full bg-black/20 backdrop-blur-xs px-2 py-0.5 border border-white/15">12 wishes</span>
+                            <span className="rounded-full bg-black/20 backdrop-blur-xs px-2 py-0.5 border border-white/15">6 photos</span>
+                          </div>
                         </div>
 
-                        {/* Bento Tile 2: Cover Photo or Moments Frame */}
-                        <div className="col-span-1 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 p-2.5 flex flex-col items-center justify-center text-center min-h-[90px] shadow-sm">
-                          {coverPhotoPreview ? (
-                            <img
-                              src={coverPhotoPreview}
-                              alt="Cover"
-                              className="h-14 w-14 rounded-xl object-cover border border-white/50 shadow-xs mb-1"
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center text-lg mb-1">
-                              📸
+                        {/* Bento Grid Compartments */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {/* Tile 1: Milestone Honoree Hero Card */}
+                          <div className="col-span-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 p-3 shadow-sm relative overflow-hidden">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/25 border border-amber-300/40 px-2 py-0.5 text-[8.5px] font-bold uppercase tracking-widest text-amber-200">
+                                <Sparkles className="h-2.5 w-2.5 text-amber-300" />
+                                <span>Milestone Honoree</span>
+                              </span>
+                              <span className="text-[9.5px] text-white/80 font-medium">
+                                {birthdayDate ? format(birthdayDate, 'MMM d, yyyy') : 'Milestone'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                              {coverPhotoPreview ? (
+                                <img
+                                  src={coverPhotoPreview}
+                                  alt="Cover"
+                                  className="h-11 w-11 rounded-xl object-cover border border-white/50 shadow-xs shrink-0"
+                                />
+                              ) : (
+                                <div className="h-11 w-11 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0">
+                                  🎂
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <h2 className={cn('text-base sm:text-lg font-bold leading-tight text-white truncate', previewFontClass)}>
+                                  Happy Birthday, {recipientName.trim() ? recipientName.trim() : 'Alex'}! ✨
+                                </h2>
+                                <p className="text-[10px] text-white/75 truncate">
+                                  Celebration board with wishes and moments
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Tile 2: Moments Vault Metric */}
+                          <div className="col-span-1 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 p-2.5 flex flex-col justify-between min-h-[78px] shadow-sm">
+                            <span className="text-[8.5px] font-bold uppercase tracking-wider text-white/75">Moments Vault</span>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1 text-[10px] font-semibold text-white/90">
+                                <span>📸</span>
+                                <span>6 photos</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-200">
+                                <span>🎙️</span>
+                                <span>3 voice clips</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Tile 3: Collected Wishes Metric */}
+                          <div className="col-span-1 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 p-2.5 flex flex-col justify-between min-h-[78px] shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[8.5px] font-bold uppercase tracking-wider text-white/75">Collected</span>
+                              <span className="text-xs">❤️</span>
+                            </div>
+                            <div>
+                              <p className="text-xl font-extrabold leading-none text-white">12</p>
+                              <p className="text-[9px] text-white/75 font-medium mt-0.5">wishes pinned</p>
+                            </div>
+                          </div>
+
+                          {/* Tile 4: Organizer Welcome Note Snippet (if typed) */}
+                          {creatorMessage.trim() && (
+                            <div className="col-span-2 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 p-2.5 text-xs leading-relaxed text-white/95 shadow-sm">
+                              <p className="text-[8.5px] uppercase tracking-wider text-white/75 font-bold mb-0.5">
+                                Organizer Dedication:
+                              </p>
+                              <p className="italic line-clamp-1">&quot;{creatorMessage}&quot;</p>
                             </div>
                           )}
-                          <span className="text-[10px] font-bold text-white/90">Moments Vault</span>
-                        </div>
 
-                        {/* Bento Tile 3: Audio Voice Wish */}
-                        <div className="col-span-1 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 p-2.5 flex flex-col justify-between min-h-[90px] shadow-sm">
-                          <span className="text-[9px] uppercase tracking-wider text-white/70 font-semibold">Voice Wish</span>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1">
-                              <span className="h-3 w-1 bg-amber-300 rounded-full animate-pulse" />
-                              <span className="h-5 w-1 bg-amber-200 rounded-full animate-pulse delay-75" />
-                              <span className="h-2 w-1 bg-white rounded-full" />
-                              <span className="h-4 w-1 bg-amber-300 rounded-full" />
-                              <span className="text-[10px] font-bold text-white ml-1">0:42</span>
+                          {/* Tile 5: Pinned Wish Card (Spans 2 cols) */}
+                          <div className="col-span-2 rounded-2xl bg-white/90 backdrop-blur-md border border-white/60 p-2.5 text-slate-900 shadow-sm">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-xs font-bold text-slate-800">David K.</span>
+                              <span className="text-[9.5px] text-stone-500 font-medium">Friend</span>
                             </div>
-                            <p className="text-[10px] text-white/80 font-medium line-clamp-1">Sarah M.</p>
+                            <p className="text-xs text-stone-700 leading-snug line-clamp-1">
+                              Wishing you the greatest year yet filled with joy, adventure, and success! 🎂
+                            </p>
                           </div>
-                        </div>
-
-                        {/* Bento Tile 4: Pinned Wish Card (Col Span 2) */}
-                        <div className="col-span-2 rounded-2xl bg-white/90 backdrop-blur-md border border-white/60 p-3 text-slate-900 shadow-sm">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-slate-800">David K.</span>
-                            <span className="text-[10px] text-stone-500 font-medium">Friend</span>
-                          </div>
-                          <p className="text-xs text-stone-700 leading-snug line-clamp-2">
-                            Wishing you the greatest year yet filled with joy, adventure, and success! 🎂
-                          </p>
                         </div>
                       </div>
                     )}
@@ -1191,10 +1252,12 @@ const CreatePage = () => {
                     </div>
                   </div>
                 ) : (
-                  /* PREVIEW VIEW 2: ENVELOPE OPENER */
+                  /* PREVIEW VIEW 2: OPENER PREVIEW */
                   <div className="my-3 flex flex-col items-center justify-center min-h-[440px] bg-stone-50/70 rounded-3xl p-6 border border-stone-200/70">
-                    <div className="flex items-center justify-between w-full max-w-[210px] mb-3 px-1 text-xs">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Envelope Theme</span>
+                    <div className={cn("flex items-center justify-between w-full mb-3 px-1 text-xs", selectedDisplayMode === 'story' ? "max-w-[210px]" : "max-w-[230px]")}>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                        {selectedDisplayMode === 'bento' ? 'Vault Theme' : selectedDisplayMode === 'freeform' ? 'Board Theme' : 'Envelope Theme'}
+                      </span>
                       <span className="text-xs font-bold text-slate-800">{currentLetterThemeName}</span>
                     </div>
                     <OpenerThemePreview
@@ -1204,9 +1267,14 @@ const CreatePage = () => {
                       midColor={letterColors.mid}
                       gradientAngle={letterColors.angle}
                       recipientName={recipientName}
+                      coverPhotoUrl={coverPhotoPreview}
                     />
-                    <p className="text-[11px] text-stone-500 mt-4 text-center">
-                      Interactive wax-seal envelope styled with {currentLetterThemeName}, shown to {recipientName || 'the celebrant'} on arrival.
+                    <p className={cn("text-[11px] text-stone-500 mt-4 text-center leading-relaxed", selectedDisplayMode === 'story' ? "max-w-[215px]" : "max-w-[235px]")}>
+                      {selectedDisplayMode === 'bento'
+                        ? `Interactive 3D Bento Vault styled with ${currentLetterThemeName}, presented to ${recipientName || 'the celebrant'} before opening.`
+                        : selectedDisplayMode === 'freeform'
+                        ? `Interactive Polaroid memory board styled with ${currentLetterThemeName}, presented to ${recipientName || 'the celebrant'} on arrival.`
+                        : `Interactive wax-seal envelope styled with ${currentLetterThemeName}, shown to ${recipientName || 'the celebrant'} on arrival.`}
                     </p>
                   </div>
                 )}

@@ -103,7 +103,11 @@ import type {
   RevealSlide,
 } from '@/pages/birthday';
 
-const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: BirthdayPageProps) => {
+const BirthdayPage = ({
+  isPreview = false,
+  showRevealIntroInPreview = false,
+  forceMobileView = false,
+}: BirthdayPageProps) => {
   const { pageId } = useParams();
   const navigate = useNavigate();
   const [page, setPage] = useState<BirthdayPageData | null>(null);
@@ -136,6 +140,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   const ignoreTouchNavigationRef = useRef(false);
   const mobileRevealRef = useRef<HTMLDivElement | null>(null);
   const [isDesktopReveal, setIsDesktopReveal] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 640));
+  const isDesktopRevealEffective = forceMobileView ? false : isDesktopReveal;
   const isCoarsePointerDevice = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
   const mobileFreeformMotion = useMemo(() => {
     if (!isCoarsePointerDevice) {
@@ -282,9 +287,13 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
 
     if (soundtrackAudioRef.current) {
       soundtrackAudioRef.current.pause();
+      soundtrackAudioRef.current.currentTime = 0;
+      soundtrackAudioRef.current.src = '';
+      soundtrackAudioRef.current = null;
     }
 
     if (youtubeIframeRef.current?.contentWindow) {
+      youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'stopVideo', args: [] }), '*');
       youtubeIframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
     }
   }, []);
@@ -1097,10 +1106,16 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || isDesktopReveal || !mobileRevealRef.current) return;
+    if (typeof window === 'undefined' || isDesktopRevealEffective || !mobileRevealRef.current) return;
 
     const revealNodes = Array.from(mobileRevealRef.current.querySelectorAll<HTMLElement>('[data-scroll-reveal]'));
     if (!revealNodes.length) return;
+
+    // Eagerly mark the initial items visible so the screen is never blank
+    revealNodes.slice(0, 4).forEach((node) => {
+      node.classList.remove('is-exiting');
+      node.classList.add('is-visible');
+    });
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -1112,15 +1127,15 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         });
       },
       {
-        threshold: 0.16,
-        rootMargin: '0px 0px -8% 0px',
+        threshold: 0.05,
+        rootMargin: '100px 0px 100px 0px',
       },
     );
 
     revealNodes.forEach((node) => observer.observe(node));
 
     return () => observer.disconnect();
-  }, [isDesktopReveal, messages.length, page?.creator_message, showRevealIntro]);
+  }, [isDesktopRevealEffective, messages.length, page?.creator_message, showRevealIntro]);
 
   const totalPhotos = useMemo(() => {
     return messages.reduce((total, message) => total + getMessagePhotos(message).length, 0);
@@ -1130,7 +1145,7 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     return messages.filter((message) => Boolean(message.audio_url)).length;
   }, [messages]);
   const hasMessages = messages.length > 0;
-  const effectiveViewMode: PageDisplayMode = hasMessages ? viewMode : 'story';
+  const effectiveViewMode: PageDisplayMode = viewMode;
 
   const contributorNames = useMemo(() => {
     const seen = new Set<string>();
@@ -2582,6 +2597,8 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     totalPhotos,
     user,
     viewMode,
+    forceMobileView,
+    isDesktopReveal: isDesktopRevealEffective,
   });
 
   return (
@@ -2589,13 +2606,17 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
     <div
       className={cn(
         'relative transition-colors duration-500',
-        !isDesktopReveal
+        forceMobileView
           ? showRevealIntro && effectiveViewMode !== 'freeform'
-            ? isPreview ? 'h-[calc(100dvh-3.5rem)] min-h-[calc(100dvh-3.5rem)] overflow-hidden' : 'h-[100dvh] min-h-[100dvh] overflow-hidden'
-            : isPreview ? 'h-[calc(100dvh-3.5rem)] min-h-[calc(100dvh-3.5rem)] overflow-x-hidden overflow-y-auto' : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto'
-          : isPreview
-            ? 'h-[calc(100dvh-3.5rem)] min-h-[calc(100dvh-3.5rem)] overflow-hidden'
-            : 'h-[100dvh] min-h-[100dvh] overflow-hidden',
+            ? 'h-full min-h-full overflow-hidden'
+            : 'min-h-full overflow-x-hidden overflow-y-auto'
+          : !isDesktopRevealEffective
+            ? showRevealIntro && effectiveViewMode !== 'freeform'
+              ? 'h-[100dvh] min-h-[100dvh] overflow-hidden'
+              : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto'
+            : showRevealIntro || effectiveViewMode === 'story'
+              ? 'h-[100dvh] min-h-[100dvh] overflow-hidden'
+              : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto',
         theme.heroClass,
       )}
       style={{ ...(theme.style || {}), ...letterThemeStyle }}
@@ -2634,23 +2655,28 @@ const BirthdayPage = ({ isPreview = false, showRevealIntroInPreview = false }: B
         </Suspense>
       )}
 
-      <Suspense fallback={null}>
-        <LazyMobileStorySection />
-      </Suspense>
+      {effectiveViewMode === 'story' && (
+        <>
+          <Suspense fallback={null}>
+            <LazyMobileStorySection />
+          </Suspense>
+          <Suspense fallback={null}>
+            <LazyDesktopStorySection />
+          </Suspense>
+        </>
+      )}
 
-      <Suspense fallback={null}>
-        <LazyBentoStorySections />
-      </Suspense>
+      {effectiveViewMode === 'bento' && (
+        <Suspense fallback={null}>
+          <LazyBentoStorySections />
+        </Suspense>
+      )}
 
-      {effectiveViewMode === 'freeform' && hasMessages && (
+      {effectiveViewMode === 'freeform' && (
         <Suspense fallback={null}>
           <LazyFreeformSection />
         </Suspense>
       )}
-
-      <Suspense fallback={null}>
-        <LazyDesktopStorySection />
-      </Suspense>
 
 
       <BirthdayShareCard

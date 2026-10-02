@@ -147,11 +147,17 @@ export function WizardStepTheme({
               </div>
               <div className="order-1 space-y-0.5 text-xs sm:order-2">
                 <p className="font-semibold text-foreground">
-                  {selectedDisplayMode === 'story' ? 'Letter theme preview' : 'Freeform opener preview'}
+                  {selectedDisplayMode === 'story'
+                    ? 'Letter theme preview'
+                    : selectedDisplayMode === 'bento'
+                    ? 'Bento vault opener preview'
+                    : 'Freeform opener preview'}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {selectedDisplayMode === 'story'
                     ? 'Shows how the letter will appear with your selected letter theme.'
+                    : selectedDisplayMode === 'bento'
+                    ? 'Shows the 3D Bento Vault unwrap experience presented to the celebrant.'
                     : 'Shows the polaroid-style reveal used in Freeform mode.'}
                 </p>
               </div>

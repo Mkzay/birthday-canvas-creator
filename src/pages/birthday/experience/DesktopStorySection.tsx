@@ -156,15 +156,20 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
   totalPhotos,
   user,
   viewMode,
+  forceMobileView,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
 } = useBirthdayView() as any;
+
+  if (effectiveViewMode !== 'story') return null;
+
   return (
     <>
       {/* Desktop: story (slide) view */}
       <section
         className={cn(
-          'story-desktop-responsive relative hidden h-[100dvh] overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-5 sm:py-5 sm:block',
+          'story-desktop-responsive relative hidden h-[100dvh] max-h-[100dvh] overflow-x-hidden overflow-y-auto px-3 py-2 sm:px-6 sm:py-2.5 sm:block',
           effectiveViewMode !== 'story' && '!hidden',
+          forceMobileView && '!hidden',
         )}
         style={{ background: storyThemePalette.sectionBackground }}
       >
@@ -186,8 +191,8 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
           <div className="slide-star" style={{ left: '93%', '--star-x': '2%' } as CSSProperties} />
           <div className="slide-star" style={{ left: '97%', '--star-x': '-1%' } as CSSProperties} />
         </div>
-        <div className="story-desktop-shell mx-auto flex min-h-full max-w-6xl flex-col">
-          <div className="flex items-start gap-4">
+        <div className="story-desktop-shell mx-auto flex h-full max-h-full max-w-6xl flex-col justify-between">
+          <div className="flex items-start gap-4 shrink-0">
             <div className="flex flex-1 gap-2">
               {revealSlides.map((slide, index) => (
                 <div key={slide.id} className={cn('h-1.5 flex-1 overflow-hidden rounded-full bg-black/12 transition-transform duration-200', index === currentSlide && 'scale-y-[1.6]')}>
@@ -207,7 +212,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
             </div>
       
             {!showRevealIntro && (
-              <div className="hidden items-center gap-2 sm:flex" data-no-nav="true">
+              <div className="hidden items-center gap-2 sm:flex shrink-0" data-no-nav="true">
               <button
                 type="button"
                 onClick={() => setShowShareCard(true)}
@@ -313,22 +318,22 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
             )}
           </div>
       
-          <div className="mt-2 flex flex-col gap-2 sm:mt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-1.5 flex flex-col gap-1 shrink-0 sm:mt-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
+              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.24em] opacity-70 sm:text-xs', theme.text)}>
                 Birthday playback
               </p>
-              <h1 className={cn('mt-2 max-w-[16rem] text-[2.1rem] font-bold leading-[0.94] sm:max-w-none sm:text-3xl', theme.titleClass, theme.font)}>
+              <h1 className={cn('mt-0.5 max-w-[16rem] text-xl font-bold leading-tight sm:max-w-none sm:text-2xl lg:text-3xl', theme.titleClass, theme.font)}>
                 {page.recipient_name}&apos;s birthday story
               </h1>
             </div>
-            <div className="self-start rounded-full px-3 py-1.5 text-xs font-medium sm:self-auto sm:px-4 sm:py-2 sm:text-sm" style={{ backgroundColor: storyThemePalette.topBadgeBg, color: storyThemePalette.topBadgeText }}>
+            <div className="self-start rounded-full px-3 py-1 text-xs font-medium sm:self-auto sm:px-3.5 sm:py-1.5 sm:text-sm" style={{ backgroundColor: storyThemePalette.topBadgeBg, color: storyThemePalette.topBadgeText }}>
               Slide {currentSlide + 1} of {revealSlides.length}
             </div>
           </div>
       
           <div
-            className="story-desktop-stage relative mt-2 h-[74svh] min-h-[34rem] max-h-[52rem] overflow-hidden sm:mt-3"
+            className="story-desktop-stage relative my-1.5 sm:my-2 flex-1 min-h-0 overflow-hidden"
             onClick={handleStageClick}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -337,7 +342,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
               <div key={activeSlide.id} className={cn('h-full', slideDirection === 'back' ? 'animate-wrapped-slide-reverse' : 'animate-wrapped-slide')}>
                 <div className="story-desktop-scale h-full">
                   <div
-                    className={cn('story-desktop-card relative h-full overflow-hidden rounded-[2rem] border p-3 shadow-[0_30px_90px_rgba(18,18,23,0.14)] sm:rounded-[2.4rem] sm:p-6 lg:p-8', experiencePanelClass)}
+                    className={cn('story-desktop-card relative h-full overflow-hidden rounded-[1.75rem] border p-3.5 shadow-[0_30px_90px_rgba(18,18,23,0.14)] sm:rounded-[2.2rem] sm:p-5 lg:p-6 xl:p-7', experiencePanelClass)}
                     style={{ backgroundColor: storyThemePalette.panelBg, borderColor: storyThemePalette.panelBorder }}
                   >
                   <div className="pointer-events-none absolute inset-0">
@@ -359,50 +364,56 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                   </div>
       
                   <div className="relative z-10 h-full">
+                    {/* 1. COVER SLIDE */}
                     {activeSlide.kind === 'cover' && (
-                      <div className={cn('story-slide-cover-grid grid h-full gap-4 lg:items-start', coverPhotoSrc ? 'lg:grid-cols-[1.05fr_0.95fr]' : 'lg:mx-auto lg:max-w-2xl')}>
-                        <div className="flex h-full flex-col gap-4 lg:justify-center">
-                          <article className={cn('story-slide-cover-card story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2.1rem] sm:p-7 lg:p-8', keepsakePaperClass)} style={getStoryDelayStyle(50, getStoryMotionDuration(activeSlide))}>
-                            <div className={cn('absolute right-5 top-5 h-16 w-16 rounded-full blur-2xl', isDarkExperience ? 'bg-white/10' : 'bg-amber-100/85')} />
-                            <p className={cn('relative text-xs font-semibold uppercase tracking-[0.28em] opacity-70', theme.text)}>
+                      <div className={cn('story-slide-cover-grid grid h-full gap-4 items-stretch', coverPhotoSrc ? 'lg:grid-cols-[1.05fr_0.95fr]' : 'max-w-3xl mx-auto w-full')}>
+                        <article className={cn('story-slide-cover-card story-stage-reveal relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border p-5 sm:p-7 lg:p-8', keepsakePaperClass)} style={getStoryDelayStyle(50, getStoryMotionDuration(activeSlide))}>
+                          <div className={cn('absolute right-5 top-5 h-20 w-20 rounded-full blur-2xl', isDarkExperience ? 'bg-white/10' : 'bg-amber-100/85')} />
+                          
+                          {/* Top Section */}
+                          <div className="relative z-10">
+                            <p className={cn('text-[10px] font-semibold uppercase tracking-[0.28em] opacity-70 sm:text-xs', theme.text)}>
                               First page out of the envelope
                             </p>
-                            <h2 className={cn('story-slide-cover-title relative mt-3 text-[2.4rem] font-bold leading-[0.95] sm:mt-4 sm:text-5xl lg:text-6xl', theme.titleClass, theme.font)}>
+                            <h2 className={cn('story-slide-cover-title mt-2 text-2xl font-bold leading-[1.05] sm:mt-3 sm:text-4xl lg:text-5xl', theme.titleClass, theme.font)}>
                               Happy Birthday,
                               <br />
                               {page.recipient_name}.
                             </h2>
-                            <p className={cn('story-slide-cover-copy relative mt-4 max-w-xl text-[0.98rem] leading-relaxed opacity-80 sm:mt-5 sm:text-[1.08rem] lg:text-[1.14rem]', theme.text)}>
+                            <p className={cn('story-slide-cover-copy mt-2.5 max-w-xl text-xs leading-relaxed opacity-80 sm:mt-3 sm:text-sm lg:text-base', theme.text)}>
                               Every note, photo, and voice clip inside was chosen to make this feel less like a page and more like a gift being opened.
                             </p>
-      
-                            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                              <div className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-3 sm:rounded-[1.45rem] sm:p-4', keepsakeSoftClass)} style={getStoryDelayStyle(160)}>
-                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Wishes gathered</p>
-                                <p className={cn('mt-2 text-xl font-semibold sm:text-2xl', theme.text)}>{messages.length}</p>
-                              </div>
-                              <div className={cn('story-stage-reveal-soft rounded-[1.35rem] border p-3 sm:rounded-[1.45rem] sm:p-4', keepsakeSoftClass)} style={getStoryDelayStyle(220)}>
-                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Reveal date</p>
-                                <p className={cn('mt-2 text-base font-semibold sm:text-lg', theme.text)}>{format(birthdayDate, 'MMMM d, yyyy')}</p>
-                              </div>
-                            </div>
-                          </article>
-      
+                          </div>
+
+                          {/* Middle Section: Organizer Note if present */}
                           {page.creator_message && (
-                            <article className={cn('story-stage-reveal-soft relative ml-2 max-w-xl rotate-[-1deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(280)}>
-                              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Packed with a note from the organizer</p>
-                              <p className={cn('mt-3 line-clamp-3 text-sm leading-relaxed opacity-80 sm:text-base', theme.text)}>
+                            <div className={cn('relative z-10 my-3 rounded-2xl border p-3.5 sm:p-4 rotate-[-0.5deg]', keepsakeSoftClass)} style={getStoryDelayStyle(180)}>
+                              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-65', theme.text)}>Packed with a note from the organizer</p>
+                              <p className={cn('mt-1 line-clamp-3 font-serif italic text-xs leading-relaxed sm:text-sm', theme.text)}>
                                 &quot;{page.creator_message}&quot;
                               </p>
-                            </article>
+                            </div>
                           )}
-                        </div>
-      
+
+                          {/* Bottom Section: Celebration Metrics */}
+                          <div className="relative z-10 grid gap-2.5 sm:grid-cols-2">
+                            <div className={cn('story-stage-reveal-soft rounded-2xl border p-3 sm:p-3.5', keepsakeSoftClass)} style={getStoryDelayStyle(160)}>
+                              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Wishes gathered</p>
+                              <p className={cn('mt-1 text-xl font-bold sm:text-2xl', theme.titleClass, theme.font)}>{messages.length}</p>
+                            </div>
+                            <div className={cn('story-stage-reveal-soft rounded-2xl border p-3 sm:p-3.5', keepsakeSoftClass)} style={getStoryDelayStyle(220)}>
+                              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Reveal date</p>
+                              <p className={cn('mt-1 text-xs font-semibold sm:text-sm', theme.text)}>{format(birthdayDate, 'MMMM d, yyyy')}</p>
+                            </div>
+                          </div>
+                        </article>
+
+                        {/* Right Photo Column */}
                         {coverPhotoSrc && (
-                          <article className={cn('story-slide-cover-photo story-stage-reveal-soft relative overflow-hidden rounded-[1.7rem] border lg:h-full', keepsakeSoftClass)} style={getStoryDelayStyle(170, 760)}>
+                          <article className={cn('story-slide-cover-photo story-stage-reveal-soft relative overflow-hidden rounded-[2rem] border h-full min-h-[14rem] lg:min-h-0', keepsakeSoftClass)} style={getStoryDelayStyle(170, 760)}>
                             <button
                               type="button"
-                              className="relative block h-full min-h-[16rem] w-full"
+                              className="relative block h-full w-full group"
                               onClick={() => setExpandedPhoto({
                                 url: coverPhotoSrc,
                                 caption: `${page.recipient_name}'s birthday cover`,
@@ -411,7 +422,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               aria-label={`Expand ${page.recipient_name}'s birthday cover`}
                             >
                               {renderStoryImage(coverPhotoSrc, `${page.recipient_name} birthday cover`, { disableParallax: true, eager: true })}
-                              <span className="absolute bottom-3 right-3 rounded-full bg-black/40 px-3 py-1 text-[11px] font-semibold tracking-[0.02em] text-white backdrop-blur-sm">
+                              <span className="absolute bottom-3 right-3 rounded-full bg-black/50 px-3 py-1 text-[11px] font-semibold tracking-wide text-white backdrop-blur-md group-hover:bg-black/70 transition-colors">
                                 {coverHintLabel}
                               </span>
                             </button>
@@ -419,84 +430,110 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                         )}
                       </div>
                     )}
-      
+
+                    {/* 2. STATS SLIDE */}
                     {activeSlide.kind === 'stats' && (
-                      <div className="grid h-full gap-4 lg:grid-cols-[0.94fr_1.06fr] lg:items-center">
-                        <div className="flex flex-col gap-4 lg:justify-center">
-                          <article className={cn('story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-7 lg:p-8', keepsakePaperClass)} style={getStoryDelayStyle(50, getStoryMotionDuration(activeSlide))}>
-                            <p className={cn('text-xs font-semibold uppercase tracking-[0.28em] opacity-70', theme.text)}>
+                      <div className="grid h-full gap-4 lg:grid-cols-[0.95fr_1.05fr] items-stretch">
+                        {/* Left Narrative Column */}
+                        <div className="flex h-full flex-col justify-between gap-3.5">
+                          <article className={cn('story-stage-reveal flex-1 flex flex-col justify-center relative overflow-hidden rounded-[2rem] border p-5 sm:p-7 lg:p-8', keepsakePaperClass)} style={getStoryDelayStyle(50, getStoryMotionDuration(activeSlide))}>
+                            <p className={cn('text-[10px] font-semibold uppercase tracking-[0.28em] opacity-70 sm:text-xs', theme.text)}>
                               The shape of the celebration
                             </p>
-                            <h2 className={cn('mt-3 text-[2.2rem] font-bold leading-[0.97] sm:mt-4 sm:text-5xl lg:text-[3.65rem]', theme.titleClass, theme.font)}>
+                            <h2 className={cn('mt-2 text-2xl font-bold leading-tight sm:mt-3 sm:text-4xl lg:text-5xl', theme.titleClass, theme.font)}>
                               Collected with love.
                             </h2>
-                            <p className={cn('mt-4 max-w-xl text-[0.98rem] leading-relaxed opacity-80 sm:text-[1.08rem]', theme.text)}>
+                            <p className={cn('mt-3 max-w-xl text-xs leading-relaxed opacity-80 sm:text-sm lg:text-base', theme.text)}>
                               Before the story started, people left little pieces of themselves here. This is what made it into the envelope.
                             </p>
                           </article>
-      
-                          <article className={cn('story-stage-reveal-soft relative max-w-xl rounded-[1.55rem] border p-4 sm:rounded-[1.8rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(150)}>
+
+                          <article className={cn('story-stage-reveal-soft shrink-0 rounded-[1.75rem] border p-4 sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(150)}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>What tonight feels like</p>
-                            <p className={cn('mt-3 text-base leading-relaxed sm:text-lg', theme.text)}>
+                            <p className={cn('mt-1.5 text-xs leading-relaxed sm:text-sm lg:text-[0.95rem]', theme.text)}>
                               Not a comment feed. A replayable set of moments gathered into one birthday delivery.
                             </p>
                           </article>
                         </div>
-      
-                        <div className="grid gap-3 sm:grid-cols-2 sm:grid-rows-2">
-                          <article className={cn('story-stage-reveal sm:row-span-2 rounded-[1.75rem] border p-5 sm:rounded-[2rem] sm:p-7', keepsakePaperClass)} style={getStoryDelayStyle(110)}>
-                            <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Wishes written</p>
-                            <p className={cn('mt-4 text-6xl font-bold leading-none sm:mt-6 sm:text-[5.5rem]', theme.titleClass, theme.font)}>{messages.length}</p>
-                            <p className={cn('mt-4 max-w-[16rem] text-sm leading-relaxed opacity-80 sm:mt-6 sm:text-base', theme.text)}>
+
+                        {/* Right Bento Metric Grid */}
+                        <div className="grid h-full gap-3.5 sm:grid-cols-2 sm:grid-rows-2">
+                          <article className={cn('story-stage-reveal sm:row-span-2 rounded-[2rem] border p-5 sm:p-7 flex flex-col justify-between', keepsakePaperClass)} style={getStoryDelayStyle(110)}>
+                            <div>
+                              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Wishes written</p>
+                              <p className={cn('mt-3 text-6xl font-bold leading-none sm:text-7xl lg:text-8xl', theme.titleClass, theme.font)}>{messages.length}</p>
+                            </div>
+                            <p className={cn('max-w-[16rem] text-xs leading-relaxed opacity-80 sm:text-sm', theme.text)}>
                               Each one written with this exact moment in mind.
                             </p>
                           </article>
-      
-                          <article className={cn('story-stage-reveal-soft rotate-[-1.2deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(210)}>
+
+                          <article className={cn('story-stage-reveal-soft rounded-[1.75rem] border p-4 sm:p-5 flex flex-col justify-center rotate-[-0.75deg]', keepsakeSoftClass)} style={getStoryDelayStyle(210)}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Photos added</p>
-                            <p className={cn('mt-3 text-3xl font-semibold sm:text-4xl', theme.text)}>{totalPhotos}</p>
-                            <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>Snapshots that make the story feel grounded and real.</p>
+                            <p className={cn('mt-1.5 text-3xl font-bold sm:text-4xl', theme.titleClass, theme.font)}>{totalPhotos}</p>
+                            <p className={cn('mt-1 text-xs opacity-75', theme.text)}>Snapshots that make the story grounded.</p>
                           </article>
-      
-                          <article className={cn('story-stage-reveal-soft rotate-[1.2deg] rounded-[1.5rem] border p-4 sm:rounded-[1.7rem] sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(260)}>
+
+                          <article className={cn('story-stage-reveal-soft rounded-[1.75rem] border p-4 sm:p-5 flex flex-col justify-center rotate-[0.75deg]', keepsakeSoftClass)} style={getStoryDelayStyle(260)}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Voice notes</p>
-                            <p className={cn('mt-3 text-3xl font-semibold sm:text-4xl', theme.text)}>{totalAudioWishes}</p>
-                            <p className={cn('mt-2 text-sm leading-relaxed opacity-80', theme.text)}>Voices that make the reveal feel present, not distant.</p>
+                            <p className={cn('mt-1.5 text-3xl font-bold sm:text-4xl', theme.titleClass, theme.font)}>{totalAudioWishes}</p>
+                            <p className={cn('mt-1 text-xs opacity-75', theme.text)}>Voices that make the reveal feel present.</p>
                           </article>
                         </div>
                       </div>
                     )}
-      
-                  {activeSlide.kind === 'organizer' && page.creator_message && (
-                    <div className="flex h-full items-center justify-center">
-                      <article className={cn('story-stage-reveal relative flex h-full w-full max-w-5xl flex-col items-center justify-center rounded-[2rem] border p-6 text-center sm:p-10', keepsakePaperClass)} style={getStoryDelayStyle(90)}>
-                        <div className={cn('story-stage-reveal-soft flex h-20 w-20 items-center justify-center rounded-[2rem] border', experienceInsetClass)} style={getStoryDelayStyle(60)}>
-                          <Heart className={cn('h-10 w-10', theme.text)} />
-                        </div>
-                        <p className={cn('story-stage-reveal-soft mt-8 text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)} style={getStoryDelayStyle(120)}>
-                          A note from the organizer
-                        </p>
-                        <p className={cn('story-stage-reveal mt-6 max-w-4xl text-3xl italic leading-[1.3] sm:text-5xl', theme.text)} style={getStoryDelayStyle(180)}>
-                          &quot;{page.creator_message}&quot;
-                        </p>
-                        <p className={cn('story-stage-reveal-soft mt-6 text-sm opacity-70', theme.text)} style={getStoryDelayStyle(250)}>Written before the reveal began.</p>
-                      </article>
-                    </div>
-                  )}
-      
+
+                    {/* 3. ORGANIZER NOTE SLIDE */}
+                    {activeSlide.kind === 'organizer' && page.creator_message && (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <article className={cn('story-stage-reveal relative flex h-full w-full max-w-3xl flex-col items-center justify-between overflow-hidden rounded-[2.2rem] border p-7 text-center sm:p-10 lg:p-12 shadow-sm', keepsakePaperClass)} style={getStoryDelayStyle(90)}>
+                          {/* Top Seal Medallion */}
+                          <div className="flex flex-col items-center shrink-0">
+                            <div className={cn('story-stage-reveal-soft flex h-14 w-14 items-center justify-center rounded-full border shadow-2xs', experienceInsetClass)} style={getStoryDelayStyle(60)}>
+                              <Heart className={cn('h-7 w-7 text-rose-500 fill-rose-500/20')} />
+                            </div>
+                            <p className={cn('story-stage-reveal-soft mt-3 text-[11px] font-semibold uppercase tracking-[0.28em] opacity-70', theme.text)} style={getStoryDelayStyle(120)}>
+                              A note from the organizer
+                            </p>
+                          </div>
+
+                          {/* Center Quote */}
+                          <div className="my-auto py-4 max-w-2xl px-2">
+                            <span className="text-4xl sm:text-6xl font-serif text-amber-500/40 select-none block leading-none">&ldquo;</span>
+                            <p className={cn('story-stage-reveal -mt-2 text-xl font-serif italic leading-relaxed sm:text-3xl lg:text-4xl', theme.text)} style={getStoryDelayStyle(180)}>
+                              {page.creator_message}
+                            </p>
+                            <span className="text-4xl sm:text-6xl font-serif text-amber-500/40 select-none block leading-none text-right">&rdquo;</span>
+                          </div>
+
+                          {/* Bottom Attestation */}
+                          <div className="border-t border-black/8 w-full pt-3 shrink-0">
+                            <p className={cn('story-stage-reveal-soft text-xs opacity-65 tracking-wider uppercase', theme.text)} style={getStoryDelayStyle(250)}>
+                              Written with love before the reveal began
+                            </p>
+                          </div>
+                        </article>
+                      </div>
+                    )}
+
+                    {/* 4. WISH CONTRIBUTION SLIDES */}
                     {activeSlide.kind === 'wish' && (() => {
                       const wishPhotos = getMessagePhotos(activeSlide.message);
                       const photoCount = wishPhotos.length;
-      const openPhoto = (photo: MessagePhoto) => {
-        setExpandedPhoto({
-          url: resolveAssetUrl(photo.photo_url) || photo.photo_url,
-          caption: photo.caption,
-          senderName: activeSlide.message.sender_name,
-        });
-      };
+                      const hasPhotos = photoCount > 0;
+                      const hasAudio = Boolean(activeSlide.message.audio_url);
+
+                      const openPhoto = (photo: MessagePhoto) => {
+                        setExpandedPhoto({
+                          url: resolveAssetUrl(photo.photo_url) || photo.photo_url,
+                          caption: photo.caption,
+                          senderName: activeSlide.message.sender_name,
+                        });
+                      };
+
                       const photoFrameClass =
-                        'group relative min-h-0 overflow-hidden rounded-[1.4rem] border border-white/45 bg-white/55 p-2 text-left shadow-[0_18px_50px_rgba(18,18,23,0.16)] transition-transform duration-500 hover:-translate-y-1 sm:rounded-[1.65rem] sm:p-2.5';
-      
+                        'group relative min-h-0 overflow-hidden rounded-[1.4rem] border border-white/45 bg-white/55 p-1.5 sm:p-2 text-left shadow-[0_18px_50px_rgba(18,18,23,0.16)] transition-all duration-300 hover:shadow-xl hover:scale-[1.01]';
+
                       const renderPhotoCard = (photo: MessagePhoto, className?: string, containerAspect?: string) => (
                         <button
                           key={photo.id}
@@ -505,160 +542,147 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                           onClick={() => openPhoto(photo)}
                           aria-label={`Expand photo from ${activeSlide.message.sender_name}`}
                         >
-                          <div className="relative isolate h-full min-h-[8.8rem] overflow-hidden rounded-[1.2rem] bg-[#dfe7dc] sm:rounded-[1.35rem]">
+                          <div className="relative isolate h-full min-h-[7.5rem] overflow-hidden rounded-[1.1rem] sm:rounded-[1.25rem] bg-[#dfe7dc]">
                             <img
-                              className="story-photo-layer absolute inset-0 z-0 h-full w-full object-cover"
+                              className="story-photo-layer absolute inset-0 z-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                               src={resolveAssetUrl(photo.photo_url) || photo.photo_url}
                               alt={`Photo from ${activeSlide.message.sender_name}`}
                               decoding="async"
                               loading="lazy"
                               draggable={false}
                             />
-                            <div className="absolute inset-x-0 bottom-0 z-10 h-[46%] bg-gradient-to-t from-black/56 via-black/10 to-transparent" />
-                            <div className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-3 p-4">
+                            <div className="absolute inset-x-0 bottom-0 z-10 h-[46%] bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
+                            <div className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-2 p-2.5 sm:p-3.5">
                               <div className="min-w-0">
-                                <p className="line-clamp-2 text-sm font-medium text-white">{photo.caption || 'Photo memory'}</p>
-                                {!photo.caption && <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/70">From the story</p>}
+                                <p className="line-clamp-1 text-xs font-medium text-white">{photo.caption || 'Photo memory'}</p>
+                                {!photo.caption && <p className="text-[9px] uppercase tracking-[0.18em] text-white/70">From the story</p>}
                               </div>
-                              <span className="shrink-0 rounded-full bg-white/16 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-md">Open</span>
+                              <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">Open</span>
                             </div>
                             {isPreview && (
                               <Button
                                 variant="destructive"
                                 size="icon"
-                                className="absolute right-3 top-3 z-30 h-8 w-8 rounded-full opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+                                className="absolute right-2.5 top-2.5 z-30 h-7 w-7 rounded-full opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                    setPendingDeleteAction({
-                                      kind: 'photo',
-                                      photoId: photo.id,
-                                      messageId: activeSlide.message.id,
-                                      senderName: activeSlide.message.sender_name,
-                                    });
+                                  setPendingDeleteAction({
+                                    kind: 'photo',
+                                    photoId: photo.id,
+                                    messageId: activeSlide.message.id,
+                                    senderName: activeSlide.message.sender_name,
+                                  });
                                 }}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             )}
                           </div>
                         </button>
                       );
-      
+
+                      /* PHOTO LAYOUT BY COUNT */
                       let photoLayout: ReactNode = null;
-      
                       if (photoCount === 1) {
                         photoLayout = (
-                          <div className="pt-7 sm:pt-8 lg:h-full">
-                            {renderPhotoCard(wishPhotos[0], 'h-[30dvh] min-h-[15rem] w-full rotate-[-1deg] sm:h-[34dvh] lg:h-full')}
+                          <div className="h-full w-full">
+                            {renderPhotoCard(wishPhotos[0], 'h-full w-full rounded-[1.85rem]')}
                           </div>
                         );
                       } else if (photoCount === 2) {
                         photoLayout = (
-                          <div className="grid min-h-[18rem] gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0 lg:grid-rows-2">
-                            {wishPhotos.map((photo, photoIndex) => renderPhotoCard(photo, photoIndex === 0 ? 'rotate-[-1deg]' : 'rotate-[1deg]'))}
+                          <div className="h-full grid grid-rows-2 gap-3 sm:gap-3.5">
+                            {wishPhotos.map((photo, photoIndex) =>
+                              renderPhotoCard(photo, 'h-full min-h-0 w-full rounded-[1.6rem]', photoIndex === 0 ? 'rotate-[-0.5deg]' : 'rotate-[0.5deg]')
+                            )}
                           </div>
                         );
                       } else if (photoCount === 3) {
                         photoLayout = (
-                          <div className="grid grid-cols-2 grid-rows-2 gap-3 pt-7 sm:gap-4 sm:pt-8 aspect-[5/4] lg:aspect-auto lg:h-full lg:min-h-0">
-                            {wishPhotos.map((photo, photoIndex) =>
-                              renderPhotoCard(
-                                photo,
-                                photoIndex === 0
-                                  ? 'col-span-2 h-full min-h-0 rotate-[-1deg] lg:col-span-1 lg:row-span-2'
-                                  : photoIndex === 1
-                                    ? 'h-full min-h-0 rotate-[1deg]'
-                                    : 'h-full min-h-0 rotate-[-1deg]',
-                              ),
-                            )}
+                          <div className="h-full grid grid-cols-2 grid-rows-2 gap-3 sm:gap-3.5">
+                            {renderPhotoCard(wishPhotos[0], 'col-span-1 row-span-2 h-full min-h-0 w-full rounded-[1.6rem]')}
+                            {renderPhotoCard(wishPhotos[1], 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.5rem]')}
+                            {renderPhotoCard(wishPhotos[2], 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.5rem]')}
                           </div>
                         );
                       } else if (photoCount === 4) {
                         photoLayout = (
-                          <div className="grid grid-cols-2 grid-rows-2 gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0">
-                            {wishPhotos.map((photo) => renderPhotoCard(photo, 'h-full min-h-0', 'aspect-square'))}
-                          </div>
-                        );
-                      } else if (photoCount === 5) {
-                        photoLayout = (
-                          <div className="grid grid-cols-2 gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0 lg:grid-cols-3 lg:grid-rows-2">
-                            {wishPhotos.map((photo, photoIndex) =>
-                              renderPhotoCard(
-                                photo,
-                                photoIndex === 4 ? 'h-full min-h-0 lg:row-span-2' : 'h-full min-h-0',
-                                photoIndex === 4 ? 'aspect-[4/5] lg:aspect-auto lg:h-full' : 'aspect-[4/5]',
-                              ),
+                          <div className="h-full grid grid-cols-2 grid-rows-2 gap-3 sm:gap-3.5">
+                            {wishPhotos.map((photo) =>
+                              renderPhotoCard(photo, 'h-full min-h-0 w-full rounded-[1.5rem]')
                             )}
                           </div>
                         );
-                      } else if (photoCount >= 4) {
+                      } else if (photoCount >= 5) {
                         photoLayout = (
-                          <div className={cn(
-                            "grid min-h-[18rem] gap-3 pt-7 sm:gap-4 sm:pt-8 lg:h-full lg:min-h-0 overflow-y-auto pr-2 pb-2 custom-scrollbar",
-                            photoCount >= 5 ? "grid-cols-2 lg:grid-cols-2 xl:grid-cols-3" : "grid-cols-2"
-                          )}>
+                          <div className="h-full overflow-y-auto pr-1.5 custom-scrollbar grid grid-cols-2 gap-3">
                             {wishPhotos.map((photo, photoIndex) =>
                               renderPhotoCard(
                                 photo,
-                                photoIndex === 0 && photoCount < 5
-                                  ? 'col-span-2 rotate-[-1deg] lg:col-span-1 lg:row-span-2'
-                                  : photoIndex % 2 === 0
-                                    ? 'rotate-[1deg]'
-                                    : 'rotate-[-1deg]',
-                                photoIndex === 0 && photoCount < 5 ? 'aspect-[16/10] lg:aspect-auto lg:h-full' : 'aspect-[4/5]',
+                                cn('min-h-[9.5rem] h-48 w-full rounded-[1.4rem]', photoIndex === 0 && 'col-span-2 h-56')
                               )
                             )}
                           </div>
                         );
                       }
-      
-                      return (
-                        <div className={cn("story-slide-wish-grid h-full lg:items-start", photoCount > 0 ? "grid gap-4 lg:grid-cols-[0.9fr_1.1fr]" : "mx-auto flex h-full w-full max-w-3xl flex-col justify-center") }>
-                          <div className={cn('flex flex-col gap-4 lg:justify-center', photoCount === 0 && !activeSlide.message.audio_url && 'h-full justify-center')}>
-                            <article className={cn('story-slide-wish-card story-stage-reveal relative overflow-hidden rounded-[1.85rem] border p-5 sm:rounded-[2rem] sm:p-6 lg:p-7', keepsakePaperClass, photoCount === 0 && !activeSlide.message.audio_url && 'flex flex-col justify-center')} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
-                              {isPreview && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="absolute right-4 top-4 gap-1 text-destructive/90 hover:bg-destructive/5 hover:text-destructive"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPendingDeleteAction({
-                                      kind: 'message',
-                                      messageId: activeSlide.message.id,
-                                      senderName: activeSlide.message.sender_name,
-                                    });
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  <span className="hidden sm:inline">Remove wish</span>
-                                </Button>
-                              )}
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
-                                    Letter {activeSlide.index + 1} of {messages.length}
-                                  </p>
-                                  <h2 className={cn('story-slide-wish-title mt-3 text-3xl font-bold leading-[0.98] sm:text-5xl', theme.titleClass, theme.font)}>
-                                    {activeSlide.message.sender_name}
-                                  </h2>
-                                </div>
-                                <div className={cn('hidden rounded-[1.25rem] border px-4 py-3 sm:block', keepsakeSoftClass)}>
-                                  <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-60', theme.text)}>Wish no.</p>
-                                  <p className={cn('mt-1 text-xl font-semibold', theme.text)}>{String(activeSlide.index + 1).padStart(2, '0')}</p>
+
+                      /* SCENARIO 1: MESSAGE ONLY (NO PHOTOS, NO AUDIO) */
+                      if (!hasPhotos && !hasAudio) {
+                        return (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <article className={cn('story-slide-wish-card story-stage-reveal relative flex h-full w-full max-w-3xl flex-col justify-between overflow-hidden rounded-[2.2rem] border p-6 sm:p-9 lg:p-11 shadow-sm', keepsakePaperClass)} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
+                              {/* Top Bar: Letter number & Wish number & Delete */}
+                              <div className="flex items-center justify-between gap-3 border-b border-black/6 pb-3.5 shrink-0">
+                                <p className={cn('text-[11px] font-semibold uppercase tracking-[0.24em] opacity-70 sm:text-xs', theme.text)}>
+                                  Letter {activeSlide.index + 1} of {messages.length}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('rounded-full border px-3 py-0.5 text-xs font-mono font-bold', keepsakeSoftClass)}>
+                                    Wish #{String(activeSlide.index + 1).padStart(2, '0')}
+                                  </span>
+                                  {isPreview && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 rounded-full px-2 text-xs text-destructive hover:bg-destructive/10 gap-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPendingDeleteAction({
+                                          kind: 'message',
+                                          messageId: activeSlide.message.id,
+                                          senderName: activeSlide.message.sender_name,
+                                        });
+                                      }}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      <span>Delete</span>
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
-      
-                              {isRichHtml(activeSlide.message.message)
-                                ? <div className={cn('story-slide-wish-message wish-rich-text mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
-                                : <p className={cn('story-slide-wish-message mt-4 text-lg leading-relaxed sm:mt-5 sm:text-[1.7rem] sm:leading-[1.45]', theme.text)}>
-                                &quot;{activeSlide.message.message}&quot;
-                              </p>}
-      
-                              {/* Stickers Rendering (Desktop) */}
+
+                              {/* Sender Name */}
+                              <div className="mt-4 shrink-0">
+                                <h2 className={cn('story-slide-wish-title text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl', theme.titleClass, theme.font)}>
+                                  {activeSlide.message.sender_name}
+                                </h2>
+                              </div>
+
+                              {/* Center Message Hero */}
+                              <div className="my-auto py-4">
+                                {isRichHtml(activeSlide.message.message) ? (
+                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[44vh] overflow-y-auto pr-2 text-xl sm:text-2xl lg:text-3xl font-serif italic leading-relaxed custom-scrollbar', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
+                                ) : (
+                                  <p className={cn('story-slide-wish-message max-h-[44vh] overflow-y-auto pr-2 text-xl sm:text-2xl lg:text-3xl font-serif italic leading-relaxed custom-scrollbar', theme.text)}>
+                                    &quot;{activeSlide.message.message}&quot;
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Stickers */}
                               {activeSlide.message.stickers && activeSlide.message.stickers.length > 0 && (
                                 <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
-                                  {activeSlide.message.stickers.map((sticker) => (
+                                  {activeSlide.message.stickers.map((sticker: any) => (
                                     <div
                                       key={sticker.id}
                                       className="absolute select-none text-6xl"
@@ -673,69 +697,238 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                                   ))}
                                 </div>
                               )}
-      
-                              <div className="mt-6 flex flex-wrap gap-2.5">
-                                {photoCount > 0 && (
-                                  <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold sm:px-4 sm:text-xs', keepsakePillClass)}>
-                                    {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
-                                  </span>
+
+                              {/* Footer */}
+                              <div className="flex items-center justify-between border-t border-black/6 pt-3.5 shrink-0">
+                                <span className={cn('rounded-full px-3.5 py-1 text-xs font-medium', keepsakePillClass)}>
+                                  Personal letter keepsake
+                                </span>
+                                <span className={cn('text-[11px] opacity-60 tracking-wider uppercase', theme.text)}>
+                                  Celebration memory
+                                </span>
+                              </div>
+                            </article>
+                          </div>
+                        );
+                      }
+
+                      /* SCENARIO 2: MESSAGE + VOICE NOTE ONLY (NO PHOTOS, WITH AUDIO) */
+                      if (!hasPhotos && hasAudio) {
+                        return (
+                          <div className="max-w-5xl mx-auto w-full h-full grid lg:grid-cols-[1.1fr_0.9fr] gap-4 sm:gap-6 items-stretch">
+                            {/* Left Letter Card */}
+                            <article className={cn('story-slide-wish-card story-stage-reveal relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] border p-6 sm:p-8 shadow-sm', keepsakePaperClass)} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
+                              <div className="flex items-center justify-between gap-3 border-b border-black/6 pb-3 shrink-0">
+                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.24em] opacity-70 sm:text-xs', theme.text)}>
+                                  Letter {activeSlide.index + 1} of {messages.length}
+                                </p>
+                                <span className={cn('rounded-full border px-2.5 py-0.5 text-xs font-mono font-bold', keepsakeSoftClass)}>
+                                  Wish #{String(activeSlide.index + 1).padStart(2, '0')}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 shrink-0">
+                                <h2 className={cn('story-slide-wish-title text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl', theme.titleClass, theme.font)}>
+                                  {activeSlide.message.sender_name}
+                                </h2>
+                              </div>
+
+                              <div className="my-auto py-3">
+                                {isRichHtml(activeSlide.message.message) ? (
+                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[38vh] overflow-y-auto pr-2 text-lg sm:text-xl font-serif italic leading-relaxed custom-scrollbar', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
+                                ) : (
+                                  <p className={cn('story-slide-wish-message max-h-[38vh] overflow-y-auto pr-2 text-lg sm:text-xl font-serif italic leading-relaxed custom-scrollbar', theme.text)}>
+                                    &quot;{activeSlide.message.message}&quot;
+                                  </p>
                                 )}
-                                {activeSlide.message.audio_url && (
-                                  <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold sm:px-4 sm:text-xs', keepsakePillClass)}>
-                                    Voice note inside
+                              </div>
+
+                              <div className="border-t border-black/6 pt-3 shrink-0">
+                                <span className={cn('rounded-full px-3 py-1 text-xs font-medium', keepsakePillClass)}>
+                                  Voice note enclosed
+                                </span>
+                              </div>
+                            </article>
+
+                            {/* Right Audio Keepsake Card */}
+                            <article className={cn('story-stage-reveal-soft relative flex h-full flex-col justify-between items-center rounded-[2rem] border p-6 sm:p-8 text-center shadow-md', keepsakeSoftClass)} data-no-nav="true" style={getStoryDelayStyle(170, 760)}>
+                              {isPreview && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute right-4 top-4 text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPendingDeleteAction({
+                                      kind: 'audio',
+                                      messageId: activeSlide.message.id,
+                                      senderName: activeSlide.message.sender_name,
+                                    });
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+
+                              <div className="flex flex-col items-center shrink-0">
+                                <div className={cn('flex h-16 w-16 items-center justify-center rounded-full border shadow-sm', isDarkExperience ? 'bg-white/10' : 'bg-white')}>
+                                  <Music4 className={cn('h-8 w-8', theme.text)} />
+                                </div>
+                                <p className={cn('mt-3 text-xs font-bold uppercase tracking-[0.24em]', theme.text)}>Voice Note Keepsake</p>
+                                <p className={cn('text-xs opacity-70 mt-1', theme.text)}>Spoken with love by {activeSlide.message.sender_name}</p>
+                              </div>
+
+                              <div className="w-full my-auto py-4">
+                                {renderWishAudioPlayer(activeSlide.message, 'w-full')}
+                              </div>
+
+                              <div className="border-t border-black/6 w-full pt-3 shrink-0">
+                                <span className={cn('text-[11px] font-medium tracking-wide opacity-75', theme.text)}>
+                                  Press play to listen to this wish
+                                </span>
+                              </div>
+                            </article>
+                          </div>
+                        );
+                      }
+
+                      /* SCENARIOS 3-7: MESSAGE + PHOTOS (1, 2, 3, 4, 5+ PHOTOS, WITH OR WITHOUT AUDIO) */
+                      return (
+                        <div className="story-slide-wish-grid h-full grid lg:grid-cols-[0.95fr_1.05fr] gap-4 lg:gap-5 items-stretch">
+                          {/* Left Column: Letter + Voice Note */}
+                          <div className="flex h-full flex-col gap-3 justify-between">
+                            <article className={cn('story-slide-wish-card story-stage-reveal relative flex-1 min-h-0 flex flex-col justify-between overflow-hidden rounded-[1.85rem] border p-5 sm:p-6 lg:p-7 shadow-sm', keepsakePaperClass)} style={getStoryDelayStyle(60, getStoryMotionDuration(activeSlide))}>
+                              {/* Header: Clean non-overlapping layout */}
+                              <div className="flex items-center justify-between gap-3 border-b border-black/6 pb-2.5 shrink-0">
+                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.24em] opacity-70 sm:text-xs', theme.text)}>
+                                  Letter {activeSlide.index + 1} of {messages.length}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <span className={cn('rounded-full border px-2.5 py-0.5 text-xs font-mono font-bold', keepsakeSoftClass)}>
+                                    Wish #{String(activeSlide.index + 1).padStart(2, '0')}
+                                  </span>
+                                  {isPreview && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 rounded-full px-2 text-xs text-destructive hover:bg-destructive/10 gap-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPendingDeleteAction({
+                                          kind: 'message',
+                                          messageId: activeSlide.message.id,
+                                          senderName: activeSlide.message.sender_name,
+                                        });
+                                      }}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      <span>Delete</span>
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Sender Name */}
+                              <div className="mt-2.5 shrink-0">
+                                <h2 className={cn('story-slide-wish-title text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl', theme.titleClass, theme.font)}>
+                                  {activeSlide.message.sender_name}
+                                </h2>
+                              </div>
+
+                              {/* Message Text with Scroll Containment */}
+                              <div className="my-auto py-2">
+                                {isRichHtml(activeSlide.message.message) ? (
+                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[30vh] overflow-y-auto pr-1 text-base leading-relaxed sm:text-lg lg:text-xl font-serif italic custom-scrollbar', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
+                                ) : (
+                                  <p className={cn('story-slide-wish-message max-h-[30vh] overflow-y-auto pr-1 text-base leading-relaxed sm:text-lg lg:text-xl font-serif italic custom-scrollbar', theme.text)}>
+                                    &quot;{activeSlide.message.message}&quot;
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Stickers */}
+                              {activeSlide.message.stickers && activeSlide.message.stickers.length > 0 && (
+                                <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
+                                  {activeSlide.message.stickers.map((sticker: any) => (
+                                    <div
+                                      key={sticker.id}
+                                      className="absolute select-none text-6xl"
+                                      style={{
+                                        left: `${sticker.position_x}%`,
+                                        top: `${sticker.position_y}%`,
+                                        transform: `translate(-50%, -50%) rotate(${sticker.rotation}deg) scale(${sticker.scale})`,
+                                      }}
+                                    >
+                                      {STICKER_EMOJI_MAP[sticker.sticker_type] ?? sticker.sticker_type}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Tags Footer */}
+                              <div className="mt-2 flex flex-wrap gap-2 border-t border-black/6 pt-2.5 shrink-0">
+                                <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', keepsakePillClass)}>
+                                  {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
+                                </span>
+                                {hasAudio && (
+                                  <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', keepsakePillClass)}>
+                                    Voice note below
                                   </span>
                                 )}
                               </div>
                             </article>
-      
-                            {activeSlide.message.audio_url && (
-                              <article className={cn('story-stage-reveal-soft rounded-[1.5rem] border p-4 sm:rounded-[1.75rem] sm:p-5', keepsakeSoftClass)} data-no-nav="true" style={getStoryDelayStyle(170, 760)}>
-                                <div className="flex items-center gap-2">
-                                  <div className={cn('flex h-9 w-9 items-center justify-center rounded-full', isDarkExperience ? 'bg-white/10' : 'bg-white/80')}>
-                                    <Music4 className={cn('h-4 w-4', theme.text)} />
+
+                            {/* Docked Voice Note Player if present */}
+                            {hasAudio && (
+                              <article className={cn('story-stage-reveal-soft shrink-0 rounded-[1.4rem] border p-3 sm:p-3.5', keepsakeSoftClass)} data-no-nav="true" style={getStoryDelayStyle(170, 760)}>
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', isDarkExperience ? 'bg-white/10' : 'bg-white/80')}>
+                                      <Music4 className={cn('h-4 w-4', theme.text)} />
+                                    </div>
+                                    <div>
+                                      <p className={cn('text-xs font-semibold', theme.text)}>Voice note</p>
+                                      <p className={cn('text-[10px] opacity-65', theme.text)}>A voice to go with the words.</p>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className={cn('text-sm font-semibold', theme.text)}>Voice note</p>
-                                    <p className={cn('text-xs opacity-65', theme.text)}>A voice to go with the words.</p>
-                                  </div>
+                                  {isPreview && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPendingDeleteAction({
+                                          kind: 'audio',
+                                          messageId: activeSlide.message.id,
+                                          senderName: activeSlide.message.sender_name,
+                                        });
+                                      }}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
                                 </div>
-                                {isPreview && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute right-4 top-4 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPendingDeleteAction({
-                                        kind: 'audio',
-                                        messageId: activeSlide.message.id,
-                                        senderName: activeSlide.message.sender_name,
-                                      });
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                {renderWishAudioPlayer(activeSlide.message, 'mt-3 w-full')}
+                                {renderWishAudioPlayer(activeSlide.message, 'mt-2 w-full')}
                               </article>
                             )}
-      
                           </div>
-      
-                          {photoCount > 0 && (
-                            <section
-                              className={cn('story-slide-wish-photos story-stage-reveal story-photo-board relative overflow-hidden rounded-[1.95rem] border p-3 sm:rounded-[2.15rem] sm:p-4 lg:h-full lg:p-5', keepsakePhotoBoardClass)}
-                              style={getStoryDelayStyle(activeSlide.message.audio_url ? 210 : 140, getStoryMotionDuration(activeSlide))}
-                              onMouseMove={handleBoardParallaxMove}
-                              onMouseLeave={handleBoardParallaxLeave}
-                            >
-                              <div className="absolute inset-x-5 top-3 flex items-center justify-between sm:inset-x-6 sm:top-4">
-                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Photo keepsakes</p>
-                                <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em] opacity-55', theme.text)}>Tap to open</p>
-                              </div>
+
+                          {/* Right Column: Photo Gallery Board */}
+                          <section
+                            className={cn('story-slide-wish-photos story-stage-reveal story-photo-board relative overflow-hidden rounded-[1.85rem] border p-3 sm:p-3.5 h-full min-h-0', keepsakePhotoBoardClass)}
+                            style={getStoryDelayStyle(hasAudio ? 210 : 140, getStoryMotionDuration(activeSlide))}
+                            onMouseMove={handleBoardParallaxMove}
+                            onMouseLeave={handleBoardParallaxLeave}
+                          >
+                            <div className="absolute inset-x-4 top-2 flex items-center justify-between z-20 pointer-events-none">
+                              <p className={cn('text-[9px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Photo keepsakes</p>
+                              <p className={cn('text-[9px] font-semibold uppercase tracking-[0.18em] opacity-55', theme.text)}>Tap to open</p>
+                            </div>
+                            <div className="h-full pt-4">
                               {photoLayout}
-                            </section>
-                          )}
+                            </div>
+                          </section>
                         </div>
                       );
                     })()}
@@ -865,22 +1058,22 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
             )}
           </div>
       
-          <div className="mt-3 flex items-center justify-between sm:mt-4">
+          <div className="mt-1.5 flex items-center justify-between shrink-0 sm:mt-2 py-0.5">
             <div className="hidden items-center gap-2 sm:flex" data-no-nav="true">
-              <Button variant="outline" className="gap-2" onClick={goToPreviousSlide} disabled={currentSlide === 0}>
-                <ChevronLeft className="h-4 w-4" />
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 rounded-xl text-xs font-semibold" onClick={goToPreviousSlide} disabled={currentSlide === 0}>
+                <ChevronLeft className="h-3.5 w-3.5" />
                 Previous
               </Button>
-              <Button variant="hero" className="gap-2" onClick={goToNextSlide} disabled={currentSlide === revealSlides.length - 1}>
+              <Button variant="hero" size="sm" className="h-8 gap-1.5 rounded-xl text-xs font-semibold" onClick={goToNextSlide} disabled={currentSlide === revealSlides.length - 1}>
                 Next
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5" />
               </Button>
             </div>
             <p className={cn('text-[9px] uppercase tracking-[0.14em] opacity-60 sm:text-xs sm:tracking-[0.22em]', theme.text)}>
               <span className="sm:hidden">Swipe or tap edges</span>
               <span className="hidden sm:inline">Tap sides or swipe to move through the story</span>
             </p>
-            <Link to="/create" className={cn('hidden text-sm font-medium opacity-70 transition-opacity hover:opacity-100 sm:block', theme.text)}>
+            <Link to="/create" className={cn('hidden text-xs sm:text-sm font-medium opacity-70 transition-opacity hover:opacity-100 sm:block', theme.text)}>
               Create your own
             </Link>
           </div>

@@ -157,14 +157,21 @@ export const FreeformSection = memo(function FreeformSection() {
   totalPhotos,
   user,
   viewMode,
+  forceMobileView,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
 } = useBirthdayView() as any;
+
+  if (effectiveViewMode !== 'freeform') return null;
+
   return (
     <>
         <section
           ref={freeformBoardSectionRef}
           className={cn(
-            'relative min-h-[100dvh] px-3 py-1 touch-pan-y overscroll-y-contain sm:h-[100dvh] sm:overflow-x-hidden sm:overflow-y-auto sm:px-5 sm:pb-5 sm:pt-0',
+            'relative min-h-[100dvh] px-3 py-1 touch-pan-y overscroll-y-contain',
+            forceMobileView
+              ? '!block !min-h-full !overflow-y-auto !h-auto pt-10'
+              : 'sm:h-[100dvh] sm:overflow-x-hidden sm:overflow-y-auto sm:px-5 sm:pb-5 sm:pt-0',
             'freeform-reveal board',
             isFreeformBoardEntered && 'enter',
           )}
@@ -190,7 +197,7 @@ export const FreeformSection = memo(function FreeformSection() {
             </div>
       
             {/* Cover Card */}
-            <div className={cn('mb-5 sm:mb-6 md:hidden', 'card-wrap', landedFreeformCards.has('mobile-cover') && 'landed')}>
+            <div className={cn('mb-5 sm:mb-6', forceMobileView ? '!block' : 'md:hidden', 'card-wrap', landedFreeformCards.has('mobile-cover') && 'landed')}>
               <article
                 className="relative mx-auto w-[calc(100%-20px)] max-w-[24rem] rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
                 style={{
@@ -247,7 +254,7 @@ export const FreeformSection = memo(function FreeformSection() {
       
             {/* Organizer Card */}
             {page.creator_message && (
-              <div className={cn('mb-5 sm:mb-6 md:hidden', 'card-wrap', landedFreeformCards.has('mobile-organizer') && 'landed')}>
+              <div className={cn('mb-5 sm:mb-6', forceMobileView ? '!block' : 'md:hidden', 'card-wrap', landedFreeformCards.has('mobile-organizer') && 'landed')}>
                 <article
                   className="relative mx-auto w-[calc(100%-20px)] max-w-[22rem] rounded-[1.15rem] border px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
                   style={{
@@ -287,7 +294,7 @@ export const FreeformSection = memo(function FreeformSection() {
       
               return (
                 <>
-                  <div ref={mobileCardsContainerRef} className="space-y-4 md:hidden">
+                  <div ref={mobileCardsContainerRef} className={cn('space-y-4', forceMobileView ? '!block' : 'md:hidden')}>
                     {boardMessages.map((message, index) => {
                       const cardAnimationKey = `mobile-message-${message.id}`;
                       const isExpanded = expandedFreeformCardIds.has(message.id);
@@ -433,7 +440,7 @@ export const FreeformSection = memo(function FreeformSection() {
                     })}
                   </div>
       
-                  <div className="hidden md:block">
+                  <div className={cn(forceMobileView ? '!hidden' : 'hidden md:block')}>
                     {(() => {
                       const pivotIndex = Math.ceil(boardMessages.length / 2);
                       const desktopBoardCards: Array<

@@ -3157,14 +3157,14 @@ app.get("/api/pages/:id/messages", requireAuth, validateParams(pageIdParamSchema
 
 app.get("/api/pages/:id/ownership", optionalAuth, validateParams(pageIdParamSchema), async (request: express.Request & { user?: SessionUser }, response) => {
   const rows = await sql`
-    SELECT id, public_code, user_id, guest_email
+    SELECT id, public_code, user_id, guest_email, recipient_name
     FROM birthday_pages
     WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
     LIMIT 1
   `;
 
   if (!rows[0]) {
-    return response.json({ isOwner: false, publicCode: null, isGuest: false });
+    return response.json({ isOwner: false, publicCode: null, isGuest: false, recipientName: null, pageId: null });
   }
 
   const page = rows[0];
@@ -3174,6 +3174,8 @@ app.get("/api/pages/:id/ownership", optionalAuth, validateParams(pageIdParamSche
   response.json({
     isOwner: isOwner || isGuest,
     publicCode: page.public_code ? String(page.public_code) : null,
+    recipientName: page.recipient_name ? String(page.recipient_name) : null,
+    pageId: String(page.id),
     isGuest,
   });
 });

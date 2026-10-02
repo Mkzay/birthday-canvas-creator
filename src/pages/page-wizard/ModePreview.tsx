@@ -60,11 +60,41 @@ export function ModePreview({ mode }: { mode: DisplayMode }) {
       )}
 
       {mode === 'bento' && (
-        <div className="grid h-32 grid-cols-3 gap-2">
-          <div className="col-span-2 rounded-xl border border-border/70 bg-background/80" />
-          <div className="row-span-2 rounded-xl border border-border/70 bg-background/80" />
-          <div className="rounded-xl border border-border/70 bg-background/75" />
-          <div className="rounded-xl border border-border/70 bg-background/75" />
+        <div className="grid grid-cols-2 gap-1.5 text-left text-xs">
+          {/* Tile 1: Milestone Hero Header */}
+          <div className="col-span-2 rounded-xl border border-amber-300/40 bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-amber-500/15 p-2 shadow-2xs">
+            <div className="flex items-center justify-between text-[9px]">
+              <span className="font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">✨ Bento Vault</span>
+              <span className="font-medium text-muted-foreground">Milestone</span>
+            </div>
+            <p className="mt-0.5 font-serif text-xs font-bold text-foreground">Happy Birthday, Alex! 🎂</p>
+          </div>
+
+          {/* Tile 2: Moments Vault */}
+          <div className="rounded-xl border border-border/70 bg-background/80 p-2 shadow-2xs flex flex-col justify-between">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Moments</span>
+            <p className="text-[10px] font-semibold text-foreground">📸 6 photos · 🎙️ 3 clips</p>
+          </div>
+
+          {/* Tile 3: Voice Note */}
+          <div className="rounded-xl border border-border/70 bg-background/80 p-2 shadow-2xs flex flex-col justify-between">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Voice Note</span>
+            <div className="flex items-center gap-1 text-[10px] font-medium text-foreground">
+              <span className="h-2 w-0.5 bg-amber-500 rounded-full animate-pulse" />
+              <span className="h-3 w-0.5 bg-amber-500 rounded-full animate-pulse delay-75" />
+              <span className="h-1.5 w-0.5 bg-amber-500 rounded-full" />
+              <span className="ml-1 text-[9px] text-muted-foreground">0:42 Sarah</span>
+            </div>
+          </div>
+
+          {/* Tile 4: Pinned Wish */}
+          <div className="col-span-2 rounded-xl border border-border/70 bg-background/90 p-2 shadow-2xs">
+            <div className="flex items-center justify-between text-[9px] mb-0.5">
+              <span className="font-bold text-foreground">David K.</span>
+              <span className="text-muted-foreground">Friend</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground italic line-clamp-1">&quot;Wishing you an incredible year ahead filled with joy!&quot;</p>
+          </div>
         </div>
       )}
     </div>

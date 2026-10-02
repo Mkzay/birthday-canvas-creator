@@ -1,4 +1,4 @@
-import { Fragment, memo, type CSSProperties } from 'react';
+import { Fragment, memo, useEffect, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -156,11 +156,57 @@ export const MobileStorySection = memo(function MobileStorySection() {
   totalPhotos,
   user,
   viewMode,
+  forceMobileView,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
 } = useBirthdayView() as any;
+
+  // Ensure cards in MobileStorySection are properly revealed, especially in simulator
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const container = mobileRevealRef?.current as HTMLElement | null;
+    if (!container) return;
+
+    const revealNodes = Array.from(
+      container.querySelectorAll('[data-scroll-reveal]')
+    ) as HTMLElement[];
+    if (!revealNodes.length) return;
+
+    // Immediately reveal the first batch so the screen is never blank
+    revealNodes.slice(0, 6).forEach((node) => {
+      node.classList.remove('is-exiting');
+      node.classList.add('is-visible');
+    });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.remove('is-exiting');
+            entry.target.classList.add('is-visible');
+          }
+        });
+      },
+      {
+        threshold: 0.04,
+        rootMargin: '140px 0px 140px 0px',
+      }
+    );
+
+    revealNodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [mobileRevealRef, revealSlides.length, forceMobileView]);
+
+  if (effectiveViewMode !== 'story') return null;
+
   return (
     <>
-      <section className={cn('relative min-h-[100dvh] px-3 py-4 sm:hidden', effectiveViewMode !== 'story' && 'hidden')} style={{ background: storyThemePalette.sectionBackground }}>
+      <section
+        className={cn(
+          'relative min-h-[100dvh] px-2 xs:px-3 sm:px-4 pt-12 pb-6 sm:py-6',
+          forceMobileView ? '!block !min-h-full' : 'sm:hidden',
+        )}
+        style={{ background: storyThemePalette.sectionBackground }}
+      >
         <div aria-hidden="true" className="slide-stars-layer" style={{ opacity: 0.68, '--star-end-y': '185%', '--layer-time-offset': '-0.45s' } as CSSProperties}>
           <div className="slide-star" style={{ left: '7%', '--star-x': '0%' } as CSSProperties} />
           <div className="slide-star" style={{ left: '13%', '--star-x': '-1%' } as CSSProperties} />
@@ -178,17 +224,30 @@ export const MobileStorySection = memo(function MobileStorySection() {
           <div className="slide-star" style={{ left: '96%', '--star-x': '1%' } as CSSProperties} />
         </div>
         <div ref={mobileRevealRef} className="mx-auto flex max-w-2xl flex-col gap-4 pb-28">
-          <div className="story-scroll-reveal flex items-start justify-between gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
+          <div className="story-scroll-reveal flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3" data-scroll-reveal="true" style={getStoryDelayStyle(0)}>
             <div>
-              <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
-                Birthday playback
-              </p>
-              <h1 className={cn('mt-2 max-w-[14rem] text-[2.05rem] font-bold leading-[0.94]', theme.titleClass, theme.font)}>
+              <div className="flex items-center gap-2">
+                <p className={cn('text-xs font-semibold uppercase tracking-[0.24em] opacity-70', theme.text)}>
+                  Birthday playback
+                </p>
+                <span className="h-1 w-1 rounded-full bg-current opacity-30" />
+                <span className="text-[11px] font-medium opacity-60">Story mode</span>
+              </div>
+              <h1 className={cn('mt-1.5 max-w-md text-[1.95rem] sm:text-[2.05rem] font-bold leading-[1.02]', theme.titleClass, theme.font)}>
                 {page.recipient_name}&apos;s birthday story
               </h1>
             </div>
-            <div className="rounded-full px-3 py-1.5 text-xs font-medium" style={{ backgroundColor: storyThemePalette.topBadgeBg, color: storyThemePalette.topBadgeText }}>
-              Scroll through
+            <div
+              className="self-start shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-2xs backdrop-blur-md border"
+              style={{
+                backgroundColor: storyThemePalette.topBadgeBg,
+                color: storyThemePalette.topBadgeText,
+                borderColor: `${storyThemePalette.topBadgeText}22`,
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Scroll to explore</span>
+              <span className="text-[10px] opacity-70">↓</span>
             </div>
           </div>
       

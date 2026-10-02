@@ -157,13 +157,14 @@ export const RevealIntroOverlay = memo(function RevealIntroOverlay() {
   totalPhotos,
   user,
   viewMode,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
+  forceMobileView,
 } = useBirthdayView() as any;
   return (
     <>
         <div
           className={cn(
-            'fixed inset-0 z-40 flex items-center justify-center backdrop-blur-md',
+            forceMobileView ? 'absolute inset-0' : 'fixed inset-0',
+            'z-40 flex items-center justify-center backdrop-blur-md',
             effectiveViewMode === 'freeform' ? 'px-0' : 'px-4',
             effectiveViewMode === 'freeform' && 'freeform-intro intro',
             effectiveViewMode === 'freeform' && isFreeformIntroExiting && 'exit',
@@ -179,14 +180,17 @@ export const RevealIntroOverlay = memo(function RevealIntroOverlay() {
               <button
                 type="button"
                 onClick={() => void skipReveal()}
-                className="absolute right-0 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/18 sm:top-6"
+                className={cn(
+                  'absolute z-20 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/18',
+                  forceMobileView ? 'top-2 right-2' : 'top-4 sm:top-6 right-0',
+                )}
               >
                 <SkipForward className="h-4 w-4" />
                 Skip intro
               </button>
             )}
       
-            <div className="relative flex min-h-[100dvh] w-full items-center justify-center py-20">
+            <div className={cn('relative flex w-full items-center justify-center', forceMobileView ? 'min-h-full py-4' : 'min-h-[100dvh] py-20')}>
               {effectiveViewMode !== 'freeform' && (
                 <FloatingParticles hue={mixedLetterH} saturation={((clampedS + clampedS2) / 2) * 100} />
               )}
@@ -220,18 +224,18 @@ export const RevealIntroOverlay = memo(function RevealIntroOverlay() {
                     className={cn('text-[11px] font-semibold uppercase tracking-[0.32em]', effectiveViewMode !== 'freeform' && 'text-white/68')}
                     style={effectiveViewMode === 'freeform' ? { color: freeformOpenerPalette.eyebrowText } : undefined}
                   >
-                    Birthday post
+                    {effectiveViewMode === 'bento' ? 'Celebration Vault' : effectiveViewMode === 'freeform' ? 'Birthday board' : 'Birthday post'}
                   </p>
                   <p
                     className={cn('mt-3 text-lg font-medium tracking-tight', effectiveViewMode !== 'freeform' && 'text-white/92')}
                     style={effectiveViewMode === 'freeform' ? { color: freeformOpenerPalette.textSecondary } : undefined}
                   >
-                    {effectiveViewMode === 'freeform' ? `A board for ${page.recipient_name}` : `A letter for ${page.recipient_name}`}
+                    {effectiveViewMode === 'freeform' ? `A board for ${page.recipient_name}` : effectiveViewMode === 'bento' ? `A collection for ${page.recipient_name}` : `A letter for ${page.recipient_name}`}
                   </p>
                 </div>
       
                 <div className="relative flex h-[26rem] w-full items-center justify-center sm:h-[30rem]">
-                  {effectiveViewMode !== 'freeform' && burstMessages.map((message, index) => (
+                  {effectiveViewMode === 'story' && burstMessages.map((message, index) => (
                     <div
                       key={message.id}
                       className={cn(
@@ -258,7 +262,103 @@ export const RevealIntroOverlay = memo(function RevealIntroOverlay() {
                     </div>
                   ))}
       
-                  {effectiveViewMode === 'freeform' ? (
+                  {effectiveViewMode === 'bento' ? (
+                    <div
+                      className={cn(
+                        'relative z-10 w-full max-w-lg px-2 text-center transition-all duration-700 ease-out sm:px-4',
+                        revealPhase === 'opening' && 'scale-[1.03] -translate-y-1',
+                        revealPhase === 'burst' && 'scale-[1.08] opacity-0 blur-sm',
+                      )}
+                    >
+                      {/* Ambient Glows */}
+                      <div className="pointer-events-none absolute -left-10 -top-10 h-44 w-44 rounded-full bg-amber-400/25 blur-3xl animate-pulse" />
+                      <div className="pointer-events-none absolute -right-10 -bottom-10 h-44 w-44 rounded-full bg-rose-400/25 blur-3xl animate-pulse delay-300" />
+
+                      {/* 3D Bento Vault Shell */}
+                      <div className="relative mx-auto rounded-[2.5rem] border border-white/30 bg-slate-950/70 p-4 sm:p-5 shadow-[0_24px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl ring-1 ring-white/20">
+                        
+                        {/* Bento Grid Compartments */}
+                        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 text-left">
+                          
+                          {/* Tile 1: Milestone Hero Header (Spans 2 cols) */}
+                          <div className="col-span-2 rounded-2xl bg-gradient-to-r from-amber-500/30 via-rose-500/25 to-amber-500/30 border border-white/25 p-3.5 sm:p-4 backdrop-blur-md shadow-xs relative overflow-hidden">
+                            <div className="flex items-center justify-between">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 border border-amber-300/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-200">
+                                <Sparkles className="h-3 w-3 text-amber-300" />
+                                <span>Bento Vault</span>
+                              </span>
+                              <span className="text-[10px] font-semibold text-white/80">
+                                {birthdayDate ? format(birthdayDate, 'MMM d, yyyy') : 'Milestone'}
+                              </span>
+                            </div>
+                            <h2 className="mt-2 font-serif text-xl sm:text-2xl font-bold text-white tracking-tight leading-tight">
+                              Happy Birthday, {page.recipient_name}! ✨
+                            </h2>
+                            <p className="mt-1 text-xs text-white/80 line-clamp-1 font-sans">
+                              Your milestone vault: wishes, memories, and voice clips.
+                            </p>
+                          </div>
+
+                          {/* Tile 2: Cover Photo Portrait */}
+                          <div className="col-span-1 rounded-2xl bg-white/10 border border-white/15 p-2.5 flex flex-col items-center justify-center text-center min-h-[110px] relative overflow-hidden group">
+                            {coverPhotoSrc ? (
+                              <>
+                                <img
+                                  src={coverPhotoSrc}
+                                  alt=""
+                                  className="absolute inset-0 h-full w-full object-cover opacity-75 group-hover:scale-105 transition-transform duration-500"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                              </>
+                            ) : (
+                              <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center text-2xl mb-1">
+                                📸
+                              </div>
+                            )}
+                            <div className="relative z-10 p-1 text-center mt-auto">
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-amber-300">Portrait</p>
+                              <p className="text-xs font-bold text-white line-clamp-1">{page.recipient_name}</p>
+                            </div>
+                          </div>
+
+                          {/* Tile 3: Collected Memories Metrics */}
+                          <div className="col-span-1 rounded-2xl bg-white/10 border border-white/15 p-3 flex flex-col justify-between min-h-[110px] backdrop-blur-md">
+                            <div>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-white/70">Wishes Pinned</p>
+                              <p className="font-serif text-3xl font-bold text-white mt-0.5">{messages.length}</p>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-white/85 font-medium pt-1 border-t border-white/10">
+                              <span>📸 {totalPhotos} photos</span>
+                              <span>·</span>
+                              <span>🎙️ {totalAudioWishes} voice</span>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Interactive Open Vault Button */}
+                        <div className="mt-4 pt-3.5 border-t border-white/15 flex flex-col items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void beginReveal()}
+                            className="group w-full btn-press flex items-center justify-center gap-2 py-3 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 text-white font-bold text-sm shadow-[0_12px_32px_rgba(244,63,94,0.4)] hover:brightness-110 active:scale-98 transition-all cursor-pointer"
+                          >
+                            <Gift className="h-4 w-4 text-amber-200 transition-transform duration-300 group-hover:scale-110" />
+                            <span>Unwrap Celebration Bento</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void skipReveal()}
+                            className="text-xs font-medium text-white/60 hover:text-white transition-colors"
+                          >
+                            Skip intro
+                          </button>
+                        </div>
+
+                      </div>
+                    </div>
+                  ) : effectiveViewMode === 'freeform' ? (
                     <div
                       className={cn(
                         'relative z-10 w-full px-2 text-center transition-all duration-700 ease-out sm:px-4',
