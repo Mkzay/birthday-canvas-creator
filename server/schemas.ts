@@ -94,6 +94,15 @@ export const paystackVerifyBodySchema = z.object({
   reference: z.string().min(6).max(120).transform((s) => s.trim()),
 });
 
+export const bachsInitializeBodySchema = z.object({
+  callbackPath: z.string().max(200).optional(),
+});
+
+export const bachsVerifyBodySchema = z.object({
+  checkoutId: z.string().min(6).max(120).transform((s) => s.trim()).optional(),
+  reference: z.string().min(6).max(120).transform((s) => s.trim()).optional(),
+});
+
 export const poolContributionInitializeBodySchema = z.object({
   amountKobo: z.coerce.number().int().min(100).max(500000000),
   contributorName: z.union([z.string().max(120), z.null()]).optional(),

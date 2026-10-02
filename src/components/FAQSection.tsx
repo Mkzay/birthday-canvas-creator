@@ -167,7 +167,7 @@ const FAQS: FAQItem[] = [
     iconRenderer: IconFlatPrice,
     question: 'How does pricing work? Are there any hidden fees?',
     answer:
-      'Completely transparent and simple. WishCanvas is 100% free for up to 6 contributors. When you want unlimited contributors, custom theme studio tools, and permanent keepsake export, it is a single flat one-time payment of ₦5,000 via Paystack. No recurring monthly subscriptions ever.',
+      'Completely transparent and simple. WishCanvas is 100% free for up to 6 contributors. When you want unlimited contributors, custom theme studio tools, and permanent keepsake export, it is a single flat one-time payment of ₦5,000. No recurring monthly subscriptions ever.',
     creatorNote: 'Pay once, keep the memory canvas and download your keepsake forever.',
   },
 ];

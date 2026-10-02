@@ -112,6 +112,14 @@ export const paystackWebhookLimiter = rateLimit({
   message: { error: "Too many webhook requests. Please retry shortly." },
 });
 
+export const bachsWebhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.BACHS_WEBHOOK_RATE_LIMIT_MAX || 60),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many webhook requests. Please retry shortly." },
+});
+
 export const authNotificationsLimiter = rateLimit({
   windowMs: window15m,
   max: 12,

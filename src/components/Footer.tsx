@@ -17,7 +17,7 @@ const Footer = () => {
             
             <div className="mt-6 flex items-center gap-2 text-xs text-slate-400">
               <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>Payments secured by Paystack (Card, Transfer, USSD)</span>
+              <span>Payments secured by Bachs (Card, Bank Transfer, USSD)</span>
             </div>
 
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">

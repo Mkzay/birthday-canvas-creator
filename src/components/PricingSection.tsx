@@ -129,7 +129,7 @@ const PricingSection = () => {
               </Link>
               <div className="mt-3.5 flex items-center justify-center gap-1.5 text-xs text-slate-600 font-medium">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span>Secured by Paystack (Card, Transfer, USSD)</span>
+                <span>Secured by Bachs (Card, Bank Transfer, USSD)</span>
               </div>
             </div>
           </div>

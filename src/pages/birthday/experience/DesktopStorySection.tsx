@@ -614,13 +614,33 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                             )}
                           </div>
                         );
-                      } else if (photoCount >= 5) {
+                      } else if (photoCount === 5) {
                         photoLayout = (
-                          <div className="h-full overflow-y-auto pr-1.5 custom-scrollbar grid grid-cols-2 gap-3">
+                          <div className="h-full grid grid-cols-6 grid-rows-2 gap-2.5 sm:gap-3">
+                            {/* Top row: 2 photos, 3 cols each */}
+                            {renderPhotoCard(wishPhotos[0], 'col-span-3 row-span-1 h-full min-h-0 w-full rounded-[1.45rem]')}
+                            {renderPhotoCard(wishPhotos[1], 'col-span-3 row-span-1 h-full min-h-0 w-full rounded-[1.45rem]')}
+                            {/* Bottom row: 3 photos, 2 cols each */}
+                            {renderPhotoCard(wishPhotos[2], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')}
+                            {renderPhotoCard(wishPhotos[3], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')}
+                            {renderPhotoCard(wishPhotos[4], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')}
+                          </div>
+                        );
+                      } else if (photoCount === 6) {
+                        photoLayout = (
+                          <div className="h-full grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-3">
+                            {wishPhotos.map((photo) =>
+                              renderPhotoCard(photo, 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')
+                            )}
+                          </div>
+                        );
+                      } else if (photoCount >= 7) {
+                        photoLayout = (
+                          <div className="h-full overflow-y-auto pr-1.5 custom-scrollbar grid grid-cols-2 gap-2.5 sm:gap-3">
                             {wishPhotos.map((photo, photoIndex) =>
                               renderPhotoCard(
                                 photo,
-                                cn('min-h-[9.5rem] h-48 w-full rounded-[1.4rem]', photoIndex === 0 && 'col-span-2 h-56')
+                                cn('min-h-[9.5rem] h-44 w-full rounded-[1.4rem]', photoIndex === 0 && 'col-span-2 h-52')
                               )
                             )}
                           </div>
@@ -672,9 +692,9 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               {/* Center Message Hero */}
                               <div className="my-auto py-4">
                                 {isRichHtml(activeSlide.message.message) ? (
-                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[44vh] overflow-y-auto pr-2 text-xl sm:text-2xl lg:text-3xl font-serif italic leading-relaxed custom-scrollbar', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
+                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[50vh] sm:max-h-[54vh] overflow-y-auto pr-2 text-xl sm:text-2xl lg:text-3xl font-serif italic leading-relaxed custom-scrollbar scroll-smooth', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
                                 ) : (
-                                  <p className={cn('story-slide-wish-message max-h-[44vh] overflow-y-auto pr-2 text-xl sm:text-2xl lg:text-3xl font-serif italic leading-relaxed custom-scrollbar', theme.text)}>
+                                  <p className={cn('story-slide-wish-message max-h-[50vh] sm:max-h-[54vh] overflow-y-auto pr-2 text-xl sm:text-2xl lg:text-3xl font-serif italic leading-relaxed custom-scrollbar scroll-smooth', theme.text)}>
                                     &quot;{activeSlide.message.message}&quot;
                                   </p>
                                 )}
@@ -736,9 +756,9 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
 
                               <div className="my-auto py-3">
                                 {isRichHtml(activeSlide.message.message) ? (
-                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[38vh] overflow-y-auto pr-2 text-lg sm:text-xl font-serif italic leading-relaxed custom-scrollbar', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
+                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[48vh] sm:max-h-[52vh] overflow-y-auto pr-2 text-lg sm:text-xl font-serif italic leading-relaxed custom-scrollbar scroll-smooth', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
                                 ) : (
-                                  <p className={cn('story-slide-wish-message max-h-[38vh] overflow-y-auto pr-2 text-lg sm:text-xl font-serif italic leading-relaxed custom-scrollbar', theme.text)}>
+                                  <p className={cn('story-slide-wish-message max-h-[48vh] sm:max-h-[52vh] overflow-y-auto pr-2 text-lg sm:text-xl font-serif italic leading-relaxed custom-scrollbar scroll-smooth', theme.text)}>
                                     &quot;{activeSlide.message.message}&quot;
                                   </p>
                                 )}
@@ -839,9 +859,9 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               {/* Message Text with Scroll Containment */}
                               <div className="my-auto py-2">
                                 {isRichHtml(activeSlide.message.message) ? (
-                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[30vh] overflow-y-auto pr-1 text-base leading-relaxed sm:text-lg lg:text-xl font-serif italic custom-scrollbar', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
+                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 text-base leading-relaxed sm:text-lg lg:text-xl font-serif italic custom-scrollbar scroll-smooth', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
                                 ) : (
-                                  <p className={cn('story-slide-wish-message max-h-[30vh] overflow-y-auto pr-1 text-base leading-relaxed sm:text-lg lg:text-xl font-serif italic custom-scrollbar', theme.text)}>
+                                  <p className={cn('story-slide-wish-message max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 text-base leading-relaxed sm:text-lg lg:text-xl font-serif italic custom-scrollbar scroll-smooth', theme.text)}>
                                     &quot;{activeSlide.message.message}&quot;
                                   </p>
                                 )}
@@ -981,28 +1001,32 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                             </div>
                           </article>
       
-                          <article className={cn('story-stage-reveal-soft rounded-[1.75rem] border p-5 text-left sm:p-6', keepsakeSoftClass)} style={getStoryDelayStyle(240, 800)}>
+                          <article className={cn('story-stage-reveal-soft rounded-[1.75rem] border p-4.5 text-left sm:p-5', keepsakeSoftClass)} style={getStoryDelayStyle(220, 760)}>
                             <p className={cn('text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60', theme.text)}>Signed by the people who showed up</p>
-                            <p className={cn('mt-4 text-lg leading-relaxed sm:text-[1.15rem]', theme.text)}>
+                            <p className={cn('mt-2 text-base leading-relaxed sm:text-[1.05rem]', theme.text)}>
                               Happy birthday, {page.recipient_name}. This story was worth making because you were worth gathering for.
                             </p>
                             {contributorLine && (
-                              <p className={cn('mt-3 text-sm leading-relaxed opacity-75', theme.text)}>
+                              <p className={cn('mt-2 text-xs leading-relaxed opacity-75', theme.text)}>
                                 {contributorLine}.
                               </p>
                             )}
-      
-                            <div className={cn('mt-4 rounded-2xl border p-4.5', keepsakePillClass)} data-no-nav="true">
-                              <p className={cn('text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Make moments unforgettable</p>
-                              <p className={cn('mt-1.5 text-base font-semibold leading-snug', theme.titleClass, theme.font)}>
-                                Create a birthday celebration for someone you love
-                              </p>
-                              <p className={cn('mt-1 text-xs opacity-75 leading-relaxed', theme.text)}>
-                                Gather heartfelt messages, photos, and voice notes into one unforgettable digital keepsake.
-                              </p>
-                              <div className="mt-3">
-                                <Link to="/create">
-                                  <Button size="sm" className="h-9 w-full sm:w-auto gap-2 rounded-xl shadow-sm">
+                          </article>
+
+                          <article className={cn('story-stage-reveal-soft rounded-[1.5rem] border p-4 text-left sm:p-4.5 shadow-xs', keepsakePillClass)} data-no-nav="true" style={getStoryDelayStyle(280, 800)}>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className={cn('text-[9px] font-semibold uppercase tracking-[0.2em] opacity-70', theme.text)}>Make moments unforgettable</p>
+                                <p className={cn('mt-0.5 text-sm sm:text-[0.95rem] font-semibold leading-snug', theme.titleClass, theme.font)}>
+                                  Create a celebration for someone you love
+                                </p>
+                                <p className={cn('mt-0.5 text-[11px] opacity-75 line-clamp-1 leading-normal', theme.text)}>
+                                  Gather heartfelt messages, photos, and voice notes into one keepsake.
+                                </p>
+                              </div>
+                              <div className="shrink-0">
+                                <Link to="/create" onClick={(e) => e.stopPropagation()}>
+                                  <Button size="sm" className="h-8.5 px-3.5 gap-2 rounded-xl shadow-xs text-xs font-semibold">
                                     <Sparkles className="h-3.5 w-3.5" />
                                     <span>Create a WishCanvas</span>
                                   </Button>

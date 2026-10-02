@@ -144,7 +144,11 @@ const UpgradePage = () => {
   const initial = currentDisplayName.charAt(0).toUpperCase();
   const avatarSrc = resolveAssetUrl(profile?.avatar_url);
 
-  const paystackReference = useMemo(() => {
+  const checkoutId = useMemo(() => {
+    return searchParams.get('checkout_id') || searchParams.get('checkoutId');
+  }, [searchParams]);
+
+  const paymentReference = useMemo(() => {
     return searchParams.get('reference') || searchParams.get('trxref');
   }, [searchParams]);
 
@@ -202,31 +206,53 @@ const UpgradePage = () => {
   useEffect(() => {
     if (!user) return;
     if (isProUser) return;
-    if (!paystackReference) return;
+    if (!checkoutId && !paymentReference) return;
     if (verifyState !== 'idle') return;
 
     const runVerify = async () => {
       setVerifyState('verifying');
-      setVerifyMessage('Verifying payment with Paystack...');
+      setVerifyMessage('Verifying payment confirmation...');
 
       try {
-        await apiFetch<{ user: unknown }>('/billing/paystack/verify', {
-          method: 'POST',
-          body: JSON.stringify({ reference: paystackReference }),
-        });
-        await refreshSession();
-        setVerifyState('success');
-        setVerifyMessage('Payment confirmed. Your account is now upgraded to Pro Atelier.');
-        toast.success('Upgrade successful. Welcome to Pro Atelier!');
+        let verified = false;
+        try {
+          await apiFetch<{ user: unknown }>('/billing/bachs/verify', {
+            method: 'POST',
+            body: JSON.stringify({
+              checkoutId: checkoutId || undefined,
+              reference: paymentReference || undefined,
+            }),
+          });
+          verified = true;
+        } catch (bachsError) {
+          if (paymentReference) {
+            await apiFetch<{ user: unknown }>('/billing/paystack/verify', {
+              method: 'POST',
+              body: JSON.stringify({ reference: paymentReference }),
+            });
+            verified = true;
+          } else {
+            throw bachsError;
+          }
+        }
 
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete('reference');
-        nextParams.delete('trxref');
-        setSearchParams(nextParams, { replace: true });
+        if (verified) {
+          await refreshSession();
+          setVerifyState('success');
+          setVerifyMessage('Payment confirmed. Your account is now upgraded to Pro Atelier.');
+          toast.success('Upgrade successful. Welcome to Pro Atelier!');
 
-        setTimeout(() => {
-          navigate('/themes');
-        }, 1500);
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.delete('checkout_id');
+          nextParams.delete('checkoutId');
+          nextParams.delete('reference');
+          nextParams.delete('trxref');
+          setSearchParams(nextParams, { replace: true });
+
+          setTimeout(() => {
+            navigate('/themes');
+          }, 1500);
+        }
       } catch (error) {
         const message = error instanceof ApiError ? error.message : 'Could not verify payment.';
         setVerifyState('failed');
@@ -236,16 +262,17 @@ const UpgradePage = () => {
     };
 
     void runVerify();
-  }, [isProUser, paystackReference, refreshSession, searchParams, setSearchParams, user, verifyState, navigate]);
+  }, [isProUser, checkoutId, paymentReference, refreshSession, searchParams, setSearchParams, user, verifyState, navigate]);
 
   const startCheckout = async () => {
     setCheckoutLoading(true);
     try {
       const data = await apiFetch<{
-        authorizationUrl: string | null;
+        authorizationUrl?: string | null;
+        checkoutUrl?: string | null;
         alreadyPro?: boolean;
         message?: string;
-      }>('/billing/paystack/initialize', {
+      }>('/billing/bachs/initialize', {
         method: 'POST',
         body: JSON.stringify({ callbackPath: '/billing' }),
       });
@@ -255,11 +282,12 @@ const UpgradePage = () => {
         return;
       }
 
-      if (!data.authorizationUrl) {
-        throw new Error('Missing authorization URL from Paystack.');
+      const redirectUrl = data.checkoutUrl || data.authorizationUrl;
+      if (!redirectUrl) {
+        throw new Error('Missing checkout URL from payment gateway.');
       }
 
-      window.location.assign(data.authorizationUrl);
+      window.location.assign(redirectUrl);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Could not start checkout.';
       toast.error(message);
@@ -421,7 +449,7 @@ const UpgradePage = () => {
             </div>
           </div>
 
-          {/* Payment Verification Alerts (if returning from Paystack) */}
+          {/* Payment Verification Alerts (if returning from checkout) */}
           {verifyMessage && (
             <div
               className={`rounded-2xl border p-4 text-xs sm:text-sm transition-all ${
@@ -563,7 +591,7 @@ const UpgradePage = () => {
                     </span>
                   </div>
                   <p className="text-xs text-stone-500 leading-relaxed">
-                    Zero subscriptions. Pay once via Paystack and keep Pro on your account forever.
+                    Zero subscriptions. Pay once via Bachs and keep Pro on your account forever.
                   </p>
                 </div>
 
@@ -639,7 +667,7 @@ const UpgradePage = () => {
                       ) : (
                         <>
                           <Sparkles className="h-4 w-4 text-amber-100" />
-                          <span>Unlock Pro Atelier with Paystack ({priceLabel})</span>
+                          <span>Unlock Pro Atelier ({priceLabel})</span>
                           <ArrowRight className="h-4 w-4 text-amber-100" />
                         </>
                       )}
@@ -647,12 +675,12 @@ const UpgradePage = () => {
                     <div className="flex items-center justify-center gap-3 text-[11px] text-stone-400">
                       <span className="flex items-center gap-1">
                         <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                        Encrypted by Paystack
+                        Encrypted by Bachs
                       </span>
                       <span>•</span>
                       <span>Cards, Bank Transfer, USSD</span>
                       <span>•</span>
-                      <span>Instant verification</span>
+                      <span>Instant confirmation</span>
                     </div>
                     <div className="pt-1 text-center">
                       <p className="text-[11px] text-stone-500">
