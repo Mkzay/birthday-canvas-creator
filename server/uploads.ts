@@ -111,7 +111,7 @@ function audioFileFilter(
 export const coverUpload = multer({
   storage: createUploadStorage("covers", coversRoot),
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: 15 * 1024 * 1024,
   },
   fileFilter: imageFileFilter,
 });
@@ -119,7 +119,7 @@ export const coverUpload = multer({
 export const messageUpload = multer({
   storage: createUploadStorage("messages", messagesRoot),
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: 15 * 1024 * 1024,
   },
   fileFilter: imageFileFilter,
 });

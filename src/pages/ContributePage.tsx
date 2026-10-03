@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { GripVertical, HandCoins, ImagePlus, Loader2, Lock, Mic2, Send, X, Square, Mic } from 'lucide-react';
+import { Check, GripVertical, HandCoins, ImagePlus, Loader2, Lock, Mic2, Pencil, Send, Trash2, X, Square, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,17 +9,24 @@ import RichTextEditor from '@/components/RichTextEditor';
 import { toast } from 'sonner';
 import Confetti from '@/components/Confetti';
 import { parseLocalDate } from '@/lib/date';
-import { ApiError, apiFetch, apiForm } from '@/lib/api';
+import { ApiError, apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
 import BrandLogo from '@/components/BrandLogo';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import StickerPicker, { type StickerData } from '@/components/StickerPicker';
 import { compressImageFile } from '@/lib/imageCompressor';
 import { visualThemeConfig, fontClassMap } from '@/lib/themes';
-import type { ContributionDraft, PendingPhoto, PublicBirthdayPageData } from '@/pages/contribute';
+import type {
+  ContributionDraft,
+  PendingPhoto,
+  PublicBirthdayPageData,
+  StoredContributorWish,
+  ContributorWishResponse,
+} from '@/pages/contribute';
 import {
   CONTRIBUTION_PLATFORM_FEE_RATE,
   ContributeSuccessPanel,
   ContributorWishPreview,
+  ContributeConfirmModal,
   MAX_PHOTOS,
   MAX_WISH_MESSAGE_CHARACTERS,
   extractPlainTextFromRichHtml,
@@ -27,6 +34,37 @@ import {
 } from '@/pages/contribute';
 
 const themeConfig = visualThemeConfig;
+
+const CONTRIBUTIONS_STORAGE_KEY = 'wishcanvas_contributions';
+
+function getStoredContributions(): Record<string, StoredContributorWish> {
+  try {
+    const raw = localStorage.getItem(CONTRIBUTIONS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredContribution(entry: StoredContributorWish) {
+  try {
+    const all = getStoredContributions();
+    all[entry.pageId] = entry;
+    localStorage.setItem(CONTRIBUTIONS_STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function removeStoredContribution(pageId: string) {
+  try {
+    const all = getStoredContributions();
+    delete all[pageId];
+    localStorage.setItem(CONTRIBUTIONS_STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // Ignore
+  }
+}
 
 const ContributePage = () => {
   const { pageId } = useParams();
@@ -43,6 +81,7 @@ const ContributePage = () => {
   const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
   const [wishAudio, setWishAudio] = useState<File | null>(null);
   const [wishAudioPreviewUrl, setWishAudioPreviewUrl] = useState<string | null>(null);
+  const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -50,6 +89,16 @@ const ContributePage = () => {
   const [poolAmountNaira, setPoolAmountNaira] = useState('');
   const [poolContributorEmail, setPoolContributorEmail] = useState('');
   const [recentContributionKobo, setRecentContributionKobo] = useState<number | null>(null);
+
+  // Edit wish state
+  const [editToken, setEditToken] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockReason, setLockReason] = useState<string | null>(null);
+  const [recognizedWish, setRecognizedWish] = useState<StoredContributorWish | null>(null);
+  const [isDeletingWish, setIsDeletingWish] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const poolAmountInputRef = useRef<HTMLInputElement>(null);
@@ -90,11 +139,116 @@ const ContributePage = () => {
     }
   }, [pageId]);
 
+  const getFragmentEditToken = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const hash = window.location.hash;
+    if (!hash) return null;
+    const match = hash.match(/#edit=([a-f0-9]+)/i);
+    return match ? match[1] : null;
+  }, []);
+
+  const loadWishForEditing = useCallback(async (token: string) => {
+    if (!pageId) return;
+
+    try {
+      const res = await apiFetch<ContributorWishResponse>(`/public/pages/${pageId}/my-wish`, {
+        headers: {
+          'x-wish-edit-token': token,
+        },
+      });
+
+      if (!res.message) {
+        if (res.isDeleted) {
+          toast.error('This wish has been deleted.');
+        } else {
+          toast.error('Wish not found.');
+        }
+        return;
+      }
+
+      setEditToken(token);
+      setEditingMessageId(res.message.id);
+      setIsEditMode(true);
+      setIsLocked(res.isLocked);
+      setLockReason(res.lockReason || null);
+
+      setSenderName(res.message.sender_name || '');
+      setMessage(res.message.message || '');
+
+      const loadedPhotos: PendingPhoto[] = (res.message.photos || []).map((p) => ({
+        id: p.id,
+        previewUrl: resolveAssetUrl(p.photo_url) || p.photo_url,
+        caption: p.caption || '',
+        existingUrl: p.photo_url,
+      }));
+      setSelectedPhotos(loadedPhotos);
+
+      if (res.message.audio_url) {
+        setExistingAudioUrl(res.message.audio_url);
+        setWishAudioPreviewUrl(resolveAssetUrl(res.message.audio_url) || res.message.audio_url);
+        setWishAudio(null);
+      } else {
+        setExistingAudioUrl(null);
+        setWishAudioPreviewUrl(null);
+        setWishAudio(null);
+      }
+
+      saveStoredContribution({
+        pageId,
+        messageId: res.message.id,
+        editToken: token,
+        senderName: res.message.sender_name,
+        updatedAt: Date.now(),
+      });
+
+      if (res.isLocked) {
+        toast.info(res.lockReason || 'This canvas is sealed or revealed. Wishes can no longer be edited.');
+      } else {
+        toast.success('Your wish has been loaded for editing.');
+      }
+    } catch (error) {
+      console.error('Failed to load wish for editing:', error);
+      if (error instanceof ApiError && error.status === 403) {
+        toast.error('Invalid or expired edit link.');
+      } else {
+        toast.error('Could not load your wish for editing.');
+      }
+    }
+  }, [pageId]);
+
   useEffect(() => {
     if (pageId) {
       void fetchPage();
     }
   }, [fetchPage, pageId]);
+
+  useEffect(() => {
+    if (!pageId) return;
+
+    const fragmentToken = getFragmentEditToken();
+    if (fragmentToken) {
+      void loadWishForEditing(fragmentToken);
+      return;
+    }
+
+    const stored = getStoredContributions();
+    const entry = stored[pageId];
+    if (entry && entry.editToken) {
+      apiFetch<ContributorWishResponse>(`/public/pages/${pageId}/my-wish`, {
+        headers: { 'x-wish-edit-token': entry.editToken },
+      })
+        .then((res) => {
+          if (res.message && !res.isDeleted) {
+            setRecognizedWish(entry);
+          } else {
+            removeStoredContribution(pageId);
+          }
+        })
+        .catch(() => {
+          removeStoredContribution(pageId);
+        });
+    }
+  }, [getFragmentEditToken, loadWishForEditing, pageId]);
 
   useEffect(() => {
     if (!draftStorageKey) {
@@ -223,6 +377,10 @@ const ContributePage = () => {
       URL.revokeObjectURL(wishAudioPreviewUrl);
     }
     setWishAudioPreviewUrl(null);
+    setExistingAudioUrl(null);
+    if (audioInputRef.current) {
+      audioInputRef.current.value = '';
+    }
   };
 
   const startRecording = async () => {
@@ -390,6 +548,9 @@ const ContributePage = () => {
   };
 
   const uploadWishAudio = async () => {
+    if (existingAudioUrl && !wishAudio) {
+      return existingAudioUrl;
+    }
     if (!wishAudio || !pageId) return null;
 
     setUploadingAudio(true);
@@ -416,6 +577,15 @@ const ContributePage = () => {
     try {
       const uploads = await Promise.all(
         selectedPhotos.map(async (photo) => {
+          if (photo.existingUrl) {
+            return {
+              url: photo.existingUrl,
+              caption: photo.caption.trim() || null,
+            };
+          }
+
+          if (!photo.file) return null;
+
           const formData = new FormData();
           formData.append('file', photo.file);
 
@@ -427,13 +597,110 @@ const ContributePage = () => {
         }),
       );
 
-      return uploads;
+      return uploads.filter(Boolean) as Array<{ url: string; caption: string | null }>;
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Failed to upload one or more photos');
       return null;
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleStartEditingRecognizedWish = () => {
+    if (!recognizedWish) return;
+    window.location.hash = `edit=${recognizedWish.editToken}`;
+    void loadWishForEditing(recognizedWish.editToken);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditingMessageId(null);
+    setEditToken(null);
+    setIsLocked(false);
+    setLockReason(null);
+    setSenderName('');
+    setMessage('');
+    clearSelectedPhotos();
+    removeWishAudio();
+    window.history.replaceState(null, '', window.location.pathname);
+  };
+
+  const handleEnterEditMode = () => {
+    setIsSubmitted(false);
+    if (editToken) {
+      window.location.hash = `edit=${editToken}`;
+      void loadWishForEditing(editToken);
+    }
+  };
+
+  const handleDeleteWish = async () => {
+    if (!pageId || !editingMessageId || !editToken) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete your wish for ${page?.recipient_name || 'the recipient'}? You have 10 minutes to undo this action.`,
+    );
+    if (!confirmed) return;
+
+    setIsDeletingWish(true);
+    const deletedMsgId = editingMessageId;
+    const deletedToken = editToken;
+
+    try {
+      await apiFetch(`/public/pages/${pageId}/messages/${editingMessageId}`, {
+        method: 'DELETE',
+        headers: { 'x-wish-edit-token': editToken },
+      });
+
+      removeStoredContribution(pageId);
+      window.history.replaceState(null, '', window.location.pathname);
+
+      setIsEditMode(false);
+      setEditingMessageId(null);
+      setEditToken(null);
+      setSenderName('');
+      setMessage('');
+      clearSelectedPhotos();
+      removeWishAudio();
+
+      setPage((prev) =>
+        prev
+          ? {
+              ...prev,
+              message_count: Math.max(0, prev.message_count - 1),
+            }
+          : prev,
+      );
+
+      toast.success('Your wish has been deleted.', {
+        duration: 10000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              await apiFetch(
+                `/public/pages/${pageId}/messages/${deletedMsgId}/undo-delete`,
+                {
+                  method: 'POST',
+                  headers: { 'x-wish-edit-token': deletedToken },
+                },
+              );
+              toast.success('Your wish has been restored!');
+              window.location.hash = `edit=${deletedToken}`;
+              void loadWishForEditing(deletedToken);
+              setPage((p) => (p ? { ...p, message_count: p.message_count + 1 } : p));
+            } catch (err) {
+              console.error('Undo delete failed:', err);
+              toast.error('Could not undo delete. The undo period may have expired.');
+            }
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Delete wish error:', error);
+      toast.error('Failed to delete wish.');
+    } finally {
+      setIsDeletingWish(false);
     }
   };
 
@@ -606,7 +873,7 @@ const ContributePage = () => {
       }
     : undefined;
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
 
     if (isRecording) {
@@ -630,14 +897,19 @@ const ContributePage = () => {
       return;
     }
 
-    if (!page.can_contribute) {
+    if (isEditMode && isLocked) {
+      toast.error(lockReason || 'This canvas is sealed or revealed. Wishes can no longer be edited.');
+      return;
+    }
+
+    if (!isEditMode && !page.can_contribute) {
       toast.error('This page is no longer accepting new wishes');
       return;
     }
 
     const amountNaira = Number(poolAmountNaira.replace(/,/g, ''));
     const hasPoolAmountInput = poolAmountNaira.trim().length > 0;
-    if (hasPoolAmountInput) {
+    if (hasPoolAmountInput && !isEditMode) {
       if (!Number.isFinite(amountNaira) || amountNaira <= 0) {
         toast.error('Enter a valid amount in Naira or clear the amount field');
         return;
@@ -650,6 +922,12 @@ const ContributePage = () => {
       }
     }
 
+    setIsConfirmModalOpen(true);
+  };
+
+  const handleConfirmFinalSubmit = async () => {
+    if (!page) return;
+
     setSubmitting(true);
 
     const uploadedPhotos = selectedPhotos.length ? await uploadPhotos() : [];
@@ -658,14 +936,50 @@ const ContributePage = () => {
       return;
     }
 
-    const uploadedAudioUrl = wishAudio ? await uploadWishAudio() : null;
+    const uploadedAudioUrl = wishAudio ? await uploadWishAudio() : (existingAudioUrl || null);
     if (wishAudio && !uploadedAudioUrl) {
       setSubmitting(false);
       return;
     }
 
+    const amountNaira = Number(poolAmountNaira.replace(/,/g, ''));
+
     try {
-      await apiFetch(`/public/pages/${page.id}/messages`, {
+      if (isEditMode && editingMessageId && editToken) {
+        await apiFetch(`/public/pages/${page.id}/messages/${editingMessageId}`, {
+          method: 'PATCH',
+          headers: {
+            'x-wish-edit-token': editToken,
+          },
+          body: JSON.stringify({
+            senderName,
+            message,
+            photos: uploadedPhotos,
+            audioUrl: uploadedAudioUrl,
+          }),
+        });
+
+        saveStoredContribution({
+          pageId: page.id,
+          messageId: editingMessageId,
+          editToken,
+          senderName: senderName || 'Anonymous',
+          updatedAt: Date.now(),
+        });
+
+        if (draftStorageKey) {
+          sessionStorage.removeItem(draftStorageKey);
+        }
+
+        setIsConfirmModalOpen(false);
+        setShowConfetti(true);
+        setIsSubmitted(true);
+        toast.success('Your wish has been updated!');
+        setTimeout(() => setShowConfetti(false), 5000);
+        return;
+      }
+
+      const result = await apiFetch<{ id: string; editToken?: string }>(`/public/pages/${page.id}/messages`, {
         method: 'POST',
         body: JSON.stringify({
           senderName,
@@ -675,6 +989,18 @@ const ContributePage = () => {
           stickers: [],
         }),
       });
+
+      if (result.editToken) {
+        setEditToken(result.editToken);
+        setEditingMessageId(result.id);
+        saveStoredContribution({
+          pageId: page.id,
+          messageId: result.id,
+          editToken: result.editToken,
+          senderName: senderName || 'Anonymous',
+          updatedAt: Date.now(),
+        });
+      }
 
       const shouldInitializePayment =
         page.pool_fundraising_enabled &&
@@ -689,6 +1015,7 @@ const ContributePage = () => {
           sessionStorage.removeItem(draftStorageKey);
         }
 
+        setIsConfirmModalOpen(false);
         toast.success('Wish added. Redirecting you to payment...');
 
         await initializePoolPayment(
@@ -699,6 +1026,7 @@ const ContributePage = () => {
         return;
       }
 
+      setIsConfirmModalOpen(false);
       setShowConfetti(true);
       setIsSubmitted(true);
       if (draftStorageKey) {
@@ -717,9 +1045,16 @@ const ContributePage = () => {
     } catch (error) {
       if (error instanceof ApiError && error.code === 'CONTRIBUTOR_LIMIT_REACHED') {
         toast.error('This page has reached the free contributor limit. Ask the creator to upgrade to Pro for more contributions.');
+        setIsConfirmModalOpen(false);
         return;
       }
-      const messageText = error instanceof Error ? error.message : 'Failed to add message';
+      if (error instanceof ApiError && error.code === 'WISH_LOCKED') {
+        toast.error(error.message || 'This canvas is sealed or revealed. Wishes can no longer be edited.');
+        setIsLocked(true);
+        setIsConfirmModalOpen(false);
+        return;
+      }
+      const messageText = error instanceof Error ? error.message : 'Failed to save wish';
       toast.error(messageText);
       console.error(error);
     } finally {
@@ -736,6 +1071,12 @@ const ContributePage = () => {
     removeWishAudio();
     setStickers([]);
     setIsSubmitted(false);
+    setIsEditMode(false);
+    setEditingMessageId(null);
+    setEditToken(null);
+    setIsLocked(false);
+    setLockReason(null);
+    window.history.replaceState(null, '', window.location.pathname);
     if (draftStorageKey) {
       sessionStorage.removeItem(draftStorageKey);
     }
@@ -757,13 +1098,87 @@ const ContributePage = () => {
       <main className={`mx-auto px-4 py-6 sm:px-6 sm:py-8 ${isSubmitted ? 'max-w-3xl' : 'max-w-7xl'}`}>
         {!isSubmitted ? (
           <>
+            {recognizedWish && !isEditMode && (
+              <div className="mx-auto mb-6 max-w-3xl animate-fade-in rounded-2xl border border-primary/20 bg-primary/5 p-4 backdrop-blur-sm sm:flex sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Pencil className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      You previously left a wish for {page.recipient_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Signed as &ldquo;{recognizedWish.senderName}&rdquo;. Want to update it?
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleStartEditingRecognizedWish}
+                  className="mt-3 w-full gap-2 rounded-xl font-medium sm:mt-0 sm:w-auto"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit Your Wish
+                </Button>
+              </div>
+            )}
+
+            {isEditMode && (
+              <div className="mx-auto mb-6 max-w-3xl animate-fade-in rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-950 backdrop-blur-sm dark:text-amber-100 sm:flex sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <Pencil className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {isLocked ? 'This wish is locked' : `Editing your wish for ${page.recipient_name}`}
+                    </p>
+                    <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                      {isLocked
+                        ? (lockReason || 'This canvas is sealed or revealed. Wishes can no longer be edited.')
+                        : 'Update your message, photos, or voice note below.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2 sm:mt-0">
+                  {!isLocked && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isDeletingWish}
+                      onClick={handleDeleteWish}
+                      className="text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400"
+                    >
+                      {isDeletingWish ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1 h-3.5 w-3.5" />}
+                      Delete Wish
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelEdit}
+                    className="rounded-xl text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="mb-6 text-center animate-fade-in-up sm:mb-8">
               <div className="mb-3 text-5xl sm:mb-4 sm:text-6xl">{theme.emoji}</div>
               <h1 className={`px-2 text-2xl font-bold sm:text-3xl ${theme.text}`}>
-                Add your birthday wish for {page.recipient_name}
+                {isEditMode ? `Edit your wish for ${page.recipient_name}` : `Add your birthday wish for ${page.recipient_name}`}
               </h1>
               <p className={`mx-auto mt-3 max-w-2xl text-sm leading-relaxed opacity-80 sm:text-base ${theme.text}`}>
-                Leave a message, add a few photos if you want, and attach a short note to each memory so the page feels more personal.
+                {isEditMode
+                  ? 'Make any adjustments to your message, notes, photos, or voice note before the canvas is revealed.'
+                  : 'Leave a message, add a few photos if you want, and attach a short note to each memory so the page feels more personal.'}
               </p>
               <div className="mt-4 flex items-center justify-center gap-2">
                 <div className="flex -space-x-2">
@@ -931,11 +1346,11 @@ const ContributePage = () => {
                           <ImagePlus className="h-6 w-6" />
                         </div>
                         <p className="mt-4 text-sm font-medium text-foreground">Add photos that make the message feel lived-in</p>
-                        <p className="mt-1 text-xs text-muted-foreground">JPG or PNG, up to 5MB each</p>
+                        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG or HEIC, up to 15MB each</p>
                       </button>
                     ) : (
                       <div className="grid gap-4 md:grid-cols-2">
-                        {selectedPhotos.map((photo) => (
+                        {selectedPhotos.map((photo, photoIndex) => (
                           <div
                             key={photo.id}
                             draggable={page.can_contribute}
@@ -972,7 +1387,9 @@ const ContributePage = () => {
                             </div>
                             <div className="p-4">
                               <div className="mb-2 flex items-center justify-between gap-3">
-                                <p className="text-sm font-semibold text-foreground">{photo.file.name}</p>
+                                <p className="text-sm font-semibold text-foreground truncate max-w-[200px]">
+                                  {photo.file?.name || `Photo ${photoIndex + 1}`}
+                                </p>
                                 <span className="text-xs text-muted-foreground">{photo.caption.length}/140</span>
                               </div>
                               <Input
@@ -1075,7 +1492,7 @@ const ContributePage = () => {
                   </div>
                 )}
 
-                {page.pool_fundraising_enabled && (
+                {page.pool_fundraising_enabled && !isEditMode && (
                   <div className="mb-6 rounded-[1.2rem] border border-emerald-200 bg-emerald-50/80 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -1167,17 +1584,33 @@ const ContributePage = () => {
                   <span>Preview How Your Card Looks</span>
                 </Button>
 
-                <Button type="submit" variant="hero" size="lg" className="w-full gap-2" disabled={submitting || uploading || uploadingAudio || isRecording || !page.can_contribute}>
-                  {submitting || uploading || uploadingAudio ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                <Button
+                  type="submit"
+                  variant="hero"
+                  size="lg"
+                  className="w-full gap-2"
+                  disabled={submitting || uploading || uploadingAudio || isRecording || (isEditMode ? isLocked : !page.can_contribute)}
+                >
+                  {submitting || uploading || uploadingAudio ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : isEditMode ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
                   {uploading
                     ? 'Uploading photos...'
                     : uploadingAudio
                       ? 'Uploading audio...'
                       : submitting
-                        ? 'Adding your wish...'
-                        : page.pool_fundraising_enabled && poolAmountNaira.trim().length > 0
-                          ? 'Add my wish and continue to payment'
-                          : 'Add my wish'}
+                        ? isEditMode
+                          ? 'Saving changes...'
+                          : 'Adding your wish...'
+                        : isEditMode
+                          ? 'Save changes to my wish'
+                          : page.pool_fundraising_enabled && poolAmountNaira.trim().length > 0
+                            ? 'Add my wish and continue to payment'
+                            : 'Add my wish'}
                 </Button>
               </div>
             </form>
@@ -1188,10 +1621,45 @@ const ContributePage = () => {
           <ContributeSuccessPanel
             recipientName={page.recipient_name}
             themeTextClass={theme.text}
+            pageId={page.id}
+            editToken={editToken}
             onAddAnother={handleAddAnother}
+            onEditWish={handleEnterEditMode}
           />
         )}
       </main>
+
+      {page && (
+        <ContributeConfirmModal
+          isOpen={isConfirmModalOpen}
+          onClose={() => setIsConfirmModalOpen(false)}
+          onConfirm={handleConfirmFinalSubmit}
+          isSubmitting={submitting}
+          isEditMode={isEditMode}
+          recipientName={page.recipient_name}
+          senderName={senderName || 'Anonymous'}
+          message={message}
+          selectedPhotos={selectedPhotos}
+          wishAudioPreviewUrl={
+            wishAudioPreviewUrl ||
+            (existingAudioUrl ? resolveAssetUrl(existingAudioUrl) || existingAudioUrl : null)
+          }
+          stickers={stickers}
+          poolAmountNaira={poolAmountNaira}
+          poolFundraisingEnabled={page.pool_fundraising_enabled && !isEditMode}
+          pageTheme={page.theme}
+          customGradient={customGradient}
+          themeGradientFrom={page.theme_gradient_from}
+          themeGradientTo={page.theme_gradient_to}
+          themeGradientMid={page.theme_gradient_mid}
+          themeGradientAngle={page.theme_gradient_angle}
+          themeEmoji={page.theme_emoji}
+          themeFont={page.theme_font}
+          displayMode={page.display_mode}
+          letterTheme={page.letter_theme}
+          coverPhotoUrl={page.cover_photo_url}
+        />
+      )}
     </div>
   );
 };

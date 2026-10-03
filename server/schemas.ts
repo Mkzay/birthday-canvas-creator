@@ -209,6 +209,15 @@ export const publicMessageBodySchema = z.object({
   contributionAmountKobo: z.union([z.coerce.number().int().min(0).max(500000000), z.null()]).optional(),
 });
 
+export const publicMessageEditBodySchema = z.object({
+  senderName: z.string().max(120).optional(),
+  message: z.string().min(1).max(20000),
+  photoUrl: z.union([z.string().max(2000), z.null()]).optional(),
+  audioUrl: z.union([z.string().max(2000), z.null()]).optional(),
+  photos: z.array(contributionPhotoSchema).max(12).optional(),
+  stickers: z.array(contributionStickerSchema).max(20).optional(),
+});
+
 export const uploadPageIdBodySchema = z.object({
   pageId: z.string().min(1).max(80),
 });

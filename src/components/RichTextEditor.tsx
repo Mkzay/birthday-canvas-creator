@@ -1,6 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -66,7 +65,6 @@ const RichTextEditor = ({ value, onChange, placeholder, maxLength = 500, disable
         blockquote: false,
         horizontalRule: false,
       }),
-      Underline,
       Placeholder.configure({ placeholder: placeholder || 'Write your message...' }),
     ],
     content: value,

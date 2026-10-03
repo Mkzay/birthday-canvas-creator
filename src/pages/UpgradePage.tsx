@@ -162,7 +162,7 @@ const UpgradePage = () => {
     const fetchUserStats = async () => {
       if (!user) return;
       try {
-        const data = await apiFetch<BirthdayPage[]>('/pages');
+        const data = await apiFetch<BirthdayPage[]>('/pages/dashboard');
         setPages(data || []);
       } catch (error) {
         console.error('Failed to load stats for perks page', error);
@@ -301,7 +301,7 @@ const UpgradePage = () => {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 flex overflow-hidden">
+    <div className="relative h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 flex overflow-hidden">
       {/* Background Celebratory Glows identical to Dashboard & Settings */}
       <div className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-amber-200/35 to-rose-200/20 blur-3xl" />
       <div className="pointer-events-none absolute -right-40 top-20 h-[520px] w-[520px] rounded-full bg-gradient-to-bl from-rose-200/30 to-amber-200/25 blur-3xl" />
@@ -341,7 +341,7 @@ const UpgradePage = () => {
       </Sheet>
 
       {/* 2. MAIN STUDIO WORKBENCH */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         
         {/* Top Command Bar */}
         <header className="bg-white/85 backdrop-blur-md border-b border-stone-200/90 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">

@@ -27,9 +27,42 @@ export interface PublicBirthdayPageData {
 
 export interface PendingPhoto {
   id: string;
-  file: File;
+  file?: File;
   previewUrl: string;
   caption: string;
+  existingUrl?: string;
+}
+
+export interface StoredContributorWish {
+  pageId: string;
+  messageId: string;
+  editToken: string;
+  senderName: string;
+  updatedAt: number;
+}
+
+export interface ContributorWishResponse {
+  message: {
+    id: string;
+    sender_name: string;
+    message: string;
+    audio_url: string | null;
+    photos: Array<{
+      id: string;
+      photo_url: string;
+      caption: string | null;
+      sort_order: number;
+    }>;
+    contribution_amount_kobo: number;
+    created_at: string;
+    last_edited_at?: string | null;
+    edit_count?: number;
+  } | null;
+  isDeleted?: boolean;
+  undoAvailable?: boolean;
+  isLocked: boolean;
+  lockReason?: string;
+  canEdit: boolean;
 }
 
 export interface ContributionDraft {

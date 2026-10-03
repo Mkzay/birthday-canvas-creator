@@ -574,4 +574,56 @@ export async function initializeDatabase() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_birthday_pages_guest_email ON birthday_pages(guest_email);
   `;
+
+  await sql`
+    ALTER TABLE birthday_messages
+    ADD COLUMN IF NOT EXISTS edit_token_hash TEXT;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_messages
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_messages
+    ADD COLUMN IF NOT EXISTS last_edited_at TIMESTAMPTZ;
+  `;
+
+  await sql`
+    ALTER TABLE birthday_messages
+    ADD COLUMN IF NOT EXISTS edit_count INTEGER NOT NULL DEFAULT 0;
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_birthday_messages_edit_token_hash
+    ON birthday_messages(edit_token_hash);
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_birthday_messages_deleted_at
+    ON birthday_messages(deleted_at);
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS wish_edit_logs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      message_id UUID NOT NULL REFERENCES birthday_messages(id) ON DELETE CASCADE,
+      page_id UUID NOT NULL REFERENCES birthday_pages(id) ON DELETE CASCADE,
+      action TEXT NOT NULL,
+      seconds_since_creation INTEGER,
+      client_ip TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_wish_edit_logs_message_id
+    ON wish_edit_logs(message_id);
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_wish_edit_logs_page_id
+    ON wish_edit_logs(page_id);
+  `;
 }

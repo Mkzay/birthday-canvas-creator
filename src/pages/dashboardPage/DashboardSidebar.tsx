@@ -56,7 +56,7 @@ export function DashboardSidebar({
 
   const containerClasses = isMobileDrawer
     ? 'w-full h-full bg-[#FAF7F2] text-slate-900 flex flex-col justify-between select-none p-5 overflow-y-auto'
-    : `bg-[#FAF7F2] text-slate-900 flex flex-col justify-between border-r border-stone-200/90 shrink-0 hidden lg:flex select-none transition-[width] duration-300 ease-in-out ${
+    : `sticky top-0 h-screen bg-[#FAF7F2] text-slate-900 flex flex-col justify-between border-r border-stone-200/90 shrink-0 hidden lg:flex select-none z-30 overflow-y-auto transition-[width] duration-300 ease-in-out ${
         isCollapsed ? 'w-20' : 'w-64'
       }`;
 
