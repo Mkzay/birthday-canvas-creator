@@ -303,10 +303,10 @@ export async function batchInsertMessageStickers(
   const payload = JSON.stringify(
     stickers.map((s) => ({
       sticker_type: String(s.stickerType),
-      position_x: Number(s.positionX),
-      position_y: Number(s.positionY),
-      rotation: Number(s.rotation || 0),
-      scale: Number(s.scale || 1),
+      position_x: Number.isFinite(Number(s.positionX)) ? Number(s.positionX) : 50,
+      position_y: Number.isFinite(Number(s.positionY)) ? Number(s.positionY) : 50,
+      rotation: Number.isFinite(Number(s.rotation)) ? Number(s.rotation) : 0,
+      scale: Number.isFinite(Number(s.scale)) ? Number(s.scale) : 1,
     }))
   );
   await sql`

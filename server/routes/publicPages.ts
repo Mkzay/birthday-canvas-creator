@@ -386,14 +386,7 @@ publicPagesRouter.post("/:id/messages", validateParams(pageIdParamSchema), publi
     await batchInsertMessageStickers(createdMessage.id, stickers);
   }
 
-  if (contributionAmountKobo > 0) {
-    await sql`
-      UPDATE birthday_pages
-      SET pooled_amount_kobo = pooled_amount_kobo + ${contributionAmountKobo},
-          updated_at = NOW()
-      WHERE id = ${resolvedPageId}
-    `;
-  }
+  // Note: pooled_amount_kobo is strictly updated through verified Paystack transactions in upsertSuccessfulPoolContributionFromPayment
 
   await sql`
     INSERT INTO wish_edit_logs (message_id, page_id, action, seconds_since_creation, client_ip)

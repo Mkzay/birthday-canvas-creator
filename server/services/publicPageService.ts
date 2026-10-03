@@ -88,6 +88,11 @@ export function checkTokenEditRateLimit(tokenHash: string): boolean {
         tokenEditRateLimitStore.delete(k);
       }
     }
+    while (tokenEditRateLimitStore.size > 2000) {
+      const oldestKey = tokenEditRateLimitStore.keys().next().value;
+      if (!oldestKey) break;
+      tokenEditRateLimitStore.delete(oldestKey);
+    }
   }
   const entry = tokenEditRateLimitStore.get(tokenHash);
   if (!entry || entry.resetAt <= now) {

@@ -139,6 +139,7 @@ giftPoolRouter.post(
       SELECT id, status
       FROM pool_payouts
       WHERE page_id = ${String(page.id)}
+        AND provider = 'paystack'
         AND status IN ('success', 'processing')
       ORDER BY created_at DESC
       LIMIT 1
@@ -153,7 +154,16 @@ giftPoolRouter.post(
       return;
     }
 
-    const transferRef = `wishcanvas_payout_${String(page.id).replace(/-/g, "").slice(0, 24)}`;
+    // Supersede any recipient notification request records
+    await sql`
+      UPDATE pool_payouts
+      SET status = 'superseded', updated_at = NOW()
+      WHERE page_id = ${String(page.id)}
+        AND provider = 'request'
+        AND status = 'processing'
+    `;
+
+    const transferRef = `wishcanvas_payout_${String(page.id).replace(/-/g, "").slice(0, 16)}_${Date.now().toString(36)}`;
 
     const lockRows = await sql`
       INSERT INTO pool_payouts (

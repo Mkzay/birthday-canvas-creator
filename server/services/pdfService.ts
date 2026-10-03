@@ -114,9 +114,15 @@ export async function buildBrandedPagePdf(
     cursorY = height - 160;
   };
 
+function cleanPdfText(text: string): string {
+  // Strip characters outside WinAnsi range (e.g. emojis) to prevent pdf-lib encoding crash
+  return text.replace(/[^\x20-\x7E\xA0-\xFF]/g, "");
+}
+
   const drawLine = (text: string, size = 11, bold = false) => {
     ensureSpace(lineHeight + 2);
-    currentPage.drawText(text, {
+    const sanitized = cleanPdfText(text);
+    currentPage.drawText(sanitized, {
       x: margin,
       y: cursorY,
       size,

@@ -198,6 +198,15 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
     }
   }, [wishAudioPreviewUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   const modeBadge = useMemo(() => {
     switch (effectiveMode) {
       case 'freeform':
