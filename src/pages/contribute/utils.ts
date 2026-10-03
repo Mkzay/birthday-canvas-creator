@@ -21,3 +21,16 @@ export function formatNairaInputWithCommas(raw: string) {
 
   return cleaned.includes('.') ? `${groupedInteger}.${decimalPart}` : groupedInteger;
 }
+
+export function formatKobo(value: number) {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    maximumFractionDigits: 0,
+  }).format(value / 100);
+}
+
+export function calculateTotalChargeKobo(contributionAmountKobo: number) {
+  const platformFeeKobo = Math.round(contributionAmountKobo * 0.015);
+  return contributionAmountKobo + platformFeeKobo;
+}

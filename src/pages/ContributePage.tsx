@@ -1,129 +1,37 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Check, GripVertical, HandCoins, ImagePlus, Loader2, Lock, Mic2, Pencil, Send, Trash2, X, Square, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import RichTextEditor from '@/components/RichTextEditor';
 import { toast } from 'sonner';
 import Confetti from '@/components/Confetti';
 import { parseLocalDate } from '@/lib/date';
-import { ApiError, apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
+import { apiFetch, resolveAssetUrl } from '@/lib/api';
 import BrandLogo from '@/components/BrandLogo';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
-import StickerPicker, { type StickerData } from '@/components/StickerPicker';
-import { compressImageFile } from '@/lib/imageCompressor';
 import { visualThemeConfig, fontClassMap } from '@/lib/themes';
-import type {
-  ContributionDraft,
-  PendingPhoto,
-  PublicBirthdayPageData,
-  StoredContributorWish,
-  ContributorWishResponse,
-} from '@/pages/contribute';
 import {
-  CONTRIBUTION_PLATFORM_FEE_RATE,
   ContributeSuccessPanel,
   ContributorWishPreview,
   ContributeConfirmModal,
-  MAX_PHOTOS,
-  MAX_WISH_MESSAGE_CHARACTERS,
-  extractPlainTextFromRichHtml,
-  formatNairaInputWithCommas,
+  ContributeForm,
+  useWishSubmissionEngine,
+  type PublicBirthdayPageData,
 } from '@/pages/contribute';
 
 const themeConfig = visualThemeConfig;
-
-const CONTRIBUTIONS_STORAGE_KEY = 'wishcanvas_contributions';
-
-function getStoredContributions(): Record<string, StoredContributorWish> {
-  try {
-    const raw = localStorage.getItem(CONTRIBUTIONS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveStoredContribution(entry: StoredContributorWish) {
-  try {
-    const all = getStoredContributions();
-    all[entry.pageId] = entry;
-    localStorage.setItem(CONTRIBUTIONS_STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // Ignore storage quota errors
-  }
-}
-
-function removeStoredContribution(pageId: string) {
-  try {
-    const all = getStoredContributions();
-    delete all[pageId];
-    localStorage.setItem(CONTRIBUTIONS_STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // Ignore
-  }
-}
 
 const ContributePage = () => {
   const { pageId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState<PublicBirthdayPageData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [senderName, setSenderName] = useState('');
-  const [message, setMessage] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [mobileView, setMobileView] = useState<'form' | 'preview'>('form');
-  const [selectedPhotos, setSelectedPhotos] = useState<PendingPhoto[]>([]);
-  const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
-  const [wishAudio, setWishAudio] = useState<File | null>(null);
-  const [wishAudioPreviewUrl, setWishAudioPreviewUrl] = useState<string | null>(null);
-  const [existingAudioUrl, setExistingAudioUrl] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const [uploading, setUploading] = useState(false);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
-  const [poolAmountNaira, setPoolAmountNaira] = useState('');
-  const [poolContributorEmail, setPoolContributorEmail] = useState('');
-  const [recentContributionKobo, setRecentContributionKobo] = useState<number | null>(null);
 
-  // Edit wish state
-  const [editToken, setEditToken] = useState<string | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
-  const [lockReason, setLockReason] = useState<string | null>(null);
-  const [recognizedWish, setRecognizedWish] = useState<StoredContributorWish | null>(null);
-  const [isDeletingWish, setIsDeletingWish] = useState(false);
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
-  const poolAmountInputRef = useRef<HTMLInputElement>(null);
-  const selectedPhotosRef = useRef<PendingPhoto[]>([]);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordingTimerRef = useRef<number | null>(null);
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const [stickers, setStickers] = useState<StickerData[]>([]);
-  const [draftHydrated, setDraftHydrated] = useState(false);
-
-  const draftStorageKey = pageId ? `contribute-draft:${pageId}` : null;
-
-  useEffect(() => {
-    selectedPhotosRef.current = selectedPhotos;
-  }, [selectedPhotos]);
-
-  useEffect(() => {
-    return () => {
-      selectedPhotosRef.current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
-      if (wishAudioPreviewUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(wishAudioPreviewUrl);
-      }
-    };
-  }, [wishAudioPreviewUrl]);
+  const engine = useWishSubmissionEngine({
+    page,
+    pageId,
+    onPageUpdate: setPage,
+  });
 
   const fetchPage = useCallback(async () => {
     if (!pageId) return;
@@ -139,691 +47,39 @@ const ContributePage = () => {
     }
   }, [pageId]);
 
-  const getFragmentEditToken = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    const hash = window.location.hash;
-    if (!hash) return null;
-    const match = hash.match(/#edit=([a-f0-9]+)/i);
-    return match ? match[1] : null;
-  }, []);
-
-  const loadWishForEditing = useCallback(async (token: string) => {
-    if (!pageId) return;
-
-    try {
-      const res = await apiFetch<ContributorWishResponse>(`/public/pages/${pageId}/my-wish`, {
-        headers: {
-          'x-wish-edit-token': token,
-        },
-      });
-
-      if (!res.message) {
-        if (res.isDeleted) {
-          toast.error('This wish has been deleted.');
-        } else {
-          toast.error('Wish not found.');
-        }
-        return;
-      }
-
-      setEditToken(token);
-      setEditingMessageId(res.message.id);
-      setIsEditMode(true);
-      setIsLocked(res.isLocked);
-      setLockReason(res.lockReason || null);
-
-      setSenderName(res.message.sender_name || '');
-      setMessage(res.message.message || '');
-
-      const loadedPhotos: PendingPhoto[] = (res.message.photos || []).map((p) => ({
-        id: p.id,
-        previewUrl: resolveAssetUrl(p.photo_url) || p.photo_url,
-        caption: p.caption || '',
-        existingUrl: p.photo_url,
-      }));
-      setSelectedPhotos(loadedPhotos);
-
-      if (res.message.audio_url) {
-        setExistingAudioUrl(res.message.audio_url);
-        setWishAudioPreviewUrl(resolveAssetUrl(res.message.audio_url) || res.message.audio_url);
-        setWishAudio(null);
-      } else {
-        setExistingAudioUrl(null);
-        setWishAudioPreviewUrl(null);
-        setWishAudio(null);
-      }
-
-      saveStoredContribution({
-        pageId,
-        messageId: res.message.id,
-        editToken: token,
-        senderName: res.message.sender_name,
-        updatedAt: Date.now(),
-      });
-
-      if (res.isLocked) {
-        toast.info(res.lockReason || 'This canvas is sealed or revealed. Wishes can no longer be edited.');
-      } else {
-        toast.success('Your wish has been loaded for editing.');
-      }
-    } catch (error) {
-      console.error('Failed to load wish for editing:', error);
-      if (error instanceof ApiError && error.status === 403) {
-        toast.error('Invalid or expired edit link.');
-      } else {
-        toast.error('Could not load your wish for editing.');
-      }
-    }
-  }, [pageId]);
-
   useEffect(() => {
     if (pageId) {
       void fetchPage();
     }
   }, [fetchPage, pageId]);
 
+  // Handle return from Paystack checkout redirect
   useEffect(() => {
-    if (!pageId) return;
-
-    const fragmentToken = getFragmentEditToken();
-    if (fragmentToken) {
-      void loadWishForEditing(fragmentToken);
-      return;
-    }
-
-    const stored = getStoredContributions();
-    const entry = stored[pageId];
-    if (entry && entry.editToken) {
-      apiFetch<ContributorWishResponse>(`/public/pages/${pageId}/my-wish`, {
-        headers: { 'x-wish-edit-token': entry.editToken },
-      })
-        .then((res) => {
-          if (res.message && !res.isDeleted) {
-            setRecognizedWish(entry);
-          } else {
-            removeStoredContribution(pageId);
-          }
-        })
-        .catch(() => {
-          removeStoredContribution(pageId);
-        });
-    }
-  }, [getFragmentEditToken, loadWishForEditing, pageId]);
-
-  useEffect(() => {
-    if (!draftStorageKey) {
-      setDraftHydrated(false);
-      return;
-    }
-
-    try {
-      const stored = sessionStorage.getItem(draftStorageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<ContributionDraft>;
-        if (typeof parsed.senderName === 'string') {
-          setSenderName(parsed.senderName);
-        }
-        if (typeof parsed.message === 'string') {
-          setMessage(parsed.message);
-        }
-        if (typeof parsed.poolAmountNaira === 'string') {
-          setPoolAmountNaira(parsed.poolAmountNaira);
-        }
-        if (typeof parsed.poolContributorEmail === 'string') {
-          setPoolContributorEmail(parsed.poolContributorEmail);
-        }
-        if (Array.isArray(parsed.stickers)) {
-          setStickers(parsed.stickers);
-        }
+    if (searchParams.get('contribution') === 'success') {
+      const koboRaw = Number(searchParams.get('amount_kobo'));
+      if (Number.isFinite(koboRaw) && koboRaw > 0) {
+        toast.success('Your pool gift was received successfully!');
       }
-    } catch {
-      // Ignore malformed draft payloads and continue with fresh state.
-    } finally {
-      setDraftHydrated(true);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('contribution');
+      nextParams.delete('amount_kobo');
+      setSearchParams(nextParams, { replace: true });
     }
-  }, [draftStorageKey]);
-
-  useEffect(() => {
-    if (!draftStorageKey || !draftHydrated || isSubmitted) {
-      return;
-    }
-
-    const draft: ContributionDraft = {
-      senderName,
-      message,
-      poolAmountNaira,
-      poolContributorEmail,
-      stickers,
-      updatedAt: Date.now(),
-    };
-
-    sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
-  }, [
-    draftHydrated,
-    draftStorageKey,
-    isSubmitted,
-    message,
-    poolAmountNaira,
-    poolContributorEmail,
-    senderName,
-    stickers,
-  ]);
-
-  const placeholderTemplates = [
-    (name: string) => `Write something ${name} will never forget...`,
-    (name: string) => `What's your favorite memory with ${name}?`,
-    (name: string) => `If you could tell ${name} one thing on their birthday...`,
-    (name: string) => `What makes ${name} so special to you?`,
-    (name: string) => `Write your birthday wish for ${name}...`,
-  ];
-
-  const currentPlaceholder = page
-    ? placeholderTemplates[placeholderIndex % placeholderTemplates.length](page.recipient_name)
-    : 'Write your birthday wish...';
-
-  useEffect(() => {
-    if (!page) return;
-    const timer = setInterval(() => {
-      setPlaceholderIndex((i) => (i + 1) % placeholderTemplates.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [page, placeholderTemplates.length]);
-
-  const clearSelectedPhotos = useCallback(() => {
-    setSelectedPhotos((currentPhotos) => {
-      currentPhotos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
-      return [];
-    });
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, []);
-
-  const handleWishAudioSelect = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const mimeType = file.type.toLowerCase();
-    const isAudioLike =
-      mimeType.startsWith('audio/') ||
-      mimeType === 'video/3gpp' ||
-      mimeType === 'video/3gpp2';
-
-    if (!isAudioLike) {
-      toast.error('Please select an audio or voice-note file');
-      event.target.value = '';
-      return;
-    }
-
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error('Audio must be less than 8MB');
-      event.target.value = '';
-      return;
-    }
-
-    if (wishAudioPreviewUrl?.startsWith('blob:')) {
-      URL.revokeObjectURL(wishAudioPreviewUrl);
-    }
-
-    setWishAudio(file);
-    setWishAudioPreviewUrl(URL.createObjectURL(file));
-    event.target.value = '';
-  };
-
-  const removeWishAudio = () => {
-    setWishAudio(null);
-    if (wishAudioPreviewUrl?.startsWith('blob:')) {
-      URL.revokeObjectURL(wishAudioPreviewUrl);
-    }
-    setWishAudioPreviewUrl(null);
-    setExistingAudioUrl(null);
-    if (audioInputRef.current) {
-      audioInputRef.current.value = '';
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      let mimeType = '';
-      if (typeof MediaRecorder !== 'undefined') {
-        if (MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')) {
-          mimeType = 'audio/mp4;codecs=mp4a.40.2';
-        } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-          mimeType = 'audio/webm;codecs=opus';
-        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          mimeType = 'audio/webm';
-        }
-      }
-
-      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const blobType = mimeType || 'audio/webm';
-        const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
-        const extension = blobType.startsWith('audio/mp4') ? 'm4a' : 'webm';
-        const audioFile = new File([audioBlob], `voice-note.${extension}`, { type: blobType });
-        
-        if (wishAudioPreviewUrl?.startsWith('blob:')) {
-          URL.revokeObjectURL(wishAudioPreviewUrl);
-        }
-        
-        setWishAudio(audioFile);
-        setWishAudioPreviewUrl(URL.createObjectURL(audioBlob));
-        
-        stream.getTracks().forEach((track) => track.stop());
-        
-        if (recordingTimerRef.current !== null) {
-          window.clearInterval(recordingTimerRef.current);
-          recordingTimerRef.current = null;
-        }
-        setRecordingDuration(0);
-        setIsRecording(false);
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      
-      recordingTimerRef.current = window.setInterval(() => {
-        setRecordingDuration((prev) => prev + 1);
-      }, 1000);
-      
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      toast.error('Could not access microphone. Please check your permissions.');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-    }
-  };
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const reorderPhotos = (sourceId: string, targetId: string) => {
-    if (sourceId === targetId) return;
-
-    setSelectedPhotos((currentPhotos) => {
-      const sourceIndex = currentPhotos.findIndex((photo) => photo.id === sourceId);
-      const targetIndex = currentPhotos.findIndex((photo) => photo.id === targetId);
-
-      if (sourceIndex === -1 || targetIndex === -1) {
-        return currentPhotos;
-      }
-
-      const nextPhotos = [...currentPhotos];
-      const [movedPhoto] = nextPhotos.splice(sourceIndex, 1);
-      nextPhotos.splice(targetIndex, 0, movedPhoto);
-      return nextPhotos;
-    });
-  };
-
-  const handlePhotoSelect = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (!files.length) return;
-
-    const availableSlots = MAX_PHOTOS - selectedPhotos.length;
-    if (availableSlots <= 0) {
-      toast.error(`You can attach up to ${MAX_PHOTOS} photos`);
-      event.target.value = '';
-      return;
-    }
-
-    const incomingFiles = files.slice(0, availableSlots);
-    const validImageFiles = incomingFiles.filter((file) => {
-      if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} is not an image`);
-        return false;
-      }
-      return true;
-    });
-
-    if (!validImageFiles.length) {
-      event.target.value = '';
-      return;
-    }
-
-    // Automatically optimize images to ensure fast uploads on mobile networks
-    const acceptedFiles: PendingPhoto[] = [];
-    for (const file of validImageFiles) {
-      try {
-        const optimizedFile = await compressImageFile(file, { maxDimension: 1600, quality: 0.82 });
-        acceptedFiles.push({
-          id: crypto.randomUUID(),
-          file: optimizedFile,
-          previewUrl: URL.createObjectURL(optimizedFile),
-          caption: '',
-        });
-      } catch {
-        acceptedFiles.push({
-          id: crypto.randomUUID(),
-          file,
-          previewUrl: URL.createObjectURL(file),
-          caption: '',
-        });
-      }
-    }
-
-    if (files.length > availableSlots) {
-      toast.error(`Only ${availableSlots} more photo${availableSlots === 1 ? '' : 's'} can be added`);
-    }
-
-    if (acceptedFiles.length) {
-      setSelectedPhotos((currentPhotos) => [...currentPhotos, ...acceptedFiles]);
-    }
-
-    event.target.value = '';
-  };
-
-  const handlePhotoCaptionChange = (photoId: string, caption: string) => {
-    setSelectedPhotos((currentPhotos) =>
-      currentPhotos.map((photo) => (photo.id === photoId ? { ...photo, caption: caption.slice(0, 140) } : photo)),
-    );
-  };
-
-  const removePhoto = (photoId: string) => {
-    setSelectedPhotos((currentPhotos) => {
-      const photoToRemove = currentPhotos.find((photo) => photo.id === photoId);
-      if (photoToRemove) {
-        URL.revokeObjectURL(photoToRemove.previewUrl);
-      }
-
-      return currentPhotos.filter((photo) => photo.id !== photoId);
-    });
-  };
-
-  const uploadWishAudio = async () => {
-    if (existingAudioUrl && !wishAudio) {
-      return existingAudioUrl;
-    }
-    if (!wishAudio || !pageId) return null;
-
-    setUploadingAudio(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', wishAudio);
-      const data = await apiForm<{ url: string }>(`/public/pages/${pageId}/message-audio`, formData);
-      return data.url;
-    } catch (error) {
-      console.error('Audio upload error:', error);
-      toast.error('Failed to upload audio message');
-      return null;
-    } finally {
-      setUploadingAudio(false);
-    }
-  };
-
-  const uploadPhotos = async () => {
-    if (!pageId || !selectedPhotos.length) return [];
-
-    setUploading(true);
-
-    try {
-      const uploads = await Promise.all(
-        selectedPhotos.map(async (photo) => {
-          if (photo.existingUrl) {
-            return {
-              url: photo.existingUrl,
-              caption: photo.caption.trim() || null,
-            };
-          }
-
-          if (!photo.file) return null;
-
-          const formData = new FormData();
-          formData.append('file', photo.file);
-
-          const data = await apiForm<{ url: string }>(`/public/pages/${pageId}/message-photo`, formData);
-          return {
-            url: data.url,
-            caption: photo.caption.trim() || null,
-          };
-        }),
-      );
-
-      return uploads.filter(Boolean) as Array<{ url: string; caption: string | null }>;
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast.error('Failed to upload one or more photos');
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleStartEditingRecognizedWish = () => {
-    if (!recognizedWish) return;
-    window.location.hash = `edit=${recognizedWish.editToken}`;
-    void loadWishForEditing(recognizedWish.editToken);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditMode(false);
-    setEditingMessageId(null);
-    setEditToken(null);
-    setIsLocked(false);
-    setLockReason(null);
-    setSenderName('');
-    setMessage('');
-    clearSelectedPhotos();
-    removeWishAudio();
-    window.history.replaceState(null, '', window.location.pathname);
-  };
-
-  const handleEnterEditMode = () => {
-    setIsSubmitted(false);
-    if (editToken) {
-      window.location.hash = `edit=${editToken}`;
-      void loadWishForEditing(editToken);
-    }
-  };
-
-  const handleDeleteWish = async () => {
-    if (!pageId || !editingMessageId || !editToken) return;
-
-    const confirmed = window.confirm(
-      `Are you sure you want to delete your wish for ${page?.recipient_name || 'the recipient'}? You have 10 minutes to undo this action.`,
-    );
-    if (!confirmed) return;
-
-    setIsDeletingWish(true);
-    const deletedMsgId = editingMessageId;
-    const deletedToken = editToken;
-
-    try {
-      await apiFetch(`/public/pages/${pageId}/messages/${editingMessageId}`, {
-        method: 'DELETE',
-        headers: { 'x-wish-edit-token': editToken },
-      });
-
-      removeStoredContribution(pageId);
-      window.history.replaceState(null, '', window.location.pathname);
-
-      setIsEditMode(false);
-      setEditingMessageId(null);
-      setEditToken(null);
-      setSenderName('');
-      setMessage('');
-      clearSelectedPhotos();
-      removeWishAudio();
-
-      setPage((prev) =>
-        prev
-          ? {
-              ...prev,
-              message_count: Math.max(0, prev.message_count - 1),
-            }
-          : prev,
-      );
-
-      toast.success('Your wish has been deleted.', {
-        duration: 10000,
-        action: {
-          label: 'Undo',
-          onClick: async () => {
-            try {
-              await apiFetch(
-                `/public/pages/${pageId}/messages/${deletedMsgId}/undo-delete`,
-                {
-                  method: 'POST',
-                  headers: { 'x-wish-edit-token': deletedToken },
-                },
-              );
-              toast.success('Your wish has been restored!');
-              window.location.hash = `edit=${deletedToken}`;
-              void loadWishForEditing(deletedToken);
-              setPage((p) => (p ? { ...p, message_count: p.message_count + 1 } : p));
-            } catch (err) {
-              console.error('Undo delete failed:', err);
-              toast.error('Could not undo delete. The undo period may have expired.');
-            }
-          },
-        },
-      });
-    } catch (error) {
-      console.error('Delete wish error:', error);
-      toast.error('Failed to delete wish.');
-    } finally {
-      setIsDeletingWish(false);
-    }
-  };
-
-  const formatKobo = (value: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      maximumFractionDigits: 2,
-    }).format(value / 100);
-  };
-
-  const calculateTotalChargeKobo = (contributionAmountKobo: number) => {
-    const platformFeeKobo = Math.round(contributionAmountKobo * CONTRIBUTION_PLATFORM_FEE_RATE);
-    return contributionAmountKobo + platformFeeKobo;
-  };
-
-  const initializePoolPayment = async (amountKobo: number, contributorName: string | null, contributorEmail: string | null) => {
-    if (!page) return;
-
-    const result = await apiFetch<{
-      authorizationUrl: string;
-      reference: string;
-      amountKobo: number;
-      contributionAmountKobo?: number;
-      totalChargeKobo?: number;
-    }>(`/public/pages/${page.id}/pool/initialize`, {
-      method: 'POST',
-      body: JSON.stringify({
-        amountKobo,
-        contributorName,
-        contributorEmail,
-        callbackPath: `/contribute/${page.id}?submitted=1`,
-      }),
-    });
-
-    sessionStorage.setItem(
-      `pool-payment:${page.id}:${result.reference}`,
-      JSON.stringify({ amountKobo: result.contributionAmountKobo ?? result.amountKobo }),
-    );
-
-    window.location.href = result.authorizationUrl;
-  };
-
-  useEffect(() => {
-    if (!pageId) return;
-
-    const status = searchParams.get('status')?.toLowerCase();
-    const reference = searchParams.get('reference') || searchParams.get('trxref');
-    const submitted = searchParams.get('submitted') === '1';
-
-    if (status !== 'success' || !reference) {
-      if (submitted) {
-        setIsSubmitted(true);
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete('submitted');
-        setSearchParams(nextParams, { replace: true });
-      }
-      return;
-    }
-
-    const finalizeVerifiedPayment = async () => {
-      const storageKey = `pool-payment:${pageId}:${reference}`;
-      const stored = sessionStorage.getItem(storageKey);
-
-      try {
-        await apiFetch<{ verified: boolean }>(`/public/pages/${pageId}/pool/verify`, {
-          method: 'POST',
-          body: JSON.stringify({ reference }),
-        });
-
-        await fetchPage();
-
-        if (stored) {
-          try {
-            const payload = JSON.parse(stored) as { amountKobo?: number };
-            if (typeof payload.amountKobo === 'number' && Number.isFinite(payload.amountKobo) && payload.amountKobo > 0) {
-              setRecentContributionKobo(payload.amountKobo);
-              toast.success(`Payment successful! You contributed ${formatKobo(payload.amountKobo)}.`);
-            } else {
-              toast.success('Payment successful!');
-            }
-          } catch {
-            toast.success('Payment successful!');
-          }
-          sessionStorage.removeItem(storageKey);
-        } else {
-          toast.success('Payment successful!');
-        }
-      } catch (error) {
-        console.error('Pool verify error:', error);
-        toast.error('Payment received but verification is still pending. Please refresh shortly.');
-      }
-    };
-
-    void finalizeVerifiedPayment();
-
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete('status');
-    nextParams.delete('reference');
-    nextParams.delete('trxref');
-    nextParams.delete('transaction_id');
-    nextParams.delete('submitted');
-
-    if (submitted) {
-      setIsSubmitted(true);
-    }
-
-    setSearchParams(nextParams, { replace: true });
-  }, [fetchPage, pageId, searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams]);
 
   if (loading) {
-    return <WishCanvasLoader />;
+    return <WishCanvasLoader message="Loading birthday page..." />;
   }
 
   if (!page) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mb-4 text-6xl">🔍</div>
-          <h1 className="mb-2 text-2xl font-bold text-foreground">Page not found</h1>
-          <p className="mb-6 text-muted-foreground">This birthday page doesn&apos;t exist or has been removed.</p>
-          <Link to="/">
-            <Button variant="hero">Go Home</Button>
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-soft">
+          <BrandLogo className="mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground">Page Not Found</h1>
+          <p className="mt-2 text-muted-foreground">This birthday page does not exist or may have been deleted.</p>
+          <Link to="/" className="mt-6 inline-block">
+            <Button variant="default">Go to Home</Button>
           </Link>
         </div>
       </div>
@@ -831,12 +87,6 @@ const ContributePage = () => {
   }
 
   const isCustomTheme = page.theme.startsWith('custom_');
-  const poolContributionAmountKobo = Number.isFinite(Number(poolAmountNaira.replace(/,/g, ''))) && Number(poolAmountNaira.replace(/,/g, '')) > 0
-    ? Math.round(Number(poolAmountNaira.replace(/,/g, '')) * 100)
-    : 0;
-  const poolTotalChargeKobo = poolContributionAmountKobo > 0
-    ? calculateTotalChargeKobo(poolContributionAmountKobo)
-    : 0;
   const builtInTheme = themeConfig[page.theme as keyof typeof themeConfig] || themeConfig.elegant;
   const customGradientFrom = page.theme_gradient_from || '#8b5cf6';
   const customGradientTo = page.theme_gradient_to || '#ec4899';
@@ -852,6 +102,7 @@ const ContributePage = () => {
         text: 'text-slate-950',
         bg: '',
         font: customThemeFont,
+        titleClass: customThemeFont,
         style: {
           background: `linear-gradient(${customGradientAngle}deg, ${customGradientStops})`,
         },
@@ -861,9 +112,12 @@ const ContributePage = () => {
         text: builtInTheme.text,
         bg: builtInTheme.heroClass,
         font: builtInTheme.font,
+        titleClass: builtInTheme.titleClass,
         style: undefined,
       };
 
+  const birthdayDate = parseLocalDate(page.birthday_date);
+  const formattedDate = birthdayDate ? format(birthdayDate, 'MMMM d, yyyy') : page.birthday_date;
   const customGradient = isCustomTheme
     ? {
         from: customGradientFrom,
@@ -873,310 +127,35 @@ const ContributePage = () => {
       }
     : undefined;
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-
-    if (isRecording) {
-      toast.error('Please stop your recording before submitting your wish');
-      return;
-    }
-
-    if (page.require_names && !senderName.trim()) {
-      toast.error('Please enter your name');
-      return;
-    }
-
-    const plainText = extractPlainTextFromRichHtml(message);
-    if (!plainText) {
-      toast.error('Please write a message');
-      return;
-    }
-
-    if (plainText.length > MAX_WISH_MESSAGE_CHARACTERS) {
-      toast.error(`Please keep your message within ${MAX_WISH_MESSAGE_CHARACTERS} characters`);
-      return;
-    }
-
-    if (isEditMode && isLocked) {
-      toast.error(lockReason || 'This canvas is sealed or revealed. Wishes can no longer be edited.');
-      return;
-    }
-
-    if (!isEditMode && !page.can_contribute) {
-      toast.error('This page is no longer accepting new wishes');
-      return;
-    }
-
-    const amountNaira = Number(poolAmountNaira.replace(/,/g, ''));
-    const hasPoolAmountInput = poolAmountNaira.trim().length > 0;
-    if (hasPoolAmountInput && !isEditMode) {
-      if (!Number.isFinite(amountNaira) || amountNaira <= 0) {
-        toast.error('Enter a valid amount in Naira or clear the amount field');
-        return;
-      }
-
-      const amountKobo = Math.round(amountNaira * 100);
-      if (amountKobo < 100) {
-        toast.error('Minimum amount is ₦1.00');
-        return;
-      }
-    }
-
-    setIsConfirmModalOpen(true);
-  };
-
-  const handleConfirmFinalSubmit = async () => {
-    if (!page) return;
-
-    setSubmitting(true);
-
-    const uploadedPhotos = selectedPhotos.length ? await uploadPhotos() : [];
-    if (uploadedPhotos === null) {
-      setSubmitting(false);
-      return;
-    }
-
-    const uploadedAudioUrl = wishAudio ? await uploadWishAudio() : (existingAudioUrl || null);
-    if (wishAudio && !uploadedAudioUrl) {
-      setSubmitting(false);
-      return;
-    }
-
-    const amountNaira = Number(poolAmountNaira.replace(/,/g, ''));
-
-    try {
-      if (isEditMode && editingMessageId && editToken) {
-        await apiFetch(`/public/pages/${page.id}/messages/${editingMessageId}`, {
-          method: 'PATCH',
-          headers: {
-            'x-wish-edit-token': editToken,
-          },
-          body: JSON.stringify({
-            senderName,
-            message,
-            photos: uploadedPhotos,
-            audioUrl: uploadedAudioUrl,
-          }),
-        });
-
-        saveStoredContribution({
-          pageId: page.id,
-          messageId: editingMessageId,
-          editToken,
-          senderName: senderName || 'Anonymous',
-          updatedAt: Date.now(),
-        });
-
-        if (draftStorageKey) {
-          sessionStorage.removeItem(draftStorageKey);
-        }
-
-        setIsConfirmModalOpen(false);
-        setShowConfetti(true);
-        setIsSubmitted(true);
-        toast.success('Your wish has been updated!');
-        setTimeout(() => setShowConfetti(false), 5000);
-        return;
-      }
-
-      const result = await apiFetch<{ id: string; editToken?: string }>(`/public/pages/${page.id}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({
-          senderName,
-          message,
-          photos: uploadedPhotos,
-          audioUrl: uploadedAudioUrl,
-          stickers: [],
-        }),
-      });
-
-      if (result.editToken) {
-        setEditToken(result.editToken);
-        setEditingMessageId(result.id);
-        saveStoredContribution({
-          pageId: page.id,
-          messageId: result.id,
-          editToken: result.editToken,
-          senderName: senderName || 'Anonymous',
-          updatedAt: Date.now(),
-        });
-      }
-
-      const shouldInitializePayment =
-        page.pool_fundraising_enabled &&
-        poolAmountNaira.trim().length > 0 &&
-        Number.isFinite(amountNaira) &&
-        amountNaira > 0;
-
-      if (shouldInitializePayment) {
-        const amountKobo = Math.round(amountNaira * 100);
-
-        if (draftStorageKey) {
-          sessionStorage.removeItem(draftStorageKey);
-        }
-
-        setIsConfirmModalOpen(false);
-        toast.success('Wish added. Redirecting you to payment...');
-
-        await initializePoolPayment(
-          amountKobo,
-          senderName.trim() || null,
-          poolContributorEmail.trim() || null,
-        );
-        return;
-      }
-
-      setIsConfirmModalOpen(false);
-      setShowConfetti(true);
-      setIsSubmitted(true);
-      if (draftStorageKey) {
-        sessionStorage.removeItem(draftStorageKey);
-      }
-      setPage((currentPage) =>
-        currentPage
-          ? {
-              ...currentPage,
-              message_count: currentPage.message_count + 1,
-            }
-          : currentPage,
-      );
-
-      setTimeout(() => setShowConfetti(false), 5000);
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 'CONTRIBUTOR_LIMIT_REACHED') {
-        toast.error('This page has reached the free contributor limit. Ask the creator to upgrade to Pro for more contributions.');
-        setIsConfirmModalOpen(false);
-        return;
-      }
-      if (error instanceof ApiError && error.code === 'WISH_LOCKED') {
-        toast.error(error.message || 'This canvas is sealed or revealed. Wishes can no longer be edited.');
-        setIsLocked(true);
-        setIsConfirmModalOpen(false);
-        return;
-      }
-      const messageText = error instanceof Error ? error.message : 'Failed to save wish';
-      toast.error(messageText);
-      console.error(error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleAddAnother = () => {
-    setSenderName('');
-    setMessage('');
-    setPoolAmountNaira('');
-    setPoolContributorEmail('');
-    clearSelectedPhotos();
-    removeWishAudio();
-    setStickers([]);
-    setIsSubmitted(false);
-    setIsEditMode(false);
-    setEditingMessageId(null);
-    setEditToken(null);
-    setIsLocked(false);
-    setLockReason(null);
-    window.history.replaceState(null, '', window.location.pathname);
-    if (draftStorageKey) {
-      sessionStorage.removeItem(draftStorageKey);
-    }
-  };
-
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.font}`} style={theme.style}>
-      {showConfetti && <Confetti />}
+      {engine.showConfetti && <Confetti />}
 
-      <header className="px-4 py-3 sm:px-6 sm:py-4">
-        <div className="mx-auto flex max-w-3xl flex-col items-center justify-center">
-          <BrandLogo compact className="mb-2 sm:mb-4 sm:gap-3" />
-          <p className={`text-center text-xs opacity-80 sm:text-sm ${theme.text}`}>
-            It&apos;s {page.recipient_name}&apos;s birthday on {format(parseLocalDate(page.birthday_date), 'MMMM d')}!
-          </p>
+      <header className="border-b border-border/10 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+          <Link to={`/p/${page.id}`} className="flex items-center gap-2">
+            <BrandLogo compact className="mb-0" />
+            <span className={`text-xs opacity-75 sm:text-sm ${theme.text}`}>&larr; View birthday page</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs opacity-80 sm:text-sm ${theme.text}`}>{page.recipient_name}&apos;s Birthday</span>
+          </div>
         </div>
       </header>
 
-      <main className={`mx-auto px-4 py-6 sm:px-6 sm:py-8 ${isSubmitted ? 'max-w-3xl' : 'max-w-7xl'}`}>
-        {!isSubmitted ? (
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        {!engine.isSubmitted ? (
           <>
-            {recognizedWish && !isEditMode && (
-              <div className="mx-auto mb-6 max-w-3xl animate-fade-in rounded-2xl border border-primary/20 bg-primary/5 p-4 backdrop-blur-sm sm:flex sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Pencil className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      You previously left a wish for {page.recipient_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Signed as &ldquo;{recognizedWish.senderName}&rdquo;. Want to update it?
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleStartEditingRecognizedWish}
-                  className="mt-3 w-full gap-2 rounded-xl font-medium sm:mt-0 sm:w-auto"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit Your Wish
-                </Button>
+            <div className="mb-8 text-center">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border/20 bg-card/60 px-4 py-1.5 backdrop-blur-md">
+                <span className="text-lg">🎉</span>
+                <span className="text-sm font-medium text-foreground">{formattedDate}</span>
               </div>
-            )}
-
-            {isEditMode && (
-              <div className="mx-auto mb-6 max-w-3xl animate-fade-in rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-950 backdrop-blur-sm dark:text-amber-100 sm:flex sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                    <Pencil className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">
-                      {isLocked ? 'This wish is locked' : `Editing your wish for ${page.recipient_name}`}
-                    </p>
-                    <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
-                      {isLocked
-                        ? (lockReason || 'This canvas is sealed or revealed. Wishes can no longer be edited.')
-                        : 'Update your message, photos, or voice note below.'}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center gap-2 sm:mt-0">
-                  {!isLocked && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={isDeletingWish}
-                      onClick={handleDeleteWish}
-                      className="text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400"
-                    >
-                      {isDeletingWish ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1 h-3.5 w-3.5" />}
-                      Delete Wish
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCancelEdit}
-                    className="rounded-xl text-xs"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <div className="mb-6 text-center animate-fade-in-up sm:mb-8">
-              <div className="mb-3 text-5xl sm:mb-4 sm:text-6xl">{theme.emoji}</div>
-              <h1 className={`px-2 text-2xl font-bold sm:text-3xl ${theme.text}`}>
-                {isEditMode ? `Edit your wish for ${page.recipient_name}` : `Add your birthday wish for ${page.recipient_name}`}
+              <h1 className={`text-3xl font-extrabold tracking-tight sm:text-4xl ${theme.titleClass || theme.font} ${theme.text}`}>
+                {engine.isEditMode ? 'Update Your Birthday Memory' : `Leave a Birthday Memory for ${page.recipient_name}`}
               </h1>
-              <p className={`mx-auto mt-3 max-w-2xl text-sm leading-relaxed opacity-80 sm:text-base ${theme.text}`}>
-                {isEditMode
+              <p className={`mx-auto mt-2 max-w-xl text-sm sm:text-base opacity-90 ${theme.text}`}>
+                {engine.isEditMode
                   ? 'Make any adjustments to your message, notes, photos, or voice note before the canvas is revealed.'
                   : 'Leave a message, add a few photos if you want, and attach a short note to each memory so the page feels more personal.'}
               </p>
@@ -1199,9 +178,7 @@ const ContributePage = () => {
                   type="button"
                   onClick={() => setMobileView('form')}
                   className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                    mobileView === 'form'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-stone-600 hover:text-slate-900'
+                    mobileView === 'form' ? 'bg-slate-900 text-white shadow-xs' : 'text-stone-600 hover:text-slate-900'
                   }`}
                 >
                   <span>✍️</span>
@@ -1211,14 +188,12 @@ const ContributePage = () => {
                   type="button"
                   onClick={() => setMobileView('preview')}
                   className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                    mobileView === 'preview'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'text-stone-600 hover:text-slate-900'
+                    mobileView === 'preview' ? 'bg-slate-900 text-white shadow-xs' : 'text-stone-600 hover:text-slate-900'
                   }`}
                 >
                   <span>👁️</span>
                   <span>Live Preview</span>
-                  {(selectedPhotos.length > 0 || message.trim() || wishAudioPreviewUrl || stickers.length > 0) && (
+                  {(engine.selectedPhotos.length > 0 || engine.message.trim() || engine.audioRecorder.wishAudioPreviewUrl || engine.stickers.length > 0) && (
                     <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   )}
                 </button>
@@ -1230,14 +205,17 @@ const ContributePage = () => {
               <div className={`lg:col-span-5 lg:sticky lg:top-8 self-start ${mobileView === 'preview' ? 'block' : 'hidden lg:block'}`}>
                 <ContributorWishPreview
                   recipientName={page.recipient_name}
-                  senderName={senderName}
-                  message={message}
-                  selectedPhotos={selectedPhotos}
-                  wishAudioPreviewUrl={wishAudioPreviewUrl}
-                  recordingDuration={recordingDuration}
-                  isRecording={isRecording}
-                  stickers={stickers}
-                  poolAmountNaira={poolAmountNaira}
+                  senderName={engine.senderName}
+                  message={engine.message}
+                  selectedPhotos={engine.selectedPhotos}
+                  wishAudioPreviewUrl={
+                    engine.audioRecorder.wishAudioPreviewUrl ||
+                    (engine.audioRecorder.existingAudioUrl ? resolveAssetUrl(engine.audioRecorder.existingAudioUrl) || engine.audioRecorder.existingAudioUrl : null)
+                  }
+                  recordingDuration={engine.audioRecorder.recordingDuration}
+                  isRecording={engine.audioRecorder.isRecording}
+                  stickers={engine.stickers}
+                  poolAmountNaira={engine.poolAmountNaira}
                   poolFundraisingEnabled={Boolean(page.pool_fundraising_enabled)}
                   themeKey={page.theme}
                   customGradient={customGradient}
@@ -1269,357 +247,14 @@ const ContributePage = () => {
 
               {/* Form Workbench Column */}
               <div className={`lg:col-span-7 ${mobileView === 'form' ? 'block' : 'hidden lg:block'}`}>
-                {!page.can_contribute && (
-                  <div className="mb-4 rounded-2xl border border-border bg-card/90 p-4 text-center shadow-soft">
-                    <div className="mb-2 flex items-center justify-center gap-2 text-foreground">
-                      <Lock className="h-4 w-4" />
-                      <span className="font-semibold">Wish collection is closed</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">This page is no longer accepting new messages or photos.</p>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="animate-fade-in-up space-y-5" style={{ animationDelay: '0.2s' }}>
-              <div className="rounded-[1.9rem] border border-border bg-card/96 p-4 shadow-soft sm:p-6">
-                {page.require_names && (
-                  <div className="mb-6">
-                    <Label htmlFor="name" className="text-foreground">
-                      Your Name
-                    </Label>
-                    <Input
-                      id="name"
-                      value={senderName}
-                      onChange={(event) => setSenderName(event.target.value)}
-                      placeholder="Enter your name"
-                      className="mt-2 h-12 rounded-xl"
-                      disabled={!page.can_contribute}
-                    />
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <Label htmlFor="message" className="mb-2 block text-foreground">
-                    Your Message
-                  </Label>
-                  <RichTextEditor
-                    value={message}
-                    onChange={setMessage}
-                    placeholder={currentPlaceholder}
-                    maxLength={MAX_WISH_MESSAGE_CHARACTERS}
-                    disabled={!page.can_contribute}
-                  />
-                </div>
-
-                {page.allow_photos && (
-                  <div className="mb-6">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <Label className="text-foreground">Photos and memory notes</Label>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Add up to {MAX_PHOTOS} photos. Each one can include a short note.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={!page.can_contribute || selectedPhotos.length >= MAX_PHOTOS}
-                      >
-                        <ImagePlus className="h-4 w-4" />
-                        Add photos
-                      </Button>
-                    </div>
-
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,.gif"
-                      multiple
-                      onChange={handlePhotoSelect}
-                      className="hidden"
-                      disabled={!page.can_contribute}
-                    />
-
-                    {selectedPhotos.length === 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full rounded-[1.4rem] border-2 border-dashed border-border bg-background/60 p-8 text-center transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={!page.can_contribute}
-                      >
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                          <ImagePlus className="h-6 w-6" />
-                        </div>
-                        <p className="mt-4 text-sm font-medium text-foreground">Add photos that make the message feel lived-in</p>
-                        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG or HEIC, up to 15MB each</p>
-                      </button>
-                    ) : (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {selectedPhotos.map((photo, photoIndex) => (
-                          <div
-                            key={photo.id}
-                            draggable={page.can_contribute}
-                            onDragStart={() => setDraggedPhotoId(photo.id)}
-                            onDragEnd={() => setDraggedPhotoId(null)}
-                            onDragOver={(event) => {
-                              event.preventDefault();
-                            }}
-                            onDrop={() => {
-                              if (draggedPhotoId) {
-                                reorderPhotos(draggedPhotoId, photo.id);
-                              }
-                              setDraggedPhotoId(null);
-                            }}
-                            className={[
-                              'overflow-hidden rounded-[1.5rem] border border-border bg-background/70 transition-shadow',
-                              draggedPhotoId === photo.id ? 'shadow-[0_0_0_2px_rgba(139,92,246,0.24)]' : '',
-                            ].join(' ')}
-                          >
-                            <div className="relative">
-                              <img src={photo.previewUrl} alt="Selected memory preview" className="h-52 w-full object-cover" />
-                              <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-background/85 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
-                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                                Drag to reorder
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removePhoto(photo.id)}
-                                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/85 text-foreground shadow-sm transition-colors hover:bg-background"
-                                aria-label="Remove selected photo"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <div className="p-4">
-                              <div className="mb-2 flex items-center justify-between gap-3">
-                                <p className="text-sm font-semibold text-foreground truncate max-w-[200px]">
-                                  {photo.file?.name || `Photo ${photoIndex + 1}`}
-                                </p>
-                                <span className="text-xs text-muted-foreground">{photo.caption.length}/140</span>
-                              </div>
-                              <Input
-                                value={photo.caption}
-                                onChange={(event) => handlePhotoCaptionChange(photo.id, event.target.value)}
-                                placeholder="Add a short memory note for this photo"
-                                className="h-11 rounded-xl"
-                                disabled={!page.can_contribute}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {page.allow_audio && (
-                  <div className="mb-6">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <Label className="text-foreground">Voice note (optional)</Label>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Add a short audio wish so they can hear your voice on the birthday page.
-                        </p>
-                      </div>
-                      {!wishAudioPreviewUrl && !isRecording && (
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="gap-2 text-primary border-primary/20 hover:bg-primary/5"
-                            onClick={startRecording}
-                            disabled={!page.can_contribute}
-                          >
-                            <Mic className="h-4 w-4" />
-                            Record
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => audioInputRef.current?.click()}
-                            disabled={!page.can_contribute}
-                          >
-                            <Mic2 className="h-4 w-4" />
-                            Upload
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    <input
-                      ref={audioInputRef}
-                      type="file"
-                      accept="audio/*,video/*"
-                      onChange={handleWishAudioSelect}
-                      className="hidden"
-                      disabled={!page.can_contribute}
-                    />
-
-                    {isRecording ? (
-                      <div className="flex items-center justify-between rounded-[1.4rem] border border-primary/30 bg-primary/5 p-4 shadow-inner">
-                        <div className="flex items-center gap-3">
-                          <div className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
-                          <span className="font-mono text-lg font-medium text-foreground">{formatDuration(recordingDuration)}</span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="gap-2 rounded-full"
-                          onClick={stopRecording}
-                        >
-                          <Square className="h-4 w-4 fill-current" />
-                          Stop Recording
-                        </Button>
-                      </div>
-                    ) : wishAudioPreviewUrl ? (
-                      <div className="rounded-[1.4rem] border border-border bg-background/70 p-4">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">{wishAudio?.name || 'Voice note'}</p>
-                            <p className="text-xs text-muted-foreground">One audio clip per wish</p>
-                          </div>
-                          <Button type="button" variant="ghost" className="gap-2" onClick={removeWishAudio}>
-                            <X className="h-4 w-4" />
-                            Remove
-                          </Button>
-                        </div>
-                        <audio controls className="w-full" src={wishAudioPreviewUrl}>
-                          Your browser does not support audio playback.
-                        </audio>
-                      </div>
-                    ) : (
-                      <div className="rounded-[1.4rem] border border-dashed border-border bg-background/60 p-4 text-sm text-muted-foreground">
-                        Upload a short audio clip or record one directly here if you want the person to hear your voice.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {page.pool_fundraising_enabled && !isEditMode && (
-                  <div className="mb-6 rounded-[1.2rem] border border-emerald-200 bg-emerald-50/80 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
-                          <HandCoins className="h-4 w-4" />
-                          Send {page.recipient_name} money
-                        </p>
-                        <p className="mt-1 text-xs text-emerald-800/90">
-                          Money goes through Paystack and is pooled for the final gift release.
-                        </p>
-                        {page.pool_description && (
-                          <p className="mt-2 text-xs text-emerald-900">{page.pool_description}</p>
-                        )}
-                        {typeof page.pool_goal_kobo === 'number' && page.pool_goal_kobo > 0 && (
-                          <p className="mt-1 text-xs text-emerald-900/90">Goal: {formatKobo(page.pool_goal_kobo)}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {typeof recentContributionKobo === 'number' && recentContributionKobo > 0 && (
-                      <div className="mt-3 rounded-xl border border-emerald-300 bg-white/80 p-3">
-                        <p className="text-sm font-semibold text-emerald-900">
-                          You contributed {formatKobo(recentContributionKobo)}.
-                        </p>
-                        <p className="mt-1 text-xs text-emerald-900/80">
-                          Want to add more to the gift pool?
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="mt-2 border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-100"
-                          onClick={() => {
-                            setPoolAmountNaira(formatNairaInputWithCommas(String(recentContributionKobo / 100)));
-                            poolAmountInputRef.current?.focus();
-                          }}
-                          disabled={!page.can_contribute || submitting}
-                        >
-                          Contribute again
-                        </Button>
-                      </div>
-                    )}
-
-                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                      <Input
-                        ref={poolAmountInputRef}
-                        type="text"
-                        inputMode="decimal"
-                        value={poolAmountNaira}
-                        onChange={(event) => setPoolAmountNaira(formatNairaInputWithCommas(event.target.value))}
-                        placeholder="Amount (NGN)"
-                        className="bg-white"
-                        disabled={!page.can_contribute || submitting}
-                      />
-                      <Input
-                        type="email"
-                        value={poolContributorEmail}
-                        onChange={(event) => setPoolContributorEmail(event.target.value)}
-                        placeholder="Email for receipt (optional)"
-                        className="bg-white sm:col-span-2"
-                        disabled={!page.can_contribute || submitting}
-                      />
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <p className="self-center text-[11px] text-emerald-900/80">
-                        If you enter an amount, we will redirect you to checkout right after you add your wish.
-                      </p>
-                      {poolTotalChargeKobo > 0 && (
-                        <p className="self-center rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-emerald-900">
-                          You will be charged {formatKobo(poolTotalChargeKobo)}.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Mobile Preview Peek Action */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="default"
-                  className="mb-3 w-full gap-2 rounded-xl border-stone-300 bg-white/80 font-sans font-semibold text-stone-700 shadow-2xs hover:bg-white lg:hidden"
-                  onClick={() => {
+                <ContributeForm
+                  page={page}
+                  engine={engine}
+                  onPreviewClick={() => {
                     setMobileView('preview');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                >
-                  <span>👁️</span>
-                  <span>Preview How Your Card Looks</span>
-                </Button>
-
-                <Button
-                  type="submit"
-                  variant="hero"
-                  size="lg"
-                  className="w-full gap-2"
-                  disabled={submitting || uploading || uploadingAudio || isRecording || (isEditMode ? isLocked : !page.can_contribute)}
-                >
-                  {submitting || uploading || uploadingAudio ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : isEditMode ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <Send className="h-5 w-5" />
-                  )}
-                  {uploading
-                    ? 'Uploading photos...'
-                    : uploadingAudio
-                      ? 'Uploading audio...'
-                      : submitting
-                        ? isEditMode
-                          ? 'Saving changes...'
-                          : 'Adding your wish...'
-                        : isEditMode
-                          ? 'Save changes to my wish'
-                          : page.pool_fundraising_enabled && poolAmountNaira.trim().length > 0
-                            ? 'Add my wish and continue to payment'
-                            : 'Add my wish'}
-                </Button>
-              </div>
-            </form>
+                />
               </div>
             </div>
           </>
@@ -1628,31 +263,32 @@ const ContributePage = () => {
             recipientName={page.recipient_name}
             themeTextClass={theme.text}
             pageId={page.id}
-            editToken={editToken}
-            onAddAnother={handleAddAnother}
-            onEditWish={handleEnterEditMode}
+            editToken={engine.editToken}
+            onAddAnother={engine.resetForm}
+            onEditWish={engine.handleEnterEditMode}
           />
         )}
       </main>
 
+      {/* Confirmation Modal */}
       {page && (
         <ContributeConfirmModal
-          isOpen={isConfirmModalOpen}
-          onClose={() => setIsConfirmModalOpen(false)}
-          onConfirm={handleConfirmFinalSubmit}
-          isSubmitting={submitting}
-          isEditMode={isEditMode}
+          isOpen={engine.isConfirmModalOpen}
+          onClose={() => engine.setIsConfirmModalOpen(false)}
+          onConfirm={engine.handleConfirmFinalSubmit}
+          isSubmitting={engine.submitting}
+          isEditMode={engine.isEditMode}
           recipientName={page.recipient_name}
-          senderName={senderName || 'Anonymous'}
-          message={message}
-          selectedPhotos={selectedPhotos}
+          senderName={engine.senderName || 'Anonymous'}
+          message={engine.message}
+          selectedPhotos={engine.selectedPhotos}
           wishAudioPreviewUrl={
-            wishAudioPreviewUrl ||
-            (existingAudioUrl ? resolveAssetUrl(existingAudioUrl) || existingAudioUrl : null)
+            engine.audioRecorder.wishAudioPreviewUrl ||
+            (engine.audioRecorder.existingAudioUrl ? resolveAssetUrl(engine.audioRecorder.existingAudioUrl) || engine.audioRecorder.existingAudioUrl : null)
           }
-          stickers={stickers}
-          poolAmountNaira={poolAmountNaira}
-          poolFundraisingEnabled={page.pool_fundraising_enabled && !isEditMode}
+          stickers={engine.stickers}
+          poolAmountNaira={engine.poolAmountNaira}
+          poolFundraisingEnabled={page.pool_fundraising_enabled && !engine.isEditMode}
           pageTheme={page.theme}
           customGradient={customGradient}
           themeGradientFrom={page.theme_gradient_from}
