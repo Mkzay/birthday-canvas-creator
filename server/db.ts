@@ -10,6 +10,21 @@ export const sql = neon(databaseUrl);
 
 export async function initializeDatabase() {
   await sql`
+    CREATE TABLE IF NOT EXISTS _schema_migrations (
+      version INTEGER PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  const migrationRows = await sql`
+    SELECT version FROM _schema_migrations WHERE version = 1 LIMIT 1
+  `;
+
+  if (migrationRows.length > 0) {
+    return;
+  }
+
+  await sql`
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
   `;
 
@@ -625,5 +640,10 @@ export async function initializeDatabase() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_wish_edit_logs_page_id
     ON wish_edit_logs(page_id);
+  `;
+
+  await sql`
+    INSERT INTO _schema_migrations (version) VALUES (1)
+    ON CONFLICT (version) DO NOTHING;
   `;
 }

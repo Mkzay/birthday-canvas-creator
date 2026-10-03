@@ -184,7 +184,7 @@ export function privatePageQuery(pageId: string, userId: string) {
 export async function fetchMessagesForPage(pageId: string) {
   const rows = await sql`
     SELECT
-      bm.id AS message_id,
+      bm.id,
       bm.sender_name,
       bm.message,
       bm.photo_url AS legacy_photo_url,
@@ -193,88 +193,131 @@ export async function fetchMessagesForPage(pageId: string) {
       bm.created_at,
       bm.last_edited_at,
       bm.edit_count,
-      bmp.id AS photo_id,
-      bmp.photo_url,
-      bmp.caption,
-      bmp.sort_order,
-      bms.id AS sticker_id,
-      bms.sticker_type,
-      bms.position_x,
-      bms.position_y,
-      bms.rotation,
-      bms.scale
+      COALESCE(
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id', bmp.id::text,
+              'photo_url', bmp.photo_url,
+              'caption', bmp.caption,
+              'sort_order', bmp.sort_order
+            ) ORDER BY bmp.sort_order ASC, bmp.created_at ASC
+          )
+          FROM birthday_message_photos bmp
+          WHERE bmp.message_id = bm.id
+        ),
+        '[]'::json
+      ) AS photos,
+      COALESCE(
+        (
+          SELECT json_agg(
+            json_build_object(
+              'id', bms.id::text,
+              'sticker_type', bms.sticker_type,
+              'position_x', bms.position_x,
+              'position_y', bms.position_y,
+              'rotation', bms.rotation,
+              'scale', bms.scale
+            )
+          )
+          FROM birthday_message_stickers bms
+          WHERE bms.message_id = bm.id
+        ),
+        '[]'::json
+      ) AS stickers
     FROM birthday_messages bm
-    LEFT JOIN birthday_message_photos bmp ON bmp.message_id = bm.id
-    LEFT JOIN birthday_message_stickers bms ON bms.message_id = bm.id
     WHERE bm.page_id = ${pageId}
       AND bm.deleted_at IS NULL
-    ORDER BY bm.created_at ASC, bmp.sort_order ASC, bmp.created_at ASC
+    ORDER BY bm.created_at ASC
   `;
 
-  const messages = new Map<string, Record<string, unknown>>();
+  return rows.map((row) => {
+    const messageId = String(row.id);
+    const legacyPhotoUrl = typeof row.legacy_photo_url === "string" ? row.legacy_photo_url : null;
+    const rawPhotos = Array.isArray(row.photos) ? row.photos : [];
+    const stickers = Array.isArray(row.stickers) ? row.stickers : [];
 
-  rows.forEach((row) => {
-    const messageId = String(row.message_id);
+    const photos = rawPhotos.length
+      ? rawPhotos
+      : legacyPhotoUrl
+        ? [
+            {
+              id: `legacy-${messageId}`,
+              photo_url: legacyPhotoUrl,
+              caption: null,
+              sort_order: 0,
+            },
+          ]
+        : [];
 
-    if (!messages.has(messageId)) {
-      messages.set(messageId, {
-        id: messageId,
-        sender_name: String(row.sender_name),
-        message: String(row.message),
-        photo_url: typeof row.legacy_photo_url === "string" ? row.legacy_photo_url : null,
-        audio_url: typeof row.audio_url === "string" ? row.audio_url : null,
-        contribution_amount_kobo: Number(row.contribution_amount_kobo || 0),
-        created_at: row.created_at,
-        last_edited_at: row.last_edited_at,
-        edit_count: Number(row.edit_count || 0),
-        photos: [],
-        stickers: [],
-      });
-    }
-
-    const currentMessage = messages.get(messageId)!;
-    const photos = currentMessage.photos as Array<Record<string, unknown>>;
-    const stickers = currentMessage.stickers as Array<Record<string, unknown>>;
-
-    if (row.photo_id && !photos.some((p) => p.id === String(row.photo_id))) {
-      photos.push({
-        id: String(row.photo_id),
-        photo_url: String(row.photo_url),
-        caption: typeof row.caption === "string" ? row.caption : null,
-        sort_order: Number(row.sort_order || 0),
-      });
-    }
-
-    if (row.sticker_id && !stickers.some((s) => s.id === String(row.sticker_id))) {
-      stickers.push({
-        id: String(row.sticker_id),
-        sticker_type: String(row.sticker_type),
-        position_x: Number(row.position_x),
-        position_y: Number(row.position_y),
-        rotation: Number(row.rotation || 0),
-        scale: Number(row.scale || 1),
-      });
-    }
+    return {
+      id: messageId,
+      sender_name: String(row.sender_name),
+      message: String(row.message),
+      photo_url: legacyPhotoUrl,
+      audio_url: typeof row.audio_url === "string" ? row.audio_url : null,
+      contribution_amount_kobo: Number(row.contribution_amount_kobo || 0),
+      created_at: row.created_at,
+      last_edited_at: row.last_edited_at,
+      edit_count: Number(row.edit_count || 0),
+      photos,
+      stickers,
+    };
   });
+}
 
-  return Array.from(messages.values()).map((message) => {
-    const photos = message.photos as Array<Record<string, unknown>>;
-    const legacyPhotoUrl = typeof message.photo_url === "string" ? message.photo_url : null;
+export async function batchInsertMessagePhotos(
+  messageId: string,
+  photos: Array<{ url: string; caption: string | null; sortOrder: number }>
+) {
+  if (!photos.length) return;
+  const payload = JSON.stringify(
+    photos.map((p) => ({
+      url: p.url,
+      caption: p.caption,
+      sort_order: p.sortOrder,
+    }))
+  );
+  await sql`
+    INSERT INTO birthday_message_photos (message_id, photo_url, caption, sort_order)
+    SELECT
+      ${messageId}::uuid,
+      p.url,
+      p.caption,
+      p.sort_order
+    FROM jsonb_to_recordset(${payload}::jsonb) AS p(url text, caption text, sort_order int)
+  `;
+}
 
-    if (!photos.length && legacyPhotoUrl) {
-      return {
-        ...message,
-        photos: [
-          {
-            id: `legacy-${message.id}`,
-            photo_url: legacyPhotoUrl,
-            caption: null,
-            sort_order: 0,
-          },
-        ],
-      };
-    }
-
-    return message;
-  });
+export async function batchInsertMessageStickers(
+  messageId: string,
+  stickers: Array<{
+    stickerType: string;
+    positionX: number;
+    positionY: number;
+    rotation?: number;
+    scale?: number;
+  }>
+) {
+  if (!stickers.length) return;
+  const payload = JSON.stringify(
+    stickers.map((s) => ({
+      sticker_type: String(s.stickerType),
+      position_x: Number(s.positionX),
+      position_y: Number(s.positionY),
+      rotation: Number(s.rotation || 0),
+      scale: Number(s.scale || 1),
+    }))
+  );
+  await sql`
+    INSERT INTO birthday_message_stickers (message_id, sticker_type, position_x, position_y, rotation, scale)
+    SELECT
+      ${messageId}::uuid,
+      s.sticker_type,
+      s.position_x,
+      s.position_y,
+      s.rotation,
+      s.scale
+    FROM jsonb_to_recordset(${payload}::jsonb) AS s(sticker_type text, position_x real, position_y real, rotation real, scale real)
+  `;
 }

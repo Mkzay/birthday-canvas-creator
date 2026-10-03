@@ -5,17 +5,19 @@ import sharp from "sharp";
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'lomqtnaz',
-  api_key: process.env.CLOUDINARY_API_KEY || '877922888854838',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'MhLDCoLIXjwXjg1vFgr0GQrpGB8'
-});
-
 export const hasCloudinary = Boolean(
-  (process.env.CLOUDINARY_CLOUD_NAME || 'lomqtnaz') &&
-  (process.env.CLOUDINARY_API_KEY || '877922888854838') &&
-  (process.env.CLOUDINARY_API_SECRET || 'MhLDCoLIXjwXjg1vFgr0GQrpGB8')
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
 );
+
+if (hasCloudinary) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
 
 const configuredUploadsRoot = process.env.UPLOADS_ROOT?.trim();
 

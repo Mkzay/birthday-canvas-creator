@@ -67,7 +67,7 @@ function clampSessionExpiry(now: Date, absoluteExpiresAt: Date, rememberMe: bool
   return refreshWindowExpiry < absoluteExpiresAt ? refreshWindowExpiry : absoluteExpiresAt;
 }
 
-function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
+export function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
   const isPro = row.plan_tier === "pro";
   return {
     id: String(row.id),

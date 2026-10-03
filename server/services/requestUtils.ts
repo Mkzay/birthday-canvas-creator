@@ -1,6 +1,6 @@
 import express, { type Response } from "express";
 import fs from "node:fs/promises";
-import { isAdminEmail, issueAuthSession } from "../auth";
+import { isAdminEmail, issueAuthSession, sessionUserFromRow } from "../auth";
 import type { SessionUser } from "../types";
 import { validateImageMagicBytes, validateAudioMagicBytes } from "../fileSignatures";
 import { issueEmailToken, revokeOutstandingEmailTokens } from "../emailTokens";
@@ -105,28 +105,7 @@ export async function sendVerificationEmailForUser(row: Record<string, unknown>)
   });
 }
 
-export function sessionUserFromRow(row: Record<string, unknown>): SessionUser {
-  const isPro = row.plan_tier === "pro";
-  return {
-    id: String(row.id),
-    email: String(row.email),
-    isAdmin: isAdminEmail(String(row.email)),
-    planTier: isPro ? "pro" : "free",
-    isPro,
-    emailVerifiedAt: typeof row.email_verified_at === "string" || row.email_verified_at instanceof Date
-      ? String(row.email_verified_at)
-      : null,
-    displayName: typeof row.display_name === "string" ? row.display_name : null,
-    avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
-    defaultTheme: typeof row.default_theme === "string" ? row.default_theme : "elegant",
-    defaultAllowPhotos: Boolean(row.default_allow_photos ?? true),
-    defaultAllowAudio: Boolean(row.default_allow_audio ?? true),
-    defaultRequireNames: Boolean(row.default_require_names ?? true),
-    emailNotifications: Boolean(row.email_notifications ?? true),
-    newMessageNotifications: Boolean(row.new_message_notifications ?? true),
-    birthdayReminders: Boolean(row.birthday_reminders ?? true),
-  };
-}
+export { sessionUserFromRow };
 
 export function normalizeOrigin(value: string): string | null {
   const trimmed = value.trim();

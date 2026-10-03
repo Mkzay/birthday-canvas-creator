@@ -135,18 +135,52 @@ giftPoolRouter.post(
       return;
     }
 
-    const payoutExists = await sql`
-      SELECT id
+    const payoutStatusCheck = await sql`
+      SELECT id, status
       FROM pool_payouts
       WHERE page_id = ${String(page.id)}
-        AND status = 'success'
+        AND status IN ('success', 'processing')
+      ORDER BY created_at DESC
       LIMIT 1
     `;
 
-    if (payoutExists[0]) {
-      response.status(409).json({ error: "Payout already released for this page.", code: "PAYOUT_ALREADY_RELEASED" });
+    if (payoutStatusCheck[0]) {
+      if (payoutStatusCheck[0].status === "success") {
+        response.status(409).json({ error: "Payout already released for this page.", code: "PAYOUT_ALREADY_RELEASED" });
+      } else {
+        response.status(409).json({ error: "Payout is currently being processed. Please wait a moment.", code: "PAYOUT_IN_PROGRESS" });
+      }
       return;
     }
+
+    const transferRef = `wishcanvas_payout_${String(page.id).replace(/-/g, "").slice(0, 24)}`;
+
+    const lockRows = await sql`
+      INSERT INTO pool_payouts (
+        page_id,
+        provider,
+        provider_reference,
+        amount_kobo,
+        gross_pool_amount_kobo,
+        payout_fee_kobo,
+        status,
+        created_by_user_id,
+        updated_at
+      )
+      VALUES (
+        ${String(page.id)},
+        'paystack',
+        ${transferRef},
+        ${payout.payoutAmountKobo},
+        ${payout.grossPoolBalanceKobo},
+        ${payout.payoutFeeKobo},
+        'processing',
+        ${request.user!.id},
+        NOW()
+      )
+      RETURNING id
+    `;
+    const payoutRecordId = lockRows[0].id;
 
     try {
       const recipientData = await paystackRequest<{ recipient_code: string }>("/transferrecipient", {
@@ -160,7 +194,6 @@ giftPoolRouter.post(
         }),
       });
 
-      const transferRef = `wishcanvas_pool_${String(page.id).slice(0, 8)}_${Date.now()}`;
       const transferData = await paystackRequest<{ reference: string; transfer_code: string }>("/transfer", {
         method: "POST",
         body: JSON.stringify({
@@ -173,30 +206,12 @@ giftPoolRouter.post(
       });
 
       await sql`
-        INSERT INTO pool_payouts (
-          page_id,
-          provider,
-          provider_reference,
-          amount_kobo,
-          gross_pool_amount_kobo,
-          payout_fee_kobo,
-          status,
-          response_payload,
-          created_by_user_id,
-          updated_at
-        )
-        VALUES (
-          ${String(page.id)},
-          'paystack',
-          ${transferData.reference || transferRef},
-          ${payout.payoutAmountKobo},
-          ${payout.grossPoolBalanceKobo},
-          ${payout.payoutFeeKobo},
-          'success',
-          ${JSON.stringify({ transfer: transferData, recipient: recipientData })}::jsonb,
-          ${request.user!.id},
-          NOW()
-        )
+        UPDATE pool_payouts
+        SET status = 'success',
+            provider_reference = ${transferData.reference || transferRef},
+            response_payload = ${JSON.stringify({ transfer: transferData, recipient: recipientData })}::jsonb,
+            updated_at = NOW()
+        WHERE id = ${payoutRecordId}
       `;
 
       response.json({
@@ -216,28 +231,11 @@ giftPoolRouter.post(
         code: classifiedError.code,
       });
       await sql`
-        INSERT INTO pool_payouts (
-          page_id,
-          provider,
-          amount_kobo,
-          gross_pool_amount_kobo,
-          payout_fee_kobo,
-          status,
-          response_payload,
-          created_by_user_id,
-          updated_at
-        )
-        VALUES (
-          ${String(page.id)},
-          'paystack',
-          ${payout.payoutAmountKobo},
-          ${payout.grossPoolBalanceKobo},
-          ${payout.payoutFeeKobo},
-          'failed',
-          ${JSON.stringify({ error: classifiedError.rawMessage, code: classifiedError.code })}::jsonb,
-          ${request.user!.id},
-          NOW()
-        )
+        UPDATE pool_payouts
+        SET status = 'failed',
+            response_payload = ${JSON.stringify({ error: classifiedError.rawMessage, code: classifiedError.code })}::jsonb,
+            updated_at = NOW()
+        WHERE id = ${payoutRecordId}
       `;
       response.status(classifiedError.status).json({
         error: exposeErrorToClient(error, classifiedError.message),

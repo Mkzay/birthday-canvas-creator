@@ -24,6 +24,8 @@ import {
   fetchMessagesForPage,
   serializePageDates,
   normalizeContributionPhotos,
+  batchInsertMessagePhotos,
+  batchInsertMessageStickers,
 } from "../services/pageQueries";
 import {
   getRequestIp,
@@ -376,35 +378,12 @@ publicPagesRouter.post("/:id/messages", validateParams(pageIdParamSchema), publi
   const createdMessage = rows[0];
 
   if (photos.length) {
-    await Promise.all(
-      photos.map((photo) => sql`
-        INSERT INTO birthday_message_photos (message_id, photo_url, caption, sort_order)
-        VALUES (${createdMessage.id}, ${photo.url}, ${photo.caption}, ${photo.sortOrder})
-      `),
-    );
+    await batchInsertMessagePhotos(createdMessage.id, photos);
   }
 
   const stickers = Array.isArray(request.body.stickers) ? request.body.stickers : [];
   if (stickers.length) {
-    await Promise.all(
-      stickers.map((sticker: {
-        stickerType: string;
-        positionX: number;
-        positionY: number;
-        rotation?: number;
-        scale?: number;
-      }) => sql`
-        INSERT INTO birthday_message_stickers (message_id, sticker_type, position_x, position_y, rotation, scale)
-        VALUES (
-          ${createdMessage.id},
-          ${String(sticker.stickerType)},
-          ${Number(sticker.positionX)},
-          ${Number(sticker.positionY)},
-          ${Number(sticker.rotation || 0)},
-          ${Number(sticker.scale || 1)}
-        )
-      `),
-    );
+    await batchInsertMessageStickers(createdMessage.id, stickers);
   }
 
   if (contributionAmountKobo > 0) {
@@ -712,12 +691,7 @@ publicPagesRouter.patch(
     `;
 
     if (photos.length) {
-      await Promise.all(
-        photos.map((photo) => sql`
-          INSERT INTO birthday_message_photos (message_id, photo_url, caption, sort_order)
-          VALUES (${existingMessage.id}, ${photo.url}, ${photo.caption}, ${photo.sortOrder})
-        `),
-      );
+      await batchInsertMessagePhotos(existingMessage.id, photos);
     }
 
     const createdAtMs = new Date(String(existingMessage.created_at)).getTime();
