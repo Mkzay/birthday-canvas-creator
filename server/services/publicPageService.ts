@@ -82,6 +82,13 @@ const tokenEditRateLimitStore = new Map<string, { count: number; resetAt: number
 
 export function checkTokenEditRateLimit(tokenHash: string): boolean {
   const now = Date.now();
+  if (tokenEditRateLimitStore.size > 2000) {
+    for (const [k, v] of tokenEditRateLimitStore.entries()) {
+      if (v.resetAt <= now) {
+        tokenEditRateLimitStore.delete(k);
+      }
+    }
+  }
   const entry = tokenEditRateLimitStore.get(tokenHash);
   if (!entry || entry.resetAt <= now) {
     tokenEditRateLimitStore.set(tokenHash, { count: 1, resetAt: now + 15 * 60 * 1000 });

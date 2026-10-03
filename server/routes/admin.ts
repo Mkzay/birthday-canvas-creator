@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import { sql } from "../db";
 import { requireAdmin } from "../auth";
@@ -408,7 +409,18 @@ systemRouter.post(
         ? request.body.secret
         : (typeof request.query.secret === "string" ? request.query.secret : ""));
 
-    if (!cronSecret || providedSecret !== cronSecret) {
+    if (!cronSecret || !providedSecret) {
+      response.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const cronSecretBuf = Buffer.from(cronSecret);
+    const providedSecretBuf = Buffer.from(providedSecret);
+    const isAuthorized =
+      cronSecretBuf.length === providedSecretBuf.length &&
+      crypto.timingSafeEqual(cronSecretBuf, providedSecretBuf);
+
+    if (!isAuthorized) {
       response.status(401).json({ error: "Unauthorized" });
       return;
     }

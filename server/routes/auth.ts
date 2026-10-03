@@ -53,6 +53,23 @@ export const authRouter = express.Router();
 
 const loginFailureStore = new Map<string, { count: number; lockedUntil: number | null }>();
 
+function recordLoginFailure(key: string, now: number, maxFailures: number, lockoutMs: number) {
+  if (loginFailureStore.size > 2000) {
+    for (const [k, v] of loginFailureStore.entries()) {
+      if (!v.lockedUntil || v.lockedUntil <= now) {
+        loginFailureStore.delete(k);
+      }
+    }
+  }
+  const previous = loginFailureStore.get(key);
+  const baseCount = previous && previous.lockedUntil && previous.lockedUntil <= now ? 0 : previous?.count || 0;
+  const nextCount = baseCount + 1;
+  loginFailureStore.set(key, {
+    count: nextCount,
+    lockedUntil: nextCount >= maxFailures ? now + lockoutMs : null,
+  });
+}
+
 authRouter.get("/session", authSessionLimiter, async (request, response) => {
   const session = await getActiveSession(request as AuthedRequest, response);
   if (!session) {
@@ -162,26 +179,14 @@ authRouter.post("/login", authLoginLimiter, validateBody(loginBodySchema), async
 
   const user = rows[0];
   if (!user) {
-    const previous = loginFailureStore.get(key);
-    const baseCount = previous && previous.lockedUntil && previous.lockedUntil <= now ? 0 : previous?.count || 0;
-    const nextCount = baseCount + 1;
-    loginFailureStore.set(key, {
-      count: nextCount,
-      lockedUntil: nextCount >= maxFailures ? now + lockoutMs : null,
-    });
+    recordLoginFailure(key, now, maxFailures, lockoutMs);
     response.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
   const matches = await verifyPassword(password, user.password_hash);
   if (!matches) {
-    const previous = loginFailureStore.get(key);
-    const baseCount = previous && previous.lockedUntil && previous.lockedUntil <= now ? 0 : previous?.count || 0;
-    const nextCount = baseCount + 1;
-    loginFailureStore.set(key, {
-      count: nextCount,
-      lockedUntil: nextCount >= maxFailures ? now + lockoutMs : null,
-    });
+    recordLoginFailure(key, now, maxFailures, lockoutMs);
     response.status(401).json({ error: "Invalid email or password" });
     return;
   }
