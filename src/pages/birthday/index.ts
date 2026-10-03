@@ -40,3 +40,8 @@ export {
 } from './revealStory';
 export { DecorativeLayer } from './DecorativeLayer';
 export { MobileVoiceNoteControl } from './MobileVoiceNoteControl';
+export { useCelebrationSoundtrack } from './useCelebrationSoundtrack';
+export { useKeepsakeExport } from './useKeepsakeExport';
+export { useCelebrationData } from './useCelebrationData';
+export { useCelebrationRevealEngine } from './useCelebrationRevealEngine';
+export { useFreeformStars } from './useFreeformStars';
