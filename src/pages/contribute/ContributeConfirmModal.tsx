@@ -88,7 +88,7 @@ export const ContributeConfirmModal: FC<ContributeConfirmModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[58vh] overflow-y-auto px-5 py-4 sm:px-6">
+        <div className="max-h-[65vh] sm:max-h-[72vh] overflow-y-auto px-4 py-4 sm:px-6 custom-scrollbar">
           <div className="mx-auto max-w-xl">
             <ContributorWishPreview
               recipientName={recipientName}

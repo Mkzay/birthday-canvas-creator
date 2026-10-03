@@ -1,4 +1,4 @@
-import { useMemo, type FC } from 'react';
+import { useMemo, useState, useRef, useEffect, type FC, type ReactNode } from 'react';
 import {
   Sparkles,
   Volume2,
@@ -8,6 +8,8 @@ import {
   Pin,
   Layers,
   LayoutGrid,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isRichHtml, sanitizeWishHtmlForDisplay } from '@/lib/wish-utils';
@@ -165,6 +167,37 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
   const photoCount = selectedPhotos.length;
   const hasAudio = Boolean(wishAudioPreviewUrl) || isRecording;
 
+  // Local audio playback state
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggleAudio = () => {
+    if (!wishAudioPreviewUrl) return;
+    if (!audioRef.current) {
+      audioRef.current = new Audio(wishAudioPreviewUrl);
+      audioRef.current.onended = () => setIsPlayingAudio(false);
+      audioRef.current.onerror = () => setIsPlayingAudio(false);
+    }
+    if (isPlayingAudio) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioRef.current.play().then(() => {
+        setIsPlayingAudio(true);
+      }).catch(() => {
+        setIsPlayingAudio(false);
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsPlayingAudio(false);
+    }
+  }, [wishAudioPreviewUrl]);
+
   const modeBadge = useMemo(() => {
     switch (effectiveMode) {
       case 'freeform':
@@ -186,6 +219,104 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
     }
   }, [effectiveMode]);
 
+  /* PHOTO CARD HELPER FOR AUTHENTIC STORY LAYOUT */
+  const renderStoryPhotoFrame = (photo: PendingPhoto, frameClass?: string, containerAspect?: string) => (
+    <div
+      key={photo.id}
+      className={cn(
+        'group relative min-h-0 overflow-hidden rounded-[1.35rem] border border-white/45 bg-white/55 p-1.5 sm:p-2 text-left shadow-[0_18px_50px_rgba(18,18,23,0.16)] transition-all duration-300 hover:shadow-xl hover:scale-[1.01]',
+        frameClass,
+        containerAspect,
+      )}
+    >
+      <div className="relative isolate h-full min-h-[7.5rem] overflow-hidden rounded-[1.05rem] sm:rounded-[1.2rem] bg-[#dfe7dc]">
+        <img
+          className="absolute inset-0 z-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+          src={photo.previewUrl}
+          alt={photo.caption || `Photo memory from ${displayName}`}
+          draggable={false}
+        />
+        <div className="absolute inset-x-0 bottom-0 z-10 h-[46%] bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-2 p-2.5 sm:p-3">
+          <div className="min-w-0">
+            <p className="line-clamp-1 text-xs font-medium text-white">{photo.caption || 'Photo memory'}</p>
+            {!photo.caption && <p className="text-[9px] uppercase tracking-[0.18em] text-white/70">From the story</p>}
+          </div>
+          <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">
+            Open
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  /* PHOTO GRID RESOLVER MATCHING DesktopStorySection.tsx */
+  const renderStoryPhotoLayout = (): ReactNode => {
+    if (photoCount === 0) return null;
+
+    if (photoCount === 1) {
+      return (
+        <div className="h-full w-full min-h-[260px] sm:min-h-[320px]">
+          {renderStoryPhotoFrame(selectedPhotos[0], 'h-full w-full rounded-[1.65rem]')}
+        </div>
+      );
+    }
+
+    if (photoCount === 2) {
+      return (
+        <div className="h-full min-h-[280px] sm:min-h-[320px] grid grid-rows-2 gap-2.5 sm:gap-3">
+          {selectedPhotos.slice(0, 2).map((photo, photoIndex) =>
+            renderStoryPhotoFrame(
+              photo,
+              'h-full min-h-0 w-full rounded-[1.4rem]',
+              photoIndex === 0 ? 'rotate-[-0.5deg]' : 'rotate-[0.5deg]',
+            ),
+          )}
+        </div>
+      );
+    }
+
+    if (photoCount === 3) {
+      return (
+        <div className="h-full min-h-[280px] sm:min-h-[320px] grid grid-cols-2 grid-rows-2 gap-2.5 sm:gap-3">
+          {renderStoryPhotoFrame(selectedPhotos[0], 'col-span-1 row-span-2 h-full min-h-0 w-full rounded-[1.4rem]')}
+          {renderStoryPhotoFrame(selectedPhotos[1], 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')}
+          {renderStoryPhotoFrame(selectedPhotos[2], 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')}
+        </div>
+      );
+    }
+
+    if (photoCount === 4) {
+      return (
+        <div className="h-full min-h-[280px] sm:min-h-[320px] grid grid-cols-2 grid-rows-2 gap-2.5 sm:gap-3">
+          {selectedPhotos.slice(0, 4).map((photo) =>
+            renderStoryPhotoFrame(photo, 'h-full min-h-0 w-full rounded-[1.35rem]'),
+          )}
+        </div>
+      );
+    }
+
+    if (photoCount === 5) {
+      return (
+        <div className="h-full min-h-[280px] sm:min-h-[320px] grid grid-cols-6 grid-rows-2 gap-2 sm:gap-2.5">
+          {renderStoryPhotoFrame(selectedPhotos[0], 'col-span-3 row-span-1 h-full min-h-0 w-full rounded-[1.3rem]')}
+          {renderStoryPhotoFrame(selectedPhotos[1], 'col-span-3 row-span-1 h-full min-h-0 w-full rounded-[1.3rem]')}
+          {renderStoryPhotoFrame(selectedPhotos[2], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.2rem]')}
+          {renderStoryPhotoFrame(selectedPhotos[3], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.2rem]')}
+          {renderStoryPhotoFrame(selectedPhotos[4], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.2rem]')}
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-full min-h-[280px] sm:min-h-[320px] grid grid-cols-3 grid-rows-2 gap-2 sm:gap-2.5">
+        {selectedPhotos.slice(0, 6).map((photo) =>
+          renderStoryPhotoFrame(photo, 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.2rem]'),
+        )}
+      </div>
+    );
+  };
+
   return (
     <div
       className={cn(
@@ -193,7 +324,7 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
         className,
       )}
     >
-      {/* 1. Preview Command Bar: No switcher, displays creator's selected mode */}
+      {/* 1. Header Bar: Strictly displays creator's chosen mode without switcher */}
       <div className="flex items-center justify-between border-b border-black/5 bg-stone-50/90 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -205,17 +336,352 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
         <div className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 border border-stone-200/80 text-[10px] font-semibold text-stone-700 shadow-2xs">
           {modeBadge.icon}
           <span>{modeBadge.label}</span>
-          <span className="text-stone-400">|</span>
+          <span className="text-stone-300">|</span>
           <span className="text-stone-500">For {recipientName}</span>
         </div>
       </div>
 
       {/* 2. RECIPIENT STAGE: Rendered strictly according to effectiveMode */}
 
-      {/* MODE A: FREEFORM (Pinned Corkboard Card) */}
+      {/* MODE A: STORY (Authentic Story Slide matching DesktopStorySection & MobileStorySection) */}
+      {effectiveMode === 'story' && (
+        <div
+          className="relative flex min-h-[460px] flex-col items-center justify-center overflow-hidden p-4 sm:p-6"
+          style={{ background: gradientBackground }}
+        >
+          {/* Subtle Ambient Orbs */}
+          <div className="pointer-events-none absolute -left-12 -top-12 h-44 w-44 rounded-full bg-white/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 -right-12 h-48 w-48 rounded-full bg-black/15 blur-3xl" />
+
+          {/* Top Story Progress Bars */}
+          <div className="absolute inset-x-4 top-3 z-20 flex items-center gap-1.5 sm:inset-x-6">
+            <div className="h-1 flex-1 rounded-full bg-white/90 shadow-xs" />
+            <div className="h-1 flex-1 rounded-full bg-white/35" />
+            <div className="h-1 flex-1 rounded-full bg-white/20" />
+          </div>
+
+          {/* Authentic Recipient Story Stage */}
+          <div className="relative z-10 mt-3 w-full max-w-2xl">
+            <div
+              className={cn(
+                'w-full items-stretch gap-3.5 sm:gap-4',
+                photoCount > 0 ? 'grid grid-cols-1 md:grid-cols-[1.05fr_0.95fr]' : 'flex flex-col',
+              )}
+            >
+              {/* Left Column: Letter Card + Docked Audio */}
+              <div className="flex flex-col justify-between h-full min-h-[320px]">
+                <article
+                  className={cn(
+                    'relative flex flex-1 flex-col justify-between overflow-hidden rounded-[1.85rem] border p-5 sm:p-6 shadow-sm transition-all',
+                    keepsakePaperClass,
+                  )}
+                >
+                  {/* Top Bar: Letter index & Wish badge */}
+                  <div className="flex items-center justify-between gap-3 border-b border-black/6 pb-2.5 shrink-0 dark:border-white/10">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] opacity-70 sm:text-xs">
+                      Letter for {recipientName}
+                    </p>
+                    <span className={cn('rounded-full border px-2.5 py-0.5 text-[11px] font-mono font-bold', keepsakeSoftClass)}>
+                      Wish #01
+                    </span>
+                  </div>
+
+                  {/* Sender Name in Theme Typography */}
+                  <div className="mt-3 shrink-0">
+                    <h2 className={cn('text-2xl font-bold leading-tight sm:text-3xl', titleFontClass)}>
+                      {displayName}
+                    </h2>
+                  </div>
+
+                  {/* Message Body with Serif Quotes */}
+                  <div className="my-auto py-3">
+                    {sanitizedMessageHtml ? (
+                      isRich ? (
+                        <div
+                          className="wish-rich-text max-h-[38vh] overflow-y-auto pr-2 text-base leading-relaxed sm:text-lg font-serif italic custom-scrollbar"
+                          dangerouslySetInnerHTML={{ __html: sanitizedMessageHtml }}
+                        />
+                      ) : (
+                        <p className="max-h-[38vh] overflow-y-auto pr-2 text-base leading-relaxed sm:text-lg font-serif italic custom-scrollbar">
+                          &ldquo;{sanitizedMessageHtml}&rdquo;
+                        </p>
+                      )
+                    ) : (
+                      <p className="text-base sm:text-lg italic opacity-40 font-serif">
+                        &ldquo;Your birthday wish for {recipientName} will appear here as you type...&rdquo;
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Floating Stickers on Letter Card */}
+                  {stickers.length > 0 && (
+                    <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
+                      {stickers.map((s) => (
+                        <div
+                          key={s.id}
+                          className="absolute select-none text-4xl sm:text-5xl"
+                          style={{
+                            left: `${s.positionX}%`,
+                            top: `${s.positionY}%`,
+                            transform: `translate(-50%, -50%) rotate(${s.rotation}deg) scale(${s.scale})`,
+                          }}
+                        >
+                          {STICKER_EMOJIS[s.stickerType] || '🎉'}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Badges / Pill Tags */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-black/6 pt-2.5 shrink-0 dark:border-white/10">
+                    {photoCount > 0 && (
+                      <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', keepsakePillClass)}>
+                        {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
+                      </span>
+                    )}
+                    {hasAudio && (
+                      <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold', keepsakePillClass)}>
+                        Voice note inside
+                      </span>
+                    )}
+                    {poolAmountNumber > 0 && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/80 bg-emerald-100/90 px-2.5 py-1 text-[11px] font-semibold text-emerald-900 shadow-2xs">
+                        <Gift className="h-3.5 w-3.5 text-emerald-700" />
+                        ₦{new Intl.NumberFormat('en-NG').format(poolAmountNumber)} pool gift
+                      </span>
+                    )}
+                  </div>
+                </article>
+
+                {/* Docked Voice Note Player (True to DesktopStorySection.tsx) */}
+                {hasAudio && (
+                  <article className={cn('mt-3 shrink-0 rounded-[1.4rem] border p-3 sm:p-3.5 shadow-xs', keepsakeSoftClass)}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <button
+                          type="button"
+                          onClick={toggleAudio}
+                          disabled={!wishAudioPreviewUrl}
+                          className={cn(
+                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 shadow-sm',
+                            isPlayingAudio
+                              ? 'bg-rose-500 text-white animate-pulse'
+                              : isDarkExperience
+                              ? 'bg-white/15 text-white hover:bg-white/25'
+                              : 'bg-stone-900 text-white hover:bg-stone-800',
+                            !wishAudioPreviewUrl && 'opacity-60 cursor-not-allowed',
+                          )}
+                          aria-label={isPlayingAudio ? 'Pause voice note' : 'Play voice note'}
+                        >
+                          {isPlayingAudio ? (
+                            <Pause className="h-4 w-4 fill-current" />
+                          ) : (
+                            <Play className="h-4 w-4 fill-current ml-0.5" />
+                          )}
+                        </button>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold truncate">Voice note from {displayName}</p>
+                          <p className="text-[10px] opacity-65 truncate">
+                            {isRecording
+                              ? `Recording: ${formattedDuration}`
+                              : isPlayingAudio
+                              ? 'Playing voice note...'
+                              : formattedDuration || 'A voice to go with the words.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isPlayingAudio && (
+                        <div className="flex items-center gap-0.5">
+                          <span className="h-3 w-1 bg-rose-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                          <span className="h-4 w-1 bg-rose-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                          <span className="h-2 w-1 bg-rose-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                )}
+              </div>
+
+              {/* Right Column: Multi-photo Grid Layout (Matching DesktopStorySection.tsx) */}
+              {photoCount > 0 && (
+                <div className="h-full min-h-[260px] sm:min-h-[320px]">
+                  {renderStoryPhotoLayout()}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Letter Attestation */}
+            <div className="mt-3 flex items-center justify-between px-2 text-[10px] font-medium text-white/70">
+              <span>Personal letter keepsake</span>
+              <span>Celebration memory for {recipientName}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODE B: BENTO (Matching BentoGridView.tsx) */}
+      {effectiveMode === 'bento' && (
+        <div
+          className="relative flex min-h-[420px] flex-col items-center justify-center overflow-hidden p-4 sm:p-6"
+          style={{ background: gradientBackground }}
+        >
+          {/* Subtle Ambient Glow */}
+          <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-white/20 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-black/15 blur-2xl" />
+
+          {/* Bento Header */}
+          <div className="relative z-10 mb-3 w-full max-w-md text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/80">
+                Bento Vault
+              </p>
+            </div>
+            <h3 className="mt-1 text-base font-bold text-white drop-shadow-sm sm:text-lg">
+              {recipientName}&apos;s celebration board
+            </h3>
+          </div>
+
+          {/* The Bento Tile */}
+          <div className="relative z-10 w-full max-w-md">
+            <article
+              className={cn(
+                'group relative flex flex-col justify-between overflow-hidden rounded-[1.8rem] border text-left shadow-[0_18px_50px_rgba(15,23,42,0.18)] transition-all',
+                keepsakePaperClass,
+              )}
+            >
+              {photoCount > 0 && selectedPhotos[0]?.previewUrl && (
+                <div className="pointer-events-none absolute inset-0">
+                  <img
+                    src={selectedPhotos[0].previewUrl}
+                    alt=""
+                    className="h-full w-full object-cover opacity-25 dark:opacity-40 transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-950 via-white/80 dark:via-slate-950/80 to-transparent" />
+                </div>
+              )}
+
+              {/* Bento Card Header: Sender Avatar & Name */}
+              <div className="relative z-10 p-5 pb-0">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/5 dark:bg-white/15 text-xs font-bold">
+                      {(displayName[0] || 'Y').toUpperCase()}
+                    </div>
+                    <p className={cn('text-sm font-bold truncate leading-tight', titleFontClass)}>
+                      {displayName}
+                    </p>
+                  </div>
+
+                  {stickers.length > 0 && (
+                    <span className="text-lg shrink-0 drop-shadow-xs">
+                      {STICKER_EMOJIS[stickers[0].stickerType] || '🎉'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Message Snippet */}
+                <div className="mt-3">
+                  {sanitizedMessageHtml ? (
+                    isRich ? (
+                      <div
+                        className="wish-rich-text line-clamp-4 text-sm leading-relaxed font-serif"
+                        dangerouslySetInnerHTML={{ __html: sanitizedMessageHtml }}
+                      />
+                    ) : (
+                      <p className="line-clamp-4 text-sm leading-relaxed italic opacity-85 font-serif">
+                        &ldquo;{sanitizedMessageHtml}&rdquo;
+                      </p>
+                    )
+                  ) : (
+                    <p className="text-sm italic opacity-50 font-serif">
+                      &ldquo;Your birthday wish will be pinned here...&rdquo;
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Bento Tile Footer: Audio Quick-Play & Badges */}
+              <div className="relative z-10 p-5 pt-3 mt-4 border-t border-black/5 dark:border-white/10">
+                {hasAudio && (
+                  <button
+                    type="button"
+                    onClick={toggleAudio}
+                    disabled={!wishAudioPreviewUrl}
+                    className={cn(
+                      'mb-2.5 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-2xs w-fit active:scale-95',
+                      isPlayingAudio
+                        ? 'bg-rose-500 text-white shadow-xs'
+                        : 'bg-black/8 dark:bg-white/15 text-foreground hover:bg-black/12 dark:hover:bg-white/20',
+                      !wishAudioPreviewUrl && 'opacity-60 cursor-not-allowed',
+                    )}
+                    title={isPlayingAudio ? 'Pause voice note' : 'Play voice note'}
+                  >
+                    {isPlayingAudio ? (
+                      <>
+                        <Pause className="h-3 w-3 fill-current" />
+                        <span>Playing Voice Note</span>
+                        <span className="flex items-center gap-0.5 ml-1">
+                          <span className="h-2 w-0.5 bg-white animate-pulse" />
+                          <span className="h-3 w-0.5 bg-white animate-pulse delay-75" />
+                          <span className="h-1.5 w-0.5 bg-white animate-pulse delay-150" />
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-3 w-3 fill-current ml-0.5" />
+                        <span>Voice Note ({formattedDuration || 'Audio'})</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {photoCount > 0 && (
+                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold', keepsakePillClass)}>
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      {photoCount} {photoCount === 1 ? 'photo' : 'photos'}
+                    </span>
+                  )}
+                  {poolAmountNumber > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/80 bg-emerald-100/90 px-2.5 py-1 text-xs font-semibold text-emerald-900 shadow-2xs">
+                      <Gift className="h-3.5 w-3.5 text-emerald-700" />
+                      ₦{new Intl.NumberFormat('en-NG').format(poolAmountNumber)} pool gift
+                    </span>
+                  )}
+                  <span className="ml-auto text-[10px] font-medium opacity-60">
+                    Tap to expand full note
+                  </span>
+                </div>
+              </div>
+            </article>
+
+            {/* Attached Photo Memories Row */}
+            {photoCount > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {selectedPhotos.slice(0, 3).map((photo, idx) => (
+                  <div
+                    key={photo.id}
+                    className="relative aspect-square overflow-hidden rounded-xl border border-white/60 bg-white/70 shadow-xs"
+                  >
+                    <img
+                      src={photo.previewUrl}
+                      alt={photo.caption || `Memory ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODE C: FREEFORM (Matching FreeformSection.tsx) */}
       {effectiveMode === 'freeform' && (
         <div
-          className="relative flex min-h-[400px] flex-col items-center justify-center overflow-hidden p-4 sm:p-6"
+          className="relative flex min-h-[420px] flex-col items-center justify-center overflow-hidden p-4 sm:p-6"
           style={{ background: gradientBackground }}
         >
           {/* Subtle Ambient Glow */}
@@ -226,7 +692,7 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
           <div className="relative z-10 w-full max-w-md pt-2">
             <article
               className={cn(
-                'relative rotate-[-1deg] rounded-[1.25rem] border px-5 py-4 shadow-[0_16px_36px_rgba(15,23,42,0.12)] transition-transform hover:rotate-0',
+                'relative rotate-[-1.5deg] rounded-[1.25rem] border px-5 py-4 shadow-[0_16px_36px_rgba(15,23,42,0.12)] transition-transform hover:rotate-0',
                 keepsakePaperClass,
               )}
             >
@@ -256,16 +722,16 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
                 {sanitizedMessageHtml ? (
                   isRich ? (
                     <div
-                      className="wish-rich-text text-base leading-relaxed sm:text-lg"
+                      className="wish-rich-text text-base leading-relaxed sm:text-lg font-serif"
                       dangerouslySetInnerHTML={{ __html: sanitizedMessageHtml }}
                     />
                   ) : (
-                    <p className="text-base leading-relaxed sm:text-lg">
+                    <p className="text-base leading-relaxed sm:text-lg font-serif">
                       &ldquo;{sanitizedMessageHtml}&rdquo;
                     </p>
                   )
                 ) : (
-                  <p className="text-base italic leading-relaxed opacity-50 sm:text-lg">
+                  <p className="text-base italic leading-relaxed opacity-50 sm:text-lg font-serif">
                     &ldquo;Your pinned wish will appear here as you type...&rdquo;
                   </p>
                 )}
@@ -293,23 +759,31 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
               {/* Voice Note Audio inside Pinned Card */}
               {hasAudio && (
                 <div className="mt-4 rounded-xl border border-black/5 bg-black/5 p-3 dark:border-white/10 dark:bg-white/10">
-                  <div className="mb-1.5 flex items-center justify-between text-xs font-semibold">
+                  <div className="mb-2 flex items-center justify-between text-xs font-semibold">
                     <span className="flex items-center gap-1.5">
                       <Music className="h-3.5 w-3.5 text-rose-500" />
                       Voice note from {displayName}
                     </span>
                     <span className="font-mono text-[11px] opacity-70">
-                      {formattedDuration || 'Audio attached'}
+                      {isRecording ? `Recording: ${formattedDuration}` : formattedDuration || 'Audio attached'}
                     </span>
                   </div>
-                  {wishAudioPreviewUrl ? (
-                    <audio src={wishAudioPreviewUrl} controls className="h-8 w-full" />
-                  ) : isRecording ? (
-                    <div className="flex animate-pulse items-center gap-2 text-xs font-medium text-rose-600">
-                      <span className="h-2 w-2 rounded-full bg-rose-600 animate-ping" />
-                      Recording: {formattedDuration}
-                    </div>
-                  ) : null}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={toggleAudio}
+                      disabled={!wishAudioPreviewUrl}
+                      className={cn(
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-xs transition-transform active:scale-95',
+                        !wishAudioPreviewUrl && 'opacity-60 cursor-not-allowed',
+                      )}
+                    >
+                      {isPlayingAudio ? <Pause className="h-3.5 w-3.5 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current ml-0.5" />}
+                    </button>
+                    <span className="text-xs font-medium opacity-80">
+                      {isPlayingAudio ? 'Listening to voice note' : 'Click to preview audio'}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -349,295 +823,6 @@ export const ContributorWishPreview: FC<ContributorWishPreviewProps> = ({
                 Pinned to {recipientName}&apos;s canvas
               </div>
             </article>
-          </div>
-        </div>
-      )}
-
-      {/* MODE B: STORY (Vertical mobile story slide matching MobileStorySection) */}
-      {effectiveMode === 'story' && (
-        <div
-          className="relative flex min-h-[420px] flex-col items-center justify-center overflow-hidden p-4 sm:p-6"
-          style={{ background: gradientBackground }}
-        >
-          {/* Subtle Ambient Glow */}
-          <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-white/20 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-black/15 blur-2xl" />
-
-          {/* Top Story Progress Bars Bar */}
-          <div className="absolute inset-x-4 top-3 z-20 flex items-center gap-1.5 sm:inset-x-6">
-            <div className="h-1 flex-1 rounded-full bg-white/85 shadow-xs" />
-            <div className="h-1 flex-1 rounded-full bg-white/35" />
-            <div className="h-1 flex-1 rounded-full bg-white/20" />
-          </div>
-
-          <div className="relative z-10 mt-3 w-full max-w-md space-y-4">
-            {/* The Authentic Story Wish Article */}
-            <article
-              className={cn(
-                'relative overflow-hidden rounded-[1.7rem] border p-5 sm:p-6 transition-all',
-                keepsakePaperClass,
-              )}
-            >
-              {/* Header: Letter index */}
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">
-                  Letter 1 of 1
-                </p>
-                <span className="text-[11px] font-semibold opacity-65">
-                  Happy Birthday, {recipientName}
-                </span>
-              </div>
-
-              {/* Sender Name in Theme Typography */}
-              <h2 className={cn('mt-3 text-3xl font-bold leading-[0.98]', titleFontClass)}>
-                {displayName}
-              </h2>
-
-              {/* Wish Message */}
-              <div className="mt-4">
-                {sanitizedMessageHtml ? (
-                  isRich ? (
-                    <div
-                      className="wish-rich-text text-lg leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: sanitizedMessageHtml }}
-                    />
-                  ) : (
-                    <p className="text-lg leading-relaxed">
-                      &ldquo;{sanitizedMessageHtml}&rdquo;
-                    </p>
-                  )
-                ) : (
-                  <p className="text-lg italic leading-relaxed opacity-50">
-                    &ldquo;Your birthday wish for {recipientName} will appear here as you type...&rdquo;
-                  </p>
-                )}
-              </div>
-
-              {/* Badges Row */}
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                {photoCount > 0 && (
-                  <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
-                    {photoCount} {photoCount === 1 ? 'photo memory' : 'photo memories'}
-                  </span>
-                )}
-                {hasAudio && (
-                  <span className={cn('rounded-full px-3 py-1.5 text-[11px] font-semibold', keepsakePillClass)}>
-                    Voice note inside
-                  </span>
-                )}
-                {poolAmountNumber > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/80 bg-emerald-100/90 px-3 py-1.5 text-[11px] font-semibold text-emerald-900 shadow-2xs">
-                    <Gift className="h-3.5 w-3.5 text-emerald-700" />
-                    ₦{new Intl.NumberFormat('en-NG').format(poolAmountNumber)} pool gift
-                  </span>
-                )}
-              </div>
-
-              {/* Stickers Floating on the Card */}
-              {stickers.length > 0 && (
-                <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-                  {stickers.map((s) => (
-                    <div
-                      key={s.id}
-                      className="absolute select-none text-4xl"
-                      style={{
-                        left: `${s.positionX}%`,
-                        top: `${s.positionY}%`,
-                        transform: `translate(-50%, -50%) rotate(${s.rotation}deg) scale(${s.scale})`,
-                      }}
-                    >
-                      {STICKER_EMOJIS[s.stickerType] || '🎉'}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </article>
-
-            {/* Voice Note Section if audio present */}
-            {hasAudio && (
-              <article className={cn('rounded-[1.45rem] border p-4 shadow-sm', keepsakeSoftClass)}>
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Volume2 className="h-4 w-4 text-rose-500" />
-                    <p className="text-sm font-semibold">Voice note from {displayName}</p>
-                  </div>
-                  <span className="text-xs font-mono opacity-70">
-                    {formattedDuration || 'Audio'}
-                  </span>
-                </div>
-                {wishAudioPreviewUrl ? (
-                  <audio src={wishAudioPreviewUrl} controls className="mt-2 h-8 w-full" />
-                ) : isRecording ? (
-                  <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-rose-600 animate-pulse">
-                    <span className="h-2 w-2 rounded-full bg-rose-600 animate-ping" />
-                    Recording in progress: {formattedDuration}
-                  </div>
-                ) : null}
-              </article>
-            )}
-
-            {/* Photo Memories: Authentic Story format matching MobileStorySection */}
-            {photoCount > 0 && (
-              <div className="space-y-3">
-                {selectedPhotos.map((photo, idx) => (
-                  <div
-                    key={photo.id}
-                    className="group block w-full rounded-[1.35rem] border border-white/50 bg-white/60 p-2 text-left shadow-[0_18px_50px_rgba(18,18,23,0.16)] dark:border-white/20 dark:bg-white/10"
-                  >
-                    <div className="relative isolate aspect-[4/5] overflow-hidden rounded-[1.1rem] bg-[#dfe7dc]">
-                      <img
-                        src={photo.previewUrl}
-                        alt={photo.caption || `Photo ${idx + 1}`}
-                        className="h-full w-full object-cover"
-                      />
-                      <div className="absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
-                      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
-                        <div className="min-w-0">
-                          <p className="line-clamp-2 text-sm font-medium text-white">
-                            {photo.caption || `Memory ${idx + 1}`}
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-white/20 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-md">
-                          Open
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* MODE C: BENTO GRID TILE */}
-      {effectiveMode === 'bento' && (
-        <div
-          className="relative flex min-h-[400px] flex-col items-center justify-center overflow-hidden p-4 sm:p-6"
-          style={{ background: gradientBackground }}
-        >
-          {/* Subtle Ambient Glow */}
-          <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-white/20 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-black/15 blur-2xl" />
-
-          {/* Bento Header */}
-          <div className="relative z-10 mb-3 w-full max-w-md text-left">
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/80">
-                Bento Vault
-              </p>
-            </div>
-            <h3 className="mt-1 text-lg font-bold text-white drop-shadow-sm">
-              {recipientName}&apos;s celebration board
-            </h3>
-          </div>
-
-          {/* The Bento Tile */}
-          <div className="relative z-10 w-full max-w-md">
-            <article
-              className={cn(
-                'group relative flex flex-col justify-between overflow-hidden rounded-[1.8rem] border text-left shadow-[0_18px_50px_rgba(15,23,42,0.18)] transition-all',
-                keepsakePaperClass,
-              )}
-            >
-              {photoCount > 0 && selectedPhotos[0]?.previewUrl && (
-                <div className="pointer-events-none absolute inset-0">
-                  <img
-                    src={selectedPhotos[0].previewUrl}
-                    alt=""
-                    className="h-full w-full object-cover opacity-25 dark:opacity-40"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-950 via-white/80 dark:via-slate-950/80 to-transparent" />
-                </div>
-              )}
-
-              {/* Bento Card Header: Sender Avatar & Name */}
-              <div className="relative z-10 p-5 pb-0">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/5 dark:bg-white/15 text-xs font-bold">
-                      {(displayName[0] || 'Y').toUpperCase()}
-                    </div>
-                    <p className={cn('text-sm font-bold truncate leading-tight', titleFontClass)}>
-                      {displayName}
-                    </p>
-                  </div>
-
-                  {stickers.length > 0 && (
-                    <span className="text-lg shrink-0 drop-shadow-xs">
-                      {STICKER_EMOJIS[stickers[0].stickerType] || '🎉'}
-                    </span>
-                  )}
-                </div>
-
-                {/* Message Quote */}
-                <div className="mt-3">
-                  {sanitizedMessageHtml ? (
-                    isRich ? (
-                      <div
-                        className="wish-rich-text line-clamp-4 text-sm leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: sanitizedMessageHtml }}
-                      />
-                    ) : (
-                      <p className="line-clamp-4 text-sm leading-relaxed italic opacity-85">
-                        &ldquo;{sanitizedMessageHtml}&rdquo;
-                      </p>
-                    )
-                  ) : (
-                    <p className="text-sm italic opacity-50">
-                      &ldquo;Your birthday wish will be pinned here...&rdquo;
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Bento Tile Footer: Audio, Photo Counts, Badges */}
-              <div className="relative z-10 p-5 pt-4 mt-4 border-t border-black/5 dark:border-white/10">
-                {hasAudio && (
-                  <div className="mb-2.5 flex items-center gap-2 rounded-full bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300">
-                    <Volume2 className="h-3.5 w-3.5 animate-pulse text-rose-600" />
-                    <span>Voice note attached ({formattedDuration || 'Audio'})</span>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {photoCount > 0 && (
-                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold', keepsakePillClass)}>
-                      <ImageIcon className="h-3.5 w-3.5" />
-                      {photoCount} {photoCount === 1 ? 'photo' : 'photos'}
-                    </span>
-                  )}
-                  {poolAmountNumber > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/80 bg-emerald-100/90 px-2.5 py-1 text-xs font-semibold text-emerald-900 shadow-2xs">
-                      <Gift className="h-3.5 w-3.5 text-emerald-700" />
-                      ₦{new Intl.NumberFormat('en-NG').format(poolAmountNumber)} pool gift
-                    </span>
-                  )}
-                  <span className="ml-auto text-[10px] font-medium opacity-60">
-                    Tap to expand full note
-                  </span>
-                </div>
-              </div>
-            </article>
-
-            {/* Attached Photo Previews */}
-            {photoCount > 0 && (
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {selectedPhotos.slice(0, 3).map((photo, idx) => (
-                  <div
-                    key={photo.id}
-                    className="relative aspect-square overflow-hidden rounded-xl border border-white/60 bg-white/70 shadow-xs"
-                  >
-                    <img
-                      src={photo.previewUrl}
-                      alt={photo.caption || `Memory ${idx + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}

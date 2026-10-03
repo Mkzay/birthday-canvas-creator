@@ -1241,6 +1241,12 @@ const ContributePage = () => {
                   poolFundraisingEnabled={Boolean(page.pool_fundraising_enabled)}
                   themeKey={page.theme}
                   customGradient={customGradient}
+                  themeGradientFrom={page.theme_gradient_from}
+                  themeGradientTo={page.theme_gradient_to}
+                  themeGradientMid={page.theme_gradient_mid}
+                  themeGradientAngle={page.theme_gradient_angle}
+                  themeEmoji={page.theme_emoji}
+                  themeFont={page.theme_font}
                   displayMode={page.display_mode}
                   letterTheme={page.letter_theme}
                   coverPhotoUrl={page.cover_photo_url}

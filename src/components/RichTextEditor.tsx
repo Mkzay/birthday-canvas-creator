@@ -3,7 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 interface RichTextEditorProps {
   value: string;
@@ -56,8 +56,8 @@ const ToolbarButton = ({ active, onClick, disabled, children, label }: ToolbarBu
 );
 
 const RichTextEditor = ({ value, onChange, placeholder, maxLength = 500, disabled, className }: RichTextEditorProps) => {
-  const editor = useEditor({
-    extensions: [
+  const extensions = useMemo(
+    () => [
       StarterKit.configure({
         heading: false,
         codeBlock: false,
@@ -67,6 +67,11 @@ const RichTextEditor = ({ value, onChange, placeholder, maxLength = 500, disable
       }),
       Placeholder.configure({ placeholder: placeholder || 'Write your message...' }),
     ],
+    [placeholder],
+  );
+
+  const editor = useEditor({
+    extensions,
     content: value,
     editable: !disabled,
     editorProps: {
@@ -119,6 +124,14 @@ const RichTextEditor = ({ value, onChange, placeholder, maxLength = 500, disable
       editor.setEditable(!disabled);
     }
   }, [disabled, editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const currentHtml = editor.getHTML();
+    if (value !== currentHtml && (value || currentHtml !== '<p></p>')) {
+      editor.commands.setContent(value || '', { emitUpdate: false });
+    }
+  }, [value, editor]);
 
   const textLength = getTextLength(value);
 
