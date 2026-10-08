@@ -1065,7 +1065,7 @@ const SettingsPage = () => {
                       </p>
                     </div>
                     <a
-                      href="mailto:support@wishcanvas.art?subject=Creator%20Support%20Request"
+                      href="mailto:hello@wishcanvas.app?subject=Creator%20Support%20Request"
                       className="shrink-0"
                     >
                       <Button variant="outline" size="sm" className="rounded-xl border-amber-300 bg-white font-bold text-xs text-amber-900 hover:bg-amber-50 shadow-xs gap-1.5">

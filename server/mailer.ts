@@ -31,7 +31,7 @@ export function isMailerConfigured() {
 function getMailerConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.EMAIL_FROM?.trim();
-  const defaultReplyTo = process.env.EMAIL_REPLY_TO?.trim();
+  const defaultReplyTo = process.env.EMAIL_REPLY_TO?.trim() || "hello@wishcanvas.app";
 
   if (!apiKey || !from) {
     throw new Error("Resend is not configured. Set RESEND_API_KEY and EMAIL_FROM.");

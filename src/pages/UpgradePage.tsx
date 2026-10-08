@@ -799,7 +799,7 @@ const UpgradePage = () => {
 
               <div className="space-y-3 pt-4 border-t border-amber-200/60">
                 <a
-                  href="mailto:support@wishcanvas.art?subject=Atelier%20Billing%20Support"
+                  href="mailto:hello@wishcanvas.app?subject=Atelier%20Billing%20Support"
                   className="block"
                 >
                   <Button
@@ -811,7 +811,7 @@ const UpgradePage = () => {
                   </Button>
                 </a>
                 <p className="text-[11px] text-center text-stone-400">
-                  Response within 24 hours: support@wishcanvas.art
+                  Response within 24 hours: hello@wishcanvas.app
                 </p>
               </div>
             </div>

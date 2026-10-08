@@ -453,7 +453,7 @@ giftPoolRouter.post(
       const data = await paystackRequest<{ authorization_url: string; reference: string }>("/transaction/initialize", {
         method: "POST",
         body: JSON.stringify({
-          email: contributorEmail || "pool@wishcanvas.app",
+          email: contributorEmail || "hello@wishcanvas.app",
           amount: contributionCharge.totalChargeKobo,
           currency: "NGN",
           callback_url: callbackUrl,
