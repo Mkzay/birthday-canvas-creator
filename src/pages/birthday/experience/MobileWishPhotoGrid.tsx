@@ -61,27 +61,27 @@ export const MobileWishPhotoGrid = memo(function MobileWishPhotoGrid({
   if (photoCount === 1) {
     return (
       <div className={cn('w-full', className)}>
-        {renderSinglePhoto(photos[0], 'aspect-[4/3] sm:aspect-[16/10] max-h-56')}
+        {renderSinglePhoto(photos[0], 'aspect-[4/3] xs:aspect-[1/1] sm:aspect-[4/3] min-h-[17rem] max-h-[52dvh]')}
       </div>
     );
   }
 
   if (photoCount === 2) {
     return (
-      <div className={cn('grid grid-cols-2 gap-2 w-full', className)}>
-        {photos.map((photo) => renderSinglePhoto(photo, 'aspect-square max-h-40'))}
+      <div className={cn('grid grid-cols-2 gap-2.5 w-full', className)}>
+        {photos.map((photo) => renderSinglePhoto(photo, 'aspect-[4/3] sm:aspect-square min-h-[12rem] max-h-[36dvh]'))}
       </div>
     );
   }
 
   if (photoCount === 3) {
     return (
-      <div className={cn('grid grid-cols-2 gap-2 w-full', className)}>
+      <div className={cn('grid grid-cols-2 gap-2.5 w-full', className)}>
         <div className="col-span-2">
-          {renderSinglePhoto(photos[0], 'aspect-[16/9] max-h-36')}
+          {renderSinglePhoto(photos[0], 'aspect-[16/9] min-h-[12rem] max-h-[30dvh]')}
         </div>
         {photos.slice(1, 3).map((photo) =>
-          renderSinglePhoto(photo, 'aspect-square max-h-32')
+          renderSinglePhoto(photo, 'aspect-square min-h-[9.5rem] max-h-[24dvh]')
         )}
       </div>
     );
@@ -89,9 +89,9 @@ export const MobileWishPhotoGrid = memo(function MobileWishPhotoGrid({
 
   if (photoCount === 4) {
     return (
-      <div className={cn('grid grid-cols-2 gap-2 w-full', className)}>
+      <div className={cn('grid grid-cols-2 gap-2.5 w-full', className)}>
         {photos.slice(0, 4).map((photo) =>
-          renderSinglePhoto(photo, 'aspect-square max-h-32')
+          renderSinglePhoto(photo, 'aspect-square min-h-[9.5rem] max-h-[24dvh]')
         )}
       </div>
     );
@@ -100,13 +100,13 @@ export const MobileWishPhotoGrid = memo(function MobileWishPhotoGrid({
   // 5 or more photos: 2x2 grid with +N badge on last item
   const extraCount = photoCount - 4;
   return (
-    <div className={cn('grid grid-cols-2 gap-2 w-full', className)}>
+    <div className={cn('grid grid-cols-2 gap-2.5 w-full', className)}>
       {photos.slice(0, 3).map((photo) =>
-        renderSinglePhoto(photo, 'aspect-square max-h-32')
+        renderSinglePhoto(photo, 'aspect-square min-h-[9.5rem] max-h-[24dvh]')
       )}
       {renderSinglePhoto(
         photos[3],
-        'aspect-square max-h-32',
+        'aspect-square min-h-[9.5rem] max-h-[24dvh]',
         extraCount > 0 ? (
           <div className="absolute inset-0 bg-black/65 backdrop-blur-[2px] flex flex-col items-center justify-center text-white p-2">
             <ImageIcon className="h-4 w-4 mb-1 text-amber-300" />

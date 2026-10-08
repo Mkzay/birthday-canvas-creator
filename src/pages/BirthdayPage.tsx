@@ -1267,6 +1267,9 @@ const BirthdayPage = ({
           isOpen={isExportModalOpen}
           onOpenChange={setIsExportModalOpen}
           isProUser={true}
+          onDownloadVideo={keepsakeExport.handleDownloadVideoKeepsake}
+          downloadingVideo={keepsakeExport.downloadingVideo}
+          videoProgress={keepsakeExport.videoProgress}
         />
 
         {soundtrack.startYoutube && soundtrack.ytId && (

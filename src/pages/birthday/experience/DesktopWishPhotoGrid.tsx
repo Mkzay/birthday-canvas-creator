@@ -36,7 +36,7 @@ export const DesktopWishPhotoGrid = memo(function DesktopWishPhotoGrid({
       onClick={() => onOpenPhoto(photo)}
       aria-label={`Expand photo from ${senderName}`}
     >
-      <div className="relative isolate h-full min-h-[7.5rem] overflow-hidden rounded-[1.1rem] sm:rounded-[1.25rem] bg-[#dfe7dc]">
+      <div className="relative isolate h-full min-h-[14rem] sm:min-h-[18rem] lg:min-h-[22rem] overflow-hidden rounded-[1.1rem] sm:rounded-[1.25rem] bg-[#dfe7dc]">
         <img
           className="story-photo-layer absolute inset-0 z-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           src={resolveAssetUrl(photo.photo_url) || photo.photo_url}

@@ -288,7 +288,7 @@ const BentoGridView: FC<BentoGridViewProps> = ({
       )}
 
       {/* Main Bento Arena */}
-      <div className="mx-auto w-full max-w-6xl px-2.5 xs:px-3.5 sm:px-6">
+      <div className="mx-auto w-full max-w-[1440px] px-2.5 xs:px-3.5 sm:px-6 lg:px-8 xl:px-10">
         
         {/* Bento Header */}
         <div className="mb-5 sm:mb-7 flex flex-col sm:flex-row sm:items-end justify-between gap-3.5">
@@ -328,7 +328,7 @@ const BentoGridView: FC<BentoGridViewProps> = ({
           {/* TILE 1: Cover Hero Card */}
           <div
             className={cn(
-              'group relative col-span-1 xs:col-span-2 row-span-2 overflow-hidden rounded-[2rem] border shadow-card transition-all duration-300 hover:shadow-2xl',
+              'group relative col-span-1 xs:col-span-2 row-span-2 overflow-hidden rounded-[2rem] border shadow-card transition-all duration-300 hover:shadow-2xl min-h-[22rem] xs:min-h-[25rem] sm:min-h-[28rem] lg:min-h-[32rem]',
               keepsakePaperClass,
             )}
           >

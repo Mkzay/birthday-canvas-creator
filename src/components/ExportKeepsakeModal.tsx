@@ -42,6 +42,9 @@ interface ExportKeepsakeModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   isProUser: boolean;
+  onDownloadVideo?: () => Promise<void> | void;
+  downloadingVideo?: boolean;
+  videoProgress?: number;
 }
 
 type ExportPdfFormat = 'pdf' | 'slides';
@@ -51,6 +54,9 @@ export function ExportKeepsakeModal({
   isOpen,
   onOpenChange,
   isProUser,
+  onDownloadVideo,
+  downloadingVideo = false,
+  videoProgress = 0,
 }: ExportKeepsakeModalProps) {
   const [downloadingPdf, setDownloadingPdf] = useState<ExportPdfFormat | null>(null);
   const [downloadingImage, setDownloadingImage] = useState(false);
@@ -146,10 +152,15 @@ export function ExportKeepsakeModal({
     }
   };
 
-  const handleLaunchVideoExport = () => {
-    toast.info('Opening celebration story video recorder...');
-    const videoUrl = `/birthday/${page.public_code}?export=video`;
-    window.open(videoUrl, '_blank', 'noopener,noreferrer');
+  const handleLaunchVideoExport = async () => {
+    onOpenChange(false);
+    if (onDownloadVideo) {
+      void onDownloadVideo();
+      return;
+    }
+    toast.info('Starting background video render...');
+    // If opened from a view without an active canvas player, redirect directly without popup
+    window.location.assign(`/birthday/${page.public_code}?export=video`);
   };
 
   return (

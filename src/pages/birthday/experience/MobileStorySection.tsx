@@ -280,7 +280,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
         {currentActiveSlide?.kind === 'cover' && (
           <article
             className={cn(
-              'pointer-events-auto rounded-[2rem] border p-5 shadow-2xl overflow-y-auto max-h-[calc(100dvh-10rem)] transition-transform flex flex-col justify-between',
+              'pointer-events-auto rounded-[2rem] border p-5 shadow-2xl overflow-y-auto h-full max-h-[calc(100dvh-6rem)] transition-transform flex flex-col justify-between',
               keepsakePaperClass,
             )}
             style={{
@@ -307,7 +307,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
               </p>
 
               {coverPhotoSrc && (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/40 shadow-md aspect-[16/10] max-h-48 relative">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/40 shadow-md aspect-[16/10] sm:aspect-[16/9] min-h-[14rem] max-h-[38dvh] relative">
                   <img
                     src={coverPhotoSrc}
                     alt={`${page?.recipient_name}'s birthday`}
@@ -446,7 +446,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
           return (
             <article
               className={cn(
-                'pointer-events-auto rounded-[2rem] border p-4.5 sm:p-5 shadow-2xl overflow-y-auto max-h-[calc(100dvh-10rem)] flex flex-col justify-between relative transition-all duration-300',
+                'pointer-events-auto rounded-[2rem] border p-4.5 sm:p-5 shadow-2xl overflow-y-auto h-full max-h-[calc(100dvh-6rem)] flex flex-col justify-between relative transition-all duration-300',
                 keepsakePaperClass,
               )}
               style={{

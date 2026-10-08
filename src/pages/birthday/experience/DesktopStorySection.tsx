@@ -632,9 +632,9 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               {/* Message Text with Scroll Containment */}
                               <div className="my-auto py-2">
                                 {isRichHtml(activeSlide.message.message) ? (
-                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 text-base leading-relaxed sm:text-lg lg:text-xl font-serif italic custom-scrollbar scroll-smooth', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
+                                  <div className={cn('story-slide-wish-message wish-rich-text max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 text-lg leading-relaxed sm:text-xl lg:text-2xl font-serif italic custom-scrollbar scroll-smooth', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
                                 ) : (
-                                  <p className={cn('story-slide-wish-message max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 text-base leading-relaxed sm:text-lg lg:text-xl font-serif italic custom-scrollbar scroll-smooth', theme.text)}>
+                                  <p className={cn('story-slide-wish-message max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 text-lg leading-relaxed sm:text-xl lg:text-2xl font-serif italic custom-scrollbar scroll-smooth', theme.text)}>
                                     &quot;{activeSlide.message.message}&quot;
                                   </p>
                                 )}
