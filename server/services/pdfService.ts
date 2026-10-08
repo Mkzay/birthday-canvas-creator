@@ -141,10 +141,108 @@ const THEME_PALETTES: Record<string, PdfThemePalette> = {
   },
 };
 
-function getThemePalette(themeKey?: unknown): PdfThemePalette {
-  if (typeof themeKey !== "string") return THEME_PALETTES.elegant;
-  const key = themeKey.toLowerCase().trim();
-  return THEME_PALETTES[key] || THEME_PALETTES.elegant;
+function parseHexToRgb(hex?: unknown, fallback: [number, number, number] = [0.2, 0.2, 0.2]): [number, number, number] {
+  if (typeof hex !== "string") return fallback;
+  const clean = hex.trim().replace(/^#/, "");
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16) / 255;
+    const g = parseInt(clean[1] + clean[1], 16) / 255;
+    const b = parseInt(clean[2] + clean[2], 16) / 255;
+    if (!Number.isNaN(r) && !Number.isNaN(g) && !Number.isNaN(b)) return [r, g, b];
+  }
+  if (clean.length >= 6) {
+    const r = parseInt(clean.slice(0, 2), 16) / 255;
+    const g = parseInt(clean.slice(2, 4), 16) / 255;
+    const b = parseInt(clean.slice(4, 6), 16) / 255;
+    if (!Number.isNaN(r) && !Number.isNaN(g) && !Number.isNaN(b)) return [r, g, b];
+  }
+  return fallback;
+}
+
+export function getThemePalette(pageOrTheme?: unknown): PdfThemePalette {
+  let themeKey = "elegant";
+  let pageObj: Record<string, unknown> | null = null;
+
+  if (typeof pageOrTheme === "string") {
+    themeKey = pageOrTheme.toLowerCase().trim();
+  } else if (pageOrTheme && typeof pageOrTheme === "object") {
+    pageObj = pageOrTheme as Record<string, unknown>;
+    themeKey = String(pageObj.theme || "elegant").toLowerCase().trim();
+  }
+
+  // Support custom user-created themes with custom gradient/accent colors
+  if (pageObj && (themeKey.startsWith("custom_") || Boolean(pageObj.theme_gradient_from))) {
+    const fromRgb = parseHexToRgb(pageObj.theme_gradient_from, [0.55, 0.36, 0.96]);
+    const toRgb = parseHexToRgb(pageObj.theme_gradient_to, [0.92, 0.28, 0.60]);
+    const accentRgb = parseHexToRgb(pageObj.theme_accent_color || pageObj.theme_gradient_to, toRgb);
+
+    const fromLum = fromRgb[0] * 0.299 + fromRgb[1] * 0.587 + fromRgb[2] * 0.114;
+    const toLum = toRgb[0] * 0.299 + toRgb[1] * 0.587 + toRgb[2] * 0.114;
+    const avgLum = (fromLum + toLum) / 2;
+    const isDark = avgLum < 0.45;
+
+    const rawFont = String(pageObj.theme_font || "").toLowerCase();
+    const isSerif =
+      rawFont.includes("serif") ||
+      rawFont.includes("playfair") ||
+      rawFont.includes("cormorant") ||
+      rawFont.includes("dm-serif");
+
+    return {
+      name: "Custom Theme",
+      isDark,
+      fontFamily: isSerif ? "serif" : "sans",
+      primary: isDark
+        ? [0.96, 0.97, 0.99]
+        : [
+            Math.max(0.08, Math.min(0.24, fromRgb[0] * 0.28)),
+            Math.max(0.06, Math.min(0.22, fromRgb[1] * 0.24)),
+            Math.max(0.08, Math.min(0.26, fromRgb[2] * 0.28)),
+          ],
+      accent: accentRgb,
+      background: isDark
+        ? [
+            Math.max(0.04, Math.min(0.12, fromRgb[0] * 0.12)),
+            Math.max(0.04, Math.min(0.10, fromRgb[1] * 0.10)),
+            Math.max(0.07, Math.min(0.16, fromRgb[2] * 0.16)),
+          ]
+        : [0.985, 0.98, 0.975],
+      cardBackground: isDark
+        ? [
+            Math.max(0.09, Math.min(0.18, fromRgb[0] * 0.22)),
+            Math.max(0.08, Math.min(0.16, fromRgb[1] * 0.20)),
+            Math.max(0.14, Math.min(0.26, fromRgb[2] * 0.28)),
+          ]
+        : [1, 1, 1],
+      textDark: isDark ? [0.96, 0.96, 0.98] : [0.18, 0.12, 0.08],
+      textMuted: isDark ? [0.72, 0.70, 0.84] : [0.52, 0.46, 0.42],
+      border: isDark
+        ? [
+            Math.min(0.42, fromRgb[0] * 0.38 + 0.12),
+            Math.min(0.42, fromRgb[1] * 0.38 + 0.12),
+            Math.min(0.52, fromRgb[2] * 0.38 + 0.16),
+          ]
+        : [0.88, 0.86, 0.84],
+    };
+  }
+
+  const basePalette = THEME_PALETTES[themeKey] || THEME_PALETTES.elegant;
+
+  // Check if a built-in theme has a custom font specified
+  if (pageObj && pageObj.theme_font) {
+    const rawFont = String(pageObj.theme_font).toLowerCase();
+    const isSerif =
+      rawFont.includes("serif") ||
+      rawFont.includes("playfair") ||
+      rawFont.includes("cormorant") ||
+      rawFont.includes("dm-serif");
+    return {
+      ...basePalette,
+      fontFamily: isSerif ? "serif" : "sans",
+    };
+  }
+
+  return basePalette;
 }
 
 export function cleanPdfText(text: string): string {
@@ -172,7 +270,26 @@ export function wrapTextToWidth(
   const sanitized = cleanPdfText(text);
   if (!sanitized) return [];
 
-  const words = sanitized.split(/\s+/).filter(Boolean);
+  const rawWords = sanitized.split(/\s+/).filter(Boolean);
+  const words: string[] = [];
+
+  // Break up any word wider than maxWidth so long tokens cannot spill over card borders
+  for (const rawWord of rawWords) {
+    if (font.widthOfTextAtSize(rawWord, fontSize) <= maxWidth) {
+      words.push(rawWord);
+    } else {
+      let remaining = rawWord;
+      while (remaining.length > 0) {
+        let fitLength = remaining.length;
+        while (fitLength > 1 && font.widthOfTextAtSize(remaining.slice(0, fitLength), fontSize) > maxWidth) {
+          fitLength -= 1;
+        }
+        words.push(remaining.slice(0, fitLength));
+        remaining = remaining.slice(fitLength);
+      }
+    }
+  }
+
   const lines: string[] = [];
   let current = "";
 
@@ -239,21 +356,24 @@ function renderContainedText(
     color?: RGB;
     preferredSize?: number;
     minSize?: number;
+    lineGapMultiplier?: number;
+    verticalCenter?: boolean;
   }
 ): number {
   const sanitized = cleanPdfText(text);
   if (!sanitized) return boxTopY;
 
   let fontSize = options?.preferredSize || 13;
-  const minFontSize = options?.minSize || 10;
+  const minFontSize = options?.minSize || 9.5;
   const textColor = options?.color || rgb(0.12, 0.12, 0.14);
-  const safeBoxWidth = Math.max(80, boxWidth - 10);
+  const safeBoxWidth = Math.max(80, boxWidth - 12);
+  const gapMult = options?.lineGapMultiplier || 1.42;
 
   let lines: string[] = [];
-  let lineHeight = fontSize * 1.45;
+  let lineHeight = fontSize * gapMult;
 
   while (fontSize >= minFontSize) {
-    lineHeight = fontSize * 1.45;
+    lineHeight = fontSize * gapMult;
     lines = wrapTextToWidth(sanitized, safeBoxWidth, font, fontSize);
     const totalNeededHeight = lines.length * lineHeight;
 
@@ -279,7 +399,26 @@ function renderContainedText(
     }
   }
 
+  // Ensure every line strictly obeys safeBoxWidth
+  for (let i = 0; i < lines.length; i++) {
+    if (font.widthOfTextAtSize(lines[i], fontSize) > safeBoxWidth) {
+      let trimmed = lines[i];
+      while (font.widthOfTextAtSize(`${trimmed}...`, fontSize) > safeBoxWidth && trimmed.length > 2) {
+        trimmed = trimmed.slice(0, -1);
+      }
+      lines[i] = `${trimmed}...`;
+    }
+  }
+
   let cursorY = boxTopY;
+  if (options?.verticalCenter && lines.length > 0) {
+    const totalRenderedHeight = (lines.length - 1) * lineHeight + fontSize;
+    if (totalRenderedHeight < maxAvailableHeight) {
+      const topOffset = (maxAvailableHeight - totalRenderedHeight) / 2;
+      cursorY = boxTopY - topOffset;
+    }
+  }
+
   for (const line of lines) {
     page.drawText(line, {
       x: boxX,
@@ -422,13 +561,23 @@ export async function buildBrandedPagePdf(
   const isLandscape = options?.orientation === "landscape";
   const doc = await PDFDocument.create();
 
-  // Typography system
-  const titleFont = await doc.embedFont(StandardFonts.HelveticaBold);
-  const bodyFont = await doc.embedFont(StandardFonts.Helvetica);
-  const obliqueFont = await doc.embedFont(StandardFonts.HelveticaOblique);
-  const serifBoldFont = await doc.embedFont(StandardFonts.TimesRomanBold);
-  const serifItalicFont = await doc.embedFont(StandardFonts.TimesRomanItalic);
+  // Typography system: strictly inherits serif vs sans from theme
+  const palette = getThemePalette(page);
+  const isSerif = palette.fontFamily === "serif";
+
+  const helveticaBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const helveticaRegular = await doc.embedFont(StandardFonts.Helvetica);
+  const helveticaOblique = await doc.embedFont(StandardFonts.HelveticaOblique);
+  const timesBold = await doc.embedFont(StandardFonts.TimesRomanBold);
+  const timesRegular = await doc.embedFont(StandardFonts.TimesRoman);
+  const timesItalic = await doc.embedFont(StandardFonts.TimesRomanItalic);
   const monoFont = await doc.embedFont(StandardFonts.CourierBold);
+
+  const headingFont = isSerif ? timesBold : helveticaBold;
+  const titleFont = isSerif ? timesBold : helveticaBold;
+  const bodyFont = isSerif ? timesRegular : helveticaRegular;
+  const quoteFont = isSerif ? timesItalic : helveticaOblique;
+  const obliqueFont = isSerif ? timesItalic : helveticaOblique;
 
   const recipientName = cleanPdfText(String(page.recipient_name || "Someone Special"));
   const birthdayDateLabel = formatAlbumDate(page.birthday_date);
@@ -436,9 +585,6 @@ export async function buildBrandedPagePdf(
   const publicCode = String(page.public_code || "");
   const siteUrl = options?.siteUrl || "https://wishcanvas.app";
   const celebrationUrl = publicCode ? `${siteUrl}/birthday/${publicCode}` : siteUrl;
-
-  const palette = getThemePalette(page.theme);
-  const headingFont = palette.fontFamily === "serif" ? serifBoldFont : titleFont;
 
   // Dimensions
   const pageWidth = isLandscape ? 960 : 595;
@@ -585,11 +731,48 @@ export async function buildBrandedPagePdf(
         orgBoxY + orgBoxHeight - 42,
         usableLeftTextWidth - 28,
         64,
-        serifItalicFont,
+        quoteFont,
         {
           color: rgb(...palette.textDark),
           preferredSize: 11,
           minSize: 9.5,
+          verticalCenter: true,
+        }
+      );
+    } else {
+      const bannerY = cardY + 114;
+      const bannerHeight = 114;
+      coverPage.drawRectangle({
+        x: margin + 28,
+        y: bannerY,
+        width: usableLeftTextWidth,
+        height: bannerHeight,
+        color: rgb(...palette.background),
+        borderColor: rgb(...palette.border),
+        borderWidth: 0.8,
+      });
+
+      coverPage.drawText("A COMMEMORATIVE KEEPSAKE CELEBRATION", {
+        x: margin + 42,
+        y: bannerY + bannerHeight - 22,
+        size: 8,
+        font: titleFont,
+        color: rgb(...palette.accent),
+      });
+
+      renderContainedText(
+        coverPage,
+        `Lovingly assembled for ${recipientName} to hold every heartfelt wish, photograph, and blessing from loved ones in one permanent keepsake.`,
+        margin + 42,
+        bannerY + bannerHeight - 42,
+        usableLeftTextWidth - 28,
+        64,
+        quoteFont,
+        {
+          color: rgb(...palette.textDark),
+          preferredSize: 11,
+          minSize: 9.5,
+          verticalCenter: true,
         }
       );
     }
@@ -801,15 +984,48 @@ export async function buildBrandedPagePdf(
         currentCursor - 38,
         usableCardWidth - 36,
         64,
-        serifItalicFont,
+        quoteFont,
         {
           color: rgb(...palette.textDark),
           preferredSize: 11.5,
           minSize: 10,
+          verticalCenter: true,
         }
       );
 
       currentCursor -= noteHeight + 24;
+    } else {
+      const bannerHeight = 84;
+      coverPage.drawRectangle({
+        x: margin,
+        y: currentCursor - bannerHeight,
+        width: usableCardWidth,
+        height: bannerHeight,
+        color: rgb(...palette.cardBackground),
+        borderColor: rgb(...palette.border),
+        borderWidth: 0.8,
+      });
+
+      coverPage.drawText("A COMMEMORATIVE KEEPSAKE CELEBRATION", {
+        x: margin + 18,
+        y: currentCursor - 20,
+        size: 8.5,
+        font: titleFont,
+        color: rgb(...palette.accent),
+      });
+
+      drawWrappedParagraph(
+        coverPage,
+        `Lovingly assembled for ${recipientName} to hold every heartfelt wish, photograph, and blessing from loved ones in one permanent digital keepsake.`,
+        margin + 18,
+        currentCursor - 40,
+        usableCardWidth - 36,
+        bodyFont,
+        10.5,
+        rgb(...palette.textDark)
+      );
+
+      currentCursor -= bannerHeight + 24;
     }
 
     const tileWidth = (usableCardWidth - 16) / 2;
@@ -1260,18 +1476,21 @@ export async function buildBrandedPagePdf(
         });
 
         const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you the happiest birthday filled with joy and blessings!"';
+        const isShortWish = quoteText.length < 120;
+        const preferredQuoteSize = isShortWish ? 21 : quoteText.length < 260 ? 17 : 14.5;
         renderContainedText(
           wishPage,
           quoteText,
           cardX + 36,
-          cardY + cardHeight - 136,
+          cardY + cardHeight - 126,
           usableW,
-          cardHeight - 210,
-          serifItalicFont,
+          cardHeight - 195,
+          quoteFont,
           {
             color: rgb(...palette.textDark),
-            preferredSize: 16,
-            minSize: 11,
+            preferredSize: preferredQuoteSize,
+            minSize: 10,
+            verticalCenter: true,
           }
         );
 
@@ -1370,18 +1589,21 @@ export async function buildBrandedPagePdf(
         });
 
         const quoteText = rawContent ? `"${rawContent}"` : '"Sent with warmest affection."';
+        const isShortWish = quoteText.length < 120;
+        const preferredQuoteSize = isShortWish ? 18.5 : quoteText.length < 240 ? 15.5 : 13.5;
         renderContainedText(
           wishPage,
           quoteText,
           margin + 30,
-          cardY + cardHeight - 126,
+          cardY + cardHeight - 120,
           usableW,
-          cardHeight - 200,
-          serifItalicFont,
+          cardHeight - 190,
+          quoteFont,
           {
             color: rgb(...palette.textDark),
-            preferredSize: 14,
-            minSize: 10.5,
+            preferredSize: preferredQuoteSize,
+            minSize: 10,
+            verticalCenter: true,
           }
         );
 
@@ -1527,18 +1749,21 @@ export async function buildBrandedPagePdf(
         });
 
         const quoteText = rawContent ? `"${rawContent}"` : '"Sent with warmest affection."';
+        const isShortWish = quoteText.length < 120;
+        const preferredQuoteSize = isShortWish ? 17 : quoteText.length < 240 ? 15 : 13;
         renderContainedText(
           wishPage,
           quoteText,
           margin + 30,
-          cardY + cardHeight - 124,
+          cardY + cardHeight - 118,
           usableW,
-          cardHeight - 195,
-          serifItalicFont,
+          cardHeight - 185,
+          quoteFont,
           {
             color: rgb(...palette.textDark),
-            preferredSize: 13.5,
-            minSize: 10.5,
+            preferredSize: preferredQuoteSize,
+            minSize: 9.5,
+            verticalCenter: true,
           }
         );
 
@@ -1759,18 +1984,23 @@ export async function buildBrandedPagePdf(
         });
 
         const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you abundant joy, good health, and peace on your birthday!"';
+        const isShortWish = quoteText.length < 100;
+        const isMediumWish = quoteText.length < 260;
+        const preferredQuoteSize = isShortWish ? 22 : isMediumWish ? 17.5 : quoteText.length < 500 ? 14.5 : 12;
+
         renderContainedText(
           wishPage,
           quoteText,
           margin + 32,
           cardY + cardH - 165,
           usableW,
-          cardH - 250,
-          serifItalicFont,
+          cardH - 260,
+          quoteFont,
           {
             color: rgb(...palette.textDark),
-            preferredSize: 16,
-            minSize: 11,
+            preferredSize: preferredQuoteSize,
+            minSize: 10,
+            verticalCenter: true,
           }
         );
 
@@ -1878,18 +2108,21 @@ export async function buildBrandedPagePdf(
         });
 
         const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you abundant joy, good health, and peace on your birthday!"';
+        const isShortWish = quoteText.length < 120;
+        const preferredQuoteSize = isShortWish ? 16 : quoteText.length < 240 ? 14 : 11.5;
         renderContainedText(
           wishPage,
           quoteText,
           margin + 24,
-          topCardY + topCardH - 105,
+          topCardY + topCardH - 100,
           usableW,
-          topCardH - 145,
-          serifItalicFont,
+          topCardH - 140,
+          quoteFont,
           {
             color: rgb(...palette.textDark),
-            preferredSize: 13,
-            minSize: 10,
+            preferredSize: preferredQuoteSize,
+            minSize: 9.5,
+            verticalCenter: true,
           }
         );
 
@@ -2044,15 +2277,23 @@ export async function buildBrandedPagePdf(
   ];
 
   let closeCursor = colophonY - 32;
-  for (const line of closingLines) {
-    closingPage.drawText(cleanPdfText(line), {
-      x: margin,
-      y: closeCursor,
-      size: 11,
-      font: bodyFont,
-      color: rgb(...palette.textMuted),
-    });
-    closeCursor -= 18;
+  const usableCloseWidth = pageWidth - margin * 2;
+  for (const rawLine of closingLines) {
+    if (!rawLine) {
+      closeCursor -= 14;
+      continue;
+    }
+    const wrapped = wrapTextToWidth(cleanPdfText(rawLine), usableCloseWidth, bodyFont, 11);
+    for (const line of wrapped) {
+      closingPage.drawText(line, {
+        x: margin,
+        y: closeCursor,
+        size: 11,
+        font: bodyFont,
+        color: rgb(...palette.textMuted),
+      });
+      closeCursor -= 18;
+    }
   }
 
   return doc.save();

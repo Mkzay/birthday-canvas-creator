@@ -36,6 +36,7 @@ import {
   sanitizeAmountKobo,
   rejectInvalidUpload,
   logRequestFailure,
+  getClientOriginForRequest,
 } from "../services/requestUtils";
 import { buildBrandedPagePdf } from "../services/pdfService";
 import { sendNewMessageAlertEmail } from "../emailFlows";
@@ -68,11 +69,6 @@ publicPagesRouter.get("/:id/export", validateParams(pageIdParamSchema), async (r
     return;
   }
 
-  if (String(page.owner_plan_tier || "free") !== "pro") {
-    response.status(403).json({ error: "Download is available when the page creator is on Pro.", code: "FEATURE_PRO_ONLY" });
-    return;
-  }
-
   if (!page.is_revealed) {
     response.status(403).json({ error: "Birthday wishes are not available yet" });
     return;
@@ -84,10 +80,27 @@ publicPagesRouter.get("/:id/export", validateParams(pageIdParamSchema), async (r
   }
 
   const messages = await fetchMessagesForPage(resolvedPageId);
-  const pdfBytes = await buildBrandedPagePdf(page, messages);
   const slug = String(page.recipient_name || "birthday-page").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "birthday-page";
+  const requestedFormat = typeof request.query.format === "string" ? request.query.format.toLowerCase() : "pdf";
+  const siteUrl = getClientOriginForRequest(request);
+
+  if (requestedFormat === "slides") {
+    const pdfBytes = await buildBrandedPagePdf(page, messages, {
+      orientation: "landscape",
+      siteUrl,
+    });
+    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader("Content-Disposition", `attachment; filename="${slug}-story-presentation-deck.pdf"`);
+    response.send(Buffer.from(pdfBytes));
+    return;
+  }
+
+  const pdfBytes = await buildBrandedPagePdf(page, messages, {
+    orientation: "portrait",
+    siteUrl,
+  });
   response.setHeader("Content-Type", "application/pdf");
-  response.setHeader("Content-Disposition", `attachment; filename="${slug}-wishcanvas-keepsake.pdf"`);
+  response.setHeader("Content-Disposition", `attachment; filename="${slug}-editorial-keepsake-book.pdf"`);
   response.send(Buffer.from(pdfBytes));
 });
 
