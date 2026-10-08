@@ -222,12 +222,15 @@ const Dashboard = () => {
   const handleOpenDrawer = (page: BirthdayPage) => {
     setDrawerPage(page);
     setIsDrawerOpen(true);
+    if (isProUser && !analyticsByPage[page.public_code]) {
+      void handleAnalytics(page.public_code);
+    }
   };
 
   const handleAnalytics = async (pageCode: string) => {
     if (!isProUser) {
-      toast.info('Creator analytics is available on Pro.');
-      navigate('/billing');
+      toast.info('Creator participation analytics is available on Pro.');
+      navigate('/upgrade?feature=creator-analytics');
       return;
     }
 
@@ -611,6 +614,7 @@ const Dashboard = () => {
         analytics={drawerPage ? analyticsByPage[drawerPage.public_code] : undefined}
         analyticsLoading={drawerPage ? analyticsLoadingPage === drawerPage.public_code : false}
         exporting={drawerPage ? exportingPage === drawerPage.public_code : false}
+        isProUser={isProUser}
       />
 
       {/* DELETE CONFIRMATION DIALOG */}

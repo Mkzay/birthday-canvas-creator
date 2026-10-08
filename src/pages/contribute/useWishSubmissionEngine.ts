@@ -409,8 +409,12 @@ export function useWishSubmissionEngine({
   const validateAndOpenConfirmModal = () => {
     if (!page) return;
 
-    if (!page.can_contribute) {
-      toast.error('This birthday page is currently closed for new wishes.');
+    if (!page.can_contribute && !isEditMode) {
+      if (page.contributor_limit_reached) {
+        toast.error('This canvas has reached its free limit of 6 contributors. Ask the organizer to upgrade to Pro.');
+      } else {
+        toast.error('This birthday page is currently closed for new wishes.');
+      }
       return;
     }
 

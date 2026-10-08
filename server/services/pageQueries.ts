@@ -144,7 +144,13 @@ export function publicPageQuery(pageId: string) {
       (bp.user_id IS NULL AND bp.guest_email IS NOT NULL) AS is_guest,
       bp.reveal_pin_hash IS NOT NULL AS requires_unlock,
       NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) AS is_revealed,
-      CURRENT_DATE <= COALESCE(bp.close_date, bp.birthday_date) AND bp.status = 'active' AS can_contribute,
+      COUNT(DISTINCT NULLIF(TRIM(bm.sender_name), ''))::int AS contributor_count,
+      (COALESCE(u.plan_tier, 'free') != 'pro' AND COUNT(DISTINCT NULLIF(TRIM(bm.sender_name), '')) >= 6) AS contributor_limit_reached,
+      (
+        CURRENT_DATE <= COALESCE(bp.close_date, bp.birthday_date)
+        AND bp.status = 'active'
+        AND (COALESCE(u.plan_tier, 'free') = 'pro' OR COUNT(DISTINCT NULLIF(TRIM(bm.sender_name), '')) < 6)
+      ) AS can_contribute,
       COUNT(bm.id)::int AS message_count
     FROM birthday_pages bp
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id AND bm.deleted_at IS NULL

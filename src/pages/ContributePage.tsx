@@ -161,12 +161,14 @@ const ContributePage = () => {
               </p>
               <div className="mt-4 flex items-center justify-center gap-2">
                 <div className="flex -space-x-2">
-                  {[...Array(Math.min(page.message_count, 3))].map((_, index) => (
+                  {[...Array(Math.min(page.contributor_count || page.message_count, 3))].map((_, index) => (
                     <div key={index} className="h-7 w-7 rounded-full border-2 border-card bg-gradient-to-br from-primary to-secondary sm:h-8 sm:w-8" />
                   ))}
                 </div>
                 <span className={`text-xs opacity-80 sm:text-sm ${theme.text}`}>
-                  {page.message_count} {page.message_count === 1 ? 'person has' : 'people have'} contributed
+                  {page.contributor_limit_reached
+                    ? 'Free limit reached (6 contributors)'
+                    : `${page.contributor_count || page.message_count} ${(page.contributor_count || page.message_count) === 1 ? 'person has' : 'people have'} contributed`}
                 </span>
               </div>
             </div>

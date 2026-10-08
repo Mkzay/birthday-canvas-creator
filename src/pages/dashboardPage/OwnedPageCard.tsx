@@ -184,15 +184,30 @@ export function OwnedPageCard({
 
         {/* Analytics Dropdown Pill if Loaded */}
         {analytics && (
-          <div className="mt-2.5 grid grid-cols-2 gap-2 rounded-xl border border-amber-200/80 bg-amber-50/50 p-2 text-center text-xs">
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/70">Views</span>
-              <p className="font-serif font-bold text-slate-900">{analytics.view_count}</p>
+          <div className="mt-2.5 rounded-xl border border-amber-200/80 bg-amber-50/50 p-2 text-center text-xs space-y-1">
+            <div className="grid grid-cols-4 gap-1">
+              <div>
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-900/70">Views</span>
+                <p className="font-serif font-bold text-slate-900">{analytics.view_count}</p>
+              </div>
+              <div>
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-900/70">Wishes</span>
+                <p className="font-serif font-bold text-slate-900">{analytics.contributor_count}</p>
+              </div>
+              <div>
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-900/70">Photos</span>
+                <p className="font-serif font-bold text-slate-900">{analytics.photo_message_count}</p>
+              </div>
+              <div>
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-amber-900/70">Audio</span>
+                <p className="font-serif font-bold text-slate-900">{analytics.audio_message_count}</p>
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/70">Wishes</span>
-              <p className="font-serif font-bold text-slate-900">{analytics.contributor_count}</p>
-            </div>
+            {analytics.last_contribution_at && (
+              <p className="text-[10px] text-stone-500 border-t border-amber-200/60 pt-1">
+                Last wish: {format(new Date(analytics.last_contribution_at), 'MMM d, h:mm a')}
+              </p>
+            )}
           </div>
         )}
       </div>

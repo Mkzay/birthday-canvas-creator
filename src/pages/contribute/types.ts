@@ -23,6 +23,9 @@ export interface PublicBirthdayPageData {
   display_mode?: string | null;
   letter_theme?: string | null;
   cover_photo_url?: string | null;
+  owner_plan_tier?: 'free' | 'pro';
+  contributor_count?: number;
+  contributor_limit_reached?: boolean;
 }
 
 export interface PendingPhoto {

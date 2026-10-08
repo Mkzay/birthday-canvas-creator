@@ -318,18 +318,42 @@ export function DashboardSpotlightStage({
 
             {/* Expandable Live Analytics Pill if Available */}
             {analytics && (
-              <div className="grid grid-cols-2 gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/50 p-3.5 text-center">
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-900/70">
-                    Total Visitors
+              <div className="space-y-2 rounded-2xl border border-amber-200/80 bg-amber-50/50 p-3.5">
+                <div className="flex items-center justify-between px-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-900/80">
+                    Participation Analytics
                   </span>
-                  <p className="mt-0.5 font-serif text-xl font-bold text-amber-950">{analytics.view_count}</p>
+                  {analytics.last_contribution_at && (
+                    <span className="text-[10px] text-stone-500">
+                      Latest wish: {format(new Date(analytics.last_contribution_at), 'MMM d, h:mm a')}
+                    </span>
+                  )}
                 </div>
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-900/70">
-                    Active Contributors
-                  </span>
-                  <p className="mt-0.5 font-serif text-xl font-bold text-amber-950">{analytics.contributor_count}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                  <div className="rounded-xl bg-white/70 p-2 border border-amber-100">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/70">
+                      Visitors
+                    </span>
+                    <p className="mt-0.5 font-serif text-lg font-bold text-amber-950">{analytics.view_count}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/70 p-2 border border-amber-100">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/70">
+                      Contributors
+                    </span>
+                    <p className="mt-0.5 font-serif text-lg font-bold text-amber-950">{analytics.contributor_count}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/70 p-2 border border-amber-100">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/70">
+                      Photos
+                    </span>
+                    <p className="mt-0.5 font-serif text-lg font-bold text-amber-950">{analytics.photo_message_count}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/70 p-2 border border-amber-100">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-900/70">
+                      Voice Notes
+                    </span>
+                    <p className="mt-0.5 font-serif text-lg font-bold text-amber-950">{analytics.audio_message_count}</p>
+                  </div>
                 </div>
               </div>
             )}

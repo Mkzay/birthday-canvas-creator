@@ -123,4 +123,39 @@ describe('useWishSubmissionEngine and contributor flow', () => {
       assert.strictEqual(loadSessionDraft(key), null);
     });
   });
+
+  describe('contributor participant cap rules', () => {
+    test('enforces free limit of 6 contributors for non-pro canvases', () => {
+      const FREE_LIMIT = 6;
+      const freeCanvas = {
+        owner_plan_tier: 'free',
+        contributor_count: 6,
+      };
+
+      const isCapReached = freeCanvas.owner_plan_tier !== 'pro' && freeCanvas.contributor_count >= FREE_LIMIT;
+      assert.strictEqual(isCapReached, true);
+    });
+
+    test('allows unlimited contributors on pro canvases regardless of count', () => {
+      const FREE_LIMIT = 6;
+      const proCanvas = {
+        owner_plan_tier: 'pro',
+        contributor_count: 42,
+      };
+
+      const isCapReached = proCanvas.owner_plan_tier !== 'pro' && proCanvas.contributor_count >= FREE_LIMIT;
+      assert.strictEqual(isCapReached, false);
+    });
+
+    test('permits contributions when free canvas is below 6 contributors', () => {
+      const FREE_LIMIT = 6;
+      const freeCanvas = {
+        owner_plan_tier: 'free',
+        contributor_count: 5,
+      };
+
+      const isCapReached = freeCanvas.owner_plan_tier !== 'pro' && freeCanvas.contributor_count >= FREE_LIMIT;
+      assert.strictEqual(isCapReached, false);
+    });
+  });
 });

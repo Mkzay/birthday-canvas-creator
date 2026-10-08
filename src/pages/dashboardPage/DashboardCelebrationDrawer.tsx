@@ -42,6 +42,7 @@ type DashboardCelebrationDrawerProps = {
   analytics: PageAnalytics | undefined;
   analyticsLoading: boolean;
   exporting: boolean;
+  isProUser?: boolean;
 };
 
 export function DashboardCelebrationDrawer({
@@ -59,6 +60,7 @@ export function DashboardCelebrationDrawer({
   analytics,
   analyticsLoading,
   exporting,
+  isProUser,
 }: DashboardCelebrationDrawerProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [fitMode, setFitMode] = useState<'cover' | 'contain'>('cover');
@@ -256,22 +258,82 @@ export function DashboardCelebrationDrawer({
             </div>
           </div>
 
-          {/* Live Analytics Pill if Available */}
-          {analytics && (
-            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3.5 space-y-2 text-center">
+          {/* Creator Participation Analytics */}
+          {analyticsLoading ? (
+            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 text-center space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900/70">
-                Real-Time Audience Analytics
+                Loading Participation Analytics...
               </span>
+              <div className="h-1.5 w-24 mx-auto bg-amber-200 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full animate-pulse" />
+              </div>
+            </div>
+          ) : analytics ? (
+            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900/80">
+                  Creator Participation Analytics
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Signal
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-stone-500">Total Visitors</span>
+                <div className="rounded-xl bg-white/80 p-2 text-center border border-amber-100">
+                  <span className="text-stone-500 text-[10px] font-medium">Total Visitors</span>
                   <p className="font-serif font-bold text-slate-900 text-lg">{analytics.view_count}</p>
                 </div>
-                <div>
-                  <span className="text-stone-500">Contributors</span>
+                <div className="rounded-xl bg-white/80 p-2 text-center border border-amber-100">
+                  <span className="text-stone-500 text-[10px] font-medium">Contributors</span>
                   <p className="font-serif font-bold text-slate-900 text-lg">{analytics.contributor_count}</p>
                 </div>
+                <div className="rounded-xl bg-white/80 p-2 text-center border border-amber-100">
+                  <span className="text-stone-500 text-[10px] font-medium">Photo Memories</span>
+                  <p className="font-serif font-bold text-slate-900 text-lg">{analytics.photo_message_count}</p>
+                </div>
+                <div className="rounded-xl bg-white/80 p-2 text-center border border-amber-100">
+                  <span className="text-stone-500 text-[10px] font-medium">Voice Notes</span>
+                  <p className="font-serif font-bold text-slate-900 text-lg">{analytics.audio_message_count}</p>
+                </div>
               </div>
+              {analytics.last_contribution_at && (
+                <p className="text-[10px] text-stone-500 text-center border-t border-amber-200/60 pt-1.5">
+                  Latest activity: {format(new Date(analytics.last_contribution_at), 'MMM d, yyyy · h:mm a')}
+                </p>
+              )}
+            </div>
+          ) : !isProUser ? (
+            <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-stone-50 p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900/80">
+                  Creator Participation Analytics
+                </span>
+                <span className="rounded-full bg-amber-100 text-amber-900 text-[9px] font-bold px-2 py-0.5">
+                  Pro Feature
+                </span>
+              </div>
+              <p className="text-xs text-stone-600 leading-relaxed">
+                Track visitor footfall, unique contributor count, photo memories, and audio messages in real-time.
+              </p>
+              <Link
+                to="/upgrade?feature=creator-analytics"
+                className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 hover:text-amber-950 underline underline-offset-2"
+              >
+                <span>Unlock creator analytics with Pro &rarr;</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="text-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onAnalytics(page)}
+                className="text-xs text-amber-800 hover:text-amber-950 hover:bg-amber-50 font-semibold"
+              >
+                <Activity className="h-3.5 w-3.5 mr-1.5" />
+                <span>Load Real-Time Analytics</span>
+              </Button>
             </div>
           )}
 

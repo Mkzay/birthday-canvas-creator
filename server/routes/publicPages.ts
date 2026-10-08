@@ -208,6 +208,14 @@ publicPagesRouter.post("/:id/message-photo", validateParams(pageIdParamSchema), 
     return;
   }
 
+  if (page.contributor_limit_reached) {
+    response.status(403).json({
+      error: "This celebration canvas has reached its free plan limit of 6 contributors. Upgrade to Pro for unlimited contributors.",
+      code: "CONTRIBUTOR_LIMIT_REACHED",
+    });
+    return;
+  }
+
   if (!page.can_contribute || !page.allow_photos) {
     response.status(403).json({ error: "Photo uploads are disabled for this page" });
     return;
@@ -243,6 +251,14 @@ publicPagesRouter.post("/:id/message-audio", validateParams(pageIdParamSchema), 
 
   if (!page) {
     response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  if (page.contributor_limit_reached) {
+    response.status(403).json({
+      error: "This celebration canvas has reached its free plan limit of 6 contributors. Upgrade to Pro for unlimited contributors.",
+      code: "CONTRIBUTOR_LIMIT_REACHED",
+    });
     return;
   }
 

@@ -99,16 +99,32 @@ export const ContributeForm: FC<ContributeFormProps> = ({ page, engine, onPrevie
 
   return (
     <div className="space-y-5">
-      {/* 1. Closed or Locked Alert */}
-      {!page.can_contribute && (
-        <div className="rounded-2xl border border-border bg-card/90 p-4 text-center shadow-soft">
-          <div className="mb-2 flex items-center justify-center gap-2 text-foreground">
-            <Lock className="h-4 w-4" />
-            <span className="font-semibold">Wish collection is closed</span>
+      {/* 1. Closed or Contributor Limit Reached Alert */}
+      {!page.can_contribute && !isEditMode && (
+        <div className="rounded-2xl border border-amber-200/90 bg-amber-50/80 p-5 text-center shadow-soft">
+          <div className="mb-2 flex items-center justify-center gap-2 text-amber-950">
+            <Lock className="h-4 w-4 text-amber-700" />
+            <span className="font-serif font-bold text-base">
+              {page.contributor_limit_reached
+                ? 'Free Contributor Limit Reached'
+                : 'Wish collection is closed'}
+            </span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            This page is no longer accepting new messages or photos.
+          <p className="text-sm text-stone-700 max-w-md mx-auto leading-relaxed">
+            {page.contributor_limit_reached
+              ? `This celebration canvas has gathered all 6 free contributor wishes. The organizer can upgrade to Pro to unlock unlimited memories, photos, and voice notes.`
+              : 'This page is no longer accepting new messages or photos.'}
           </p>
+          {page.contributor_limit_reached && (
+            <div className="mt-3">
+              <a
+                href="/upgrade"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 underline underline-offset-4"
+              >
+                Organizer of this celebration? Upgrade to Pro &rarr;
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -560,6 +576,10 @@ export const ContributeForm: FC<ContributeFormProps> = ({ page, engine, onPrevie
                 : 'Adding your wish...'
               : isEditMode
               ? 'Save changes to my wish'
+              : page.contributor_limit_reached && !page.can_contribute
+              ? 'Free limit reached (6 wishes)'
+              : !page.can_contribute
+              ? 'Submissions closed'
               : page.pool_fundraising_enabled && poolAmountNaira.trim().length > 0
               ? 'Add my wish and continue to payment'
               : 'Add my wish'}
