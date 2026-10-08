@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
@@ -36,68 +36,25 @@ import Confetti from '@/components/Confetti';
 import OpenerThemePreview from '@/components/OpenerThemePreview';
 import ThemeSelector from '@/components/ThemeSelector';
 import SoundtrackSelector from '@/components/SoundtrackSelector';
-import { ApiError, apiFetch, apiForm, resolveAssetUrl } from '@/lib/api';
-import { compressImageFile } from '@/lib/imageCompressor';
+import { ApiError, apiFetch, resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
 import WishCanvasLoader from '@/components/WishCanvasLoader';
 import { DashboardSidebar } from '@/pages/dashboardPage';
 import type { BirthdayPage } from '@/pages/dashboardPage/types';
-import type { CustomTheme, DisplayMode, PaystackBankOption, Theme } from '@/pages/page-wizard';
+import type { CustomTheme, DisplayMode, Theme } from '@/pages/page-wizard';
 import {
   CreateThemeProFooter,
   DEFAULT_LETTER_END,
   DEFAULT_LETTER_START,
   displayModes,
-  getEffectiveColors,
   parseLetterGradientValue,
   toDatetimeLocalValue,
   toIsoDatetime,
+  useCreatorStudioState,
 } from '@/pages/page-wizard';
-import { builtInThemeMap, visualThemeConfig } from '@/lib/themes';
-import { fontClassForValue } from '@/pages/theme-builder';
-
-const EDIT_STEPS = [
-  { number: 1, label: 'Honoree' },
-  { number: 2, label: 'Keepsake' },
-  { number: 3, label: 'Palette & View' },
-  { number: 4, label: 'Soundtrack' },
-  { number: 5, label: 'Permissions & Save' },
-];
 
 const EDIT_FORM_STATE_KEY_PREFIX = 'wishcanvas_edit_form_state_';
-
-function getInitialEditStep(pageId?: string): number {
-  if (typeof window === 'undefined' || !pageId) return 1;
-  try {
-    const raw = sessionStorage.getItem(`${EDIT_FORM_STATE_KEY_PREFIX}${pageId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.currentStep === 'number' && parsed.currentStep >= 1 && parsed.currentStep <= 5) {
-        return parsed.currentStep;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return 1;
-}
-
-function getInitialEditPreviewView(pageId?: string): 'card' | 'envelope' {
-  if (typeof window === 'undefined' || !pageId) return 'card';
-  try {
-    const raw = sessionStorage.getItem(`${EDIT_FORM_STATE_KEY_PREFIX}${pageId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.previewView === 'card' || parsed.previewView === 'envelope') {
-        return parsed.previewView;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return 'card';
-}
 
 const EditPage = () => {
   const { pageId } = useParams();
@@ -129,83 +86,123 @@ const EditPage = () => {
   // Creator statistics for sidebar and topbar
   const [pages, setPages] = useState<BirthdayPage[]>([]);
 
-  // Stepper state (Steps 1 to 5)
-  const [currentStep, setCurrentStep] = useState<number>(() => getInitialEditStep(pageId));
+  // Consolidated form state, session persistence, bank resolution, cover photo, and theme preview
+  const isProUser = isPro;
+  const studio = useCreatorStudioState({
+    mode: 'edit',
+    storageKey: pageId ? `${EDIT_FORM_STATE_KEY_PREFIX}${pageId}` : undefined,
+    isProUser,
+    defaultTheme: user?.defaultTheme || 'elegant',
+  });
+
+  const {
+    currentStep,
+    setCurrentStep,
+    steps: EDIT_STEPS,
+    previewView,
+    setPreviewView,
+    recipientName,
+    setRecipientName,
+    recipientEmail,
+    setRecipientEmail,
+    birthdayDate,
+    setBirthdayDate,
+    creatorMessage,
+    setCreatorMessage,
+    selectedTheme,
+    setSelectedTheme,
+    selectedLetterTheme,
+    setSelectedLetterTheme,
+    selectedDisplayMode,
+    setSelectedDisplayMode,
+    letterColor,
+    setLetterColor,
+    letterGradientStart,
+    setLetterGradientStart,
+    letterGradientEnd,
+    setLetterGradientEnd,
+    allowPhotos,
+    setAllowPhotos,
+    allowAudio,
+    setAllowAudio,
+    requireNames,
+    setRequireNames,
+    closeDate,
+    setCloseDate,
+    selectedSoundtrackId,
+    setSelectedSoundtrackId,
+    pageCustomAudioUrl,
+    setPageCustomAudioUrl,
+    publicCodeInput,
+    setPublicCodeInput,
+    publicCodeError,
+    setPublicCodeError,
+    revealAtInput,
+    setRevealAtInput,
+    revealPinInput,
+    setRevealPinInput,
+    poolFundraisingEnabled,
+    setPoolFundraisingEnabled,
+    poolGoalNairaInput,
+    setPoolGoalNairaInput,
+    poolDescriptionInput,
+    setPoolDescriptionInput,
+    customThemes,
+    setCustomThemes,
+    bankResolution,
+    coverPhoto: coverPhotoManager,
+    themePreview,
+    clearPersistedDraft,
+  } = studio;
+
+  const {
+    bankOptions,
+    loadingBankOptions,
+    recipientBankCode,
+    setRecipientBankCode,
+    recipientAccountNumber,
+    setRecipientAccountNumber,
+    recipientAccountName,
+    setRecipientAccountName,
+    resolvingRecipientAccount,
+    recipientResolveError,
+    setRecipientResolveError,
+    hasResolvedPoolRecipient,
+    requiresResolvedPoolRecipient,
+  } = bankResolution;
+
+  const {
+    coverPhotoFile: coverPhoto,
+    coverPhotoPreview,
+    isCompressingCover,
+    coverInputRef,
+    handleCoverPhotoSelect,
+    uploadCoverPhoto,
+  } = coverPhotoManager;
+
+  const {
+    resolvedCustomTheme,
+    resolvedLetterCustomTheme,
+    previewColors,
+    previewGradient,
+    previewEmoji,
+    previewIconUrl,
+    previewFontClass,
+    currentThemeName,
+    letterColors,
+    currentLetterThemeName,
+  } = themePreview;
+
+  // Page-specific state (not in studio hook)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
-
-  // Live stage preview state
-  const [previewView, setPreviewView] = useState<'card' | 'envelope'>(() => getInitialEditPreviewView(pageId));
   const [confettiActive, setConfettiActive] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
-
-  // Auto-persist active editing step and view into session state (not localStorage)
-  useEffect(() => {
-    if (!pageId) return;
-    try {
-      sessionStorage.setItem(`${EDIT_FORM_STATE_KEY_PREFIX}${pageId}`, JSON.stringify({
-        currentStep,
-        previewView,
-      }));
-    } catch {
-      // ignore
-    }
-  }, [currentStep, pageId, previewView]);
-
-  // Form state
-  const [recipientName, setRecipientName] = useState('');
-  const [recipientEmail, setRecipientEmail] = useState('');
-  const [birthdayDate, setBirthdayDate] = useState<Date>();
-  const [creatorMessage, setCreatorMessage] = useState('');
-  const [selectedTheme, setSelectedTheme] = useState<Theme>('elegant');
-  const [selectedLetterTheme, setSelectedLetterTheme] = useState<Theme>('elegant');
-  const [selectedDisplayMode, setSelectedDisplayMode] = useState<DisplayMode>('story');
-  const [letterColor, setLetterColor] = useState<string>('');
-  const [letterGradientStart, setLetterGradientStart] = useState(DEFAULT_LETTER_START);
-  const [letterGradientEnd, setLetterGradientEnd] = useState(DEFAULT_LETTER_END);
-  const [allowPhotos, setAllowPhotos] = useState(true);
-  const [allowAudio, setAllowAudio] = useState(true);
-  const [requireNames, setRequireNames] = useState(true);
-  const [closeDate, setCloseDate] = useState<Date>();
-  const [selectedSoundtrackId, setSelectedSoundtrackId] = useState('golden-hour');
-  const [pageCustomAudioUrl, setPageCustomAudioUrl] = useState<string | null>(null);
-
   const [currentCoverUrl, setCurrentCoverUrl] = useState<string | null>(null);
-  const [coverPhoto, setCoverPhoto] = useState<File | null>(null);
-  const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null);
-  const [uploadingCover, setUploadingCover] = useState(false);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrType, setQrType] = useState<'contribute' | 'birthday'>('contribute');
   const [publicCode, setPublicCode] = useState('');
-  const [publicCodeInput, setPublicCodeInput] = useState('');
-  const [publicCodeError, setPublicCodeError] = useState<string | null>(null);
-  const [revealAtInput, setRevealAtInput] = useState('');
-  const [revealPinInput, setRevealPinInput] = useState('');
   const [hasRevealPin, setHasRevealPin] = useState(false);
-  const [poolFundraisingEnabled, setPoolFundraisingEnabled] = useState(false);
-  const [poolGoalNairaInput, setPoolGoalNairaInput] = useState('');
-  const [poolDescriptionInput, setPoolDescriptionInput] = useState('');
-  const [recipientBankCode, setRecipientBankCode] = useState('');
-  const [recipientAccountNumber, setRecipientAccountNumber] = useState('');
-  const [recipientAccountName, setRecipientAccountName] = useState('');
-  const [bankOptions, setBankOptions] = useState<PaystackBankOption[]>([]);
-  const [loadingBankOptions, setLoadingBankOptions] = useState(false);
-  const [resolvingRecipientAccount, setResolvingRecipientAccount] = useState(false);
-  const [recipientResolveError, setRecipientResolveError] = useState<string | null>(null);
-  const lastResolvedRecipientRef = useRef<string | null>(null);
-
-  const isProUser = isPro;
-  const requiresResolvedPoolRecipient = isProUser && poolFundraisingEnabled;
-  const hasResolvedPoolRecipient = !requiresResolvedPoolRecipient || (
-    Boolean(recipientBankCode.trim())
-    && recipientAccountNumber.replace(/\D/g, '').length >= 10
-    && Boolean(recipientAccountName.trim())
-    && !resolvingRecipientAccount
-    && !recipientResolveError
-  );
 
   const totalPages = pages.length;
   const totalWishes = pages.reduce((acc, p) => acc + (p.message_count || 0), 0);
@@ -232,7 +229,7 @@ const EditPage = () => {
       toast.error('Failed to load custom themes');
       console.error(error);
     }
-  }, [user]);
+  }, [user, setCustomThemes]);
 
   const fetchPage = useCallback(async () => {
     if (!user || !pageId) return;
@@ -313,7 +310,37 @@ const EditPage = () => {
       console.error(error);
       navigate('/dashboard');
     }
-  }, [isProUser, navigate, pageId, user]);
+  }, [
+    isProUser,
+    navigate,
+    pageId,
+    setAllowAudio,
+    setAllowPhotos,
+    setBirthdayDate,
+    setCloseDate,
+    setCreatorMessage,
+    setLetterColor,
+    setLetterGradientEnd,
+    setLetterGradientStart,
+    setPageCustomAudioUrl,
+    setPoolDescriptionInput,
+    setPoolFundraisingEnabled,
+    setPoolGoalNairaInput,
+    setPublicCodeInput,
+    setRecipientAccountName,
+    setRecipientAccountNumber,
+    setRecipientBankCode,
+    setRecipientEmail,
+    setRecipientName,
+    setRequireNames,
+    setRevealAtInput,
+    setRevealPinInput,
+    setSelectedDisplayMode,
+    setSelectedLetterTheme,
+    setSelectedSoundtrackId,
+    setSelectedTheme,
+    user,
+  ]);
 
   useEffect(() => {
     if (pageId && user) {
@@ -326,140 +353,16 @@ const EditPage = () => {
     }
   }, [fetchCustomThemes, fetchPage, pageId, user]);
 
-  useEffect(() => {
-    if (!user || !isProUser) return;
-
-    let cancelled = false;
-    setLoadingBankOptions(true);
-
-    void apiFetch<{ banks: PaystackBankOption[] }>('/payments/paystack/banks')
-      .then((data) => {
-        if (cancelled) return;
-        setBankOptions(Array.isArray(data?.banks) ? data.banks : []);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setBankOptions([]);
-        console.error(error);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingBankOptions(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isProUser, user]);
-
-  useEffect(() => {
-    if (!isProUser || !poolFundraisingEnabled) return;
-
-    const bankCode = recipientBankCode.trim();
-    const accountNumber = recipientAccountNumber.replace(/\D/g, '').slice(0, 20);
-
-    if (!bankCode || accountNumber.length < 10) {
-      setRecipientAccountName('');
-      setRecipientResolveError(null);
-      lastResolvedRecipientRef.current = null;
-      return;
-    }
-
-    const key = `${bankCode}:${accountNumber}`;
-    if (lastResolvedRecipientRef.current === key) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setResolvingRecipientAccount(true);
-      setRecipientResolveError(null);
-
-      void apiFetch<{ accountName: string; accountNumber: string }>('/payments/paystack/resolve-account', {
-        method: 'POST',
-        body: JSON.stringify({ bankCode, accountNumber }),
-      })
-        .then((data) => {
-          setRecipientAccountName((data.accountName || '').trim());
-          lastResolvedRecipientRef.current = key;
-          setRecipientResolveError(null);
-        })
-        .catch(() => {
-          setRecipientAccountName('');
-          lastResolvedRecipientRef.current = null;
-          setRecipientResolveError('Could not resolve account name. Check bank and account number.');
-        })
-        .finally(() => {
-          setResolvingRecipientAccount(false);
-        });
-    }, 450);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isProUser, poolFundraisingEnabled, recipientAccountNumber, recipientBankCode]);
-
-  useEffect(() => {
-    return () => {
-      if (coverPhotoPreview) {
-        URL.revokeObjectURL(coverPhotoPreview);
-      }
-    };
-  }, [coverPhotoPreview]);
-
+  // Free tier forces story display mode
   useEffect(() => {
     if (!isProUser && selectedDisplayMode !== 'story') {
       setSelectedDisplayMode('story');
     }
-  }, [isProUser, selectedDisplayMode]);
-
-  const handleCoverPhotoSelect = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    try {
-      const optimizedFile = await compressImageFile(file, { maxDimension: 1800, quality: 0.84 });
-      setCoverPhoto(optimizedFile);
-      setCoverPhotoPreview(URL.createObjectURL(optimizedFile));
-    } catch {
-      setCoverPhoto(file);
-      setCoverPhotoPreview(URL.createObjectURL(file));
-    }
-  };
+  }, [isProUser, selectedDisplayMode, setSelectedDisplayMode]);
 
   const removeCoverPhoto = () => {
-    setCoverPhoto(null);
-    if (coverPhotoPreview) {
-      URL.revokeObjectURL(coverPhotoPreview);
-      setCoverPhotoPreview(null);
-    }
+    coverPhotoManager.handleRemoveCoverPhoto();
     setCurrentCoverUrl(null);
-    if (coverInputRef.current) {
-      coverInputRef.current.value = '';
-    }
-  };
-
-  const uploadCoverPhoto = async (): Promise<string | null> => {
-    if (!coverPhoto || !pageId) return currentCoverUrl;
-
-    setUploadingCover(true);
-    const formData = new FormData();
-    formData.append('file', coverPhoto);
-    formData.append('pageId', pageId);
-
-    try {
-      const data = await apiForm<{ url: string }>('/uploads/cover', formData);
-      return data.url;
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to upload cover photo');
-      return currentCoverUrl;
-    } finally {
-      setUploadingCover(false);
-    }
   };
 
   const handleCustomAudioUrlChange = (url: string | null) => {
@@ -541,7 +444,7 @@ const EditPage = () => {
 
     let coverUrl = currentCoverUrl;
     if (coverPhoto) {
-      coverUrl = await uploadCoverPhoto();
+      coverUrl = await uploadCoverPhoto(pageId!, currentCoverUrl);
     }
 
     try {
@@ -580,11 +483,7 @@ const EditPage = () => {
       setSaving(false);
       setConfettiActive(true);
       if (pageId) {
-        try {
-          sessionStorage.removeItem(`${EDIT_FORM_STATE_KEY_PREFIX}${pageId}`);
-        } catch {
-          // ignore
-        }
+        clearPersistedDraft();
       }
       toast.success('Milestone canvas updated successfully!');
     } catch (error) {
@@ -613,55 +512,6 @@ const EditPage = () => {
       window.prompt('Copy this link:', link);
     }
   };
-
-  // Helper to reliably find custom theme by either raw ID or custom_ prefixed key
-  const findCustomTheme = (themeKey: string, customList: CustomTheme[]): CustomTheme | undefined => {
-    const normalizedId = themeKey.startsWith('custom_') ? themeKey.slice('custom_'.length) : themeKey;
-    return customList.find((t) => String(t.id) === normalizedId);
-  };
-
-  const resolvedCustomTheme = findCustomTheme(selectedTheme, customThemes);
-  const resolvedLetterCustomTheme = findCustomTheme(selectedLetterTheme, customThemes);
-  const letterColors = getEffectiveColors(selectedLetterTheme, letterColor, customThemes);
-
-  const previewGradient = (() => {
-    if (resolvedCustomTheme) {
-      const angle = resolvedCustomTheme.gradient_angle ?? 135;
-      if (resolvedCustomTheme.gradient_mid) {
-        return `linear-gradient(${angle}deg, ${resolvedCustomTheme.gradient_from} 0%, ${resolvedCustomTheme.gradient_mid} 50%, ${resolvedCustomTheme.gradient_to} 100%)`;
-      }
-      return `linear-gradient(${angle}deg, ${resolvedCustomTheme.gradient_from} 0%, ${resolvedCustomTheme.gradient_to} 100%)`;
-    }
-    const builtIn = builtInThemeMap[selectedTheme];
-    if (builtIn) {
-      return `linear-gradient(135deg, ${builtIn.gradientColors[0]} 0%, ${builtIn.gradientColors[1]} 100%)`;
-    }
-    return 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)';
-  })();
-
-  const previewEmoji = (() => {
-    if (resolvedCustomTheme) return resolvedCustomTheme.emoji || '✨';
-    return builtInThemeMap[selectedTheme]?.emoji || '✨';
-  })();
-
-  const previewIconUrl = resolvedCustomTheme?.icon_url || null;
-
-  const previewFontClass = (() => {
-    if (resolvedCustomTheme) {
-      return fontClassForValue(resolvedCustomTheme.font || 'jakarta');
-    }
-    return visualThemeConfig[selectedTheme as keyof typeof visualThemeConfig]?.font || 'font-serif';
-  })();
-
-  const currentThemeName = (() => {
-    if (resolvedCustomTheme) return resolvedCustomTheme.name;
-    return builtInThemeMap[selectedTheme]?.name || 'Signature Gold';
-  })();
-
-  const currentLetterThemeName = (() => {
-    if (resolvedLetterCustomTheme) return resolvedLetterCustomTheme.name;
-    return builtInThemeMap[selectedLetterTheme]?.name || 'Signature Gold';
-  })();
 
   const triggerConfettiPop = () => {
     setConfettiActive(true);
@@ -1533,14 +1383,12 @@ const EditPage = () => {
                             setRecipientBankCode(code);
                             setRecipientAccountName('');
                             setRecipientResolveError(null);
-                            lastResolvedRecipientRef.current = null;
                           }}
                           recipientAccountNumber={recipientAccountNumber}
                           onRecipientAccountNumberChange={(value) => {
                             setRecipientAccountNumber(value.replace(/\D/g, '').slice(0, 20));
                             setRecipientAccountName('');
                             setRecipientResolveError(null);
-                            lastResolvedRecipientRef.current = null;
                           }}
                           recipientAccountName={recipientAccountName}
                           loadingBankOptions={loadingBankOptions}
@@ -1691,10 +1539,10 @@ const EditPage = () => {
                     <Button
                       size="sm"
                       onClick={handleSave}
-                      disabled={saving || uploadingCover || !hasResolvedPoolRecipient}
+                      disabled={saving || isCompressingCover || !hasResolvedPoolRecipient}
                       className="btn-press rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 hover:brightness-105 active:scale-[0.98] text-white font-bold text-xs px-3.5 sm:px-5 h-9 shadow-md shadow-amber-500/25 flex items-center gap-1.5 whitespace-nowrap"
                     >
-                      {(saving || uploadingCover) ? (
+                      {(saving || isCompressingCover) ? (
                         <>
                           <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
                           <span>Saving...</span>
