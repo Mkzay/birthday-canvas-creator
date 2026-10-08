@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
 
-describe('usePaystackBankResolution logic', () => {
+describe('useBankResolution logic', () => {
   describe('account number cleaning', () => {
     const cleanAccountNumber = (raw: string) => raw.replace(/\D/g, '').slice(0, 10);
 
@@ -58,7 +58,10 @@ describe('usePaystackBankResolution logic', () => {
   });
 
   describe('requiresResolvedPoolRecipient calculation', () => {
-    function computeRequiresResolvedPoolRecipient(isProUser: boolean, poolFundraisingEnabled: boolean): boolean {
+    function computeRequiresResolvedPoolRecipient(
+      isProUser: boolean,
+      poolFundraisingEnabled: boolean,
+    ): boolean {
       return Boolean(isProUser && poolFundraisingEnabled);
     }
 

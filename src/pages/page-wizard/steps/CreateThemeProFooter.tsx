@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import type { PaystackBankOption } from '../types';
+import type { BankOption } from '../types';
 
 export type CreateThemeProFooterProps = {
   isProUser: boolean;
@@ -29,7 +29,7 @@ export type CreateThemeProFooterProps = {
   onRecipientAccountNumberChange: (value: string) => void;
   recipientAccountName: string;
   loadingBankOptions: boolean;
-  bankOptions: PaystackBankOption[];
+  bankOptions: BankOption[];
   resolvingRecipientAccount: boolean;
   recipientResolveError: string | null;
 };
@@ -126,7 +126,7 @@ export function CreateThemeProFooter({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-foreground">Pool money gifts</p>
-                <p className="text-xs text-muted-foreground">Enable Paystack contributions for this page.</p>
+                <p className="text-xs text-muted-foreground">Enable community gift pool contributions for this page.</p>
               </div>
               <Switch checked={poolFundraisingEnabled} onCheckedChange={onPoolFundraisingToggle} />
             </div>

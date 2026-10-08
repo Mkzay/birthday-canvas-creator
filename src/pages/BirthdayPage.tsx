@@ -484,7 +484,7 @@ const BirthdayPage = ({
     '--letter-text-muted': 'var(--letter-h) 18% 34%',
   } as CSSProperties;
 
-  const canShowKeepsakeDownload = false;
+  const canShowKeepsakeDownload = Boolean(page && messages.length > 0);
   const isDarkExperience = page?.theme === 'cosmic' || page?.theme === 'midnight' || (isCustomTheme && isDarkCustomTheme);
   const experiencePanelClass = isDarkExperience
     ? 'border-white/16 bg-white/12 backdrop-blur-xl'

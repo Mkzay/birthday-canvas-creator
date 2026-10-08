@@ -15,7 +15,9 @@ export interface CustomTheme {
   icon_url?: string | null;
 }
 
-export interface PaystackBankOption {
+export interface BankOption {
   code: string;
   name: string;
 }
+
+export type PaystackBankOption = BankOption;

@@ -1,4 +1,4 @@
-export type { CustomTheme, DisplayMode, PaystackBankOption, Step, Theme } from './types';
+export type { BankOption, CustomTheme, DisplayMode, PaystackBankOption, Step, Theme } from './types';
 export { DEFAULT_LETTER_END, DEFAULT_LETTER_START, displayModes, WIZARD_STEPS } from './constants';
 export { getEffectiveColors } from './getEffectiveColors';
 export { ModePreview } from './ModePreview';
@@ -15,8 +15,13 @@ export { WizardStepTheme } from './steps/WizardStepTheme';
 export type { WizardStepThemeProps, WizardStepThemeVariant } from './steps/WizardStepTheme';
 export { CreateThemeProFooter } from './steps/CreateThemeProFooter';
 export type { CreateThemeProFooterProps } from './steps/CreateThemeProFooter';
-export { usePaystackBankResolution } from './usePaystackBankResolution';
-export type { UsePaystackBankResolutionOptions, UsePaystackBankResolutionReturn } from './usePaystackBankResolution';
+export { useBankResolution, usePaystackBankResolution } from './useBankResolution';
+export type {
+  UseBankResolutionOptions,
+  UseBankResolutionOptions as UsePaystackBankResolutionOptions,
+  UseBankResolutionReturn,
+  UseBankResolutionReturn as UsePaystackBankResolutionReturn,
+} from './useBankResolution';
 export { useCoverPhotoManager } from './useCoverPhotoManager';
 export type { UseCoverPhotoManagerOptions, UseCoverPhotoManagerReturn } from './useCoverPhotoManager';
 export { useThemePreviewCalculations, findCustomTheme } from './useThemePreviewCalculations';

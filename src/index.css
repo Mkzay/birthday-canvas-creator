@@ -109,9 +109,24 @@
     @apply border-border;
   }
 
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Nunito', sans-serif;
+  }
+
+  /* Emil Kowalski Mobile Native: Eliminate 300ms tap delay on interactive controls */
+  a, button, input, [role="button"], select, textarea {
+    touch-action: manipulation;
+  }
+
+  /* Emil Kowalski Mobile Native: Prevent accidental button text selection on touch press */
+  button, [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
 

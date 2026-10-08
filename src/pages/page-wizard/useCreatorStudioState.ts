@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CustomTheme, DisplayMode, Theme } from './types';
 import { DEFAULT_LETTER_END, DEFAULT_LETTER_START } from './constants';
-import { usePaystackBankResolution } from './usePaystackBankResolution';
+import { useBankResolution } from './useBankResolution';
 import { useCoverPhotoManager } from './useCoverPhotoManager';
 import { useThemePreviewCalculations } from './useThemePreviewCalculations';
 
@@ -124,8 +124,8 @@ export function useCreatorStudioState({
 
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
 
-  // Sub-hook: Paystack bank resolution
-  const bankResolution = usePaystackBankResolution({
+  // Sub-hook: Bank resolution
+  const bankResolution = useBankResolution({
     initialBankCode: initialDraft.recipientBankCode ?? '',
     initialAccountNumber: initialDraft.recipientAccountNumber ?? '',
     initialAccountName: initialDraft.recipientAccountName ?? '',

@@ -55,7 +55,7 @@ export function ExportKeepsakeModal({
 
     try {
       const response = await fetch(
-        `${getApiOrigin()}/api/pages/${page.public_code}/export?format=${format}`,
+        `${getApiOrigin()}/api/public/pages/${page.public_code}/export?format=${format}`,
         {
           credentials: 'include',
         }

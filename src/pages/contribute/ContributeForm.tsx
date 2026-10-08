@@ -479,7 +479,7 @@ export const ContributeForm: FC<ContributeFormProps> = ({ page, engine, onPrevie
                     Send {page.recipient_name} money
                   </p>
                   <p className="mt-1 text-xs text-emerald-800/90">
-                    Money goes through Paystack and is pooled for the final gift release.
+                    Funds are securely processed and pooled for the final gift release.
                   </p>
                   {page.pool_description && (
                     <p className="mt-2 text-xs text-emerald-900">{page.pool_description}</p>
