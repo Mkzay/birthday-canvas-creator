@@ -17,7 +17,7 @@ import {
   healthEndpointLimiter,
 } from "../rateLimits";
 import { isMailerConfigured, sendTransactionalEmail } from "../mailer";
-import { sendBirthdayRecipientEmail, sendBirthdayReminderEmail } from "../emailFlows";
+import { sendBirthdayRecipientEmail, sendBirthdayReminderEmail, sendDiagnosticTestEmail } from "../emailFlows";
 import { uploadsRoot } from "../uploads";
 import { serializePageDates } from "../services/pageQueries";
 import { sanitizeEmail, logRequestFailure } from "../services/requestUtils";
@@ -159,40 +159,14 @@ systemRouter.post(
       return;
     }
 
-    const appName = process.env.APP_NAME || "WishCanvas";
-    const subject = typeof request.body.subject === "string" && request.body.subject.trim()
-      ? request.body.subject.trim()
-      : `${appName} Resend test`;
-
-    const html = `
-      <div style="background-color: #fbf9f6; padding: 36px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid #f1e5dc; box-shadow: 0 10px 28px rgba(15,23,42,0.06); overflow: hidden;">
-          <div style="background: linear-gradient(135deg, #090514 0%, #170b2e 50%, #29081a 100%); padding: 28px 32px; color: #ffffff;">
-            <span style="display: inline-block; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22); border-radius: 9999px; padding: 4px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px;">
-              &#10024; System Diagnostic
-            </span>
-            <h2 style="margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.02em;">Resend is Connected</h2>
-          </div>
-          <div style="padding: 28px 32px; color: #0f172a; font-size: 14px; line-height: 1.6;">
-            <p style="margin: 0 0 14px;">This is a test notification from <strong style="color: #e11d48;">${appName}</strong> confirming that your transactional email pipeline is operating smoothly.</p>
-            <div style="background: #faf8f5; border: 1px solid #f1e5dc; border-radius: 12px; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #64748b;">
-              Timestamp : <strong>${new Date().toISOString()}</strong>
-            </div>
-            <p style="margin: 0; font-size: 12px; color: #94a3b8;">All system emails are formatted in the modern WishCanvas celebration design system.</p>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const text = `Resend is connected. This is a test email from ${appName}. Sent at ${new Date().toISOString()}`;
-
     try {
-      const result = await sendTransactionalEmail({
+      const subject = typeof request.body.subject === "string" && request.body.subject.trim()
+        ? request.body.subject.trim()
+        : undefined;
+
+      const result = await sendDiagnosticTestEmail({
         to,
         subject,
-        html,
-        text,
-        tags: [{ name: "type", value: "system-test" }],
       });
 
       response.json({ ok: true, id: result.id });

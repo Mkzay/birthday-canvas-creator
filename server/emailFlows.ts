@@ -25,19 +25,21 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
-// Design tokens aligning with WishCanvas design system
-const BRAND_GRADIENT = "linear-gradient(135deg, #f97316 0%, #e11d48 50%, #be123c 100%)";
-const MIDNIGHT_GRADIENT = "linear-gradient(135deg, #090514 0%, #170b2e 50%, #29081a 100%)";
-const BG_COLOR = "#fbf9f6";
-const CARD_BG = "#ffffff";
-const TEXT_MAIN = "#0f172a";
-const TEXT_MUTED = "#64748b";
-const BORDER_COLOR = "#f1e5dc";
-const ACCENT_GOLD = "#fbbf24";
-const ACCENT_ROSE = "#e11d48";
-const PILL_BG = "rgba(255, 255, 255, 0.14)";
+// Warm Editorial Design Tokens matching the WishCanvas Keepsake aesthetic
+const COLOR_BG = "#fbf8f4";
+const COLOR_CARD = "#ffffff";
+const COLOR_BORDER = "#eae2d8";
+const COLOR_INK_MAIN = "#1c1917";
+const COLOR_INK_MUTED = "#78716c";
+const COLOR_INK_LIGHT = "#a8a29e";
+const COLOR_TERRACOTTA = "#e06d53";
+const COLOR_TERRACOTTA_DEEP = "#c85238";
+const COLOR_AMBER = "#d97706";
+const COLOR_WELL_BG = "#faf6f0";
+const COLOR_WELL_BORDER = "#e8dcce";
+const COLOR_MIDNIGHT = "#15121b";
 
-// Base shell wrapper
+// Base HTML Shell with typography and bulletproof MSO table formatting
 function shell(innerHtml: string, preheader: string) {
   return `<!doctype html>
 <html lang="en">
@@ -48,14 +50,14 @@ function shell(innerHtml: string, preheader: string) {
   <title>WishCanvas</title>
   <!--[if mso]>
   <style>
-    body, table, td, p, a, h1, span { font-family: Arial, sans-serif !important; }
+    body, table, td, p, a, h1, h2, span { font-family: Georgia, 'Times New Roman', serif !important; }
   </style>
   <![endif]-->
   <style>
     body {
       margin: 0;
       padding: 0;
-      background-color: ${BG_COLOR};
+      background-color: ${COLOR_BG};
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
       -webkit-text-size-adjust: 100%;
@@ -63,53 +65,65 @@ function shell(innerHtml: string, preheader: string) {
     table {
       border-collapse: separate;
     }
+    a {
+      color: ${COLOR_TERRACOTTA};
+      text-decoration: underline;
+    }
     @media (prefers-color-scheme: dark) {
-      .body-bg { background-color: #090514 !important; }
-      .card-box { background-color: #130c24 !important; border-color: #271a44 !important; }
-      .text-main { color: #f8fafc !important; }
-      .text-muted { color: #94a3b8 !important; }
-      .subcard { background-color: #1a1230 !important; border-color: #2d1f4d !important; }
-      .divider { border-color: #271a44 !important; }
+      .body-bg { background-color: #121016 !important; }
+      .card-box { background-color: #1a1722 !important; border-color: #2e2838 !important; }
+      .text-main { color: #f5f2ed !important; }
+      .text-muted { color: #a8a29e !important; }
+      .well-box { background-color: #221d2d !important; border-color: #342c42 !important; }
+      .divider-line { border-color: #2e2838 !important; }
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:${BG_COLOR};" class="body-bg">
+<body style="margin:0;padding:0;background-color:${COLOR_BG};" class="body-bg">
   <div style="display:none;font-size:1px;color:#fff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
     ${escapeHtml(preheader)}
   </div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="body-bg" style="background-color:${BG_COLOR};padding:36px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="body-bg" style="background-color:${COLOR_BG};padding:40px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;">
-          <!-- Top Wordmark Pill -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
+          <!-- Editorial Brand Letterhead -->
           <tr>
-            <td align="center" style="padding:0 0 20px;">
-              <table role="presentation" cellspacing="0" cellpadding="0">
+            <td align="center" style="padding:0 0 24px;text-align:center;">
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto;">
                 <tr>
-                  <td style="background:#ffffff;border:1px solid ${BORDER_COLOR};border-radius:9999px;padding:6px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.03);">
-                    <span style="font-size:13px;color:${ACCENT_GOLD};vertical-align:middle;">&#10024;</span>
-                    <span style="font-size:13px;font-weight:800;color:${TEXT_MAIN};letter-spacing:-0.02em;margin-left:6px;vertical-align:middle;">WishCanvas</span>
+                  <td align="center" style="text-align:center;">
+                    <a href="${getSiteBaseUrl()}" style="text-decoration:none;display:inline-block;">
+                      <span style="font-family:'Playfair Display',Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:${COLOR_INK_MAIN};letter-spacing:-0.02em;">
+                        Wish<span style="color:${COLOR_TERRACOTTA};">Canvas</span>
+                      </span>
+                    </a>
+                    <div style="font-size:10px;font-weight:700;letter-spacing:0.22em;color:${COLOR_INK_LIGHT};text-transform:uppercase;margin-top:4px;">
+                      Birthday Keepsake Atelier
+                    </div>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          <!-- Main Card Box -->
+
+          <!-- Main Stationery Card Box -->
           <tr>
-            <td class="card-box" style="background-color:${CARD_BG};border-radius:24px;border:1px solid ${BORDER_COLOR};box-shadow:0 12px 32px rgba(15,23,42,0.06);overflow:hidden;">
+            <td class="card-box" style="background-color:${COLOR_CARD};border-radius:20px;border:1px solid ${COLOR_BORDER};box-shadow:0 10px 32px rgba(78,64,53,0.06);overflow:hidden;">
               ${innerHtml}
             </td>
           </tr>
-          <!-- Footer -->
+
+          <!-- Editorial Footer -->
           <tr>
-            <td align="center" style="padding:24px 8px 0;text-align:center;">
-              <p style="margin:0 0 8px;font-size:12px;color:${TEXT_MUTED};">
-                Sent with care by <strong style="color:${TEXT_MAIN};">WishCanvas</strong> &middot; Collaborative Birthday Stories
+            <td align="center" style="padding:28px 12px 0;text-align:center;">
+              <p style="margin:0 0 6px;font-size:12px;color:${COLOR_INK_MUTED};line-height:1.5;">
+                Crafted with care on <strong style="color:${COLOR_INK_MAIN};">WishCanvas</strong> &middot; Collaborative Birthday Stories
               </p>
-              <p style="margin:0;font-size:11px;color:#94a3b8;">
-                <a href="${getSiteBaseUrl()}" style="color:#94a3b8;text-decoration:underline;">wishcanvas.app</a>
+              <p style="margin:0;font-size:11px;color:${COLOR_INK_LIGHT};line-height:1.5;">
+                <a href="${getSiteBaseUrl()}" style="color:${COLOR_INK_LIGHT};text-decoration:underline;">wishcanvas.app</a>
                 &nbsp;&middot;&nbsp;
-                <a href="mailto:${escapeHtml(getSupportEmail())}" style="color:#94a3b8;text-decoration:underline;">${escapeHtml(getSupportEmail())}</a>
+                <a href="mailto:${escapeHtml(getSupportEmail())}" style="color:${COLOR_INK_LIGHT};text-decoration:underline;">${escapeHtml(getSupportEmail())}</a>
               </p>
             </td>
           </tr>
@@ -121,44 +135,51 @@ function shell(innerHtml: string, preheader: string) {
 </html>`;
 }
 
-// Hero header block with midnight or lacquer celebration styling
-function hero({
-  eyebrow,
+// Header banner for celebration or editorial moments
+function heroHeader({
   title,
-  icon = "&#10024;",
-  variant = "midnight",
+  subtitle,
+  variant = "editorial",
 }: {
-  eyebrow: string;
   title: string;
-  icon?: string;
-  variant?: "midnight" | "lacquer";
+  subtitle?: string;
+  variant?: "editorial" | "celebration";
 }) {
-  const bgGrad = variant === "lacquer" ? BRAND_GRADIENT : MIDNIGHT_GRADIENT;
+  if (variant === "celebration") {
+    return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+      <tr>
+        <td style="background-color:${COLOR_MIDNIGHT};background-image:linear-gradient(145deg, #181324 0%, #291a24 100%);padding:36px 36px 32px;text-align:left;">
+          <h1 style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:700;line-height:1.2;color:#ffffff;letter-spacing:-0.02em;">
+            ${escapeHtml(title)}
+          </h1>
+          ${subtitle ? `
+          <p style="margin:10px 0 0;font-size:14px;color:#e7dfd5;line-height:1.5;">
+            ${escapeHtml(subtitle)}
+          </p>` : ""}
+        </td>
+      </tr>
+    </table>`;
+  }
+
   return `
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
     <tr>
-      <td style="background:${bgGrad};padding:34px 36px 28px;text-align:left;position:relative;">
-        <div style="margin-bottom:14px;">
-          <table role="presentation" cellspacing="0" cellpadding="0">
-            <tr>
-              <td style="background:${PILL_BG};border:1px solid rgba(255,255,255,0.22);border-radius:9999px;padding:4px 12px;">
-                <span style="font-size:11px;font-weight:700;color:#ffffff;letter-spacing:0.06em;text-transform:uppercase;">
-                  ${icon} &nbsp;${escapeHtml(eyebrow)}
-                </span>
-              </td>
-            </tr>
-          </table>
-        </div>
-        <h1 style="margin:0;font-size:26px;font-weight:900;line-height:1.25;color:#ffffff;letter-spacing:-0.03em;">
+      <td style="background-color:${COLOR_WELL_BG};border-bottom:1px solid ${COLOR_BORDER};padding:34px 36px 28px;text-align:left;">
+        <h1 style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:26px;font-weight:700;line-height:1.25;color:${COLOR_INK_MAIN};letter-spacing:-0.02em;">
           ${escapeHtml(title)}
         </h1>
+        ${subtitle ? `
+        <p style="margin:8px 0 0;font-size:14px;color:${COLOR_INK_MUTED};line-height:1.5;">
+          ${escapeHtml(subtitle)}
+        </p>` : ""}
       </td>
     </tr>
   </table>`;
 }
 
-// Card body with rich typography and lacquer button
-function body({
+// Card content body with rich typography and bulletproof button
+function bodyContainer({
   contentHtml,
   cta,
   secondaryNote,
@@ -170,8 +191,8 @@ function body({
   const ctaMarkup = cta ? `
   <table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0 16px;">
     <tr>
-      <td style="border-radius:9999px;background:${BRAND_GRADIENT};box-shadow:0 8px 20px rgba(225,29,72,0.28);">
-        <a href="${cta.href}" style="display:inline-block;padding:15px 32px;color:#ffffff;font-size:15px;font-weight:800;text-decoration:none;letter-spacing:-0.01em;">
+      <td align="center" style="border-radius:10px;background-color:${COLOR_TERRACOTTA};background-image:linear-gradient(135deg, ${COLOR_TERRACOTTA} 0%, ${COLOR_TERRACOTTA_DEEP} 100%);">
+        <a href="${cta.href}" style="display:inline-block;padding:14px 30px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.01em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
           ${escapeHtml(cta.label)} &rarr;
         </a>
       </td>
@@ -179,7 +200,7 @@ function body({
   </table>` : "";
 
   const noteMarkup = secondaryNote ? `
-  <p class="text-muted" style="margin:16px 0 0;font-size:12px;color:${TEXT_MUTED};line-height:1.6;">
+  <p class="text-muted" style="margin:16px 0 0;font-size:12px;color:${COLOR_INK_MUTED};line-height:1.6;">
     ${secondaryNote}
   </p>` : "";
 
@@ -187,13 +208,13 @@ function body({
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
     <tr>
       <td style="padding:32px 36px 36px;">
-        <div class="text-main" style="font-size:15px;line-height:1.65;color:${TEXT_MAIN};">
+        <div class="text-main" style="font-size:15px;line-height:1.65;color:${COLOR_INK_MAIN};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
           ${contentHtml}
         </div>
         ${ctaMarkup}
-        <hr class="divider" style="border:none;border-top:1px solid ${BORDER_COLOR};margin:28px 0 20px;"/>
-        <p class="text-muted" style="margin:0;font-size:12px;color:${TEXT_MUTED};line-height:1.6;">
-          If you did not expect this message, you can safely disregard it. Need assistance? Contact <a href="mailto:${escapeHtml(getSupportEmail())}" style="color:${ACCENT_ROSE};text-decoration:none;font-weight:600;">${escapeHtml(getSupportEmail())}</a>.
+        <hr class="divider-line" style="border:none;border-top:1px solid ${COLOR_BORDER};margin:28px 0 20px;"/>
+        <p class="text-muted" style="margin:0;font-size:12px;color:${COLOR_INK_MUTED};line-height:1.6;">
+          If you did not expect this message, you can safely disregard it. Need assistance? Contact <a href="mailto:${escapeHtml(getSupportEmail())}" style="color:${COLOR_TERRACOTTA};text-decoration:none;font-weight:600;">${escapeHtml(getSupportEmail())}</a>.
         </p>
         ${noteMarkup}
       </td>
@@ -202,20 +223,20 @@ function body({
 }
 
 function p(text: string) {
-  return `<p style="margin:0 0 16px;">${text}</p>`;
+  return `<p style="margin:0 0 16px;line-height:1.65;">${text}</p>`;
 }
 
 function highlight(text: string) {
-  return `<strong style="color:${ACCENT_ROSE};font-weight:700;">${text}</strong>`;
+  return `<strong style="color:${COLOR_TERRACOTTA};font-weight:700;">${text}</strong>`;
 }
 
-function featureCard(icon: string, label: string, desc: string) {
+function featureItem(title: string, desc: string) {
   return `
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:12px;">
     <tr>
-      <td class="subcard" style="background:#faf8f5;border:1px solid ${BORDER_COLOR};border-radius:16px;padding:16px 20px;">
-        <p style="margin:0 0 4px;font-weight:800;font-size:14px;color:${TEXT_MAIN};">${icon} &nbsp;${escapeHtml(label)}</p>
-        <p style="margin:0;font-size:13px;color:${TEXT_MUTED};line-height:1.5;">${escapeHtml(desc)}</p>
+      <td class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:14px;padding:16px 18px;">
+        <p style="margin:0 0 4px;font-weight:700;font-size:14px;color:${COLOR_INK_MAIN};font-family:'Playfair Display',Georgia,serif;">${escapeHtml(title)}</p>
+        <p style="margin:0;font-size:13px;color:${COLOR_INK_MUTED};line-height:1.5;">${escapeHtml(desc)}</p>
       </td>
     </tr>
   </table>`;
@@ -229,19 +250,18 @@ export async function sendWelcomeEmail(params: { to: string; displayName?: strin
   const safeName = escapeHtml(params.displayName?.trim() || "there");
   const dashboardUrl = `${getSiteBaseUrl()}/dashboard`;
 
-  const inner = hero({
-    eyebrow: "Welcome to WishCanvas",
-    title: `You're all set, ${safeName}`,
-    icon: "&#10024;",
-    variant: "midnight",
+  const inner = heroHeader({
+    title: `Welcome to your atelier, ${safeName}`,
+    subtitle: "Your collaborative birthday storytelling space is ready.",
+    variant: "editorial",
   }) +
-  body({
+  bodyContainer({
     contentHtml: `
-      ${p(`We're delighted to welcome you to ${highlight("WishCanvas")}. You now have an atelier to gather heartfelt birthday wishes, photos, and voice notes into an unforgettable reveal story.`)}
+      ${p(`We are delighted to welcome you to ${highlight("WishCanvas")}. You now have an atelier to gather heartfelt birthday wishes, photos, and voice notes into an unforgettable reveal story.`)}
       ${p("Here is how your celebrations work:")}
-      ${featureCard("&#128279;", "One link, everyone contributes", "Share a single invite link with family and friends. No accounts or app downloads needed for guests.")}
-      ${featureCard("&#127873;", "Sealed until the midnight reveal", "Every heartfelt message, photo, and voice recording stays securely sealed until the birthday reveal.")}
-      ${featureCard("&#127912;", "Cinematic story presentation", "Reveal the collection as a polished story with bespoke themes, background audio, and animations.")}
+      ${featureItem("One simple link for contributors", "Share a single invite link with family and friends. No accounts or app downloads needed for guests.")}
+      ${featureItem("Sealed until the birthday reveal", "Every heartfelt message, photo, and voice recording stays securely sealed until the special day.")}
+      ${featureItem("Cinematic story presentation", "Reveal the collection as a polished story with bespoke themes, background audio, and smooth motion.")}
       ${p("Ready to create your first celebration? Open your atelier below.")}
     `,
     cta: { label: "Open Your Atelier", href: dashboardUrl },
@@ -252,7 +272,7 @@ export async function sendWelcomeEmail(params: { to: string; displayName?: strin
 
   await sendTransactionalEmail({
     to: params.to,
-    subject: `Welcome to ${appName} ✨`,
+    subject: `Welcome to ${appName}`,
     html,
     text: `Welcome to ${appName}, ${safeName}. Your account is ready. Open your atelier: ${dashboardUrl}`,
     tags: [{ name: "type", value: "welcome" }],
@@ -267,19 +287,18 @@ export async function sendVerificationEmail(params: { to: string; token: string;
   const safeName = escapeHtml(params.displayName?.trim() || "there");
   const url = `${getSiteBaseUrl()}/verify-email?token=${encodeURIComponent(params.token)}`;
 
-  const inner = hero({
-    eyebrow: "Account Verification",
+  const inner = heroHeader({
     title: "Confirm your email address",
-    icon: "&#9993;",
-    variant: "midnight",
+    subtitle: "Activate your account and protect your celebrations.",
+    variant: "editorial",
   }) +
-  body({
+  bodyContainer({
     contentHtml: `
       ${p(`Hi ${safeName},`)}
       ${p(`Welcome to ${escapeHtml(appName)}. To complete your registration and activate your celebration atelier, please verify your email address below:`)}
-      <div style="background:#faf8f5;border:1px solid ${BORDER_COLOR};border-radius:14px;padding:14px 18px;margin:20px 0;">
-        <span style="font-size:11px;font-weight:800;color:${TEXT_MUTED};text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">Direct Verification Link</span>
-        <a href="${url}" style="font-size:13px;color:${ACCENT_ROSE};word-break:break-all;font-weight:600;text-decoration:none;">${escapeHtml(url)}</a>
+      <div class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:12px;padding:14px 18px;margin:20px 0;">
+        <span style="font-size:10px;font-weight:700;color:${COLOR_INK_LIGHT};text-transform:uppercase;letter-spacing:0.16em;display:block;margin-bottom:6px;">Verification Link</span>
+        <a href="${url}" style="font-size:13px;color:${COLOR_TERRACOTTA};word-break:break-all;font-weight:600;text-decoration:none;">${escapeHtml(url)}</a>
       </div>
       ${p("This link will remain active for 24 hours. If it expires, you can request a fresh verification link from the login page.")}
     `,
@@ -305,19 +324,18 @@ export async function sendPasswordResetEmail(params: { to: string; token: string
   const safeName = escapeHtml(params.displayName?.trim() || "there");
   const url = `${getSiteBaseUrl()}/auth?reset=${encodeURIComponent(params.token)}`;
 
-  const inner = hero({
-    eyebrow: "Account Security",
+  const inner = heroHeader({
     title: "Reset your password",
-    icon: "&#128274;",
-    variant: "midnight",
+    subtitle: "Choose a new password to secure your atelier.",
+    variant: "editorial",
   }) +
-  body({
+  bodyContainer({
     contentHtml: `
       ${p(`Hi ${safeName},`)}
       ${p(`We received a request to reset the password for your ${escapeHtml(appName)} account. Tap the button below to set a new password:`)}
-      <div style="background:#faf8f5;border:1px solid ${BORDER_COLOR};border-radius:14px;padding:14px 18px;margin:20px 0;">
-        <span style="font-size:11px;font-weight:800;color:${TEXT_MUTED};text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">Direct Reset Link</span>
-        <a href="${url}" style="font-size:13px;color:${ACCENT_ROSE};word-break:break-all;font-weight:600;text-decoration:none;">${escapeHtml(url)}</a>
+      <div class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:12px;padding:14px 18px;margin:20px 0;">
+        <span style="font-size:10px;font-weight:700;color:${COLOR_INK_LIGHT};text-transform:uppercase;letter-spacing:0.16em;display:block;margin-bottom:6px;">Direct Reset Link</span>
+        <a href="${url}" style="font-size:13px;color:${COLOR_TERRACOTTA};word-break:break-all;font-weight:600;text-decoration:none;">${escapeHtml(url)}</a>
       </div>
       ${p(`${highlight("This password link expires automatically.")} If you did not request a password reset, you can safely disregard this email, your password remains unchanged.`)}
     `,
@@ -349,36 +367,35 @@ export async function sendBirthdayRecipientEmail(params: {
   const messageLabel = countStr === 1 ? "heartfelt wish" : "heartfelt wishes";
   const url = `${getSiteBaseUrl()}/birthday/${params.publicCode}`;
 
-  const inner = hero({
-    eyebrow: "Birthday Story Reveal",
+  const inner = heroHeader({
     title: `Happy Birthday, ${safeRecipientName}!`,
-    icon: "&#127874;",
-    variant: "lacquer",
+    subtitle: "A collaborative celebration story prepared just for you.",
+    variant: "celebration",
   }) +
-  body({
+  bodyContainer({
     contentHtml: `
       ${p("The people who love you put together something truly special.")}
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0 24px;">
         <tr>
-          <td align="center" style="background:#faf8f5;border:1px solid ${BORDER_COLOR};border-radius:20px;padding:24px 20px;">
-            <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:${TEXT_MUTED};letter-spacing:0.06em;text-transform:uppercase;">
+          <td align="center" class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:18px;padding:26px 20px;text-align:center;">
+            <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:${COLOR_INK_LIGHT};letter-spacing:0.16em;text-transform:uppercase;">
               Waiting For You Inside
             </p>
-            <p style="margin:0;font-size:48px;font-weight:900;color:${ACCENT_ROSE};letter-spacing:-0.03em;line-height:1.1;">
+            <p style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:44px;font-weight:700;color:${COLOR_TERRACOTTA};line-height:1.1;">
               ${countStr}
             </p>
-            <p style="margin:6px 0 0;font-size:14px;font-weight:700;color:${TEXT_MAIN};">
-              ${messageLabel}, photos &amp; voice recordings
+            <p style="margin:8px 0 0;font-size:14px;font-weight:600;color:${COLOR_INK_MAIN};">
+              ${messageLabel}, photos, and voice recordings
             </p>
-            <div style="margin-top:12px;display:inline-block;background:rgba(251,191,36,0.18);border:1px solid #fbbf24;border-radius:9999px;padding:4px 14px;">
-              <span style="font-size:12px;font-weight:700;color:#b45309;">&#10024; Sealed with love &middot; Ready to open</span>
+            <div style="margin-top:14px;display:inline-block;background-color:#ffffff;border:1px solid ${COLOR_BORDER};border-radius:9999px;padding:5px 16px;">
+              <span style="font-size:11px;font-weight:700;color:${COLOR_AMBER};letter-spacing:0.04em;">Sealed with love &middot; Ready to open</span>
             </div>
           </td>
         </tr>
       </table>
       ${p("Open your birthday letter to experience the full story, voice notes, and memories prepared for you.")}
     `,
-    cta: { label: "Open Your Birthday Story 🎁", href: url },
+    cta: { label: "Open Your Birthday Story", href: url },
     secondaryNote: "Crafted with care on WishCanvas",
   });
 
@@ -386,7 +403,7 @@ export async function sendBirthdayRecipientEmail(params: {
 
   await sendTransactionalEmail({
     to: params.to,
-    subject: `Your birthday story is ready, ${params.recipientName} 🎂`,
+    subject: `Your birthday story is ready, ${params.recipientName}`,
     html,
     text: `Happy Birthday, ${params.recipientName}. Your story is ready with ${countStr} ${messageLabel}. Open: ${url}`,
     tags: [{ name: "type", value: "birthday-recipient" }],
@@ -410,27 +427,26 @@ export async function sendNewMessageAlertEmail(params: {
   const countStr = Number(params.messageCount) || 1;
   const pageUrl = `${getSiteBaseUrl()}/preview/${params.pageCode}`;
 
-  const inner = hero({
-    eyebrow: "New Wish Received",
+  const inner = heroHeader({
     title: `A wish arrived for ${safeRecipientName}`,
-    icon: "&#128172;",
-    variant: "midnight",
+    subtitle: `${safeSenderName} just added a new note to the celebration.`,
+    variant: "editorial",
   }) +
-  body({
+  bodyContainer({
     contentHtml: `
       ${p(`Hi ${safeOwnerName},`)}
       ${p(`${highlight(safeSenderName)} just added a new wish to the celebration for ${safeRecipientName}.`)}
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0 20px;">
         <tr>
-          <td style="background:#faf8f5;border:1px solid ${BORDER_COLOR};border-radius:16px;padding:16px 20px;">
-            <p style="margin:0 0 2px;font-size:12px;font-weight:700;color:${TEXT_MUTED};text-transform:uppercase;letter-spacing:0.05em;">Current Total</p>
-            <p style="margin:0;font-size:20px;font-weight:800;color:${TEXT_MAIN};">
+          <td class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:14px;padding:16px 20px;">
+            <p style="margin:0 0 3px;font-size:11px;font-weight:700;color:${COLOR_INK_LIGHT};text-transform:uppercase;letter-spacing:0.14em;">Current Total</p>
+            <p style="margin:0;font-size:18px;font-weight:700;color:${COLOR_INK_MAIN};font-family:'Playfair Display',Georgia,serif;">
               ${countStr} ${countStr === 1 ? "heartfelt wish" : "heartfelt wishes"} collected so far
             </p>
           </td>
         </tr>
       </table>
-      ${p("Open your preview anytime to review the new message and manage contributions.")}
+      ${p("Open your preview anytime to review the new message and curate the presentation.")}
     `,
     cta: { label: "Review Birthday Canvas", href: pageUrl },
     secondaryNote: "You can adjust notification preferences in your settings.",
@@ -463,21 +479,20 @@ export async function sendBirthdayReminderEmail(params: {
   const countStr = Number(params.messageCount) || 0;
   const pageUrl = `${getSiteBaseUrl()}/preview/${params.publicCode}`;
 
-  const inner = hero({
-    eyebrow: "Birthday Reminder",
-    title: `Today is ${safeRecipientName}'s day!`,
-    icon: "&#127874;",
-    variant: "lacquer",
+  const inner = heroHeader({
+    title: `Today is ${safeRecipientName}'s special day`,
+    subtitle: "The celebration canvas is sealed and ready for the big reveal.",
+    variant: "celebration",
   }) +
-  body({
+  bodyContainer({
     contentHtml: `
       ${p(`Hi ${safeOwnerName},`)}
       ${p(`Today is the big day you set for ${highlight(safeRecipientName)}.`)}
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:16px 0 20px;">
         <tr>
-          <td style="background:#faf8f5;border:1px solid ${BORDER_COLOR};border-radius:16px;padding:16px 20px;">
-            <p style="margin:0 0 2px;font-size:12px;font-weight:700;color:${TEXT_MUTED};text-transform:uppercase;letter-spacing:0.05em;">Celebration Ready</p>
-            <p style="margin:0;font-size:20px;font-weight:800;color:${TEXT_MAIN};">
+          <td class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:14px;padding:16px 20px;">
+            <p style="margin:0 0 3px;font-size:11px;font-weight:700;color:${COLOR_INK_LIGHT};text-transform:uppercase;letter-spacing:0.14em;">Celebration Ready</p>
+            <p style="margin:0;font-size:18px;font-weight:700;color:${COLOR_INK_MAIN};font-family:'Playfair Display',Georgia,serif;">
               ${countStr} ${countStr === 1 ? "wish" : "wishes"} and memories gathered
             </p>
           </td>
@@ -493,7 +508,7 @@ export async function sendBirthdayReminderEmail(params: {
 
   await sendTransactionalEmail({
     to: params.to,
-    subject: `Birthday reminder for ${params.recipientName} 🎂`,
+    subject: `Birthday reminder for ${params.recipientName}`,
     html,
     text: `Reminder: today is ${params.recipientName}'s birthday. Open: ${pageUrl}`,
     tags: [{ name: "type", value: "birthday-reminder" }],
@@ -513,25 +528,24 @@ export async function sendPoolReleaseRequestEmail(params: {
   const safeRecipientName = escapeHtml(params.recipientName.trim() || "the recipient");
   const pageUrl = `${getSiteBaseUrl()}/birthday/${params.pageCode}`;
 
-  const inner = hero({
-    eyebrow: "Gift Pool Request",
+  const inner = heroHeader({
     title: `${safeRecipientName} requested their gift`,
-    icon: "&#127873;",
-    variant: "midnight",
+    subtitle: "Authorized gift pool release request received.",
+    variant: "editorial",
   }) +
-  body({
+  bodyContainer({
     contentHtml: `
       ${p(`Hi ${safeOwnerName},`)}
       ${p(`${highlight(safeRecipientName)} has requested the payout release of their collaborative gift pool funds.`)}
-      <div style="background:#faf8f5;border:1px solid ${BORDER_COLOR};border-radius:14px;padding:16px 20px;margin:20px 0;">
-        <p style="margin:0 0 4px;font-size:12px;font-weight:800;color:${TEXT_MUTED};text-transform:uppercase;letter-spacing:0.06em;">Payout Details</p>
-        <p style="margin:0;font-size:14px;color:${TEXT_MAIN};line-height:1.5;">
+      <div class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:12px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:${COLOR_INK_LIGHT};text-transform:uppercase;letter-spacing:0.14em;">Payout Details</p>
+        <p style="margin:0;font-size:14px;color:${COLOR_INK_MAIN};line-height:1.5;">
           A 2% standard processing fee is automatically deducted from the pool total prior to transfer.
         </p>
       </div>
       ${p("Open the celebration page below to verify bank details and authorize the release.")}
     `,
-    cta: { label: "Review & Release Payout", href: pageUrl },
+    cta: { label: "Review and Release Payout", href: pageUrl },
     secondaryNote: "If you have already authorized this payout, you may disregard this notice.",
   });
 
@@ -561,32 +575,31 @@ export async function sendGuestCanvasCreatedEmail(params: {
   const previewUrl = `${siteUrl}/preview/${params.publicCode}`;
   const claimUrl = `${siteUrl}/auth?mode=signup&claim_token=${params.claimToken}&public_code=${params.publicCode}&email=${encodeURIComponent(params.to)}`;
 
-  const inner = hero({
-    eyebrow: "Celebration Canvas Created",
-    title: `Your page for ${safeRecipientName} is live!`,
-    icon: "&#127881;",
-    variant: "lacquer",
+  const inner = heroHeader({
+    title: `Your page for ${safeRecipientName} is live`,
+    subtitle: "Share the contributor link to start gathering memories.",
+    variant: "editorial",
   }) +
-  body({
+  bodyContainer({
     contentHtml: `
       ${p("Congratulations! You just created a collaborative birthday celebration canvas on WishCanvas.")}
       ${p("Here is the contributor link to share with friends, family, and colleagues so they can add wishes, photos, and voice notes:")}
       
-      <div style="background:#faf8f5;border:1px solid ${BORDER_COLOR};border-radius:14px;padding:16px 18px;margin:16px 0;">
-        <span style="font-size:11px;font-weight:800;color:${TEXT_MUTED};text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">Shareable Contributor Link</span>
-        <a href="${contributeUrl}" style="font-size:14px;color:${ACCENT_ROSE};word-break:break-all;font-weight:700;text-decoration:none;">${contributeUrl}</a>
+      <div class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:12px;padding:16px 18px;margin:16px 0;">
+        <span style="font-size:10px;font-weight:700;color:${COLOR_INK_LIGHT};text-transform:uppercase;letter-spacing:0.16em;display:block;margin-bottom:6px;">Shareable Contributor Link</span>
+        <a href="${contributeUrl}" style="font-size:14px;color:${COLOR_TERRACOTTA};word-break:break-all;font-weight:700;text-decoration:none;">${contributeUrl}</a>
       </div>
 
       <p style="margin:16px 0 6px;">You can also preview how the celebration looks anytime:</p>
       <div style="margin:0 0 20px;">
-        <a href="${previewUrl}" style="color:${TEXT_MAIN};font-size:14px;font-weight:700;text-decoration:underline;">View Live Preview &rarr;</a>
+        <a href="${previewUrl}" style="color:${COLOR_INK_MAIN};font-size:14px;font-weight:700;text-decoration:underline;">View Live Preview &rarr;</a>
       </div>
 
-      <div style="border-top:1px solid ${BORDER_COLOR};margin:24px 0 16px;padding-top:20px;">
-        <span style="display:inline-block;background:rgba(225,29,72,0.1);color:${ACCENT_ROSE};font-weight:800;font-size:11px;padding:4px 10px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">
+      <div style="border-top:1px solid ${COLOR_BORDER};margin:24px 0 16px;padding-top:20px;">
+        <span style="display:inline-block;background-color:#fee2e2;color:#b91c1c;font-weight:700;font-size:10px;padding:4px 10px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">
           Action Recommended
         </span>
-        ${p(`Because you created this canvas as a guest, editing, wish moderation, and music controls are locked. Claim your canvas now to unlock full moderation and save this canvas permanently in your creator atelier:`)}
+        ${p("Because you created this canvas as a guest, editing, wish moderation, and music controls are locked. Claim your canvas now to unlock full moderation and save this canvas permanently in your creator atelier:")}
       </div>
     `,
     cta: { label: "Claim Your Canvas Now", href: claimUrl },
@@ -597,9 +610,46 @@ export async function sendGuestCanvasCreatedEmail(params: {
 
   await sendTransactionalEmail({
     to: params.to,
-    subject: `Your celebration canvas for ${params.recipientName} is live! 🎉`,
+    subject: `Your celebration canvas for ${params.recipientName} is live`,
     html,
     text: `Your celebration canvas for ${params.recipientName} is live!\n\nContributor link: ${contributeUrl}\nPreview link: ${previewUrl}\n\nClaim your canvas: ${claimUrl}`,
     tags: [{ name: "type", value: "guest-canvas-created" }],
+  });
+}
+
+// ============================================================================
+// 9. SYSTEM DIAGNOSTIC EMAIL (Used by Admin test)
+// ============================================================================
+export async function sendDiagnosticTestEmail(params: {
+  to: string;
+  subject?: string;
+}) {
+  const appName = getAppName();
+  const subject = params.subject?.trim() || `${appName} Pipeline Diagnostic`;
+
+  const inner = heroHeader({
+    title: "Resend pipeline connected",
+    subtitle: "Your transactional email dispatch pipeline is operating smoothly.",
+    variant: "editorial",
+  }) +
+  bodyContainer({
+    contentHtml: `
+      ${p(`This is a test notification from <strong style="color:${COLOR_TERRACOTTA};">${appName}</strong> confirming that your transactional email pipeline is operating smoothly.`)}
+      <div class="well-box" style="background-color:${COLOR_WELL_BG};border:1px solid ${COLOR_WELL_BORDER};border-radius:12px;padding:14px 18px;margin:16px 0;font-size:13px;color:${COLOR_INK_MUTED};">
+        Verification Timestamp: <strong>${new Date().toISOString()}</strong>
+      </div>
+      ${p("All headers, DNS authorization, and template formatting are configured correctly.")}
+    `,
+    cta: { label: "Open Admin Atelier", href: `${getSiteBaseUrl()}/admin` },
+  });
+
+  const html = shell(inner, `Test email diagnostic confirmation for ${appName}.`);
+
+  return sendTransactionalEmail({
+    to: params.to,
+    subject,
+    html,
+    text: `Test email from ${appName}: Transactional pipeline operational at ${new Date().toISOString()}`,
+    tags: [{ name: "type", value: "system-test" }],
   });
 }
