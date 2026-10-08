@@ -10,6 +10,8 @@ export interface BirthdayPage {
   cover_photo_url?: string | null;
   message_count?: number;
   view_count?: number;
+  is_owner?: boolean;
+  user_role?: 'owner' | 'co_organizer';
 }
 
 export type PageAnalytics = {

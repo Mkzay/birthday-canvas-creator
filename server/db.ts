@@ -20,9 +20,7 @@ export async function initializeDatabase() {
     SELECT version FROM _schema_migrations WHERE version = 1 LIMIT 1
   `;
 
-  if (migrationRows.length > 0) {
-    return;
-  }
+  if (migrationRows.length === 0) {
 
   await sql`
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -646,4 +644,53 @@ export async function initializeDatabase() {
     INSERT INTO _schema_migrations (version) VALUES (1)
     ON CONFLICT (version) DO NOTHING;
   `;
+  }
+
+  const v2Migration = await sql`
+    SELECT version FROM _schema_migrations WHERE version = 2 LIMIT 1
+  `;
+
+  if (v2Migration.length === 0) {
+    await sql`
+      CREATE TABLE IF NOT EXISTS page_collaborators (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        page_id UUID NOT NULL REFERENCES birthday_pages(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL DEFAULT 'co_organizer',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT page_collaborators_page_user_unique UNIQUE (page_id, user_id),
+        CONSTRAINT page_collaborators_role_check CHECK (role IN ('co_organizer'))
+      );
+    `;
+
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_page_collaborators_user_id ON page_collaborators(user_id);
+    `;
+
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_page_collaborators_page_id ON page_collaborators(page_id);
+    `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS page_collaborator_invites (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        page_id UUID NOT NULL REFERENCES birthday_pages(id) ON DELETE CASCADE,
+        invite_token_hash TEXT NOT NULL UNIQUE,
+        created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        revoked_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `;
+
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_page_collaborator_invites_lookup
+      ON page_collaborator_invites(page_id, revoked_at, expires_at);
+    `;
+
+    await sql`
+      INSERT INTO _schema_migrations (version) VALUES (2)
+      ON CONFLICT (version) DO NOTHING;
+    `;
+  }
 }

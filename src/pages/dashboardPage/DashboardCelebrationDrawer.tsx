@@ -14,6 +14,7 @@ import {
   Share2,
   Sparkles,
   Trash2,
+  Users,
   X,
 } from 'lucide-react';
 import { differenceInDays, format } from 'date-fns';
@@ -23,6 +24,7 @@ import {
   SheetClose,
   SheetContent,
 } from '@/components/ui/sheet';
+import { CollaboratorsModal } from '@/components/CollaboratorsModal';
 import { resolveAssetUrl } from '@/lib/api';
 import { parseLocalDate } from '@/lib/date';
 import type { BirthdayPage, PageAnalytics, ThemeDisplay } from './types';
@@ -64,6 +66,7 @@ export function DashboardCelebrationDrawer({
 }: DashboardCelebrationDrawerProps) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [fitMode, setFitMode] = useState<'cover' | 'contain'>('cover');
+  const [isCollaboratorsOpen, setIsCollaboratorsOpen] = useState(false);
 
   if (!page || !theme) {
     return null;
@@ -237,6 +240,32 @@ export function DashboardCelebrationDrawer({
               </button>
             </div>
           )}
+
+          {/* Co-Organizer Team Pill */}
+          <button
+            type="button"
+            onClick={() => setIsCollaboratorsOpen(true)}
+            className="w-full flex items-center justify-between rounded-2xl border border-stone-200/90 bg-white p-3 shadow-xs hover:border-amber-300 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-amber-100/80 border border-amber-200 text-amber-900 flex items-center justify-center">
+                <Users className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-slate-900 block">
+                  Co-Organizer Team
+                </span>
+                <span className="text-[11px] text-stone-500 block">
+                  {page.user_role === 'co_organizer'
+                    ? 'You are co-organizing this canvas'
+                    : 'Invite and manage co-organizers'}
+                </span>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-amber-800">
+              Manage &rarr;
+            </span>
+          </button>
 
           {/* Quick Metrics Ticker */}
           <div className="grid grid-cols-2 gap-3 rounded-2xl border border-stone-200/90 bg-white p-3.5 text-center shadow-xs">
@@ -419,13 +448,20 @@ export function DashboardCelebrationDrawer({
               size="sm"
               className="h-9 w-9 p-0 rounded-xl border-stone-200 bg-white text-rose-600 hover:bg-rose-50"
               onClick={() => onRequestDelete(page)}
-              title="Delete Canvas"
+              title={page.user_role === 'co_organizer' ? 'Leave celebration' : 'Delete canvas'}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </SheetContent>
+
+      <CollaboratorsModal
+        page={page}
+        isOpen={isCollaboratorsOpen}
+        onOpenChange={setIsCollaboratorsOpen}
+        isProUser={Boolean(isProUser)}
+      />
     </Sheet>
   );
 }

@@ -20,6 +20,13 @@ import {
   fetchMessagesForPage,
   serializePageDates,
   createUniquePublicCode,
+  fetchCollaboratorsForPage,
+  fetchActiveCollaboratorInvite,
+  createCollaboratorInvite,
+  revokeCollaboratorInvite,
+  removeCollaborator,
+  fetchCollaboratorInviteByHash,
+  addCollaboratorToPage,
 } from "../services/pageQueries";
 import {
   routeParamString,
@@ -32,6 +39,7 @@ import {
   rejectInvalidUpload,
   logRequestFailure,
   hasProThemeAccess,
+  getClientOriginForRequest,
 } from "../services/requestUtils";
 import { fileUrl, removeFileByUrl, normalizeCoverUpload } from "../uploads";
 import { buildBrandedPagePdf } from "../services/pdfService";
@@ -44,10 +52,20 @@ const handleGetDashboardPages: express.RequestHandler = async (request: AuthedRe
   const rows = await sql`
     SELECT
       bp.*,
+      (bp.user_id = ${request.user!.id}) AS is_owner,
+      CASE WHEN bp.user_id = ${request.user!.id} THEN 'owner' ELSE 'co_organizer' END AS user_role,
       COUNT(bm.id)::int AS message_count
     FROM birthday_pages bp
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id AND bm.deleted_at IS NULL
-    WHERE bp.user_id = ${request.user!.id}
+    WHERE (
+      bp.user_id = ${request.user!.id}
+      OR EXISTS (
+        SELECT 1
+        FROM page_collaborators pc
+        WHERE pc.page_id = bp.id
+          AND pc.user_id = ${request.user!.id}
+      )
+    )
       AND bp.owner_deleted IS NOT TRUE
     GROUP BY bp.id
     ORDER BY bp.created_at DESC
@@ -571,23 +589,32 @@ pagesRouter.patch("/:id", requireAuth, validateParams(pageIdParamSchema), valida
     ? (revealPin ? await hashPassword(revealPin) : null)
     : null;
 
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const isOwner = Boolean(pageRows[0].is_owner);
+  const targetPageId = pageRows[0].id;
+
+  const attemptsToModifyBank =
+    request.body.recipientBankCode !== undefined ||
+    request.body.recipientAccountNumber !== undefined ||
+    request.body.recipientAccountName !== undefined;
+
+  if (!isOwner && attemptsToModifyBank) {
+    response.status(403).json({
+      error: "Only the primary canvas creator can update payout bank details.",
+      code: "ONLY_OWNER_CAN_MODIFY_BANK_DETAILS",
+    });
+    return;
+  }
+
   if (hasCustomAudioUrl) {
-    const existingRows = await sql`
-      SELECT custom_audio_url
-      FROM birthday_pages
-      WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-        AND user_id = ${request.user!.id}
-      LIMIT 1
-    `;
-
-    if (!existingRows[0]) {
-      response.status(404).json({ error: "Page not found" });
-      return;
-    }
-
     const nextAudioUrl = request.body.pageCustomAudioUrl || null;
-    if (existingRows[0].custom_audio_url && existingRows[0].custom_audio_url !== nextAudioUrl) {
-      await removeFileByUrl(existingRows[0].custom_audio_url);
+    if (pageRows[0].custom_audio_url && pageRows[0].custom_audio_url !== nextAudioUrl) {
+      await removeFileByUrl(pageRows[0].custom_audio_url);
     }
   }
 
@@ -619,12 +646,11 @@ pagesRouter.patch("/:id", requireAuth, validateParams(pageIdParamSchema), valida
             pool_fundraising_enabled = ${Boolean(request.body.poolFundraisingEnabled ?? false)},
             pool_goal_kobo = ${sanitizeAmountKobo(request.body.poolGoalKobo)},
             pool_description = ${sanitizeDisplayName(request.body.poolDescription)},
-            recipient_bank_code = ${sanitizeBankCode(request.body.recipientBankCode)},
-            recipient_account_number = ${sanitizeAccountNumber(request.body.recipientAccountNumber)},
-            recipient_account_name = ${sanitizeDisplayName(request.body.recipientAccountName)},
+            recipient_bank_code = CASE WHEN ${isOwner} THEN ${sanitizeBankCode(request.body.recipientBankCode)} ELSE recipient_bank_code END,
+            recipient_account_number = CASE WHEN ${isOwner} THEN ${sanitizeAccountNumber(request.body.recipientAccountNumber)} ELSE recipient_account_number END,
+            recipient_account_name = CASE WHEN ${isOwner} THEN ${sanitizeDisplayName(request.body.recipientAccountName)} ELSE recipient_account_name END,
             updated_at = NOW()
-          WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-            AND user_id = ${request.user!.id}
+          WHERE id = ${targetPageId}
           RETURNING *
         `
       : await sql`
@@ -649,12 +675,11 @@ pagesRouter.patch("/:id", requireAuth, validateParams(pageIdParamSchema), valida
             pool_fundraising_enabled = ${Boolean(request.body.poolFundraisingEnabled ?? false)},
             pool_goal_kobo = ${sanitizeAmountKobo(request.body.poolGoalKobo)},
             pool_description = ${sanitizeDisplayName(request.body.poolDescription)},
-            recipient_bank_code = ${sanitizeBankCode(request.body.recipientBankCode)},
-            recipient_account_number = ${sanitizeAccountNumber(request.body.recipientAccountNumber)},
-            recipient_account_name = ${sanitizeDisplayName(request.body.recipientAccountName)},
+            recipient_bank_code = CASE WHEN ${isOwner} THEN ${sanitizeBankCode(request.body.recipientBankCode)} ELSE recipient_bank_code END,
+            recipient_account_number = CASE WHEN ${isOwner} THEN ${sanitizeAccountNumber(request.body.recipientAccountNumber)} ELSE recipient_account_number END,
+            recipient_account_name = CASE WHEN ${isOwner} THEN ${sanitizeDisplayName(request.body.recipientAccountName)} ELSE recipient_account_name END,
             updated_at = NOW()
-          WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-            AND user_id = ${request.user!.id}
+          WHERE id = ${targetPageId}
           RETURNING *
         `;
   } catch (error) {
@@ -751,20 +776,22 @@ pagesRouter.get("/:id/export", requireAuth, validateParams(pageIdParamSchema), a
 });
 
 pagesRouter.delete("/:id", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
-  const rows = await sql`
-    SELECT id
-    FROM birthday_pages
-    WHERE (id::text = ${request.params.id} OR public_code = ${request.params.id})
-      AND user_id = ${request.user!.id}
-    LIMIT 1
-  `;
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
 
-  if (!rows[0]) {
+  if (!pageRows[0]) {
     response.status(404).json({ error: "Page not found" });
     return;
   }
 
-  const resolvedPageId = rows[0].id;
+  if (!pageRows[0].is_owner) {
+    response.status(403).json({
+      error: "Only the primary canvas creator can delete this celebration.",
+      code: "ONLY_OWNER_CAN_DELETE",
+    });
+    return;
+  }
+
+  const resolvedPageId = pageRows[0].id;
 
   await sql`
     UPDATE birthday_pages
@@ -774,6 +801,185 @@ pagesRouter.delete("/:id", requireAuth, validateParams(pageIdParamSchema), async
   `;
 
   response.status(204).end();
+});
+
+pagesRouter.get("/:id/collaborators", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const pageId = String(pageRows[0].id);
+  const [collaborators, activeInvite] = await Promise.all([
+    fetchCollaboratorsForPage(pageId),
+    fetchActiveCollaboratorInvite(pageId),
+  ]);
+
+  response.json({
+    is_owner: Boolean(pageRows[0].is_owner),
+    collaborators,
+    active_invite: activeInvite
+      ? {
+          expires_at: activeInvite.expires_at,
+          created_at: activeInvite.created_at,
+        }
+      : null,
+  });
+});
+
+pagesRouter.post("/:id/collaborators/invite", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  if (!hasProThemeAccess(request.user!)) {
+    response.status(403).json({
+      error: "Multi-organizer co-editing is a Pro feature.",
+      code: "FEATURE_PRO_ONLY",
+    });
+    return;
+  }
+
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  if (!pageRows[0].is_owner) {
+    response.status(403).json({
+      error: "Only the primary canvas creator can invite co-organizers.",
+      code: "ONLY_OWNER_CAN_INVITE",
+    });
+    return;
+  }
+
+  const pageId = String(pageRows[0].id);
+  await revokeCollaboratorInvite(pageId);
+
+  const rawToken = crypto.randomBytes(24).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+  const invite = await createCollaboratorInvite(pageId, request.user!.id, tokenHash, 7);
+  const origin = getClientOriginForRequest(request);
+
+  response.status(201).json({
+    invite_url: `${origin}/organize/${rawToken}`,
+    expires_at: invite.expires_at,
+    created_at: invite.created_at,
+  });
+});
+
+pagesRouter.delete("/:id/collaborators/invite", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  if (!pageRows[0].is_owner) {
+    response.status(403).json({
+      error: "Only the primary canvas creator can revoke invite links.",
+      code: "ONLY_OWNER_CAN_REVOKE",
+    });
+    return;
+  }
+
+  await revokeCollaboratorInvite(String(pageRows[0].id));
+  response.status(204).end();
+});
+
+pagesRouter.delete("/:id/collaborators/:userId", requireAuth, validateParams(pageIdParamSchema), async (request: AuthedRequest, response) => {
+  const pageRows = await privatePageQuery(String(request.params.id), request.user!.id);
+  if (!pageRows[0]) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  const isOwner = Boolean(pageRows[0].is_owner);
+  const targetUserId = String(request.params.userId);
+
+  if (!isOwner && request.user!.id !== targetUserId) {
+    response.status(403).json({
+      error: "You can only remove yourself as a co-organizer.",
+      code: "PERMISSION_DENIED",
+    });
+    return;
+  }
+
+  await removeCollaborator(String(pageRows[0].id), targetUserId);
+  response.status(204).end();
+});
+
+pagesRouter.get("/invites/:token", async (request, response) => {
+  const token = String(request.params.token || "").trim();
+  if (!token) {
+    response.status(400).json({ error: "Invalid token" });
+    return;
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const invite = await fetchCollaboratorInviteByHash(tokenHash);
+
+  if (!invite) {
+    response.status(404).json({ error: "Invitation not found." });
+    return;
+  }
+
+  const isExpired = new Date(invite.expires_at).getTime() <= Date.now();
+  const isRevoked = invite.revoked_at !== null;
+
+  response.json({
+    public_code: invite.public_code,
+    recipient_name: invite.recipient_name,
+    birthday_date: invite.birthday_date,
+    theme: invite.theme,
+    cover_photo_url: invite.cover_photo_url,
+    owner_name: invite.owner_name || "The organizer",
+    is_expired: isExpired,
+    is_revoked: isRevoked,
+  });
+});
+
+pagesRouter.post("/invites/:token/accept", requireAuth, async (request: AuthedRequest, response) => {
+  const token = String(request.params.token || "").trim();
+  if (!token) {
+    response.status(400).json({ error: "Invalid token" });
+    return;
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const invite = await fetchCollaboratorInviteByHash(tokenHash);
+
+  if (!invite) {
+    response.status(404).json({ error: "Invitation not found." });
+    return;
+  }
+
+  const isExpired = new Date(invite.expires_at).getTime() <= Date.now();
+  const isRevoked = invite.revoked_at !== null;
+
+  if (isRevoked || isExpired) {
+    response.status(410).json({
+      error: "This invitation link has expired or been revoked.",
+      code: "INVITE_EXPIRED_OR_REVOKED",
+    });
+    return;
+  }
+
+  if (request.user!.id === invite.owner_user_id) {
+    response.json({
+      status: "already_owner",
+      public_code: invite.public_code,
+      message: "You are already the primary owner of this celebration.",
+    });
+    return;
+  }
+
+  await addCollaboratorToPage(String(invite.page_id), request.user!.id, "co_organizer");
+
+  response.json({
+    status: "accepted",
+    public_code: invite.public_code,
+    message: "You have joined as a co-organizer!",
+  });
 });
 
 // Upload handlers for canvas cover and custom soundtrack
@@ -797,7 +1003,16 @@ export const handleCoverUpload: express.RequestHandler = async (request: AuthedR
       SELECT id, cover_photo_url
       FROM birthday_pages
       WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
-        AND (user_id = ${request.user.id} OR (user_id IS NULL AND guest_email IS NOT NULL))
+        AND (
+          user_id = ${request.user.id}
+          OR EXISTS (
+            SELECT 1
+            FROM page_collaborators pc
+            WHERE pc.page_id = birthday_pages.id
+              AND pc.user_id = ${request.user.id}
+          )
+          OR (user_id IS NULL AND guest_email IS NOT NULL)
+        )
       LIMIT 1
     `;
   } else {
@@ -853,7 +1068,16 @@ export const handleSoundtrackUpload: express.RequestHandler = async (request: Au
       SELECT id, custom_audio_url
       FROM birthday_pages
       WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
-        AND (user_id = ${request.user.id} OR (user_id IS NULL AND guest_email IS NOT NULL))
+        AND (
+          user_id = ${request.user.id}
+          OR EXISTS (
+            SELECT 1
+            FROM page_collaborators pc
+            WHERE pc.page_id = birthday_pages.id
+              AND pc.user_id = ${request.user.id}
+          )
+          OR (user_id IS NULL AND guest_email IS NOT NULL)
+        )
       LIMIT 1
     `;
   } else {

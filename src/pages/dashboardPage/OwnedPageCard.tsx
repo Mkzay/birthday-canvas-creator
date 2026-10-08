@@ -93,15 +93,22 @@ export function OwnedPageCard({
                 <span>{theme.emoji}</span>
                 <span className="truncate max-w-[100px]">{theme.name}</span>
               </span>
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold backdrop-blur-md ${
-                  variant === 'live'
-                    ? 'bg-emerald-500/90 text-white shadow-sm'
-                    : 'bg-white/80 text-stone-800 shadow-sm'
-                }`}
-              >
-                {variant === 'live' ? 'Live' : 'Keepsake'}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {page.user_role === 'co_organizer' && (
+                  <span className="inline-flex items-center rounded-full bg-amber-400 text-slate-950 px-2 py-0.5 text-[10px] font-bold backdrop-blur-md shadow-sm">
+                    Co-organizer
+                  </span>
+                )}
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold backdrop-blur-md ${
+                    variant === 'live'
+                      ? 'bg-emerald-500/90 text-white shadow-sm'
+                      : 'bg-white/80 text-stone-800 shadow-sm'
+                  }`}
+                >
+                  {variant === 'live' ? 'Live' : 'Keepsake'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -165,7 +172,7 @@ export function OwnedPageCard({
                 onClick={onRequestDelete}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete canvas
+                {page.user_role === 'co_organizer' ? 'Leave celebration' : 'Delete canvas'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

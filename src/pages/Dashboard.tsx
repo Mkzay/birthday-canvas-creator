@@ -184,20 +184,33 @@ const Dashboard = () => {
     [customThemes],
   );
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (page: BirthdayPage) => {
     try {
-      await apiFetch<void>(`/pages/${id}`, {
+      if (page.user_role === 'co_organizer' && user?.id) {
+        await apiFetch<void>(`/pages/${page.public_code}/collaborators/${user.id}`, {
+          method: 'DELETE',
+        });
+        setPages((currentPages) => currentPages.filter((p) => p.id !== page.id));
+        if (drawerPage?.id === page.id) {
+          setIsDrawerOpen(false);
+          setDrawerPage(null);
+        }
+        toast.success(`Removed yourself from "${page.recipient_name}'s" celebration`);
+        return;
+      }
+
+      await apiFetch<void>(`/pages/${page.id}`, {
         method: 'DELETE',
       });
-      setPages((currentPages) => currentPages.filter((page) => page.id !== id));
-      if (drawerPage?.id === id) {
+      setPages((currentPages) => currentPages.filter((p) => p.id !== page.id));
+      if (drawerPage?.id === page.id) {
         setIsDrawerOpen(false);
         setDrawerPage(null);
       }
-      toast.success(`"${name}'s" celebration canvas deleted`);
+      toast.success(`"${page.recipient_name}'s" celebration canvas deleted`);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to delete page');
+      toast.error(page.user_role === 'co_organizer' ? 'Failed to leave celebration' : 'Failed to delete page');
     }
   };
 
@@ -626,14 +639,24 @@ const Dashboard = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this celebration canvas?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {pagePendingDelete?.user_role === 'co_organizer'
+                ? 'Leave this celebration?'
+                : 'Delete this celebration canvas?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the canvas, all contributed audio recordings, photos, and messages.
+              {pagePendingDelete?.user_role === 'co_organizer'
+                ? 'You will be removed as a co-organizer and this canvas will no longer appear in your atelier.'
+                : 'This permanently removes the canvas, all contributed audio recordings, photos, and messages.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
             <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
-            <span>{pagePendingDelete?.recipient_name}&apos;s canvas will be deleted permanently.</span>
+            <span>
+              {pagePendingDelete?.user_role === 'co_organizer'
+                ? `You will surrender co-organizer editing access to ${pagePendingDelete?.recipient_name}'s canvas.`
+                : `${pagePendingDelete?.recipient_name}'s canvas will be deleted permanently.`}
+            </span>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPagePendingDelete(null)}>Cancel</AlertDialogCancel>
@@ -641,12 +664,12 @@ const Dashboard = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (pagePendingDelete) {
-                  void handleDelete(pagePendingDelete.id, pagePendingDelete.recipient_name);
+                  void handleDelete(pagePendingDelete);
                 }
                 setPagePendingDelete(null);
               }}
             >
-              Delete canvas
+              {pagePendingDelete?.user_role === 'co_organizer' ? 'Leave celebration' : 'Delete canvas'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

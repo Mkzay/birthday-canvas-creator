@@ -44,6 +44,7 @@ const routeModuleLoaders = {
   ThemeBuilderPage: () => import("./pages/ThemeBuilderPage"),
   UpgradePage: () => import("./pages/UpgradePage"),
   SettingsPage: () => import("./pages/SettingsPage"),
+  AcceptInvitePage: () => import("./pages/AcceptInvitePage"),
   NotFound: () => import("./pages/NotFound"),
 };
 
@@ -92,6 +93,7 @@ const moduleKeyFromPathname = (pathname: string): RouteModuleKey | null => {
   if (pathname.startsWith("/contribute/")) return "ContributePage";
   if (pathname.startsWith("/birthday/")) return "BirthdayPage";
   if (pathname.startsWith("/preview/")) return "PreviewPage";
+  if (pathname.startsWith("/organize/")) return "AcceptInvitePage";
 
   return null;
 };
@@ -109,6 +111,7 @@ const PreviewPage = lazyImport(routeModuleLoaders.PreviewPage, "PreviewPage");
 const ThemeBuilderPage = lazyImport(routeModuleLoaders.ThemeBuilderPage, "ThemeBuilderPage");
 const UpgradePage = lazyImport(routeModuleLoaders.UpgradePage, "UpgradePage");
 const SettingsPage = lazyImport(routeModuleLoaders.SettingsPage, "SettingsPage");
+const AcceptInvitePage = lazyImport(routeModuleLoaders.AcceptInvitePage, "AcceptInvitePage");
 const NotFound = lazyImport(routeModuleLoaders.NotFound, "NotFound");
 
 const queryClient = new QueryClient();
@@ -336,6 +339,7 @@ const App = () => (
               <Route path="/upgrade" element={<Navigate to="/billing" replace />} />
               <Route path="/upgrade/*" element={<Navigate to="/billing" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/organize/:token" element={<AcceptInvitePage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

@@ -167,6 +167,8 @@ export function privatePageQuery(pageId: string, userId: string) {
   return sql`
     SELECT
       bp.*,
+      (bp.user_id = ${userId}) AS is_owner,
+      CASE WHEN bp.user_id = ${userId} THEN 'owner' ELSE 'co_organizer' END AS user_role,
       NOW() >= COALESCE(bp.reveal_at, bp.birthday_date::timestamptz) AS is_revealed,
       bp.reveal_pin_hash IS NOT NULL AS reveal_pin_set,
       ct.emoji AS theme_emoji,
@@ -181,9 +183,136 @@ export function privatePageQuery(pageId: string, userId: string) {
     LEFT JOIN birthday_messages bm ON bm.page_id = bp.id AND bm.deleted_at IS NULL
     LEFT JOIN custom_themes ct ON bp.theme = CONCAT('custom_', ct.id::text)
     WHERE (bp.id::text = ${pageId} OR bp.public_code = ${pageId})
-      AND bp.user_id = ${userId}
+      AND (
+        bp.user_id = ${userId}
+        OR EXISTS (
+          SELECT 1
+          FROM page_collaborators pc
+          WHERE pc.page_id = bp.id
+            AND pc.user_id = ${userId}
+        )
+      )
       AND bp.owner_deleted IS NOT TRUE
     GROUP BY bp.id, ct.id
+  `;
+}
+
+export async function fetchCollaboratorsForPage(pageId: string) {
+  const rows = await sql`
+    SELECT
+      pc.id,
+      pc.page_id,
+      pc.user_id,
+      pc.role,
+      pc.created_at,
+      u.display_name,
+      u.email,
+      u.avatar_url
+    FROM page_collaborators pc
+    JOIN users u ON u.id = pc.user_id
+    WHERE pc.page_id = ${pageId}
+    ORDER BY pc.created_at ASC
+  `;
+  return rows;
+}
+
+export async function fetchActiveCollaboratorInvite(pageId: string) {
+  const rows = await sql`
+    SELECT
+      id,
+      page_id,
+      expires_at,
+      revoked_at,
+      created_at
+    FROM page_collaborator_invites
+    WHERE page_id = ${pageId}
+      AND revoked_at IS NULL
+      AND expires_at > NOW()
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+export async function createCollaboratorInvite(
+  pageId: string,
+  userId: string,
+  inviteTokenHash: string,
+  expiresInDays = 7
+) {
+  const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
+  const rows = await sql`
+    INSERT INTO page_collaborator_invites (
+      page_id,
+      invite_token_hash,
+      created_by_user_id,
+      expires_at
+    )
+    VALUES (
+      ${pageId},
+      ${inviteTokenHash},
+      ${userId},
+      ${expiresAt}
+    )
+    RETURNING id, page_id, expires_at, created_at
+  `;
+  return rows[0];
+}
+
+export async function revokeCollaboratorInvite(pageId: string) {
+  return sql`
+    UPDATE page_collaborator_invites
+    SET revoked_at = NOW()
+    WHERE page_id = ${pageId}
+      AND revoked_at IS NULL
+  `;
+}
+
+export async function removeCollaborator(pageId: string, userId: string) {
+  return sql`
+    DELETE FROM page_collaborators
+    WHERE page_id = ${pageId}
+      AND user_id = ${userId}
+  `;
+}
+
+export async function fetchCollaboratorInviteByHash(inviteTokenHash: string) {
+  const rows = await sql`
+    SELECT
+      pci.id,
+      pci.page_id,
+      pci.expires_at,
+      pci.revoked_at,
+      bp.public_code,
+      bp.recipient_name,
+      bp.birthday_date,
+      bp.theme,
+      bp.cover_photo_url,
+      bp.user_id AS owner_user_id,
+      u.display_name AS owner_name
+    FROM page_collaborator_invites pci
+    JOIN birthday_pages bp ON bp.id = pci.page_id
+    JOIN users u ON u.id = bp.user_id
+    WHERE pci.invite_token_hash = ${inviteTokenHash}
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+export async function addCollaboratorToPage(pageId: string, userId: string, role = 'co_organizer') {
+  return sql`
+    INSERT INTO page_collaborators (
+      page_id,
+      user_id,
+      role
+    )
+    VALUES (
+      ${pageId},
+      ${userId},
+      ${role}
+    )
+    ON CONFLICT (page_id, user_id) DO NOTHING
+    RETURNING id, page_id, user_id, role, created_at
   `;
 }
 

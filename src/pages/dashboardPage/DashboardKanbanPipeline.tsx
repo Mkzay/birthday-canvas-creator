@@ -74,6 +74,12 @@ function CelebrationCardCover({
         </div>
       )}
 
+      {page.user_role === 'co_organizer' && (
+        <span className="absolute top-2 left-2 z-10 inline-flex items-center rounded-full bg-amber-400 text-slate-950 px-2 py-0.5 text-[10px] font-bold shadow-sm backdrop-blur-md">
+          Co-organizer
+        </span>
+      )}
+
       {/* Subtle bottom vignette so photo cleanly anchors into the card */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-60" />
     </div>
@@ -216,9 +222,16 @@ export function DashboardKanbanPipeline({
                         {theme.emoji || '🎂'}
                       </div>
                       <div className="truncate">
-                        <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
-                          {page.recipient_name}&apos;s Birthday
-                        </h4>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
+                            {page.recipient_name}&apos;s Birthday
+                          </h4>
+                          {page.user_role === 'co_organizer' && (
+                            <span className="shrink-0 rounded bg-amber-100 text-amber-950 border border-amber-300 px-1 py-0.5 text-[9px] font-bold">
+                              Co-org
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-stone-500">
                           {format(bday, 'MMM d')} &middot; Draft
                         </span>
@@ -314,9 +327,16 @@ export function DashboardKanbanPipeline({
                         {theme.emoji || '🎂'}
                       </div>
                       <div className="truncate">
-                        <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
-                          {page.recipient_name}
-                        </h4>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
+                            {page.recipient_name}
+                          </h4>
+                          {page.user_role === 'co_organizer' && (
+                            <span className="shrink-0 rounded bg-amber-100 text-amber-950 border border-amber-300 px-1 py-0.5 text-[9px] font-bold">
+                              Co-org
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1.5 text-[10px] text-stone-500">
                           <span className="font-bold text-emerald-700">
                             {daysLeft > 0 ? `${daysLeft}d left` : 'Today'}
@@ -468,9 +488,16 @@ export function DashboardKanbanPipeline({
                         {theme.emoji || '🎉'}
                       </div>
                       <div className="truncate">
-                        <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-rose-600">
-                          {page.recipient_name}&apos;s Surprise
-                        </h4>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-rose-600">
+                            {page.recipient_name}&apos;s Surprise
+                          </h4>
+                          {page.user_role === 'co_organizer' && (
+                            <span className="shrink-0 rounded bg-amber-100 text-amber-950 border border-amber-300 px-1 py-0.5 text-[9px] font-bold">
+                              Co-org
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-stone-500">
                           Ready &middot; {page.message_count || 0} wishes
                         </span>
@@ -567,9 +594,16 @@ export function DashboardKanbanPipeline({
                         {theme.emoji || '🎁'}
                       </div>
                       <div className="truncate">
-                        <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
-                          {page.recipient_name}&apos;s Keepsake
-                        </h4>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <h4 className="font-serif text-xs font-bold text-slate-950 truncate group-hover:text-amber-800">
+                            {page.recipient_name}&apos;s Keepsake
+                          </h4>
+                          {page.user_role === 'co_organizer' && (
+                            <span className="shrink-0 rounded bg-amber-100 text-amber-950 border border-amber-300 px-1 py-0.5 text-[9px] font-bold">
+                              Co-org
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-stone-500">
                           {format(bday, 'MMM d, yyyy')} &middot; {page.message_count || 0} wishes
                         </span>
