@@ -311,7 +311,7 @@ export function DashboardSpotlightStage({
                   disabled={exporting}
                 >
                   <Download className="h-3.5 w-3.5 text-stone-600" />
-                  {exporting ? 'Exporting...' : 'Export PDF'}
+                  {exporting ? 'Exporting...' : 'Download Keepsake'}
                 </Button>
               )}
             </div>

@@ -659,7 +659,7 @@ export function DashboardKanbanPipeline({
                         className="flex items-center gap-1 font-bold text-emerald-700 hover:underline"
                       >
                         <Download className="h-3 w-3" />
-                        <span>PDF</span>
+                        <span>Download</span>
                       </button>
                     )}
 

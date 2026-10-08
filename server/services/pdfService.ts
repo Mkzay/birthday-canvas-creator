@@ -163,7 +163,12 @@ export function cleanPdfText(text: string): string {
     .trim();
 }
 
-export function wrapPdfText(text: string, maxCharsPerLine: number): string[] {
+export function wrapTextToWidth(
+  text: string,
+  maxWidth: number,
+  font: PDFFont,
+  fontSize: number
+): string[] {
   const sanitized = cleanPdfText(text);
   if (!sanitized) return [];
 
@@ -177,7 +182,8 @@ export function wrapPdfText(text: string, maxCharsPerLine: number): string[] {
       continue;
     }
     const candidate = `${current} ${word}`;
-    if (candidate.length > maxCharsPerLine) {
+    const candidateWidth = font.widthOfTextAtSize(candidate, fontSize);
+    if (candidateWidth > maxWidth) {
       lines.push(current);
       current = word;
     } else {
@@ -192,6 +198,35 @@ export function wrapPdfText(text: string, maxCharsPerLine: number): string[] {
   return lines;
 }
 
+function drawWrappedParagraph(
+  page: PDFPage,
+  text: string,
+  startX: number,
+  startY: number,
+  maxWidth: number,
+  font: PDFFont,
+  fontSize: number,
+  color: RGB,
+  lineGapMultiplier = 1.45
+): number {
+  const lines = wrapTextToWidth(text, maxWidth, font, fontSize);
+  const lineGap = fontSize * lineGapMultiplier;
+  let cursorY = startY;
+
+  for (const line of lines) {
+    page.drawText(line, {
+      x: startX,
+      y: cursorY,
+      size: fontSize,
+      font,
+      color,
+    });
+    cursorY -= lineGap;
+  }
+
+  return cursorY;
+}
+
 function renderContainedText(
   page: PDFPage,
   text: string,
@@ -204,7 +239,6 @@ function renderContainedText(
     color?: RGB;
     preferredSize?: number;
     minSize?: number;
-    baseCharsPerLine?: number;
   }
 ): number {
   const sanitized = cleanPdfText(text);
@@ -213,22 +247,20 @@ function renderContainedText(
   let fontSize = options?.preferredSize || 13;
   const minFontSize = options?.minSize || 10;
   const textColor = options?.color || rgb(0.12, 0.12, 0.14);
+  const safeBoxWidth = Math.max(80, boxWidth - 10);
 
-  // Dynamic calculation to ensure text stays completely inside the box
   let lines: string[] = [];
   let lineHeight = fontSize * 1.45;
 
   while (fontSize >= minFontSize) {
     lineHeight = fontSize * 1.45;
-    const estCharWidth = fontSize * 0.52;
-    const charsPerLine = Math.max(20, Math.floor(boxWidth / estCharWidth));
-    lines = wrapPdfText(sanitized, charsPerLine);
+    lines = wrapTextToWidth(sanitized, safeBoxWidth, font, fontSize);
     const totalNeededHeight = lines.length * lineHeight;
 
     if (totalNeededHeight <= maxAvailableHeight || fontSize <= minFontSize) {
       break;
     }
-    fontSize -= 0.75;
+    fontSize -= 0.5;
   }
 
   const maxLinesAllowed = Math.max(1, Math.floor(maxAvailableHeight / lineHeight));
@@ -236,7 +268,14 @@ function renderContainedText(
     lines = lines.slice(0, maxLinesAllowed);
     const lastIdx = lines.length - 1;
     if (lines[lastIdx]) {
-      lines[lastIdx] = `${lines[lastIdx].replace(/[.,;:!?\s]+$/, "")}...`;
+      let trimmed = lines[lastIdx].replace(/[.,;:!?\s]+$/, "");
+      while (
+        font.widthOfTextAtSize(`${trimmed}...`, fontSize) > safeBoxWidth &&
+        trimmed.length > 3
+      ) {
+        trimmed = trimmed.slice(0, -1);
+      }
+      lines[lastIdx] = `${trimmed}...`;
     }
   }
 
@@ -401,7 +440,7 @@ export async function buildBrandedPagePdf(
   const palette = getThemePalette(page.theme);
   const headingFont = palette.fontFamily === "serif" ? serifBoldFont : titleFont;
 
-  // Dimensions: Portrait A4 (595x842 pt) vs Landscape 16:9 Presentation Deck (960x540 pt)
+  // Dimensions
   const pageWidth = isLandscape ? 960 : 595;
   const pageHeight = isLandscape ? 540 : 842;
   const margin = isLandscape ? 32 : 38;
@@ -429,7 +468,6 @@ export async function buildBrandedPagePdf(
     const p = doc.addPage([pageWidth, pageHeight]);
     pageIndex += 1;
 
-    // Full bleed background fill
     p.drawRectangle({
       x: 0,
       y: 0,
@@ -438,7 +476,6 @@ export async function buildBrandedPagePdf(
       color: rgb(...palette.background),
     });
 
-    // Top theme accent header stripe
     p.drawRectangle({
       x: 0,
       y: pageHeight - 5,
@@ -458,10 +495,10 @@ export async function buildBrandedPagePdf(
   const coverBuffer = coverUrl ? await fetchAndProcessImage(coverUrl, 800, 800) : null;
 
   if (isLandscape) {
-    // 16:9 Widescreen Cover Slide
     const leftWidth = coverBuffer ? 520 : 896;
     const cardHeight = 480;
     const cardY = 28;
+    const usableLeftTextWidth = leftWidth - 56;
 
     coverPage.drawRectangle({
       x: margin,
@@ -483,27 +520,40 @@ export async function buildBrandedPagePdf(
 
     coverPage.drawText("Happy Birthday,", {
       x: margin + 28,
-      y: cardY + cardHeight - 78,
+      y: cardY + cardHeight - 74,
       size: 26,
       font: headingFont,
       color: rgb(...palette.primary),
     });
 
+    // Dynamically scale recipient name to fit perfectly inside the card width
+    let recNameSize = 38;
+    while (
+      headingFont.widthOfTextAtSize(`${recipientName}.`, recNameSize) > usableLeftTextWidth &&
+      recNameSize > 20
+    ) {
+      recNameSize -= 2;
+    }
+
     coverPage.drawText(`${recipientName}.`, {
       x: margin + 28,
-      y: cardY + cardHeight - 120,
-      size: 38,
+      y: cardY + cardHeight - 116,
+      size: recNameSize,
       font: headingFont,
       color: rgb(...palette.primary),
     });
 
-    coverPage.drawText("Every note, photo, and voice clip inside was gathered to make this feel less like a page and more like a gift being opened.", {
-      x: margin + 28,
-      y: cardY + cardHeight - 150,
-      size: 10,
-      font: bodyFont,
-      color: rgb(...palette.textMuted),
-    });
+    // Wrapped subtitle paragraph: guaranteed to stay inside card width
+    drawWrappedParagraph(
+      coverPage,
+      "Every note, photo, and voice clip inside was gathered to make this feel less like a page and more like a gift being opened.",
+      margin + 28,
+      cardY + cardHeight - 146,
+      usableLeftTextWidth,
+      bodyFont,
+      10,
+      rgb(...palette.textMuted)
+    );
 
     // Organizer Note
     const bentoMetricsY = cardY + 28;
@@ -513,7 +563,7 @@ export async function buildBrandedPagePdf(
       coverPage.drawRectangle({
         x: margin + 28,
         y: orgBoxY,
-        width: leftWidth - 56,
+        width: usableLeftTextWidth,
         height: orgBoxHeight,
         color: rgb(...palette.background),
         borderColor: rgb(...palette.border),
@@ -533,7 +583,7 @@ export async function buildBrandedPagePdf(
         `"${creatorMessage}"`,
         margin + 42,
         orgBoxY + orgBoxHeight - 42,
-        leftWidth - 84,
+        usableLeftTextWidth - 28,
         64,
         serifItalicFont,
         {
@@ -544,8 +594,8 @@ export async function buildBrandedPagePdf(
       );
     }
 
-    // Bottom Celebration Metrics Bento
-    const metricBoxWidth = (leftWidth - 56 - 16) / 2;
+    // Celebration Metrics Bento
+    const metricBoxWidth = (usableLeftTextWidth - 16) / 2;
     const metricBoxHeight = 68;
 
     coverPage.drawRectangle({
@@ -582,14 +632,14 @@ export async function buildBrandedPagePdf(
       borderWidth: 0.8,
     });
     coverPage.drawText("REVEAL DATE", {
-      x: margin + 28 + metricBoxWidth + 28,
+      x: margin + 28 + metricBoxWidth + 26,
       y: bentoMetricsY + metricBoxHeight - 20,
       size: 8,
       font: titleFont,
       color: rgb(...palette.textMuted),
     });
     coverPage.drawText(birthdayDateLabel, {
-      x: margin + 28 + metricBoxWidth + 28,
+      x: margin + 28 + metricBoxWidth + 26,
       y: bentoMetricsY + 20,
       size: 11,
       font: titleFont,
@@ -636,7 +686,9 @@ export async function buildBrandedPagePdf(
       }
     }
   } else {
-    // Portrait A4 Cover Page - Fully utilizing vertical space
+    // Portrait A4 Cover Page
+    const usableCardWidth = pageWidth - margin * 2;
+
     coverPage.drawText("W I S H C A N V A S", {
       x: margin,
       y: pageHeight - 48,
@@ -696,10 +748,18 @@ export async function buildBrandedPagePdf(
       color: rgb(...palette.accent),
     });
 
+    let recNamePortraitSize = 36;
+    while (
+      headingFont.widthOfTextAtSize(recipientName, recNamePortraitSize) > usableCardWidth &&
+      recNamePortraitSize > 20
+    ) {
+      recNamePortraitSize -= 2;
+    }
+
     coverPage.drawText(recipientName, {
       x: margin,
       y: currentCursor - 40,
-      size: 36,
+      size: recNamePortraitSize,
       font: headingFont,
       color: rgb(...palette.primary),
     });
@@ -719,7 +779,7 @@ export async function buildBrandedPagePdf(
       coverPage.drawRectangle({
         x: margin,
         y: currentCursor - noteHeight,
-        width: pageWidth - margin * 2,
+        width: usableCardWidth,
         height: noteHeight,
         color: rgb(...palette.cardBackground),
         borderColor: rgb(...palette.border),
@@ -739,7 +799,7 @@ export async function buildBrandedPagePdf(
         `"${creatorMessage}"`,
         margin + 18,
         currentCursor - 38,
-        pageWidth - margin * 2 - 36,
+        usableCardWidth - 36,
         64,
         serifItalicFont,
         {
@@ -752,8 +812,7 @@ export async function buildBrandedPagePdf(
       currentCursor -= noteHeight + 24;
     }
 
-    // Celebration Bento Tiles on Cover
-    const tileWidth = (pageWidth - margin * 2 - 16) / 2;
+    const tileWidth = (usableCardWidth - 16) / 2;
     const tileHeight = 72;
     const tileY = Math.max(50, currentCursor - tileHeight);
 
@@ -816,6 +875,7 @@ export async function buildBrandedPagePdf(
     const leftW = 440;
     const cardH = 480;
     const cardY = 28;
+    const usableLeftW = leftW - 56;
 
     statsPage.drawRectangle({
       x: margin,
@@ -843,13 +903,16 @@ export async function buildBrandedPagePdf(
       color: rgb(...palette.primary),
     });
 
-    statsPage.drawText("Before the story started, loved ones left little pieces of themselves here. This is what made it into the envelope.", {
-      x: margin + 28,
-      y: cardY + cardH - 100,
-      size: 10,
-      font: bodyFont,
-      color: rgb(...palette.textMuted),
-    });
+    drawWrappedParagraph(
+      statsPage,
+      "Before the story started, loved ones left little pieces of themselves here. This is what made it into the envelope.",
+      margin + 28,
+      cardY + cardH - 98,
+      usableLeftW,
+      bodyFont,
+      10,
+      rgb(...palette.textMuted)
+    );
 
     const statsData = [
       { label: "Wishes written", value: String(messages.length), note: "Each written with this exact milestone in mind." },
@@ -862,7 +925,7 @@ export async function buildBrandedPagePdf(
       statsPage.drawRectangle({
         x: margin + 28,
         y: bCursor,
-        width: leftW - 56,
+        width: usableLeftW,
         height: 68,
         color: rgb(...palette.background),
         borderColor: rgb(...palette.border),
@@ -899,6 +962,7 @@ export async function buildBrandedPagePdf(
     // Right Column
     const rightX = margin + leftW + 20;
     const rightW = pageWidth - margin - rightX;
+    const usableRightW = rightW - 56;
 
     statsPage.drawRectangle({
       x: rightX,
@@ -931,13 +995,16 @@ export async function buildBrandedPagePdf(
         color: rgb(...palette.primary),
       });
 
-      statsPage.drawText("Point your smartphone camera to access original audio recordings, full resolution photos, and ambient soundtrack playback.", {
-        x: rightX + 28,
-        y: qrY - 44,
-        size: 9,
-        font: bodyFont,
-        color: rgb(...palette.textMuted),
-      });
+      drawWrappedParagraph(
+        statsPage,
+        "Point your smartphone camera to access original audio recordings, full resolution photos, and ambient soundtrack playback.",
+        rightX + 28,
+        qrY - 44,
+        usableRightW,
+        bodyFont,
+        9,
+        rgb(...palette.textMuted)
+      );
     } catch (err) {
       console.warn("Failed to embed landscape QR code:", err);
     }
@@ -952,7 +1019,7 @@ export async function buildBrandedPagePdf(
     });
 
     const contribNames = uniqueContributors.map((c) => c.replace(/\b\w/g, (l) => l.toUpperCase())).join(", ") || "Friends and family";
-    const rollLines = wrapPdfText(contribNames, 55).slice(0, 6);
+    const rollLines = wrapTextToWidth(contribNames, usableRightW, bodyFont, 9).slice(0, 6);
     let rCursor = rollHeaderY - 20;
     for (const line of rollLines) {
       statsPage.drawText(line, {
@@ -966,6 +1033,8 @@ export async function buildBrandedPagePdf(
     }
   } else {
     // Portrait Overview Page
+    const usablePageW = pageWidth - margin * 2;
+
     statsPage.drawText("THE SHAPE OF THE CELEBRATION", {
       x: margin,
       y: pageHeight - 48,
@@ -990,7 +1059,7 @@ export async function buildBrandedPagePdf(
       color: rgb(...palette.textMuted),
     });
 
-    const statBoxWidth = (pageWidth - margin * 2 - 20) / 3;
+    const statBoxWidth = (usablePageW - 20) / 3;
     const statBoxHeight = 72;
     const statY = pageHeight - 185;
 
@@ -1035,7 +1104,7 @@ export async function buildBrandedPagePdf(
     statsPage.drawRectangle({
       x: margin,
       y: qrBoxY,
-      width: pageWidth - margin * 2,
+      width: usablePageW,
       height: qrBoxHeight,
       color: rgb(...palette.cardBackground),
       borderColor: rgb(...palette.accent),
@@ -1061,23 +1130,17 @@ export async function buildBrandedPagePdf(
         color: rgb(...palette.primary),
       });
 
-      const qrExplainer = [
-        "Open your smartphone camera and point it at the code to access",
-        "the interactive digital canvas. Relive audio voice recordings,",
-        "browse original high-resolution photos, and enjoy the ambient soundtrack.",
-      ];
-
-      let qrTextCursor = qrBoxY + 72;
-      for (const line of qrExplainer) {
-        statsPage.drawText(line, {
-          x: margin + 134,
-          y: qrTextCursor,
-          size: 9.5,
-          font: bodyFont,
-          color: rgb(...palette.textMuted),
-        });
-        qrTextCursor -= 15;
-      }
+      drawWrappedParagraph(
+        statsPage,
+        "Open your smartphone camera and point it at the code to access the interactive digital canvas. Relive audio voice recordings, browse original high-resolution photos, and enjoy the ambient soundtrack.",
+        margin + 134,
+        qrBoxY + 74,
+        usablePageW - 148,
+        bodyFont,
+        9.5,
+        rgb(...palette.textMuted),
+        1.45
+      );
     } catch (err) {
       console.warn("Failed to embed portrait QR code:", err);
     }
@@ -1091,9 +1154,11 @@ export async function buildBrandedPagePdf(
       color: rgb(...palette.primary),
     });
 
-    const rollCallLines = wrapPdfText(
+    const rollCallLines = wrapTextToWidth(
       uniqueContributors.map((c) => c.replace(/\b\w/g, (l) => l.toUpperCase())).join(", ") || "All friends and family",
-      78
+      usablePageW,
+      bodyFont,
+      10
     ).slice(0, 12);
 
     let rollCursor = rollCallY - 24;
@@ -1129,16 +1194,13 @@ export async function buildBrandedPagePdf(
       .trim();
 
     if (isLandscape) {
-      // ---------------------------------------------------------------------
-      // 16:9 Widescreen Letter Slide
-      // ---------------------------------------------------------------------
       const cardHeight = 480;
       const cardY = 28;
 
       if (!hasPhotos && !hasAudio) {
-        // Grand Centered Letter Card (fills canvas width & height)
         const cardWidth = 760;
         const cardX = (pageWidth - cardWidth) / 2;
+        const usableW = cardWidth - 72;
 
         wishPage.drawRectangle({
           x: cardX,
@@ -1150,7 +1212,6 @@ export async function buildBrandedPagePdf(
           borderWidth: 1,
         });
 
-        // Top Header Bar
         wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
           x: cardX + 36,
           y: cardY + cardHeight - 36,
@@ -1185,23 +1246,26 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.border),
         });
 
-        // Sender Name
+        let sNameSize = 28;
+        while (headingFont.widthOfTextAtSize(senderName, sNameSize) > usableW && sNameSize > 16) {
+          sNameSize -= 1;
+        }
+
         wishPage.drawText(senderName, {
           x: cardX + 36,
           y: cardY + cardHeight - 92,
-          size: 28,
+          size: sNameSize,
           font: headingFont,
           color: rgb(...palette.primary),
         });
 
-        // Contained Quoted Message Hero
         const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you the happiest birthday filled with joy and blessings!"';
         renderContainedText(
           wishPage,
           quoteText,
           cardX + 36,
           cardY + cardHeight - 136,
-          cardWidth - 72,
+          usableW,
           cardHeight - 210,
           serifItalicFont,
           {
@@ -1211,7 +1275,6 @@ export async function buildBrandedPagePdf(
           }
         );
 
-        // Footer Bar
         wishPage.drawLine({
           start: { x: cardX + 36, y: cardY + 54 },
           end: { x: cardX + cardWidth - 36, y: cardY + 54 },
@@ -1244,10 +1307,10 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.textMuted),
         });
       } else if (!hasPhotos && hasAudio) {
-        // Split: Left Letter Card + Right Voice Note Card
         const leftWidth = 500;
         const rightWidth = 380;
         const rightX = margin + leftWidth + 20;
+        const usableW = leftWidth - 60;
 
         wishPage.drawRectangle({
           x: margin,
@@ -1293,10 +1356,15 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.border),
         });
 
+        let sNameSize = 24;
+        while (headingFont.widthOfTextAtSize(senderName, sNameSize) > usableW && sNameSize > 15) {
+          sNameSize -= 1;
+        }
+
         wishPage.drawText(senderName, {
           x: margin + 30,
           y: cardY + cardHeight - 88,
-          size: 24,
+          size: sNameSize,
           font: headingFont,
           color: rgb(...palette.primary),
         });
@@ -1307,7 +1375,7 @@ export async function buildBrandedPagePdf(
           quoteText,
           margin + 30,
           cardY + cardHeight - 126,
-          leftWidth - 60,
+          usableW,
           cardHeight - 200,
           serifItalicFont,
           {
@@ -1317,7 +1385,6 @@ export async function buildBrandedPagePdf(
           }
         );
 
-        // Voice note enclosed pill
         wishPage.drawRectangle({
           x: margin + 30,
           y: cardY + 22,
@@ -1383,21 +1450,24 @@ export async function buildBrandedPagePdf(
             color: rgb(...palette.primary),
           });
 
-          wishPage.drawText("Point your smartphone camera to stream the spoken voice note directly.", {
-            x: rightX + 32,
-            y: qrY - 48,
-            size: 9,
-            font: bodyFont,
-            color: rgb(...palette.textMuted),
-          });
+          drawWrappedParagraph(
+            wishPage,
+            "Point your smartphone camera to stream the spoken voice note directly.",
+            rightX + 32,
+            qrY - 48,
+            rightWidth - 64,
+            bodyFont,
+            9,
+            rgb(...palette.textMuted)
+          );
         } catch (err) {
           console.warn("Failed to embed wish audio QR code:", err);
         }
       } else {
-        // Split: Left Letter Card + Right Framed Photo Grid
         const leftWidth = 460;
         const rightWidth = pageWidth - margin * 2 - leftWidth - 20;
         const rightX = margin + leftWidth + 20;
+        const usableW = leftWidth - 60;
 
         wishPage.drawRectangle({
           x: margin,
@@ -1443,10 +1513,15 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.border),
         });
 
+        let sNameSize = 24;
+        while (headingFont.widthOfTextAtSize(senderName, sNameSize) > usableW && sNameSize > 15) {
+          sNameSize -= 1;
+        }
+
         wishPage.drawText(senderName, {
           x: margin + 30,
           y: cardY + cardHeight - 88,
-          size: 24,
+          size: sNameSize,
           font: headingFont,
           color: rgb(...palette.primary),
         });
@@ -1457,7 +1532,7 @@ export async function buildBrandedPagePdf(
           quoteText,
           margin + 30,
           cardY + cardHeight - 124,
-          leftWidth - 60,
+          usableW,
           cardHeight - 195,
           serifItalicFont,
           {
@@ -1467,7 +1542,6 @@ export async function buildBrandedPagePdf(
           }
         );
 
-        // Footer Bar
         wishPage.drawLine({
           start: { x: margin + 30, y: cardY + 54 },
           end: { x: margin + leftWidth - 30, y: cardY + 54 },
@@ -1502,7 +1576,7 @@ export async function buildBrandedPagePdf(
           });
         }
 
-        // Right Photo Grid - Fully Utilizing Card Height
+        // Right Photo Grid
         if (wishPhotos.length === 1) {
           const photoBuffer = await fetchAndProcessImage(wishPhotos[0].url, 700, 700);
           if (photoBuffer) {
@@ -1546,7 +1620,6 @@ export async function buildBrandedPagePdf(
           const b2 = p2 ? await fetchAndProcessImage(p2.url, 600, 400) : null;
           const photoCardH = (cardHeight - 16) / 2;
 
-          // Top Photo Card
           if (b1) {
             try {
               const img1 = await doc.embedJpg(b1);
@@ -1578,7 +1651,6 @@ export async function buildBrandedPagePdf(
             }
           }
 
-          // Bottom Photo Card
           if (b2) {
             try {
               const img2 = await doc.embedJpg(b2);
@@ -1612,15 +1684,14 @@ export async function buildBrandedPagePdf(
       }
     } else {
       // ---------------------------------------------------------------------
-      // Portrait A4 Letter Spread Page - Full Space Utilization
+      // Portrait A4 Letter Spread Page
       // ---------------------------------------------------------------------
       const cardWidth = pageWidth - margin * 2;
 
       if (!hasPhotos) {
-        // Single Grand Editorial Letter Spread (No photos)
-        // Spans height 720 pt (from y = 60 to y = 780), zero empty void!
         const cardY = 60;
         const cardH = 720;
+        const usableW = cardWidth - 64;
 
         wishPage.drawRectangle({
           x: margin,
@@ -1632,7 +1703,6 @@ export async function buildBrandedPagePdf(
           borderWidth: 1,
         });
 
-        // Top Header
         wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
           x: margin + 32,
           y: cardY + cardH - 36,
@@ -1667,11 +1737,15 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.border),
         });
 
-        // Sender Name
+        let sNameSize = 30;
+        while (headingFont.widthOfTextAtSize(senderName, sNameSize) > usableW && sNameSize > 18) {
+          sNameSize -= 1;
+        }
+
         wishPage.drawText(senderName, {
           x: margin + 32,
           y: cardY + cardH - 96,
-          size: 30,
+          size: sNameSize,
           font: headingFont,
           color: rgb(...palette.primary),
         });
@@ -1684,14 +1758,13 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.textMuted),
         });
 
-        // Contained Quoted Message Hero (takes entire center)
         const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you abundant joy, good health, and peace on your birthday!"';
         renderContainedText(
           wishPage,
           quoteText,
           margin + 32,
           cardY + cardH - 165,
-          cardWidth - 64,
+          usableW,
           cardH - 250,
           serifItalicFont,
           {
@@ -1701,7 +1774,6 @@ export async function buildBrandedPagePdf(
           }
         );
 
-        // Audio tag if present
         if (hasAudio) {
           wishPage.drawRectangle({
             x: margin + 32,
@@ -1721,7 +1793,6 @@ export async function buildBrandedPagePdf(
           });
         }
 
-        // Footer Bar
         wishPage.drawLine({
           start: { x: margin + 32, y: cardY + 54 },
           end: { x: margin + cardWidth - 32, y: cardY + 54 },
@@ -1745,9 +1816,9 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.textMuted),
         });
       } else {
-        // Message + Photos: Split the 842 pt page evenly into Letter Card + Photo Card(s)
         const topCardY = 440;
         const topCardH = 360;
+        const usableW = cardWidth - 48;
 
         wishPage.drawRectangle({
           x: margin,
@@ -1759,7 +1830,6 @@ export async function buildBrandedPagePdf(
           borderWidth: 1,
         });
 
-        // Top Header
         wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
           x: margin + 24,
           y: topCardY + topCardH - 30,
@@ -1794,11 +1864,15 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.border),
         });
 
-        // Sender Name
+        let sNameSize = 22;
+        while (headingFont.widthOfTextAtSize(senderName, sNameSize) > usableW && sNameSize > 14) {
+          sNameSize -= 1;
+        }
+
         wishPage.drawText(senderName, {
           x: margin + 24,
           y: topCardY + topCardH - 74,
-          size: 22,
+          size: sNameSize,
           font: headingFont,
           color: rgb(...palette.primary),
         });
@@ -1809,7 +1883,7 @@ export async function buildBrandedPagePdf(
           quoteText,
           margin + 24,
           topCardY + topCardH - 105,
-          cardWidth - 48,
+          usableW,
           topCardH - 145,
           serifItalicFont,
           {
@@ -1829,7 +1903,6 @@ export async function buildBrandedPagePdf(
           });
         }
 
-        // Bottom Photo Card Section: fills from y = 54 to y = 420 (Height: 366 pt!)
         const photoSectionY = 54;
         const photoSectionH = 366;
 
@@ -1859,7 +1932,8 @@ export async function buildBrandedPagePdf(
                 height: pH,
               });
 
-              wishPage.drawText((wishPhotos[0].caption || "Photo memory").slice(0, 60), {
+              const cap = wishPhotos[0].caption || "Photo memory";
+              wishPage.drawText(cap.slice(0, 60), {
                 x: margin + pPad + 6,
                 y: photoSectionY + 14,
                 size: 9,

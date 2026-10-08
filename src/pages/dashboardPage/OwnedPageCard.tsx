@@ -163,7 +163,7 @@ export function OwnedPageCard({
                   className="cursor-pointer rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-stone-100"
                 >
                   <Download className="mr-2 h-4 w-4 text-emerald-600" />
-                  {exporting ? 'Exporting...' : 'Export Keepsake PDF'}
+                  {exporting ? 'Exporting...' : 'Export Keepsake'}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator className="my-1 border-stone-100" />
