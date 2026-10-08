@@ -210,17 +210,17 @@ const FAQSection = () => {
 
         {/* Clean Filter Pills */}
         <div className="mt-10 flex items-center gap-2 overflow-x-auto scrollbar-hide sm:flex-wrap sm:justify-center pb-1">
-          {[
+          {([
             { id: 'all', label: 'All Questions' },
             { id: 'guests', label: 'For Guests & Voice' },
             { id: 'reveal', label: 'Midnight Reveal' },
             { id: 'pricing', label: 'Flat ₦5,000 Pricing' },
-          ].map((cat) => (
+          ] as const).map((cat) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => {
-                setActiveCategory(cat.id as any);
+                setActiveCategory(cat.id);
                 setOpenIndex(0);
               }}
               className={`btn-press rounded-full px-3.5 sm:px-4 py-2 text-xs font-bold whitespace-nowrap transition-all ${

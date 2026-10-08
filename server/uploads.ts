@@ -66,6 +66,7 @@ const createUploadStorage = (folderName: string, diskRoot: string, isAudio = fal
       params: {
         folder: 'birthday-app/' + folderName,
         resource_type: isAudio ? 'video' : 'auto',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CloudinaryStorage params requires loose params object
       } as any,
     });
   }

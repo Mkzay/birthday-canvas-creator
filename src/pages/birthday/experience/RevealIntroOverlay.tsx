@@ -158,6 +158,7 @@ export const RevealIntroOverlay = memo(function RevealIntroOverlay() {
   user,
   viewMode,
   forceMobileView,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
 } = useBirthdayView() as any;
   return (
     <>

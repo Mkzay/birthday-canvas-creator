@@ -123,7 +123,7 @@ export function useCelebrationData({
         return;
       }
 
-      const publicPage = await apiFetch<BirthdayPageData>(`/public/pages/${pageId}`);
+      const publicPage = await apiFetch<BirthdayPageData & { pool_summary?: PublicPoolSummary; messages?: Message[] }>(`/public/pages/${pageId}`);
       const hasReachedBirthdayByDate = (() => {
         const parsedBirthday = parseLocalDate(publicPage.birthday_date);
         if (Number.isNaN(parsedBirthday.getTime())) return false;
@@ -136,22 +136,36 @@ export function useCelebrationData({
 
       setPage(normalizedPublicPage);
 
-      const publicPoolSummary = await apiFetch<PublicPoolSummary>(`/public/pages/${pageId}/pool/summary`).catch(() => null);
-      setPoolSummary({
-        pool_fundraising_enabled: Boolean(publicPoolSummary?.pool_fundraising_enabled ?? publicPage.pool_fundraising_enabled),
-        pool_goal_kobo: publicPoolSummary?.pool_goal_kobo ?? publicPage.pool_goal_kobo ?? null,
-        pooled_amount_kobo: Number(publicPoolSummary?.pooled_amount_kobo ?? publicPage.pooled_amount_kobo ?? 0),
-        pool_description: publicPoolSummary?.pool_description ?? publicPage.pool_description ?? null,
-        contributors: publicPoolSummary?.contributors || [],
-        is_requested: Boolean(publicPoolSummary?.is_requested),
-        is_released: false,
-      });
+      if (publicPage.pool_summary) {
+        setPoolSummary({
+          pool_fundraising_enabled: Boolean(publicPage.pool_summary.pool_fundraising_enabled),
+          pool_goal_kobo: publicPage.pool_summary.pool_goal_kobo ?? null,
+          pooled_amount_kobo: Number(publicPage.pool_summary.pooled_amount_kobo || 0),
+          pool_description: publicPage.pool_summary.pool_description || null,
+          contributors: publicPage.pool_summary.contributors || [],
+          is_requested: Boolean(publicPage.pool_summary.is_requested),
+          is_released: false,
+        });
+      } else {
+        const publicPoolSummary = await apiFetch<PublicPoolSummary>(`/public/pages/${pageId}/pool/summary`).catch(() => null);
+        setPoolSummary({
+          pool_fundraising_enabled: Boolean(publicPoolSummary?.pool_fundraising_enabled ?? publicPage.pool_fundraising_enabled),
+          pool_goal_kobo: publicPoolSummary?.pool_goal_kobo ?? publicPage.pool_goal_kobo ?? null,
+          pooled_amount_kobo: Number(publicPoolSummary?.pooled_amount_kobo ?? publicPage.pooled_amount_kobo ?? 0),
+          pool_description: publicPoolSummary?.pool_description ?? publicPage.pool_description ?? null,
+          contributors: publicPoolSummary?.contributors || [],
+          is_requested: Boolean(publicPoolSummary?.is_requested),
+          is_released: false,
+        });
+      }
 
       if (pageId && /^[0-9a-f-]{36}$/i.test(pageId) && normalizedPublicPage.public_code) {
         navigate(`/birthday/${normalizedPublicPage.public_code}`, { replace: true });
       }
 
-      if (normalizedPublicPage.is_revealed && normalizedPublicPage.is_unlocked !== false) {
+      if (Array.isArray(publicPage.messages) && publicPage.messages.length > 0) {
+        setMessages(publicPage.messages);
+      } else if (normalizedPublicPage.is_revealed && normalizedPublicPage.is_unlocked !== false) {
         try {
           const messagesData = await apiFetch<Message[]>(`/public/pages/${pageId}/messages`);
           setMessages(messagesData);

@@ -301,6 +301,7 @@ billingRouter.post(
         }
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Bachs session payload is dynamic
       const sessionData = await bachsRequest<any>(`/v1/checkout-sessions/${encodeURIComponent(lookupKey)}`);
       const sessionStatus = String(sessionData.status || "").toLowerCase();
       const paymentStatus = String(sessionData.payment_status || "").toLowerCase();

@@ -22,6 +22,7 @@ import {
   resolvePageId,
   publicPageQuery,
   fetchMessagesForPage,
+  fetchPublicCanvasProjection,
   serializePageDates,
   normalizeContributionPhotos,
   batchInsertMessagePhotos,
@@ -128,7 +129,7 @@ publicPagesRouter.post("/:id/unlock", validateParams(pageIdParamSchema), validat
   response.json({ unlocked: true });
 });
 
-// Fetch public page
+// Fetch public page projection
 publicPagesRouter.get("/:id", validateParams(pageIdParamSchema), async (request, response) => {
   const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
   if (!resolvedPageId) {
@@ -136,8 +137,8 @@ publicPagesRouter.get("/:id", validateParams(pageIdParamSchema), async (request,
     return;
   }
 
-  const rows = await publicPageQuery(resolvedPageId);
-  if (!rows[0]) {
+  const pageRows = await publicPageQuery(resolvedPageId);
+  if (!pageRows[0]) {
     response.status(404).json({ error: "Page not found" });
     return;
   }
@@ -148,15 +149,16 @@ publicPagesRouter.get("/:id", validateParams(pageIdParamSchema), async (request,
     WHERE id = ${resolvedPageId}
   `;
 
-  const row = rows[0];
+  const row = pageRows[0];
   const unlocked = hasValidPublicUnlock(request, resolvedPageId, typeof row.reveal_pin_hash === "string" ? row.reveal_pin_hash : null);
-  const { reveal_pin_hash: _revealPinHash, ...safeRow } = row;
 
-  response.json({
-    ...serializePageDates(safeRow),
-    requires_unlock: Boolean(row.requires_unlock),
-    is_unlocked: unlocked,
-  });
+  const projection = await fetchPublicCanvasProjection(resolvedPageId, unlocked);
+  if (!projection) {
+    response.status(404).json({ error: "Page not found" });
+    return;
+  }
+
+  response.json(projection);
 });
 
 // Fetch messages for revealed page

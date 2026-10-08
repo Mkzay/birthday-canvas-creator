@@ -37,130 +37,57 @@ import {
   getStoryMotionDuration,
   STICKER_EMOJI_MAP,
 } from '@/pages/birthday';
-import type { Message, MessagePhoto } from '@/pages/birthday/types';
 import { useBirthdayView } from '@/pages/birthday/view/BirthdayPageViewContext';
 import FloatingParticles from '@/components/FloatingParticles';
+import { MobileStoryControls } from './MobileStoryControls';
 
 
 export const MobileStorySection = memo(function MobileStorySection() {
   const {
-  activeSlide,
-  beginReveal,
-  birthdayDate,
-  burstMessages,
-  canShowKeepsakeDownload,
-  clampedS,
-  clampedS2,
-  contributorLine,
-  coverHintLabel,
-  coverPhotoSrc,
-  currentSlide,
-  currentSlideDuration,
-  downloadingPdf,
-  downloadingVideo,
-  effectiveViewMode,
-  expandedFreeformCardIds,
-  experienceInsetClass,
-  experiencePanelClass,
-  freeformBoardSectionRef,
-  freeformOpenerPalette,
-  freeformStarsCanvasRef,
-  freeformThemePalette,
-  getStoryDelayStyle,
-  goToNextSlide,
-  goToPreviousSlide,
-  handleBoardParallaxLeave,
-  handleBoardParallaxMove,
-  handleDownloadKeepsake,
-  handleDownloadVideoKeepsake,
-  handlePauseControl,
-  handlePlayControl,
-  handleReleasePoolPayout,
-  handleRequestGiftRelease,
-  handleStageClick,
-  handleTouchEnd,
-  handleTouchStart,
-  hasMessages,
-  includeSoundtrackInVideo,
-  isDarkExperience,
-  isDesktopPlaybackPaused,
-  isFreeformBoardEntered,
-  isFreeformIntroExiting,
-  isPageOwner,
-  isPreview,
-  isSaved,
-  keepsakePaperClass,
-  keepsakePhotoBoardClass,
-  keepsakePillClass,
-  keepsakeSoftClass,
-  landedFreeformCards,
-  loading,
-  messages,
-  mixedLetterH,
-  mobileCardsContainerRef,
-  mobileFreeformMotion,
-  mobileRevealRef,
-  navigate,
-  page,
-  pageId,
-  paidContributorLine,
-  poolSummary,
-  poppedFreeformDecorators,
-  releasingPoolPayout,
-  renderStoryImage,
-  renderWishAudioPlayer,
-  requestingGiftRelease,
-  revealPhase,
-  revealSlides,
-  setActiveWishAudioId,
-  setCurrentSlide,
-  setDownloadingPdf,
-  setDownloadingVideo,
-  setExpandedFreeformCardIds,
-  setExpandedPhoto,
-  setFreeformAnimationRun,
-  setHasTriggeredIntro,
-  setIncludeSoundtrackInVideo,
-  setIsDesktopPlaybackPaused,
-  setIsDesktopReveal,
-  setIsFreeformBoardEntered,
-  setIsFreeformIntroExiting,
-  setIsPageOwner,
-  setIsSaved,
-  setLandedFreeformCards,
-  setLoading,
-  setMessages,
-  setNowMs,
-  setPage,
-  setPendingDeleteAction,
-  setPoolSummary,
-  setPoppedFreeformDecorators,
-  setReleasingPoolPayout,
-  setRequestingGiftRelease,
-  setRevealPhase,
-  setShowRevealIntro,
-  setShowShareCard,
-  setSlideDirection,
-  setSlideRemainingMs,
-  setStartYoutube,
-  setUnlockPin,
-  setUnlocking,
-  setViewMode,
-  showRevealIntro,
-  showRevealIntroInPreview,
-  skipReveal,
-  slideDirection,
-  storyOpenerPalette,
-  storyThemePalette,
-  theme,
-  toggleSavePage,
-  totalAudioWishes,
-  totalPhotos,
-  user,
-  viewMode,
-  forceMobileView,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
-} = useBirthdayView() as any;
+    birthdayDate,
+    canShowKeepsakeDownload,
+    contributorLine,
+    coverPhotoSrc,
+    downloadingPdf,
+    downloadingVideo,
+    effectiveViewMode,
+    forceMobileView,
+    experienceInsetClass,
+    experiencePanelClass,
+    getStoryDelayStyle,
+    handleBoardParallaxLeave,
+    handleBoardParallaxMove,
+    handleDownloadKeepsake,
+    handleDownloadVideoKeepsake,
+    handlePauseControl,
+    handlePlayControl,
+    includeSoundtrackInVideo,
+    isDarkExperience,
+    isSaved,
+    keepsakePaperClass,
+    keepsakePhotoBoardClass,
+    keepsakePillClass,
+    keepsakeSoftClass,
+    messages,
+    mobileRevealRef,
+    navigate,
+    page,
+    pageId,
+    renderStoryImage,
+    renderWishAudioPlayer,
+    revealSlides,
+    setExpandedPhoto,
+    setIncludeSoundtrackInVideo,
+    setShowShareCard,
+    showRevealIntro,
+    storyThemePalette,
+    theme,
+    totalAudioWishes,
+    totalPhotos,
+    toggleSavePage,
+    user,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
+  } = useBirthdayView() as any;
 
   // Ensure cards in MobileStorySection are properly revealed, especially in simulator
   useEffect(() => {
@@ -254,98 +181,19 @@ export const MobileStorySection = memo(function MobileStorySection() {
           </div>
       
           {!showRevealIntro && (
-            <div
-              className={cn(
-                'fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.45rem)] z-50 mx-auto flex w-full max-w-2xl items-center justify-center px-2',
-                'pointer-events-none',
-              )}
-              aria-hidden="true"
-            >
-              <div
-                className="pointer-events-auto w-fit max-w-[calc(100vw-0.75rem)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                data-no-nav="true"
-              >
-                <div
-                className={cn(
-                'inline-flex w-max items-center gap-2 rounded-2xl border px-2 py-1.5 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl',
-                  isDarkExperience ? 'border-white/18 bg-white/10 text-white' : 'border-white/70 bg-white/80 text-foreground',
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => setShowShareCard(true)}
-                  className={cn(
-                    'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
-                    isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
-                  )}
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePlayControl}
-                  className={cn(
-                    'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
-                    isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
-                  )}
-                >
-                  <Music4 className="h-4 w-4" />
-                  Play
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePauseControl}
-                  className={cn(
-                    'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
-                    isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
-                  )}
-                >
-                  <Volume2 className="h-4 w-4" />
-                  Pause
-                </button>
-                {canShowKeepsakeDownload && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadKeepsake()}
-                      disabled={downloadingPdf}
-                      className={cn(
-                        'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                        isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
-                      )}
-                    >
-                      <Download className="h-4 w-4" />
-                      {downloadingPdf ? 'Preparing' : 'PDF'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIncludeSoundtrackInVideo((current) => !current)}
-                      className={cn(
-                        'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors',
-                        isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
-                      )}
-                    >
-                      <Music className="h-4 w-4" />
-                      {includeSoundtrackInVideo ? 'Sound on' : 'Sound off'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadVideoKeepsake()}
-                      disabled={downloadingVideo}
-                      className={cn(
-                        'inline-flex shrink-0 min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                        isDarkExperience ? 'hover:bg-white/12' : 'hover:bg-white',
-                      )}
-                    >
-                      <Video className="h-4 w-4" />
-                      {downloadingVideo ? 'Rendering' : 'Video'}
-                    </button>
-                  </>
-                )}
-                </div>
-              </div>
-            </div>
+            <MobileStoryControls
+              onOpenShareCard={() => setShowShareCard(true)}
+              onPlay={handlePlayControl}
+              onPause={handlePauseControl}
+              canShowKeepsakeDownload={canShowKeepsakeDownload}
+              onDownloadPdf={() => void handleDownloadKeepsake()}
+              downloadingPdf={downloadingPdf}
+              includeSoundtrackInVideo={includeSoundtrackInVideo}
+              onToggleVideoSoundtrack={() => setIncludeSoundtrackInVideo((current) => !current)}
+              onDownloadVideo={() => void handleDownloadVideoKeepsake()}
+              downloadingVideo={downloadingVideo}
+              isDarkExperience={isDarkExperience}
+            />
           )}
       
           {revealSlides.map((slide, index) => (

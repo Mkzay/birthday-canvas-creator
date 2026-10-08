@@ -12,9 +12,10 @@
     "build:dev": "vite build --mode development",
     "smoke:pro-gating": "node scripts/smoke-pro-gating.mjs",
     "backfill:covers": "tsx server/scripts/backfillCoverUploads.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.server.json",
-    "check": "npm run lint && npm run typecheck && npm run build",
+    "check": "npm run test && npm run lint && npm run typecheck && npm run build",
     "preview": "vite preview"
   },
   "dependencies": {

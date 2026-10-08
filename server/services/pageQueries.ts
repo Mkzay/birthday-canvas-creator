@@ -266,6 +266,81 @@ export async function fetchMessagesForPage(pageId: string) {
   });
 }
 
+export async function fetchPublicPoolSummary(pageId: string) {
+  const rows = await sql`
+    SELECT
+      bp.pool_fundraising_enabled,
+      bp.pool_goal_kobo,
+      COALESCE(
+        SUM(COALESCE(pc.net_received_kobo, pc.amount_kobo))
+          FILTER (WHERE pc.status = 'success'),
+        0
+      )::bigint AS pooled_amount_kobo,
+      bp.pool_description,
+      EXISTS(
+        SELECT 1
+        FROM pool_payouts pp
+        WHERE pp.page_id = bp.id
+          AND pp.status = 'processing'
+      ) AS is_requested,
+      COALESCE(
+        array_remove(
+          array_agg(DISTINCT CASE WHEN pc.status = 'success' THEN pc.contributor_name END),
+          NULL
+        ),
+        ARRAY[]::text[]
+      ) AS contributors
+    FROM birthday_pages bp
+    LEFT JOIN pool_contributions pc ON pc.page_id = bp.id
+    WHERE bp.id = ${pageId}
+      AND bp.status = 'active'
+    GROUP BY bp.id
+  `;
+
+  const row = rows[0];
+  if (!row) {
+    return {
+      pool_fundraising_enabled: false,
+      pool_goal_kobo: null,
+      pooled_amount_kobo: 0,
+      pool_description: null,
+      contributors: [],
+      is_requested: false,
+    };
+  }
+
+  return {
+    pool_fundraising_enabled: Boolean(row.pool_fundraising_enabled),
+    pool_goal_kobo: typeof row.pool_goal_kobo === "number" ? row.pool_goal_kobo : null,
+    pooled_amount_kobo: Number(row.pooled_amount_kobo || 0),
+    pool_description: typeof row.pool_description === "string" ? row.pool_description : null,
+    contributors: Array.isArray(row.contributors) ? (row.contributors as string[]) : [],
+    is_requested: Boolean(row.is_requested),
+  };
+}
+
+export async function fetchPublicCanvasProjection(pageId: string, isUnlocked: boolean) {
+  const pageRows = await publicPageQuery(pageId);
+  const row = pageRows[0];
+  if (!row) return null;
+
+  const { reveal_pin_hash: _revealPinHash, ...safeRow } = row;
+  const isRevealed = Boolean(row.is_revealed);
+
+  const [poolSummary, messages] = await Promise.all([
+    fetchPublicPoolSummary(pageId),
+    isRevealed && isUnlocked ? fetchMessagesForPage(pageId) : Promise.resolve([]),
+  ]);
+
+  return {
+    ...serializePageDates(safeRow),
+    requires_unlock: Boolean(row.requires_unlock),
+    is_unlocked: isUnlocked,
+    pool_summary: poolSummary,
+    messages,
+  };
+}
+
 export async function batchInsertMessagePhotos(
   messageId: string,
   photos: Array<{ url: string; caption: string | null; sortOrder: number }>

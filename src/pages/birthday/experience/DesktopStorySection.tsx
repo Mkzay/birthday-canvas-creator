@@ -37,130 +37,70 @@ import {
   getStoryMotionDuration,
   STICKER_EMOJI_MAP,
 } from '@/pages/birthday';
-import type { Message, MessagePhoto } from '@/pages/birthday/types';
+import type { Message, MessagePhoto, MessageSticker } from '@/pages/birthday/types';
 import { useBirthdayView } from '@/pages/birthday/view/BirthdayPageViewContext';
 import FloatingParticles from '@/components/FloatingParticles';
-
-
+import { DesktopWishPhotoGrid } from './DesktopWishPhotoGrid';
+import { DesktopStoryControls } from './DesktopStoryControls';
 export const DesktopStorySection = memo(function DesktopStorySection() {
   const {
-  activeSlide,
-  beginReveal,
-  birthdayDate,
-  burstMessages,
-  canShowKeepsakeDownload,
-  clampedS,
-  clampedS2,
-  contributorLine,
-  coverHintLabel,
-  coverPhotoSrc,
-  currentSlide,
-  currentSlideDuration,
-  downloadingPdf,
-  downloadingVideo,
-  effectiveViewMode,
-  expandedFreeformCardIds,
-  experienceInsetClass,
-  experiencePanelClass,
-  freeformBoardSectionRef,
-  freeformOpenerPalette,
-  freeformStarsCanvasRef,
-  freeformThemePalette,
-  getStoryDelayStyle,
-  goToNextSlide,
-  goToPreviousSlide,
-  handleBoardParallaxLeave,
-  handleBoardParallaxMove,
-  handleDownloadKeepsake,
-  handleDownloadVideoKeepsake,
-  handlePauseControl,
-  handlePlayControl,
-  handleReleasePoolPayout,
-  handleRequestGiftRelease,
-  handleStageClick,
-  handleTouchEnd,
-  handleTouchStart,
-  hasMessages,
-  includeSoundtrackInVideo,
-  isDarkExperience,
-  isDesktopPlaybackPaused,
-  isFreeformBoardEntered,
-  isFreeformIntroExiting,
-  isPageOwner,
-  isPreview,
-  isSaved,
-  keepsakePaperClass,
-  keepsakePhotoBoardClass,
-  keepsakePillClass,
-  keepsakeSoftClass,
-  landedFreeformCards,
-  loading,
-  messages,
-  mixedLetterH,
-  mobileCardsContainerRef,
-  mobileFreeformMotion,
-  mobileRevealRef,
-  navigate,
-  page,
-  pageId,
-  paidContributorLine,
-  poolSummary,
-  poppedFreeformDecorators,
-  releasingPoolPayout,
-  renderStoryImage,
-  renderWishAudioPlayer,
-  requestingGiftRelease,
-  revealPhase,
-  revealSlides,
-  setActiveWishAudioId,
-  setCurrentSlide,
-  setDownloadingPdf,
-  setDownloadingVideo,
-  setExpandedFreeformCardIds,
-  setExpandedPhoto,
-  setFreeformAnimationRun,
-  setHasTriggeredIntro,
-  setIncludeSoundtrackInVideo,
-  setIsDesktopPlaybackPaused,
-  setIsDesktopReveal,
-  setIsFreeformBoardEntered,
-  setIsFreeformIntroExiting,
-  setIsPageOwner,
-  setIsSaved,
-  setLandedFreeformCards,
-  setLoading,
-  setMessages,
-  setNowMs,
-  setPage,
-  setPendingDeleteAction,
-  setPoolSummary,
-  setPoppedFreeformDecorators,
-  setReleasingPoolPayout,
-  setRequestingGiftRelease,
-  setRevealPhase,
-  setShowRevealIntro,
-  setShowShareCard,
-  setSlideDirection,
-  setSlideRemainingMs,
-  setStartYoutube,
-  setUnlockPin,
-  setUnlocking,
-  setViewMode,
-  showRevealIntro,
-  showRevealIntroInPreview,
-  skipReveal,
-  slideDirection,
-  storyOpenerPalette,
-  storyThemePalette,
-  theme,
-  toggleSavePage,
-  totalAudioWishes,
-  totalPhotos,
-  user,
-  viewMode,
-  forceMobileView,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
-} = useBirthdayView() as any;
+    activeSlide,
+    birthdayDate,
+    canShowKeepsakeDownload,
+    contributorLine,
+    coverHintLabel,
+    coverPhotoSrc,
+    currentSlide,
+    currentSlideDuration,
+    downloadingPdf,
+    downloadingVideo,
+    effectiveViewMode,
+    forceMobileView,
+    experienceInsetClass,
+    experiencePanelClass,
+    getStoryDelayStyle,
+    goToNextSlide,
+    goToPreviousSlide,
+    handleBoardParallaxLeave,
+    handleBoardParallaxMove,
+    handleDownloadKeepsake,
+    handleDownloadVideoKeepsake,
+    handlePauseControl,
+    handlePlayControl,
+    handleStageClick,
+    handleTouchEnd,
+    handleTouchStart,
+    includeSoundtrackInVideo,
+    isDarkExperience,
+    isDesktopPlaybackPaused,
+    isPreview,
+    isSaved,
+    keepsakePaperClass,
+    keepsakePhotoBoardClass,
+    keepsakePillClass,
+    keepsakeSoftClass,
+    messages,
+    navigate,
+    page,
+    pageId,
+    renderStoryImage,
+    renderWishAudioPlayer,
+    revealSlides,
+    setCurrentSlide,
+    setExpandedPhoto,
+    setIncludeSoundtrackInVideo,
+    setPendingDeleteAction,
+    setShowShareCard,
+    showRevealIntro,
+    slideDirection,
+    storyThemePalette,
+    theme,
+    toggleSavePage,
+    totalAudioWishes,
+    totalPhotos,
+    user,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure until typed
+  } = useBirthdayView() as any;
 
   if (effectiveViewMode !== 'story') return null;
 
@@ -214,82 +154,20 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
             </div>
       
             {!showRevealIntro && (
-              <div className="hidden items-center gap-2 sm:flex shrink-0" data-no-nav="true">
-              <button
-                type="button"
-                onClick={() => setShowShareCard(true)}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
-                  isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-                )}
-              >
-                <Share2 className="h-4 w-4" />
-                Share
-              </button>
-              <button
-                type="button"
-                onClick={handlePlayControl}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
-                  isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-                )}
-              >
-                <Music4 className="h-4 w-4" />
-                Play
-              </button>
-              <button
-                type="button"
-                onClick={handlePauseControl}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
-                  isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-                )}
-              >
-                <Volume2 className="h-4 w-4" />
-                Pause
-              </button>
-              {canShowKeepsakeDownload && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void handleDownloadKeepsake()}
-                    disabled={downloadingPdf}
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                      isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-                    )}
-                  >
-                    <Download className="h-4 w-4" />
-                    {downloadingPdf ? 'Preparing' : 'Download PDF'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIncludeSoundtrackInVideo((current) => !current)}
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
-                      isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-                    )}
-                  >
-                    <Music className="h-4 w-4" />
-                    {includeSoundtrackInVideo ? 'Video sound on' : 'Video sound off'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDownloadVideoKeepsake()}
-                    disabled={downloadingVideo}
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                      isDarkExperience ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/78 text-foreground hover:bg-white',
-                    )}
-                  >
-                    <Video className="h-4 w-4" />
-                    {downloadingVideo ? 'Rendering video' : 'Download video'}
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => {
+              <DesktopStoryControls
+                onOpenShareCard={() => setShowShareCard(true)}
+                onPlay={handlePlayControl}
+                onPause={handlePauseControl}
+                canShowKeepsakeDownload={canShowKeepsakeDownload}
+                onDownloadPdf={() => void handleDownloadKeepsake()}
+                downloadingPdf={downloadingPdf}
+                includeSoundtrackInVideo={includeSoundtrackInVideo}
+                onToggleVideoSoundtrack={() => setIncludeSoundtrackInVideo((current) => !current)}
+                onDownloadVideo={() => void handleDownloadVideoKeepsake()}
+                downloadingVideo={downloadingVideo}
+                hasUser={Boolean(user)}
+                isSaved={isSaved}
+                onToggleSave={() => {
                   if (user) {
                     void toggleSavePage();
                   } else {
@@ -302,21 +180,8 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                     navigate(`/auth?${params.toString()}`);
                   }
                 }}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
-                  user && isSaved
-                    ? isDarkExperience
-                      ? 'bg-emerald-500/90 text-white hover:bg-emerald-500'
-                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    : isDarkExperience
-                      ? 'bg-white/10 text-white hover:bg-white/15'
-                      : 'bg-white/78 text-foreground hover:bg-white',
-                )}
-              >
-                <Heart className={cn('h-4 w-4', user && isSaved ? 'fill-current' : '')} />
-                {user ? (isSaved ? 'Saved' : 'Save to dashboard') : 'Save to my dashboard'}
-              </button>
-              </div>
+                isDarkExperience={isDarkExperience}
+              />
             )}
           </div>
       
@@ -533,120 +398,25 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                         });
                       };
 
-                      const photoFrameClass =
-                        'group relative min-h-0 overflow-hidden rounded-[1.4rem] border border-white/45 bg-white/55 p-1.5 sm:p-2 text-left shadow-[0_18px_50px_rgba(18,18,23,0.16)] transition-all duration-300 hover:shadow-xl hover:scale-[1.01]';
+                      const handleDeletePhoto = (photoId: string, messageId: string, senderName: string) => {
+                        setPendingDeleteAction({
+                          kind: 'photo',
+                          photoId,
+                          messageId,
+                          senderName,
+                        });
+                      };
 
-                      const renderPhotoCard = (photo: MessagePhoto, className?: string, containerAspect?: string) => (
-                        <button
-                          key={photo.id}
-                          type="button"
-                          className={cn(photoFrameClass, className, containerAspect)}
-                          onClick={() => openPhoto(photo)}
-                          aria-label={`Expand photo from ${activeSlide.message.sender_name}`}
-                        >
-                          <div className="relative isolate h-full min-h-[7.5rem] overflow-hidden rounded-[1.1rem] sm:rounded-[1.25rem] bg-[#dfe7dc]">
-                            <img
-                              className="story-photo-layer absolute inset-0 z-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                              src={resolveAssetUrl(photo.photo_url) || photo.photo_url}
-                              alt={`Photo from ${activeSlide.message.sender_name}`}
-                              decoding="async"
-                              loading="lazy"
-                              draggable={false}
-                            />
-                            <div className="absolute inset-x-0 bottom-0 z-10 h-[46%] bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
-                            <div className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-2 p-2.5 sm:p-3.5">
-                              <div className="min-w-0">
-                                <p className="line-clamp-1 text-xs font-medium text-white">{photo.caption || 'Photo memory'}</p>
-                                {!photo.caption && <p className="text-[9px] uppercase tracking-[0.18em] text-white/70">From the story</p>}
-                              </div>
-                              <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-md">Open</span>
-                            </div>
-                            {isPreview && (
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                className="absolute right-2.5 top-2.5 z-30 h-7 w-7 rounded-full opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setPendingDeleteAction({
-                                    kind: 'photo',
-                                    photoId: photo.id,
-                                    messageId: activeSlide.message.id,
-                                    senderName: activeSlide.message.sender_name,
-                                  });
-                                }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        </button>
+                      const photoLayout = (
+                        <DesktopWishPhotoGrid
+                          photos={wishPhotos}
+                          senderName={activeSlide.message.sender_name}
+                          messageId={activeSlide.message.id}
+                          isPreview={isPreview}
+                          onOpenPhoto={openPhoto}
+                          onDeletePhoto={handleDeletePhoto}
+                        />
                       );
-
-                      /* PHOTO LAYOUT BY COUNT */
-                      let photoLayout: ReactNode = null;
-                      if (photoCount === 1) {
-                        photoLayout = (
-                          <div className="h-full w-full">
-                            {renderPhotoCard(wishPhotos[0], 'h-full w-full rounded-[1.85rem]')}
-                          </div>
-                        );
-                      } else if (photoCount === 2) {
-                        photoLayout = (
-                          <div className="h-full grid grid-rows-2 gap-3 sm:gap-3.5">
-                            {wishPhotos.map((photo, photoIndex) =>
-                              renderPhotoCard(photo, 'h-full min-h-0 w-full rounded-[1.6rem]', photoIndex === 0 ? 'rotate-[-0.5deg]' : 'rotate-[0.5deg]')
-                            )}
-                          </div>
-                        );
-                      } else if (photoCount === 3) {
-                        photoLayout = (
-                          <div className="h-full grid grid-cols-2 grid-rows-2 gap-3 sm:gap-3.5">
-                            {renderPhotoCard(wishPhotos[0], 'col-span-1 row-span-2 h-full min-h-0 w-full rounded-[1.6rem]')}
-                            {renderPhotoCard(wishPhotos[1], 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.5rem]')}
-                            {renderPhotoCard(wishPhotos[2], 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.5rem]')}
-                          </div>
-                        );
-                      } else if (photoCount === 4) {
-                        photoLayout = (
-                          <div className="h-full grid grid-cols-2 grid-rows-2 gap-3 sm:gap-3.5">
-                            {wishPhotos.map((photo) =>
-                              renderPhotoCard(photo, 'h-full min-h-0 w-full rounded-[1.5rem]')
-                            )}
-                          </div>
-                        );
-                      } else if (photoCount === 5) {
-                        photoLayout = (
-                          <div className="h-full grid grid-cols-6 grid-rows-2 gap-2.5 sm:gap-3">
-                            {/* Top row: 2 photos, 3 cols each */}
-                            {renderPhotoCard(wishPhotos[0], 'col-span-3 row-span-1 h-full min-h-0 w-full rounded-[1.45rem]')}
-                            {renderPhotoCard(wishPhotos[1], 'col-span-3 row-span-1 h-full min-h-0 w-full rounded-[1.45rem]')}
-                            {/* Bottom row: 3 photos, 2 cols each */}
-                            {renderPhotoCard(wishPhotos[2], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')}
-                            {renderPhotoCard(wishPhotos[3], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')}
-                            {renderPhotoCard(wishPhotos[4], 'col-span-2 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')}
-                          </div>
-                        );
-                      } else if (photoCount === 6) {
-                        photoLayout = (
-                          <div className="h-full grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-3">
-                            {wishPhotos.map((photo) =>
-                              renderPhotoCard(photo, 'col-span-1 row-span-1 h-full min-h-0 w-full rounded-[1.35rem]')
-                            )}
-                          </div>
-                        );
-                      } else if (photoCount >= 7) {
-                        photoLayout = (
-                          <div className="h-full overflow-y-auto pr-1.5 custom-scrollbar grid grid-cols-2 gap-2.5 sm:gap-3">
-                            {wishPhotos.map((photo, photoIndex) =>
-                              renderPhotoCard(
-                                photo,
-                                cn('min-h-[9.5rem] h-44 w-full rounded-[1.4rem]', photoIndex === 0 && 'col-span-2 h-52')
-                              )
-                            )}
-                          </div>
-                        );
-                      }
 
                       /* SCENARIO 1: MESSAGE ONLY (NO PHOTOS, NO AUDIO) */
                       if (!hasPhotos && !hasAudio) {
@@ -704,7 +474,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               {/* Stickers */}
                               {activeSlide.message.stickers && activeSlide.message.stickers.length > 0 && (
                                 <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
-                                  {activeSlide.message.stickers.map((sticker: any) => (
+                                  {activeSlide.message.stickers.map((sticker: MessageSticker) => (
                                     <div
                                       key={sticker.id}
                                       className="absolute select-none text-6xl"
@@ -871,7 +641,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               {/* Stickers */}
                               {activeSlide.message.stickers && activeSlide.message.stickers.length > 0 && (
                                 <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
-                                  {activeSlide.message.stickers.map((sticker: any) => (
+                                  {activeSlide.message.stickers.map((sticker: MessageSticker) => (
                                     <div
                                       key={sticker.id}
                                       className="absolute select-none text-6xl"

@@ -115,7 +115,7 @@ export async function bachsRequest<T>(path: string, init?: RequestInit): Promise
     },
   });
 
-  const payload = await response.json() as any;
+  const payload = (await response.json()) as Record<string, unknown>;
 
   if (!response.ok) {
     const errMsg = payload?.detail || payload?.message || payload?.error || payload?.error_description || "BACHS_REQUEST_FAILED";

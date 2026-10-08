@@ -19,6 +19,7 @@ import {
   resolvePageId,
   publicPageQuery,
   privatePageQuery,
+  fetchPublicPoolSummary,
 } from "../services/pageQueries";
 import {
   sanitizeBankCode,
@@ -269,42 +270,14 @@ giftPoolRouter.get(
       return;
     }
 
-    const rows = await sql`
-      SELECT
-        bp.pool_fundraising_enabled,
-        bp.pool_goal_kobo,
-        COALESCE(
-          SUM(COALESCE(pc.net_received_kobo, pc.amount_kobo))
-            FILTER (WHERE pc.status = 'success'),
-          0
-        )::bigint AS pooled_amount_kobo,
-        bp.pool_description,
-        EXISTS(
-          SELECT 1
-          FROM pool_payouts pp
-          WHERE pp.page_id = bp.id
-            AND pp.status = 'processing'
-        ) AS is_requested,
-        COALESCE(
-          array_remove(
-            array_agg(DISTINCT CASE WHEN pc.status = 'success' THEN pc.contributor_name END),
-            NULL
-          ),
-          ARRAY[]::text[]
-        ) AS contributors
-      FROM birthday_pages bp
-      LEFT JOIN pool_contributions pc ON pc.page_id = bp.id
-      WHERE bp.id = ${resolvedPageId}
-        AND bp.status = 'active'
-      GROUP BY bp.id
-    `;
-
-    if (!rows[0]) {
+    const pageRows = await publicPageQuery(resolvedPageId);
+    if (!pageRows[0]) {
       response.status(404).json({ error: "Page not found" });
       return;
     }
 
-    response.json(rows[0]);
+    const summary = await fetchPublicPoolSummary(resolvedPageId);
+    response.json(summary);
   },
 );
 
