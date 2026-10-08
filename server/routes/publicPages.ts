@@ -55,11 +55,6 @@ export const publicPagesRouter = express.Router();
 
 // Keepsake PDF Export
 publicPagesRouter.get("/:id/export", validateParams(pageIdParamSchema), async (request, response) => {
-  if (EXPORTS_DISABLED_IN_PRODUCTION) {
-    response.status(404).json({ error: "Not found" });
-    return;
-  }
-
   const resolvedPageId = await resolvePageId(routeParamString(request.params.id));
   if (!resolvedPageId) {
     response.status(404).json({ error: "Page not found" });

@@ -38,6 +38,7 @@ import {
   SheetContent,
 } from '@/components/ui/sheet';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import { ExportKeepsakeModal } from '@/components/ExportKeepsakeModal';
 import type { BirthdayPage, CustomTheme, PageAnalytics, ThemeDisplay } from '@/pages/dashboardPage';
 import {
   DashboardCalendarTimeline,
@@ -61,6 +62,8 @@ const Dashboard = () => {
   const [analyticsByPage, setAnalyticsByPage] = useState<Record<string, PageAnalytics>>({});
   const [analyticsLoadingPage, setAnalyticsLoadingPage] = useState<string | null>(null);
   const [exportingPage, setExportingPage] = useState<string | null>(null);
+  const [exportModalPage, setExportModalPage] = useState<BirthdayPage | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // New Hybrid App Shell State
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,7 +92,12 @@ const Dashboard = () => {
   };
 
   const isProUser = isPro;
-  const canShowExportOptions = !import.meta.env.PROD;
+  const canShowExportOptions = true;
+
+  const handleOpenExportModal = (page: BirthdayPage) => {
+    setExportModalPage(page);
+    setIsExportModalOpen(true);
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -140,8 +148,18 @@ const Dashboard = () => {
 
   const stats = useMemo(() => {
     const totalPages = pages.length;
-    const activePages = pages.filter((page) => page.status === 'active').length;
-    const deliveredPages = pages.filter((page) => page.status === 'delivered').length;
+    const deliveredPages = pages.filter((page) => {
+      if (page.status === 'draft') return false;
+      if (page.status === 'delivered') return true;
+      const bday = parseLocalDate(page.birthday_date);
+      return differenceInDays(new Date(), bday) > 3;
+    }).length;
+    const activePages = pages.filter((page) => {
+      if (page.status === 'draft') return false;
+      if (page.status === 'delivered') return false;
+      const bday = parseLocalDate(page.birthday_date);
+      return differenceInDays(new Date(), bday) <= 3;
+    }).length;
     const totalMessages = pages.reduce((accumulator, page) => accumulator + (page.message_count || 0), 0);
 
     return {
@@ -538,7 +556,7 @@ const Dashboard = () => {
                 onCopyContribute={(page) => void copyLink(page.public_code, 'contribute')}
                 onShareWhatsApp={handleShareWhatsApp}
                 onRequestDelete={(page) => setPagePendingDelete(page)}
-                onExport={(page) => handleExport(page.public_code, page.recipient_name)}
+                onExport={handleOpenExportModal}
                 canShowExportOptions={canShowExportOptions}
               />
             </>
@@ -622,12 +640,19 @@ const Dashboard = () => {
           setPagePendingDelete(page);
         }}
         onAnalytics={(page) => handleAnalytics(page.public_code)}
-        onExport={(page) => handleExport(page.public_code, page.recipient_name)}
+        onExport={handleOpenExportModal}
         canShowExportOptions={canShowExportOptions}
         analytics={drawerPage ? analyticsByPage[drawerPage.public_code] : undefined}
         analyticsLoading={drawerPage ? analyticsLoadingPage === drawerPage.public_code : false}
-        exporting={drawerPage ? exportingPage === drawerPage.public_code : false}
+        exporting={false}
         isProUser={isProUser}
+      />
+
+      <ExportKeepsakeModal
+        page={exportModalPage}
+        isOpen={isExportModalOpen}
+        onOpenChange={setIsExportModalOpen}
+        isProUser={Boolean(isProUser)}
       />
 
       {/* DELETE CONFIRMATION DIALOG */}

@@ -94,8 +94,8 @@ const DEFAULT_FEATURES: ProFeature[] = [
   { id: 'vanity-links-branding', title: 'Custom branding and vanity links', status: 'live' },
   { id: 'advanced-reveal-effects', title: 'Advanced reveal effects', status: 'coming-soon' },
   { id: 'privacy-controls', title: 'Secret PIN access controls', status: 'coming-soon' },
-  { id: 'team-collaboration', title: 'Multi-organizer co-editing', status: 'coming-soon' },
-  { id: 'keepsake-export', title: 'Keepsake archive export', status: 'coming-soon' },
+  { id: 'team-collaboration', title: 'Multi-organizer co-editing', status: 'live' },
+  { id: 'keepsake-export', title: 'Keepsake archive export', status: 'live' },
   { id: 'priority-support', title: 'Priority concierge recovery', status: 'coming-soon' },
 ];
 

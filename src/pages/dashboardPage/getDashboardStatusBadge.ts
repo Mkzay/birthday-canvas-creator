@@ -7,14 +7,15 @@ export type DashboardStatusBadge = {
   className: string;
 };
 
-/** Status pill for owned pages on the dashboard (live list — not the fixed "Revealed" archived label). */
+/** Status pill for owned pages on the dashboard (live list, not the fixed "Revealed" archived label). */
 export function getDashboardStatusBadge(page: BirthdayPage): DashboardStatusBadge {
   const birthdayDate = parseLocalDate(page.birthday_date);
   const closeDate = page.close_date ? parseLocalDate(page.close_date) : birthdayDate;
   const daysUntilBirthday = differenceInDays(birthdayDate, new Date());
+  const daysSinceBirthday = differenceInDays(new Date(), birthdayDate);
   const collectionWindowClosed = differenceInDays(closeDate, new Date()) < 0 && daysUntilBirthday > 0;
 
-  if (page.status === 'delivered') {
+  if (page.status === 'delivered' || daysSinceBirthday > 3) {
     return { label: 'Delivered', className: 'bg-slate-900/8 text-slate-700' };
   }
   if (collectionWindowClosed) {

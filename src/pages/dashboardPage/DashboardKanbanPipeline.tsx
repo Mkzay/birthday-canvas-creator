@@ -120,9 +120,13 @@ export function DashboardKanbanPipeline({
     const bday = parseLocalDate(page.birthday_date);
     const close = page.close_date ? parseLocalDate(page.close_date) : bday;
     const daysUntilClose = differenceInDays(close, now);
+    const daysSinceBirthday = differenceInDays(now, bday);
 
-    if (daysUntilClose <= 0) {
-      // Reveal date has arrived or collection closed
+    if (daysSinceBirthday > 3) {
+      // More than 3 days after birthday: archived delivered keepsake
+      deliveredPages.push(page);
+    } else if (daysUntilClose <= 0) {
+      // Reveal date has arrived or collection closed, within 3 days: active reveal ready window
       revealReadyPages.push(page);
     } else {
       // Actively collecting
