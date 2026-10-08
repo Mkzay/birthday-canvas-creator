@@ -63,6 +63,9 @@ export const MobileStorySection = memo(function MobileStorySection() {
     theme,
     totalAudioWishes,
     totalPhotos,
+    hasSoundtrack,
+    isSoundtrackMuted,
+    toggleSoundtrackMute,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- VM mirrors BirthdayPage closure
   } = useBirthdayView() as any;
 
@@ -257,6 +260,24 @@ export const MobileStorySection = memo(function MobileStorySection() {
             >
               {isPaused ? <Play className="h-3.5 w-3.5 fill-current" /> : <Pause className="h-3.5 w-3.5 fill-current" />}
             </button>
+
+            {hasSoundtrack && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSoundtrackMute?.();
+                }}
+                className="h-7 w-7 rounded-full bg-black/30 backdrop-blur-md flex items-center justify-center text-white/90 hover:bg-black/50 transition-colors"
+                aria-label={isSoundtrackMuted ? 'Unmute celebration music' : 'Mute celebration music'}
+              >
+                {isSoundtrackMuted ? (
+                  <VolumeX className="h-3.5 w-3.5 text-rose-400" />
+                ) : (
+                  <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -280,7 +301,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
         {currentActiveSlide?.kind === 'cover' && (
           <article
             className={cn(
-              'pointer-events-auto rounded-[2rem] border p-5 shadow-2xl overflow-y-auto h-full max-h-[calc(100dvh-6rem)] transition-transform flex flex-col justify-between',
+              'pointer-events-auto rounded-[2rem] border p-4 sm:p-5 shadow-2xl h-full w-full min-h-0 overflow-hidden scrollbar-none flex flex-col justify-between transition-transform',
               keepsakePaperClass,
             )}
             style={{
@@ -288,70 +309,70 @@ export const MobileStorySection = memo(function MobileStorySection() {
               borderColor: storyThemePalette?.paperBorder || 'rgba(255,255,255,0.4)',
             }}
           >
-            <div>
-              <div className="flex items-center justify-between mb-3">
+            <div className="min-h-0 flex flex-col shrink-0">
+              <div className="flex items-center justify-between mb-1.5">
                 <span className={cn('text-[10px] font-bold uppercase tracking-[0.2em] opacity-70', theme?.text)}>
                   Birthday Card Keepsake
                 </span>
                 <span className="text-xs">✨</span>
               </div>
 
-              <h2 className={cn('text-3xl font-bold leading-tight font-serif', theme?.titleClass, theme?.font)}>
+              <h2 className={cn('text-2xl sm:text-3xl font-bold leading-tight font-serif', theme?.titleClass, theme?.font)}>
                 Happy Birthday,
                 <br />
                 {page?.recipient_name}.
               </h2>
 
-              <p className={cn('mt-3 text-sm leading-relaxed opacity-80', theme?.text)}>
+              <p className={cn('mt-1.5 text-xs sm:text-sm leading-relaxed opacity-80 line-clamp-2', theme?.text)}>
                 Every note, photo, and voice clip inside was gathered to make this feel less like a page and more like a gift being opened.
               </p>
-
-              {coverPhotoSrc && (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/40 shadow-md aspect-[16/10] sm:aspect-[16/9] min-h-[14rem] max-h-[38dvh] relative">
-                  <img
-                    src={coverPhotoSrc}
-                    alt={`${page?.recipient_name}'s birthday`}
-                    className="h-full w-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                  <p className="absolute bottom-2 left-3 text-[11px] font-medium text-white drop-shadow-sm">
-                    {page?.recipient_name}&apos;s celebration
-                  </p>
-                </div>
-              )}
-
-              {page?.creator_message && (
-                <div
-                  className={cn('mt-4 rounded-2xl border p-3.5', keepsakeSoftClass)}
-                  style={{
-                    backgroundColor: storyThemePalette?.softBg,
-                    borderColor: storyThemePalette?.softBorder,
-                  }}
-                >
-                  <p className={cn('text-[10px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>
-                    From the organizer
-                  </p>
-                  <p className={cn('mt-1.5 text-xs italic leading-relaxed opacity-85 font-serif', theme?.text)}>
-                    &quot;{page.creator_message}&quot;
-                  </p>
-                </div>
-              )}
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2 text-center">
+            {coverPhotoSrc && (
+              <div className="my-2 flex-1 min-h-[110px] max-h-[30dvh] w-full overflow-hidden rounded-2xl border border-white/40 shadow-md relative">
+                <img
+                  src={coverPhotoSrc}
+                  alt={`${page?.recipient_name}'s birthday`}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <p className="absolute bottom-2 left-3 text-[11px] font-medium text-white drop-shadow-sm">
+                  {page?.recipient_name}&apos;s celebration
+                </p>
+              </div>
+            )}
+
+            {page?.creator_message && (
               <div
-                className={cn('rounded-xl border p-2.5', keepsakeSoftClass)}
+                className={cn('my-1.5 rounded-xl border p-2.5 shrink-0', keepsakeSoftClass)}
+                style={{
+                  backgroundColor: storyThemePalette?.softBg,
+                  borderColor: storyThemePalette?.softBorder,
+                }}
+              >
+                <p className={cn('text-[9px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>
+                  From the organizer
+                </p>
+                <p className={cn('mt-0.5 text-xs italic leading-relaxed opacity-85 font-serif line-clamp-2', theme?.text)}>
+                  &quot;{page.creator_message}&quot;
+                </p>
+              </div>
+            )}
+
+            <div className="mt-2 grid grid-cols-2 gap-2 text-center shrink-0">
+              <div
+                className={cn('rounded-xl border p-2', keepsakeSoftClass)}
                 style={{ backgroundColor: storyThemePalette?.softBg, borderColor: storyThemePalette?.softBorder }}
               >
-                <p className={cn('text-[10px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>Wishes</p>
-                <p className={cn('mt-1 text-lg font-bold', theme?.text)}>{messages?.length || 0}</p>
+                <p className={cn('text-[9px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>Wishes</p>
+                <p className={cn('mt-0.5 text-base sm:text-lg font-bold', theme?.text)}>{messages?.length || 0}</p>
               </div>
               <div
-                className={cn('rounded-xl border p-2.5', keepsakeSoftClass)}
+                className={cn('rounded-xl border p-2', keepsakeSoftClass)}
                 style={{ backgroundColor: storyThemePalette?.softBg, borderColor: storyThemePalette?.softBorder }}
               >
-                <p className={cn('text-[10px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>Date</p>
-                <p className={cn('mt-1 text-xs font-bold truncate', theme?.text)}>
+                <p className={cn('text-[9px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>Date</p>
+                <p className={cn('mt-0.5 text-xs font-bold truncate', theme?.text)}>
                   {birthdayDate ? format(birthdayDate, 'MMM d, yyyy') : 'Special day'}
                 </p>
               </div>
@@ -362,7 +383,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
         {currentActiveSlide?.kind === 'stats' && (
           <article
             className={cn(
-              'pointer-events-auto rounded-[2rem] border p-6 shadow-2xl overflow-y-auto max-h-[calc(100dvh-10rem)] flex flex-col justify-between',
+              'pointer-events-auto rounded-[2rem] border p-5 sm:p-6 shadow-2xl h-full w-full min-h-0 overflow-hidden scrollbar-none flex flex-col justify-between',
               keepsakePaperClass,
             )}
             style={{
@@ -371,42 +392,42 @@ export const MobileStorySection = memo(function MobileStorySection() {
             }}
           >
             <div>
-              <p className={cn('text-[10px] font-bold uppercase tracking-[0.24em] opacity-70 mb-2', theme?.text)}>
+              <p className={cn('text-[10px] font-bold uppercase tracking-[0.24em] opacity-70 mb-1.5', theme?.text)}>
                 The shape of the celebration
               </p>
-              <h2 className={cn('text-3xl font-bold leading-tight font-serif', theme?.titleClass, theme?.font)}>
+              <h2 className={cn('text-2xl sm:text-3xl font-bold leading-tight font-serif', theme?.titleClass, theme?.font)}>
                 Collected with love.
               </h2>
-              <p className={cn('mt-3 text-sm leading-relaxed opacity-80', theme?.text)}>
+              <p className={cn('mt-2 text-xs sm:text-sm leading-relaxed opacity-80', theme?.text)}>
                 Before the story started, loved ones left little pieces of themselves here. This is what made it into the envelope.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 my-4">
+            <div className="grid grid-cols-2 gap-2.5 my-3">
               <div
-                className={cn('col-span-2 rounded-2xl border p-4', keepsakeSoftClass)}
+                className={cn('col-span-2 rounded-2xl border p-3.5', keepsakeSoftClass)}
                 style={{ backgroundColor: storyThemePalette?.softBg, borderColor: storyThemePalette?.softBorder }}
               >
                 <p className={cn('text-[10px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>Wishes written</p>
-                <p className={cn('mt-2 text-4xl font-extrabold', theme?.titleClass, theme?.font)}>{messages?.length || 0}</p>
+                <p className={cn('mt-1 text-3xl font-extrabold', theme?.titleClass, theme?.font)}>{messages?.length || 0}</p>
               </div>
               <div
-                className={cn('rounded-2xl border p-3.5', keepsakeSoftClass)}
+                className={cn('rounded-2xl border p-3', keepsakeSoftClass)}
                 style={{ backgroundColor: storyThemePalette?.softBg, borderColor: storyThemePalette?.softBorder }}
               >
                 <p className={cn('text-[10px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>Photos shared</p>
-                <p className={cn('mt-1 text-2xl font-bold', theme?.text)}>{totalPhotos || 0}</p>
+                <p className={cn('mt-0.5 text-xl font-bold', theme?.text)}>{totalPhotos || 0}</p>
               </div>
               <div
-                className={cn('rounded-2xl border p-3.5', keepsakeSoftClass)}
+                className={cn('rounded-2xl border p-3', keepsakeSoftClass)}
                 style={{ backgroundColor: storyThemePalette?.softBg, borderColor: storyThemePalette?.softBorder }}
               >
                 <p className={cn('text-[10px] font-bold uppercase tracking-wider opacity-60', theme?.text)}>Voice notes</p>
-                <p className={cn('mt-1 text-2xl font-bold', theme?.text)}>{totalAudioWishes || 0}</p>
+                <p className={cn('mt-0.5 text-xl font-bold', theme?.text)}>{totalAudioWishes || 0}</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs opacity-60 pt-2 border-t border-black/5 dark:border-white/10">
+            <div className="flex items-center justify-between text-xs opacity-60 pt-2 border-t border-black/5 dark:border-white/10 shrink-0">
               <span>Swipe or tap right to begin</span>
               <span>&rarr;</span>
             </div>
@@ -416,7 +437,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
         {currentActiveSlide?.kind === 'organizer' && page?.creator_message && (
           <article
             className={cn(
-              'pointer-events-auto rounded-[2rem] border p-6 shadow-2xl overflow-y-auto max-h-[calc(100dvh-10rem)] text-center flex flex-col justify-center',
+              'pointer-events-auto rounded-[2rem] border p-6 shadow-2xl h-full w-full min-h-0 overflow-hidden scrollbar-none text-center flex flex-col justify-center',
               keepsakePaperClass,
             )}
             style={{
@@ -424,16 +445,16 @@ export const MobileStorySection = memo(function MobileStorySection() {
               borderColor: storyThemePalette?.paperBorder || 'rgba(255,255,255,0.4)',
             }}
           >
-            <div className="h-14 w-14 rounded-3xl bg-rose-500/15 text-rose-500 mx-auto flex items-center justify-center mb-4">
-              <Heart className="h-7 w-7 fill-rose-500/30" />
+            <div className="h-12 w-12 rounded-2xl bg-rose-500/15 text-rose-500 mx-auto flex items-center justify-center mb-3">
+              <Heart className="h-6 w-6 fill-rose-500/30" />
             </div>
             <p className={cn('text-[10px] font-bold uppercase tracking-[0.24em] opacity-70 mb-2', theme?.text)}>
               Organizer Note
             </p>
-            <p className={cn('text-xl font-serif italic leading-relaxed', theme?.text)}>
+            <p className={cn('text-lg sm:text-xl font-serif italic leading-relaxed max-h-[46vh] overflow-y-auto scrollbar-none', theme?.text)}>
               &quot;{page.creator_message}&quot;
             </p>
-            <p className={cn('mt-4 text-xs opacity-60', theme?.text)}>
+            <p className={cn('mt-3 text-xs opacity-60', theme?.text)}>
               Written before the reveal began
             </p>
           </article>
@@ -442,11 +463,13 @@ export const MobileStorySection = memo(function MobileStorySection() {
         {currentActiveSlide?.kind === 'wish' && (() => {
           const wish = currentActiveSlide.message;
           const wishPhotos = getMessagePhotos(wish);
+          const hasPhotos = wishPhotos.length > 0;
+          const hasAudio = Boolean(wish.audio_url);
 
           return (
             <article
               className={cn(
-                'pointer-events-auto rounded-[2rem] border p-4.5 sm:p-5 shadow-2xl overflow-y-auto h-full max-h-[calc(100dvh-6rem)] flex flex-col justify-between relative transition-all duration-300',
+                'pointer-events-auto rounded-[2rem] border p-4 sm:p-5 shadow-2xl h-full w-full min-h-0 overflow-hidden scrollbar-none flex flex-col justify-between relative transition-all duration-300',
                 keepsakePaperClass,
               )}
               style={{
@@ -454,39 +477,40 @@ export const MobileStorySection = memo(function MobileStorySection() {
                 borderColor: storyThemePalette?.paperBorder || 'rgba(255,255,255,0.4)',
               }}
             >
-              <div>
-                {/* Header: Letter number & Wish tag */}
-                <div className="flex items-center justify-between border-b border-black/6 pb-2.5 mb-3">
-                  <span className={cn('text-[10px] font-bold uppercase tracking-[0.2em] opacity-70', theme?.text)}>
-                    Letter {currentActiveSlide.index + 1} of {messages?.length || 1}
-                  </span>
-                  <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold', keepsakePillClass)}>
-                    #{String(currentActiveSlide.index + 1).padStart(2, '0')}
-                  </span>
-                </div>
+              {/* Header: Letter number & Wish tag */}
+              <div className="flex items-center justify-between border-b border-black/6 pb-2 shrink-0">
+                <span className={cn('text-[10px] font-bold uppercase tracking-[0.2em] opacity-70', theme?.text)}>
+                  Letter {currentActiveSlide.index + 1} of {messages?.length || 1}
+                </span>
+                <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold', keepsakePillClass)}>
+                  #{String(currentActiveSlide.index + 1).padStart(2, '0')}
+                </span>
+              </div>
 
-                {/* Sender name */}
-                <h3 className={cn('text-2xl font-bold font-serif leading-tight', theme?.titleClass, theme?.font)}>
-                  {wish.sender_name}
-                </h3>
+              {/* CARD BODY: DIFFERENTIATED LAYOUT FOR PHOTO WISH VS TEXT-ONLY WISH */}
+              {hasPhotos ? (
+                /* Layout with Photos: Compact sender, clamped/compact quote, photo grid, voice note */
+                <div className="flex-1 min-h-0 flex flex-col justify-between my-1.5">
+                  <div className="shrink-0">
+                    <h3 className={cn('text-lg sm:text-xl font-bold font-serif leading-tight truncate', theme?.titleClass, theme?.font)}>
+                      {wish.sender_name}
+                    </h3>
+                    <div className="mt-1">
+                      {isRichHtml(wish.message) ? (
+                        <div
+                          className={cn('wish-rich-text text-xs sm:text-sm leading-snug font-serif line-clamp-2', theme?.text)}
+                          dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(wish.message) }}
+                        />
+                      ) : (
+                        <p className={cn('text-xs sm:text-sm leading-snug font-serif italic line-clamp-2', theme?.text)}>
+                          &quot;{wish.message}&quot;
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                {/* Wish message */}
-                <div className="my-3">
-                  {isRichHtml(wish.message) ? (
-                    <div
-                      className={cn('wish-rich-text text-base leading-relaxed font-serif', theme?.text)}
-                      dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(wish.message) }}
-                    />
-                  ) : (
-                    <p className={cn('text-base leading-relaxed font-serif italic', theme?.text)}>
-                      &quot;{wish.message}&quot;
-                    </p>
-                  )}
-                </div>
-
-                {/* Responsive Multi-Photo Layout */}
-                {wishPhotos.length > 0 && (
-                  <div className="my-3" data-no-nav="true">
+                  {/* Responsive Multi-Photo Layout Budgeted */}
+                  <div className="my-1.5 shrink-0" data-no-nav="true">
                     <MobileWishPhotoGrid
                       photos={wishPhotos}
                       senderName={wish.sender_name}
@@ -499,45 +523,82 @@ export const MobileStorySection = memo(function MobileStorySection() {
                       }
                     />
                   </div>
-                )}
 
-                {/* Audio Voice Player docked inside card */}
-                {wish.audio_url && (
-                  <div
-                    className={cn('my-3 rounded-2xl border p-3', keepsakeSoftClass)}
-                    data-no-nav="true"
-                    style={{ backgroundColor: storyThemePalette?.softBg, borderColor: storyThemePalette?.softBorder }}
-                  >
-                    <p className={cn('text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5', theme?.text)}>
-                      <Music4 className="h-3.5 w-3.5 text-rose-500" />
-                      Voice Note
-                    </p>
-                    {renderWishAudioPlayer?.(wish, 'w-full')}
-                  </div>
-                )}
-
-                {/* Floating stickers */}
-                {wish.stickers && wish.stickers.length > 0 && (
-                  <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-                    {wish.stickers.map((s: { id: string; sticker_type: string; position_x: number; position_y: number; rotation: number; scale: number }) => (
+                  {/* Audio Voice Player docked inside card if present */}
+                  {hasAudio && (
+                    <div
+                      className={cn('rounded-xl border p-2 shrink-0', keepsakeSoftClass)}
+                      data-no-nav="true"
+                      style={{ backgroundColor: storyThemePalette?.softBg, borderColor: storyThemePalette?.softBorder }}
+                    >
+                      <p className={cn('text-[9px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1', theme?.text)}>
+                        <Music4 className="h-3 w-3 text-rose-500" />
+                        Voice Note
+                      </p>
+                      {renderWishAudioPlayer?.(wish, 'w-full')}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Layout without Photos: Centered display quote, lush typography, eliminates void */
+                <div className="flex-1 min-h-0 flex flex-col justify-center items-center text-center px-1 py-3 my-auto">
+                  <span className="text-4xl xs:text-5xl font-serif text-amber-500/35 select-none leading-none mb-1">&ldquo;</span>
+                  
+                  <div className="max-h-[46vh] overflow-y-auto scrollbar-none w-full px-1">
+                    {isRichHtml(wish.message) ? (
                       <div
-                        key={s.id}
-                        className="absolute select-none text-4xl drop-shadow-sm"
-                        style={{
-                          left: `${s.position_x}%`,
-                          top: `${s.position_y}%`,
-                          transform: `translate(-50%, -50%) rotate(${s.rotation}deg) scale(${s.scale})`,
-                        }}
-                      >
-                        {STICKER_EMOJI_MAP[s.sticker_type] ?? s.sticker_type}
-                      </div>
-                    ))}
+                        className={cn('wish-rich-text text-xl xs:text-2xl sm:text-3xl font-serif italic leading-relaxed text-balance', theme?.text)}
+                        dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(wish.message) }}
+                      />
+                    ) : (
+                      <p className={cn('text-xl xs:text-2xl sm:text-3xl font-serif italic leading-relaxed text-balance', theme?.text)}>
+                        {wish.message}
+                      </p>
+                    )}
                   </div>
-                )}
-              </div>
+
+                  <p className={cn('mt-4 text-base font-serif font-bold opacity-90 tracking-wide', theme?.titleClass)}>
+                    From {wish.sender_name}
+                  </p>
+
+                  {/* Audio Voice Player if present */}
+                  {hasAudio && (
+                    <div
+                      className={cn('mt-3 w-full rounded-2xl border p-2.5 shrink-0', keepsakeSoftClass)}
+                      data-no-nav="true"
+                      style={{ backgroundColor: storyThemePalette?.softBg, borderColor: storyThemePalette?.softBorder }}
+                    >
+                      <p className={cn('text-[9px] font-bold uppercase tracking-wider mb-1 flex items-center justify-center gap-1', theme?.text)}>
+                        <Music4 className="h-3 w-3 text-rose-500" />
+                        Voice Note Attached
+                      </p>
+                      {renderWishAudioPlayer?.(wish, 'w-full')}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Floating stickers */}
+              {wish.stickers && wish.stickers.length > 0 && (
+                <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+                  {wish.stickers.map((s: { id: string; sticker_type: string; position_x: number; position_y: number; rotation: number; scale: number }) => (
+                    <div
+                      key={s.id}
+                      className="absolute select-none text-4xl drop-shadow-sm"
+                      style={{
+                        left: `${s.position_x}%`,
+                        top: `${s.position_y}%`,
+                        transform: `translate(-50%, -50%) rotate(${s.rotation}deg) scale(${s.scale})`,
+                      }}
+                    >
+                      {STICKER_EMOJI_MAP[s.sticker_type] ?? s.sticker_type}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Card Footer tags */}
-              <div className="flex items-center justify-between pt-2 border-t border-black/6 text-[10px] opacity-60">
+              <div className="flex items-center justify-between pt-2 border-t border-black/6 text-[10px] opacity-60 shrink-0">
                 <span>Personal wish keepsake</span>
                 <span>Tap right for next &rarr;</span>
               </div>
@@ -548,7 +609,7 @@ export const MobileStorySection = memo(function MobileStorySection() {
         {currentActiveSlide?.kind === 'closing' && (
           <article
             className={cn(
-              'pointer-events-auto rounded-[2rem] border p-6 shadow-2xl overflow-y-auto max-h-[calc(100dvh-10rem)] text-center flex flex-col justify-between',
+              'pointer-events-auto rounded-[2rem] border p-5 sm:p-6 shadow-2xl h-full w-full min-h-0 overflow-hidden scrollbar-none text-center flex flex-col justify-between',
               keepsakePaperClass,
             )}
             style={{

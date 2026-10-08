@@ -467,7 +467,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                                 {isRichHtml(activeSlide.message.message) ? (
                                   <div className={cn('story-slide-wish-message wish-rich-text max-h-[50vh] sm:max-h-[54vh] overflow-y-auto pr-2 text-xl sm:text-2xl lg:text-3xl font-serif italic leading-relaxed custom-scrollbar scroll-smooth', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
                                 ) : (
-                                  <p className={cn('story-slide-wish-message max-h-[50vh] sm:max-h-[54vh] overflow-y-auto pr-2 text-xl sm:text-2xl lg:text-3xl font-serif italic leading-relaxed custom-scrollbar scroll-smooth', theme.text)}>
+                                  <p className={cn('story-slide-wish-message max-h-[50vh] sm:max-h-[54vh] overflow-y-auto pr-2 font-serif italic leading-relaxed custom-scrollbar scroll-smooth', activeSlide.message.message.length < 100 ? 'text-2xl sm:text-3xl lg:text-4xl' : 'text-xl sm:text-2xl lg:text-3xl', theme.text)}>
                                     &quot;{activeSlide.message.message}&quot;
                                   </p>
                                 )}
@@ -630,11 +630,11 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                               </div>
 
                               {/* Message Text with Scroll Containment */}
-                              <div className="my-auto py-2">
+                              <div className="my-auto flex-1 flex flex-col justify-center py-2">
                                 {isRichHtml(activeSlide.message.message) ? (
                                   <div className={cn('story-slide-wish-message wish-rich-text max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 text-lg leading-relaxed sm:text-xl lg:text-2xl font-serif italic custom-scrollbar scroll-smooth', theme.text)} dangerouslySetInnerHTML={{ __html: wishMessageHtmlWithQuotes(activeSlide.message.message) }} />
                                 ) : (
-                                  <p className={cn('story-slide-wish-message max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 text-lg leading-relaxed sm:text-xl lg:text-2xl font-serif italic custom-scrollbar scroll-smooth', theme.text)}>
+                                  <p className={cn('story-slide-wish-message max-h-[46vh] sm:max-h-[50vh] overflow-y-auto pr-2 font-serif italic custom-scrollbar scroll-smooth', activeSlide.message.message.length < 100 ? 'text-xl leading-relaxed sm:text-2xl lg:text-3xl' : 'text-lg leading-relaxed sm:text-xl lg:text-2xl', theme.text)}>
                                     &quot;{activeSlide.message.message}&quot;
                                   </p>
                                 )}

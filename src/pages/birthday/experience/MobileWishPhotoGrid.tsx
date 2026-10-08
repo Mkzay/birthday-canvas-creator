@@ -60,38 +60,40 @@ export const MobileWishPhotoGrid = memo(function MobileWishPhotoGrid({
 
   if (photoCount === 1) {
     return (
-      <div className={cn('w-full', className)}>
-        {renderSinglePhoto(photos[0], 'aspect-[4/3] xs:aspect-[1/1] sm:aspect-[4/3] min-h-[17rem] max-h-[52dvh]')}
+      <div className={cn('w-full h-56 xs:h-64 sm:h-72', className)}>
+        {renderSinglePhoto(photos[0], 'h-full w-full rounded-2xl')}
       </div>
     );
   }
 
   if (photoCount === 2) {
     return (
-      <div className={cn('grid grid-cols-2 gap-2.5 w-full', className)}>
-        {photos.map((photo) => renderSinglePhoto(photo, 'aspect-[4/3] sm:aspect-square min-h-[12rem] max-h-[36dvh]'))}
+      <div className={cn('grid grid-cols-2 gap-2 w-full h-44 sm:h-52', className)}>
+        {photos.map((photo) => renderSinglePhoto(photo, 'h-full w-full rounded-2xl'))}
       </div>
     );
   }
 
   if (photoCount === 3) {
     return (
-      <div className={cn('grid grid-cols-2 gap-2.5 w-full', className)}>
-        <div className="col-span-2">
-          {renderSinglePhoto(photos[0], 'aspect-[16/9] min-h-[12rem] max-h-[30dvh]')}
+      <div className={cn('grid grid-cols-3 gap-2 w-full h-44 sm:h-52', className)}>
+        <div className="col-span-2 h-full">
+          {renderSinglePhoto(photos[0], 'h-full w-full rounded-2xl')}
         </div>
-        {photos.slice(1, 3).map((photo) =>
-          renderSinglePhoto(photo, 'aspect-square min-h-[9.5rem] max-h-[24dvh]')
-        )}
+        <div className="col-span-1 flex flex-col gap-2 h-full">
+          {photos.slice(1, 3).map((photo) =>
+            renderSinglePhoto(photo, 'flex-1 h-1/2 w-full rounded-xl')
+          )}
+        </div>
       </div>
     );
   }
 
   if (photoCount === 4) {
     return (
-      <div className={cn('grid grid-cols-2 gap-2.5 w-full', className)}>
+      <div className={cn('grid grid-cols-2 grid-rows-2 gap-2 w-full h-44 sm:h-52', className)}>
         {photos.slice(0, 4).map((photo) =>
-          renderSinglePhoto(photo, 'aspect-square min-h-[9.5rem] max-h-[24dvh]')
+          renderSinglePhoto(photo, 'h-full w-full rounded-xl')
         )}
       </div>
     );
@@ -100,13 +102,13 @@ export const MobileWishPhotoGrid = memo(function MobileWishPhotoGrid({
   // 5 or more photos: 2x2 grid with +N badge on last item
   const extraCount = photoCount - 4;
   return (
-    <div className={cn('grid grid-cols-2 gap-2.5 w-full', className)}>
+    <div className={cn('grid grid-cols-2 grid-rows-2 gap-2 w-full h-44 sm:h-52', className)}>
       {photos.slice(0, 3).map((photo) =>
-        renderSinglePhoto(photo, 'aspect-square min-h-[9.5rem] max-h-[24dvh]')
+        renderSinglePhoto(photo, 'h-full w-full rounded-xl')
       )}
       {renderSinglePhoto(
         photos[3],
-        'aspect-square min-h-[9.5rem] max-h-[24dvh]',
+        'h-full w-full rounded-xl',
         extraCount > 0 ? (
           <div className="absolute inset-0 bg-black/65 backdrop-blur-[2px] flex flex-col items-center justify-center text-white p-2">
             <ImageIcon className="h-4 w-4 mb-1 text-amber-300" />

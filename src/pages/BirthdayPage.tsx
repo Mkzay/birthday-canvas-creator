@@ -1067,6 +1067,9 @@ const BirthdayPage = ({
     viewMode: revealEngine.viewMode,
     forceMobileView,
     isDesktopReveal: isDesktopRevealEffective,
+    toggleSoundtrackMute: soundtrack.toggleSoundtrackMute,
+    isSoundtrackMuted: soundtrack.isSoundtrackMuted,
+    hasSoundtrack: Boolean(page.custom_audio_url || page.soundtrack_id),
   });
 
   return (
@@ -1075,16 +1078,12 @@ const BirthdayPage = ({
         className={cn(
           'relative transition-colors duration-500',
           forceMobileView
-            ? revealEngine.showRevealIntro && revealEngine.effectiveViewMode !== 'freeform'
+            ? revealEngine.effectiveViewMode === 'story' || (revealEngine.showRevealIntro && revealEngine.effectiveViewMode !== 'freeform')
               ? 'h-full min-h-full overflow-hidden'
               : 'min-h-full overflow-x-hidden overflow-y-auto'
-            : !isDesktopRevealEffective
-              ? revealEngine.showRevealIntro && revealEngine.effectiveViewMode !== 'freeform'
-                ? 'h-[100dvh] min-h-[100dvh] overflow-hidden'
-                : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto'
-              : revealEngine.showRevealIntro || revealEngine.effectiveViewMode === 'story'
-                ? 'h-[100dvh] min-h-[100dvh] overflow-hidden'
-                : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto',
+            : revealEngine.effectiveViewMode === 'story' || (revealEngine.showRevealIntro && revealEngine.effectiveViewMode !== 'freeform')
+              ? 'h-[100dvh] min-h-[100dvh] overflow-hidden'
+              : 'min-h-[100dvh] overflow-x-hidden overflow-y-auto',
           theme.heroClass,
         )}
         style={{ ...(theme.style || {}), ...letterThemeStyle }}
@@ -1146,7 +1145,7 @@ const BirthdayPage = ({
           </Suspense>
         )}
 
-        {!revealEngine.showRevealIntro && (page.custom_audio_url || page.soundtrack_id) && (
+        {!revealEngine.showRevealIntro && (page.custom_audio_url || page.soundtrack_id) && revealEngine.effectiveViewMode !== 'story' && (
           <div className="fixed top-3 right-3 z-50 pointer-events-auto">
             <Button
               type="button"

@@ -144,8 +144,10 @@ const PreviewPage = () => {
     navigate(user ? '/dashboard' : '/');
   };
 
-  // Collapsible staging command deck state
-  const [controlsCollapsed, setControlsCollapsed] = useState(false);
+  // Collapsible staging command deck state: default to collapsed on mobile/tablets to never cover story header
+  const [controlsCollapsed, setControlsCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 1024
+  );
 
   if (loading || authLoading) {
     return <WishCanvasLoader />;
@@ -165,7 +167,12 @@ const PreviewPage = () => {
       {isOwner && (
         <aside
           aria-label="Preview Controls"
-          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-auto transition-all duration-300 max-w-[calc(100vw-1.5rem)]"
+          className={cn(
+            'fixed z-50 pointer-events-auto transition-all duration-300',
+            controlsCollapsed
+              ? 'bottom-14 left-3 lg:bottom-auto lg:top-3 lg:left-1/2 lg:-translate-x-1/2'
+              : 'top-2.5 left-2.5 right-2.5 sm:top-3 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto max-w-[calc(100vw-1.25rem)]'
+          )}
         >
           {controlsCollapsed ? (
             /* Minimized Capsule Pill */
@@ -399,7 +406,7 @@ const PreviewPage = () => {
         
         {deviceView === 'mobile' ? (
           /* MOBILE PHONE SIMULATOR VIEWPORT */
-          <div className="flex-1 flex flex-col items-center justify-center relative lg:bg-stone-900/90 lg:backdrop-blur-sm lg:p-4 lg:sm:p-8">
+          <div className="flex-1 flex flex-col items-center justify-center relative lg:bg-stone-900/90 lg:backdrop-blur-sm lg:p-4 lg:pt-14 lg:pb-6">
             {/* Ambient Background Glows: Desktop only */}
             <div className="hidden lg:block pointer-events-none absolute -left-20 top-1/4 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl" />
             <div className="hidden lg:block pointer-events-none absolute -right-20 bottom-1/4 h-80 w-80 rounded-full bg-rose-500/10 blur-3xl" />
@@ -421,7 +428,7 @@ const PreviewPage = () => {
               </div>
 
               {/* Viewport: Single BirthdayPage instance with forceMobileView */}
-              <div className="flex-1 w-full lg:overflow-y-auto lg:overflow-x-hidden lg:rounded-[2.6rem] relative bg-[#FAF7F2]">
+              <div className="flex-1 w-full lg:overflow-y-auto lg:overflow-x-hidden scrollbar-none lg:rounded-[2.6rem] relative bg-[#FAF7F2]">
                 <BirthdayPage
                   key={`preview-canvas-${replayKey}`}
                   isPreview={isOwner}
