@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ApiError, getApiOrigin, resolveAssetUrl } from '@/lib/api';
+import { exportLongKeepsakeImage } from '@/lib/imageKeepsakeExport';
 import { soundtrackMap } from '@/lib/soundtracks';
 import { stripHtml } from '@/lib/wish-utils';
 import { toast } from 'sonner';
@@ -23,8 +24,12 @@ export interface UseKeepsakeExportOptions {
 export interface UseKeepsakeExportReturn {
   handleDownloadKeepsake: () => Promise<void>;
   handleDownloadVideoKeepsake: () => Promise<void>;
+  handleDownloadLongImageKeepsake: () => Promise<void>;
   downloadingPdf: boolean;
   downloadingVideo: boolean;
+  downloadingImage: boolean;
+  videoProgress: number;
+  imageProgress: number;
   includeSoundtrackInVideo: boolean;
   setIncludeSoundtrackInVideo: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -37,6 +42,9 @@ export function useKeepsakeExport({
 }: UseKeepsakeExportOptions): UseKeepsakeExportReturn {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingVideo, setDownloadingVideo] = useState(false);
+  const [downloadingImage, setDownloadingImage] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [imageProgress, setImageProgress] = useState(0);
   const [includeSoundtrackInVideo, setIncludeSoundtrackInVideo] = useState(true);
 
   const handleDownloadKeepsake = useCallback(async () => {
@@ -63,7 +71,7 @@ export function useKeepsakeExport({
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-      toast.success('Download started');
+      toast.success('Keepsake book downloaded');
     } catch (error) {
       if (error instanceof ApiError && error.code === 'PIN_REQUIRED') {
         toast.error('Unlock this page with the PIN first');
@@ -77,13 +85,44 @@ export function useKeepsakeExport({
     }
   }, [page?.recipient_name, pageId]);
 
+  const handleDownloadLongImageKeepsake = useCallback(async () => {
+    if (!page) return;
+
+    setDownloadingImage(true);
+    setImageProgress(5);
+    toast.info('Stitching high-resolution keepsake image...');
+
+    try {
+      const blob = await exportLongKeepsakeImage(page, messages, (percent) => {
+        setImageProgress(percent);
+      });
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const slug = (page.recipient_name || 'birthday-page')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'birthday-page';
+
+      anchor.href = url;
+      anchor.download = `${slug}-wishcanvas-story.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+
+      toast.success('Keepsake image downloaded! Ready to share or save.');
+    } catch (error) {
+      console.error(error);
+      toast.error('Could not stitch keepsake image');
+    } finally {
+      setDownloadingImage(false);
+      setImageProgress(0);
+    }
+  }, [messages, page]);
+
   const handleDownloadVideoKeepsake = useCallback(async () => {
     if (!pageId || !page) return;
-
-    if ((page.owner_plan_tier || 'free') !== 'pro') {
-      toast.info('Video download is a Pro feature. Upgrade to unlock it.');
-      return;
-    }
 
     if (typeof MediaRecorder === 'undefined') {
       toast.error('Your browser does not support video export');
@@ -106,10 +145,15 @@ export function useKeepsakeExport({
     }
 
     setDownloadingVideo(true);
+    setVideoProgress(1);
+    toast.info('Rendering celebration video in background... You can keep browsing!', {
+      duration: 4000,
+    });
 
     const context = canvas.getContext('2d');
     if (!context) {
       setDownloadingVideo(false);
+      setVideoProgress(0);
       toast.error('Could not initialize video renderer');
       return;
     }
@@ -223,8 +267,6 @@ export function useKeepsakeExport({
                 stopTrackFns.push(() => track.stop());
               });
             }
-          } else {
-            toast.info('Video created without audio: no soundtrack selected for this page.');
           }
         }
       }
@@ -237,6 +279,9 @@ export function useKeepsakeExport({
       const render = (now: number, startAt: number) => {
         const elapsed = now - startAt;
         const cappedElapsed = Math.min(elapsed, totalDurationMs);
+        const progressPct = Math.min(99, Math.round((cappedElapsed / totalDurationMs) * 100));
+        setVideoProgress(progressPct);
+
         const slideIndex = Math.min(slides.length - 1, Math.floor(cappedElapsed / perSlideMs));
         const currentSlide = slides[slideIndex];
         const localProgress = (cappedElapsed - slideIndex * perSlideMs) / perSlideMs;
@@ -248,6 +293,7 @@ export function useKeepsakeExport({
         gradient.addColorStop(0, gradientFrom);
         gradient.addColorStop(0.45, gradientMid);
         gradient.addColorStop(1, gradientTo);
+
         context.fillStyle = gradient;
         context.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -335,6 +381,7 @@ export function useKeepsakeExport({
         throw new Error('Empty video output');
       }
 
+      setVideoProgress(100);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       const slug = (page.recipient_name || 'birthday-page').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'birthday-page';
@@ -344,7 +391,7 @@ export function useKeepsakeExport({
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-      toast.success('Video download started');
+      toast.success('Celebration video ready! Download started.');
     } catch (error) {
       console.error(error);
       toast.error('Could not export video');
@@ -360,14 +407,19 @@ export function useKeepsakeExport({
       }
       stream.getTracks().forEach((track) => track.stop());
       setDownloadingVideo(false);
+      setVideoProgress(0);
     }
   }, [includeSoundtrackInVideo, messages, page, pageId, ytId]);
 
   return {
     handleDownloadKeepsake,
     handleDownloadVideoKeepsake,
+    handleDownloadLongImageKeepsake,
     downloadingPdf,
     downloadingVideo,
+    downloadingImage,
+    videoProgress,
+    imageProgress,
     includeSoundtrackInVideo,
     setIncludeSoundtrackInVideo,
   };

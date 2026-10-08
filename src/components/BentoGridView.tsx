@@ -6,13 +6,10 @@ import {
   Heart,
   Image as ImageIcon,
   Mic,
-  MessageSquare,
   Sparkles,
   Play,
   Pause,
   X,
-  Gift,
-  Music,
   Quote,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -106,11 +103,20 @@ function getMessagePhotos(message: Message): MessagePhoto[] {
   return [];
 }
 
+function getSenderInitials(name: string): string {
+  const clean = (name || '').trim();
+  if (!clean) return 'W';
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
+}
+
 const BentoGridView: FC<BentoGridViewProps> = ({
   page,
   messages = [],
   theme,
-  isDarkExperience,
   keepsakePaperClass,
   keepsakeSoftClass,
   birthdayDate,
@@ -160,15 +166,13 @@ const BentoGridView: FC<BentoGridViewProps> = ({
     };
   }
 
-  // Rhythmic card sizing variant based on card index
-  function getCardVariant(index: number): 'wide' | 'tall' | 'normal' {
+  function getCardVariant(index: number, hasPhotos: boolean): 'wide' | 'tall' | 'normal' {
     if (isMobileSim) {
-      // In mobile view: alternate between full width and half width
-      return index % 3 === 0 ? 'wide' : 'normal';
+      return hasPhotos || index % 3 === 0 ? 'wide' : 'normal';
     }
-    const pattern = index % 6;
+    const pattern = index % 5;
     if (pattern === 0) return 'wide';
-    if (pattern === 3) return 'tall';
+    if (pattern === 2 && hasPhotos) return 'tall';
     return 'normal';
   }
 
@@ -177,7 +181,7 @@ const BentoGridView: FC<BentoGridViewProps> = ({
       {/* Full-screen Spotlight Overlay Modal */}
       {expandedCard && (
         <button
-          className="fixed inset-0 z-[70] flex cursor-zoom-out items-center justify-center bg-black/80 p-3 sm:p-6 backdrop-blur-md transition-all duration-300 animate-fade-in"
+          className="fixed inset-0 z-[70] flex cursor-zoom-out items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md transition-all duration-300 animate-fade-in"
           onClick={() => {
             if (audioPlayerRef.current) audioPlayerRef.current.pause();
             setPlayingAudioId(null);
@@ -196,29 +200,29 @@ const BentoGridView: FC<BentoGridViewProps> = ({
               <div className="mt-4 text-center text-white">
                 {expandedCard.caption && <p className="text-base font-medium">{expandedCard.caption}</p>}
                 {expandedCard.senderName && (
-                  <p className="mt-1 text-sm text-white/70">Shared by {expandedCard.senderName}</p>
+                  <p className="mt-1 text-sm text-white/80">Shared by {expandedCard.senderName}</p>
                 )}
               </div>
             </div>
           ) : expandedCard.message ? (
             <div
               className={cn(
-                'relative max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-[2.25rem] border p-6 sm:p-8 shadow-2xl transition-all duration-300',
+                'relative max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-[2.25rem] border p-6 sm:p-8 shadow-2xl transition-all duration-300 text-left',
                 keepsakePaperClass,
               )}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header inside modal */}
-              <div className="flex items-center justify-between border-b pb-4 mb-4 border-black/10 dark:border-white/10">
+              <div className="flex items-center justify-between border-b pb-4 mb-4 border-stone-200 dark:border-white/10">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-900 dark:text-amber-300 font-bold text-base shadow-2xs">
-                    {(expandedCard.message.sender_name || 'F')[0].toUpperCase()}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-950 dark:text-amber-200 font-bold text-sm shadow-2xs border border-amber-300/40">
+                    {getSenderInitials(expandedCard.message.sender_name)}
                   </div>
-                  <div>
-                    <h3 className={cn('text-lg font-bold leading-tight', theme.titleClass, theme.font)}>
+                  <div className="min-w-0">
+                    <h3 className={cn('text-lg font-bold leading-tight truncate text-slate-950 dark:text-white', theme.font)}>
                       {expandedCard.message.sender_name}
                     </h3>
-                    <p className={cn('text-[10px] font-semibold uppercase tracking-widest opacity-60', theme.text)}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-300">
                       Birthday Wish
                     </p>
                   </div>
@@ -231,7 +235,7 @@ const BentoGridView: FC<BentoGridViewProps> = ({
                     setPlayingAudioId(null);
                     setExpandedCard(null);
                   }}
-                  className="rounded-full p-2 text-stone-400 hover:text-stone-700 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  className="rounded-full p-2 text-stone-500 hover:text-stone-900 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                   aria-label="Close"
                 >
                   <X className="h-5 w-5" />
@@ -239,7 +243,7 @@ const BentoGridView: FC<BentoGridViewProps> = ({
               </div>
 
               {/* Wish Message text */}
-              <div className={cn('text-base sm:text-lg leading-relaxed font-serif', theme.text)}>
+              <div className={cn('text-base sm:text-lg leading-relaxed font-serif text-slate-900 dark:text-slate-100 break-words', theme.text)}>
                 {isRichHtml(expandedCard.message.message) ? (
                   <div
                     className="wish-rich-text"
@@ -250,53 +254,26 @@ const BentoGridView: FC<BentoGridViewProps> = ({
                 )}
               </div>
 
-              {/* Stickers */}
-              {expandedCard.message.stickers && expandedCard.message.stickers.length > 0 && (
-                <div className="mt-5 flex flex-wrap gap-2 pt-3 border-t border-black/5 dark:border-white/10">
-                  {expandedCard.message.stickers.map((s) => (
-                    <span key={s.id} className="text-2xl drop-shadow-xs">
-                      {STICKER_EMOJI_MAP[s.sticker_type] ?? s.sticker_type}
-                    </span>
+              {/* Photos inside modal if present */}
+              {getMessagePhotos(expandedCard.message).length > 0 && (
+                <div className="mt-5 grid grid-cols-2 gap-2.5">
+                  {getMessagePhotos(expandedCard.message).map((p, idx) => (
+                    <img
+                      key={p.id || idx}
+                      src={resolveAssetUrl(p.photo_url) || p.photo_url}
+                      alt={p.caption || 'Memory'}
+                      className="rounded-xl object-cover w-full aspect-[4/3] border border-stone-200 dark:border-white/10"
+                    />
                   ))}
                 </div>
               )}
 
-              {/* Photo Gallery Grid */}
-              {getMessagePhotos(expandedCard.message).length > 0 && (
-                <div className="mt-6 space-y-3 pt-3 border-t border-black/5 dark:border-white/10">
-                  <p className={cn('text-xs font-semibold uppercase tracking-wider opacity-60', theme.text)}>
-                    Photos Shared ({getMessagePhotos(expandedCard.message).length})
-                  </p>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {getMessagePhotos(expandedCard.message).map((photo) => {
-                      const url = resolveAssetUrl(photo.photo_url);
-                      return url ? (
-                        <div key={photo.id} className="relative aspect-square overflow-hidden rounded-2xl border border-white/20 shadow-xs">
-                          <img
-                            src={url}
-                            alt={photo.caption || 'Photo'}
-                            className="h-full w-full object-cover"
-                          />
-                          {photo.caption && (
-                            <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 text-[11px] text-white">
-                              {photo.caption}
-                            </div>
-                          )}
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Voice Note Player inside modal */}
+              {/* Voice Note player if present */}
               {expandedCard.message.audio_url && (
-                <div className="mt-6 pt-4 border-t border-black/5 dark:border-white/10">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={cn('text-xs font-bold uppercase tracking-wider flex items-center gap-1.5', theme.text)}>
-                      <Mic className="h-3.5 w-3.5 text-amber-500" />
-                      Voice Wish
-                    </span>
+                <div className="mt-5 rounded-2xl border border-stone-200 dark:border-white/10 bg-black/5 dark:bg-white/5 p-3.5">
+                  <div className="flex items-center gap-2 mb-2 text-xs font-bold text-rose-600">
+                    <Mic className="h-4 w-4" />
+                    <span>Voice Note Message</span>
                   </div>
                   <audio
                     src={resolveAssetUrl(expandedCard.message.audio_url) || expandedCard.message.audio_url}
@@ -311,47 +288,47 @@ const BentoGridView: FC<BentoGridViewProps> = ({
       )}
 
       {/* Main Bento Arena */}
-      <div className="mx-auto w-full max-w-6xl px-2 xs:px-3 sm:px-5">
+      <div className="mx-auto w-full max-w-6xl px-2.5 xs:px-3.5 sm:px-6">
         
         {/* Bento Header */}
-        <div className="mb-5 sm:mb-7 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div className="mb-5 sm:mb-7 flex flex-col sm:flex-row sm:items-end justify-between gap-3.5">
           <div>
             <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <p className={cn('text-xs font-semibold uppercase tracking-[0.26em] opacity-70', theme.text)}>
-                Bento Vault
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-stone-700 dark:text-stone-300">
+                Celebration Bento
               </p>
             </div>
-            <h1 className={cn('mt-1.5 text-2xl sm:text-4xl font-bold tracking-tight', theme.titleClass, theme.font)}>
-              {page.recipient_name}&apos;s celebration board
+            <h1 className={cn('mt-1.5 text-2xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white', theme.titleClass, theme.font)}>
+              {page.recipient_name}&apos;s Memories
             </h1>
           </div>
-          <div className="flex items-center gap-2 text-xs font-medium opacity-70">
-            <span className="rounded-full bg-black/5 dark:bg-white/10 px-3 py-1 border border-black/5 dark:border-white/10">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+            <span className="rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-stone-300 dark:border-white/15 text-slate-900 dark:text-white shadow-xs">
               {messages.length} wishes
             </span>
-            <span className="rounded-full bg-black/5 dark:bg-white/10 px-3 py-1 border border-black/5 dark:border-white/10">
+            <span className="rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-stone-300 dark:border-white/15 text-slate-900 dark:text-white shadow-xs">
               {totalPhotos} photos
             </span>
-            <span className="rounded-full bg-black/5 dark:bg-white/10 px-3 py-1 border border-black/5 dark:border-white/10">
-              {totalAudio} voice clips
+            <span className="rounded-full bg-white dark:bg-slate-900 px-3 py-1 border border-stone-300 dark:border-white/15 text-slate-900 dark:text-white shadow-xs">
+              {totalAudio} voice notes
             </span>
           </div>
         </div>
 
-        {/* The Responsive Bento Grid Container */}
+        {/* Responsive Bento Grid Container */}
         <div
           className={cn(
-            'grid gap-3 sm:gap-4.5',
+            'grid gap-3.5 sm:gap-4.5',
             isMobileSim
-              ? 'grid-cols-2 auto-rows-[minmax(9.5rem,auto)]'
-              : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 auto-rows-[minmax(11rem,auto)]'
+              ? 'grid-cols-1 xs:grid-cols-2 auto-rows-auto'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-auto'
           )}
         >
-          {/* TILE 1: Cover Hero Card (Spans 2 cols, 2 rows) */}
+          {/* TILE 1: Cover Hero Card */}
           <div
             className={cn(
-              'group relative col-span-2 row-span-2 overflow-hidden rounded-[2rem] border shadow-[0_18px_50px_rgba(15,23,42,0.15)] transition-all duration-300 hover:shadow-2xl',
+              'group relative col-span-1 xs:col-span-2 row-span-2 overflow-hidden rounded-[2rem] border shadow-card transition-all duration-300 hover:shadow-2xl',
               keepsakePaperClass,
             )}
           >
@@ -362,36 +339,38 @@ const BentoGridView: FC<BentoGridViewProps> = ({
                   alt={`${page.recipient_name}'s birthday`}
                   className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
-                <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6 text-white flex flex-col justify-end">
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur-md px-3 py-1 border border-white/30 text-[10px] font-bold uppercase tracking-widest text-amber-200 w-fit mb-2">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/15" />
+                <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7 text-white flex flex-col justify-end">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-white/25 backdrop-blur-md px-3 py-1 border border-white/35 text-[10px] font-bold uppercase tracking-widest text-amber-200 w-fit mb-2.5">
                     <Sparkles className="h-3 w-3 text-amber-300" />
-                    <span>Milestone Honoree</span>
+                    <span>Birthday Honoree</span>
                   </div>
-                  <h2 className="text-2xl sm:text-4xl font-bold leading-tight drop-shadow-md font-serif">
+                  <h2 className="text-2xl sm:text-4xl font-bold leading-tight drop-shadow-md font-serif text-white">
                     Happy Birthday,
                     <br />
                     {page.recipient_name}.
                   </h2>
-                  <p className="mt-1.5 text-xs sm:text-sm text-white/85 font-medium">
+                  <p className="mt-2 text-xs sm:text-sm text-white/95 font-semibold">
                     {birthDateFormatted}
                   </p>
                 </div>
               </>
             ) : (
-              <div className="flex h-full min-h-[18rem] flex-col items-center justify-center gap-3 p-6 text-center bg-gradient-to-br from-amber-500/10 via-rose-500/10 to-amber-500/15">
-                <div className="h-16 w-16 rounded-3xl bg-amber-500/15 flex items-center justify-center text-3xl shadow-sm border border-amber-300/40">
+              <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 p-6 sm:p-8 text-center bg-gradient-to-br from-amber-500/15 via-rose-500/10 to-amber-500/20">
+                <div className="h-16 w-16 rounded-3xl bg-amber-500/20 flex items-center justify-center text-3xl shadow-sm border border-amber-300">
                   🎂
                 </div>
                 <div>
-                  <p className={cn('text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300 mb-1')}>Milestone Celebration</p>
-                  <h2 className={cn('text-2xl sm:text-3xl font-bold leading-tight', theme.titleClass, theme.font)}>
+                  <p className="text-xs font-bold uppercase tracking-widest text-amber-900 dark:text-amber-200 mb-1">
+                    Celebration Keepsake
+                  </p>
+                  <h2 className={cn('text-2xl sm:text-3xl font-bold leading-tight text-slate-950 dark:text-white', theme.font)}>
                     Happy Birthday,
                     <br />
                     {page.recipient_name}!
                   </h2>
                 </div>
-                <p className={cn('text-xs opacity-70 font-medium', theme.text)}>{birthDateFormatted}</p>
+                <p className="text-xs font-bold text-stone-700 dark:text-stone-300">{birthDateFormatted}</p>
               </div>
             )}
           </div>
@@ -399,44 +378,44 @@ const BentoGridView: FC<BentoGridViewProps> = ({
           {/* TILE 2: Collected Wishes Metric */}
           <div
             className={cn(
-              'col-span-1 row-span-1 flex flex-col justify-between overflow-hidden rounded-[1.8rem] border p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-1',
+              'col-span-1 row-span-1 flex flex-col justify-between overflow-hidden rounded-[1.8rem] border p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5',
               keepsakeSoftClass,
             )}
           >
             <div className="flex items-center justify-between">
-              <span className={cn('text-[10px] font-bold uppercase tracking-[0.2em] opacity-60', theme.text)}>
-                Collected
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-700 dark:text-stone-300">
+                Wishes Collected
               </span>
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 text-xs">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">
                 ❤️
               </span>
             </div>
-            <div>
-              <p className={cn('text-3xl sm:text-4xl font-extrabold leading-none', theme.titleClass, theme.font)}>
+            <div className="mt-3">
+              <p className={cn('text-3xl sm:text-4xl font-extrabold leading-none text-slate-950 dark:text-white', theme.font)}>
                 {messages.length}
               </p>
-              <p className={cn('mt-1 text-xs opacity-70 font-medium', theme.text)}>wishes pinned</p>
+              <p className="mt-1 text-xs font-bold text-stone-600 dark:text-stone-300">heartfelt letters</p>
             </div>
           </div>
 
-          {/* TILE 3: Photos & Voice Multimedia Metric */}
+          {/* TILE 3: Media Vault Metric */}
           <div
             className={cn(
-              'col-span-1 row-span-1 flex flex-col justify-between overflow-hidden rounded-[1.8rem] border p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-1',
+              'col-span-1 row-span-1 flex flex-col justify-between overflow-hidden rounded-[1.8rem] border p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5',
               keepsakeSoftClass,
             )}
           >
-            <span className={cn('text-[10px] font-bold uppercase tracking-[0.2em] opacity-60', theme.text)}>
-              Moments Vault
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-700 dark:text-stone-300">
+              Media Keepsakes
             </span>
-            <div className="space-y-2">
+            <div className="space-y-2.5 mt-3">
               <div className="flex items-center gap-2">
-                <ImageIcon className={cn('h-3.5 w-3.5 opacity-60', theme.text)} />
-                <span className={cn('text-xs font-bold', theme.text)}>{totalPhotos} photos</span>
+                <ImageIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="text-xs font-bold text-slate-900 dark:text-white">{totalPhotos} photos preserved</span>
               </div>
               <div className="flex items-center gap-2">
-                <Mic className={cn('h-3.5 w-3.5 text-rose-500', theme.text)} />
-                <span className={cn('text-xs font-bold', theme.text)}>{totalAudio} voice clips</span>
+                <Mic className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                <span className="text-xs font-bold text-slate-900 dark:text-white">{totalAudio} voice recordings</span>
               </div>
             </div>
           </div>
@@ -445,39 +424,21 @@ const BentoGridView: FC<BentoGridViewProps> = ({
           {page.creator_message && (
             <div
               className={cn(
-                'col-span-2 row-span-1 flex flex-col justify-between overflow-hidden rounded-[1.8rem] border p-5 shadow-xs transition-all duration-200 hover:-translate-y-1',
+                'col-span-1 xs:col-span-2 row-span-1 flex flex-col justify-between overflow-hidden rounded-[1.8rem] border p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5',
                 keepsakePaperClass,
               )}
             >
-              <div className="flex items-center justify-between">
-                <span className={cn('text-[10px] font-bold uppercase tracking-wider opacity-60 flex items-center gap-1.5', theme.text)}>
-                  <Quote className="h-3 w-3 text-amber-500" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                  <Quote className="h-3 w-3 text-amber-600" />
                   Organizer Dedication
                 </span>
-                <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200/60">
+                <span className="text-[10px] font-bold text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-300">
                   From the heart
                 </span>
               </div>
-              <p className={cn('mt-2 line-clamp-2 text-xs sm:text-sm leading-relaxed italic opacity-85 font-serif', theme.text)}>
+              <p className="line-clamp-3 text-xs sm:text-sm leading-relaxed italic text-stone-800 dark:text-stone-200 font-serif font-medium break-words">
                 &quot;{page.creator_message}&quot;
-              </p>
-            </div>
-          )}
-
-          {/* EMPTY STATE TILE when no wishes are pinned yet */}
-          {messages.length === 0 && (
-            <div
-              className={cn(
-                'col-span-2 sm:col-span-2 row-span-1 flex flex-col items-center justify-center p-6 rounded-[1.8rem] border border-dashed border-stone-300 dark:border-white/20 text-center',
-                keepsakeSoftClass,
-              )}
-            >
-              <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-xl mb-2">
-                ✨
-              </div>
-              <p className={cn('text-sm font-bold', theme.text)}>Awaiting first wishes</p>
-              <p className={cn('text-xs opacity-65 max-w-xs mt-1', theme.text)}>
-                Share your invite link to collect messages, photos, and voice notes here.
               </p>
             </div>
           )}
@@ -486,122 +447,106 @@ const BentoGridView: FC<BentoGridViewProps> = ({
           {messages.map((message, index) => {
             const photos = getMessagePhotos(message);
             const firstPhoto = photos[0] ? resolveAssetUrl(photos[0].photo_url) : null;
-            const variant = getCardVariant(index);
+            const hasPhotos = photos.length > 0;
+            const variant = getCardVariant(index, hasPhotos);
             const preview = renderMessagePreview(message.message);
             const isPlayingThisAudio = playingAudioId === message.id;
             const stickerEmojis = (message.stickers ?? []).map(
               (s) => STICKER_EMOJI_MAP[s.sticker_type] ?? s.sticker_type,
             );
-            const isTextOnly = photos.length === 0 && !message.audio_url;
+            const initials = getSenderInitials(message.sender_name);
 
             return (
               <div
                 key={message.id}
                 onClick={() => setExpandedCard({ message })}
                 className={cn(
-                  'group relative cursor-pointer overflow-hidden rounded-[1.8rem] border text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(15,23,42,0.18)] flex flex-col justify-between',
+                  'group relative cursor-pointer overflow-hidden rounded-[1.8rem] border text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between border-stone-200/90 dark:border-white/15',
                   keepsakePaperClass,
-                  variant === 'wide' && 'col-span-2 row-span-1',
+                  variant === 'wide' && 'col-span-1 xs:col-span-2',
                   variant === 'tall' && 'col-span-1 row-span-2',
-                  variant === 'normal' && 'col-span-1 row-span-1',
+                  variant === 'normal' && 'col-span-1',
                 )}
               >
-                {/* Photo Background if available for non-normal or photo-first card */}
-                {firstPhoto && (variant !== 'normal' || photos.length > 0) && (
-                  <div className="absolute inset-0 pointer-events-none">
+                {/* Photo Thumbnail Strip when photos exist */}
+                {firstPhoto && (
+                  <div className="relative w-full aspect-[16/9] overflow-hidden bg-stone-100 dark:bg-slate-900 border-b border-stone-200/80 dark:border-white/10">
                     <img
                       src={firstPhoto}
                       alt=""
-                      className="h-full w-full object-cover opacity-25 dark:opacity-40 transition-transform duration-500 group-hover:scale-105"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-950 via-white/80 dark:via-slate-950/80 to-transparent" />
-                  </div>
-                )}
-
-                {/* Card Header & Sender */}
-                <div className="relative z-10 p-4 sm:p-5 pb-0">
-                  <div className="flex items-center justify-between gap-1 mb-1.5">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <div className="h-6 w-6 rounded-full bg-black/5 dark:bg-white/15 text-[11px] font-bold flex items-center justify-center shrink-0">
-                        {(message.sender_name || 'F')[0].toUpperCase()}
-                      </div>
-                      <p className={cn('text-xs font-bold truncate leading-tight', theme.titleClass, theme.font)}>
-                        {message.sender_name}
-                      </p>
-                    </div>
-
-                    {stickerEmojis.length > 0 && (
-                      <span className="text-sm shrink-0 drop-shadow-xs">
-                        {stickerEmojis[0]}
+                    {photos.length > 1 && (
+                      <span className="absolute bottom-2 right-2 rounded-full bg-black/75 px-2 py-0.5 text-[9px] font-bold text-white backdrop-blur-md">
+                        +{photos.length - 1} photos
                       </span>
                     )}
                   </div>
+                )}
 
-                  {/* Message Preview Snippet */}
-                  <p className={cn('mt-2 line-clamp-2 sm:line-clamp-3 text-xs sm:text-sm leading-relaxed font-serif opacity-80', theme.text)}>
-                    &quot;{preview}&quot;
-                  </p>
-                </div>
+                {/* Card Content & Sender */}
+                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="h-7 w-7 rounded-full bg-amber-500/15 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center justify-center shrink-0 border border-amber-300/40">
+                          {initials}
+                        </div>
+                        <p className={cn('text-xs font-bold truncate text-slate-950 dark:text-white', theme.font)}>
+                          {message.sender_name}
+                        </p>
+                      </div>
 
-                {/* Card Footer: Audio quick-play & Badges */}
-                <div className="relative z-10 p-4 sm:p-5 pt-3 mt-auto">
-                  
-                  {/* Inline Audio Quick-Play Pill */}
-                  {message.audio_url && (
-                    <button
-                      type="button"
-                      onClick={(e) => toggleAudioPlayback(e, message.id, message.audio_url!)}
-                      className={cn(
-                        'mb-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all shadow-2xs w-fit active:scale-95',
-                        isPlayingThisAudio
-                          ? 'bg-rose-500 text-white shadow-xs'
-                          : 'bg-black/8 dark:bg-white/15 text-foreground hover:bg-black/12 dark:hover:bg-white/20'
-                      )}
-                      title={isPlayingThisAudio ? 'Pause voice note' : 'Play voice note'}
-                    >
-                      {isPlayingThisAudio ? (
-                        <>
-                          <Pause className="h-3 w-3 fill-current" />
-                          <span>Playing</span>
-                          <span className="flex items-center gap-0.5 ml-1">
-                            <span className="h-2 w-0.5 bg-white animate-pulse" />
-                            <span className="h-3 w-0.5 bg-white animate-pulse delay-75" />
-                            <span className="h-1.5 w-0.5 bg-white animate-pulse delay-150" />
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-3 w-3 fill-current" />
-                          <span>Voice Note</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {/* Metadata Chips */}
-                  <div className="flex items-center justify-between text-[10px] opacity-60">
-                    <div className="flex items-center gap-1.5">
-                      {photos.length > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <ImageIcon className="h-2.5 w-2.5" />
-                          {photos.length}
-                        </span>
-                      )}
-                      {photos.length > 0 && message.audio_url && <span>·</span>}
-                      {message.audio_url && (
-                        <span className="inline-flex items-center gap-1">
-                          <Mic className="h-2.5 w-2.5" />
-                          voice
+                      {stickerEmojis.length > 0 && (
+                        <span className="text-base shrink-0 drop-shadow-xs">
+                          {stickerEmojis[0]}
                         </span>
                       )}
                     </div>
-                    <span className="group-hover:translate-x-0.5 transition-transform text-[10px] font-medium">
-                      Open ↗
-                    </span>
+
+                    {/* Preview Snippet with high contrast text */}
+                    <p className="line-clamp-3 text-xs sm:text-sm leading-relaxed font-serif text-stone-800 dark:text-stone-200 font-medium break-words">
+                      &quot;{preview}&quot;
+                    </p>
                   </div>
 
-                </div>
+                  {/* Card Actions & Footer */}
+                  <div className="pt-3 mt-3 border-t border-stone-200/70 dark:border-white/10 flex items-center justify-between text-xs">
+                    {message.audio_url ? (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleAudioPlayback(e, message.id, message.audio_url!)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold transition-all active:scale-95 shadow-xs',
+                          isPlayingThisAudio
+                            ? 'bg-rose-600 text-white shadow-md'
+                            : 'bg-rose-500 text-white hover:bg-rose-600'
+                        )}
+                        title={isPlayingThisAudio ? 'Pause voice note' : 'Play voice note'}
+                      >
+                        {isPlayingThisAudio ? (
+                          <>
+                            <Pause className="h-3 w-3 fill-current" />
+                            <span>Playing</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-3 w-3 fill-current" />
+                            <span>Voice Note</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                        Wish card
+                      </span>
+                    )}
 
+                    <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300 group-hover:underline">
+                      Open &rarr;
+                    </span>
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -610,23 +555,23 @@ const BentoGridView: FC<BentoGridViewProps> = ({
           {messages.length > 0 && (
             <div
               className={cn(
-                'col-span-2 row-span-1 flex flex-col items-center justify-center overflow-hidden rounded-[2rem] border p-6 text-center shadow-xs transition-all duration-200 hover:-translate-y-1',
+                'col-span-1 xs:col-span-2 row-span-1 flex flex-col items-center justify-center overflow-hidden rounded-[2rem] border p-6 text-center shadow-xs transition-all duration-200 hover:-translate-y-0.5',
                 keepsakePaperClass,
               )}
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500 mb-2">
-                <Heart className="h-5 w-5 fill-rose-500/30" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-600 mb-2">
+                <Heart className="h-5 w-5 fill-rose-500/40" />
               </div>
-              <p className={cn('text-base sm:text-lg font-bold font-serif', theme.titleClass, theme.font)}>
+              <p className={cn('text-base sm:text-lg font-bold font-serif text-slate-950 dark:text-white', theme.font)}>
                 Happy Birthday, {page.recipient_name}.
               </p>
-              <p className={cn('mt-1 text-xs opacity-70 font-medium max-w-sm', theme.text)}>
+              <p className="mt-1 text-xs text-stone-700 dark:text-stone-300 font-semibold max-w-sm">
                 Every photo, voice note, and wish was gathered with love.
               </p>
               <div className="mt-3.5">
                 <Link to="/create">
-                  <Button size="sm" className="h-8 gap-1.5 rounded-xl text-xs shadow-sm">
-                    <Sparkles className="h-3.5 w-3.5" />
+                  <Button size="sm" className="h-9 gap-1.5 rounded-xl text-xs font-bold shadow-sm bg-slate-950 text-white hover:bg-slate-900">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-300" />
                     <span>Create a WishCanvas</span>
                   </Button>
                 </Link>

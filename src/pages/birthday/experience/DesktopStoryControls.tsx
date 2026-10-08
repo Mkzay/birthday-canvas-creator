@@ -25,6 +25,7 @@ export interface DesktopStoryControlsProps {
   isSaved: boolean;
   onToggleSave: () => void;
   isDarkExperience?: boolean;
+  onOpenExportModal?: () => void;
 }
 
 export const DesktopStoryControls = memo(function DesktopStoryControls({
@@ -42,6 +43,7 @@ export const DesktopStoryControls = memo(function DesktopStoryControls({
   isSaved,
   onToggleSave,
   isDarkExperience = false,
+  onOpenExportModal,
 }: DesktopStoryControlsProps) {
   const btnBaseClass = cn(
     'inline-flex items-center gap-2 rounded-full px-4 py-0.5 text-sm font-medium transition-colors',
@@ -81,12 +83,12 @@ export const DesktopStoryControls = memo(function DesktopStoryControls({
         <>
           <button
             type="button"
-            onClick={onDownloadPdf}
+            onClick={onOpenExportModal || onDownloadPdf}
             disabled={downloadingPdf}
             className={cn(btnBaseClass, 'disabled:cursor-not-allowed disabled:opacity-60')}
           >
             <Download className="h-4 w-4" />
-            {downloadingPdf ? 'Preparing' : 'Download PDF'}
+            {downloadingPdf ? 'Preparing' : 'Download'}
           </button>
 
           <button

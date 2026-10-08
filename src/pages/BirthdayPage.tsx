@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import BirthdayCountdown from '@/components/BirthdayCountdown';
 import BirthdayShareCard from '@/components/BirthdayShareCard';
+import { ExportKeepsakeModal } from '@/components/ExportKeepsakeModal';
 import { toast } from 'sonner';
 import { resolveAssetUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -81,6 +82,7 @@ const BirthdayPage = ({
   const [expandedPhoto, setExpandedPhoto] = useState<ExpandedPhoto>(null);
   const [pendingDeleteAction, setPendingDeleteAction] = useState<PendingDeleteAction | null>(null);
   const [showShareCard, setShowShareCard] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [activeWishAudioId, setActiveWishAudioId] = useState<string | null>(null);
   const wishAudioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const lastAutoPlayedWishIdRef = useRef<string | null>(null);
@@ -958,6 +960,9 @@ const BirthdayPage = ({
     currentSlideDuration: revealEngine.currentSlideDuration,
     downloadingPdf: keepsakeExport.downloadingPdf,
     downloadingVideo: keepsakeExport.downloadingVideo,
+    downloadingImage: keepsakeExport.downloadingImage,
+    videoProgress: keepsakeExport.videoProgress,
+    imageProgress: keepsakeExport.imageProgress,
     effectiveViewMode: revealEngine.effectiveViewMode,
     expandedFreeformCardIds: revealEngine.expandedFreeformCardIds,
     experienceInsetClass,
@@ -973,6 +978,8 @@ const BirthdayPage = ({
     handleBoardParallaxMove,
     handleDownloadKeepsake: keepsakeExport.handleDownloadKeepsake,
     handleDownloadVideoKeepsake: keepsakeExport.handleDownloadVideoKeepsake,
+    handleDownloadLongImageKeepsake: keepsakeExport.handleDownloadLongImageKeepsake,
+    handleOpenExportModal: () => setIsExportModalOpen(true),
     handlePauseControl: revealEngine.handlePauseControl,
     handlePlayControl: revealEngine.handlePlayControl,
     handleReleasePoolPayout: celebrationData.handleReleasePoolPayout,
@@ -1242,6 +1249,26 @@ const BirthdayPage = ({
           </AlertDialogContent>
         </AlertDialog>
 
+        <ExportKeepsakeModal
+          page={page ? {
+            id: page.id || pageId || '',
+            public_code: page.public_code || pageId || '',
+            recipient_name: page.recipient_name,
+            birthday_date: page.birthday_date,
+            theme: page.theme || 'classic',
+            cover_photo_url: page.cover_photo_url,
+            creator_message: page.creator_message,
+            owner_plan_tier: page.owner_plan_tier || 'free',
+            theme_gradient_from: page.theme_gradient_from,
+            theme_gradient_to: page.theme_gradient_to,
+            theme_accent_color: page.theme_accent_color,
+            theme_font: page.theme_font,
+          } : null}
+          isOpen={isExportModalOpen}
+          onOpenChange={setIsExportModalOpen}
+          isProUser={true}
+        />
+
         {soundtrack.startYoutube && soundtrack.ytId && (
           <iframe
             ref={soundtrack.youtubeIframeRef}
@@ -1249,6 +1276,23 @@ const BirthdayPage = ({
             src={`https://www.youtube.com/embed/${soundtrack.ytId}?enablejsapi=1&autoplay=1&controls=0&mute=0`}
             allow="autoplay"
           />
+        )}
+
+        {/* Non-blocking Background Export Floating Progress Card */}
+        {(keepsakeExport.downloadingVideo || keepsakeExport.downloadingImage) && (
+          <div className="fixed bottom-5 right-5 z-[95] flex items-center gap-3 bg-slate-950/95 text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/20 backdrop-blur-md animate-in slide-in-from-bottom-3 duration-300 pointer-events-auto">
+            <Loader2 className="h-4 w-4 animate-spin text-amber-400 shrink-0" />
+            <div className="text-left">
+              <p className="text-xs font-bold text-white">
+                {keepsakeExport.downloadingVideo
+                  ? `Rendering celebration video (${keepsakeExport.videoProgress}%)`
+                  : `Stitching keepsake image (${keepsakeExport.imageProgress}%)`}
+              </p>
+              <p className="text-[10px] text-white/70">
+                Processing in background. You can keep browsing!
+              </p>
+            </div>
+          </div>
         )}
       </div>
     </BirthdayPageViewProvider>

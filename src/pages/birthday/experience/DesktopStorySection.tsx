@@ -65,6 +65,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
     handleBoardParallaxMove,
     handleDownloadKeepsake,
     handleDownloadVideoKeepsake,
+    handleOpenExportModal,
     handlePauseControl,
     handlePlayControl,
     handleStageClick,
@@ -159,6 +160,7 @@ export const DesktopStorySection = memo(function DesktopStorySection() {
                 onPlay={handlePlayControl}
                 onPause={handlePauseControl}
                 canShowKeepsakeDownload={canShowKeepsakeDownload}
+                onOpenExportModal={handleOpenExportModal}
                 onDownloadPdf={() => void handleDownloadKeepsake()}
                 downloadingPdf={downloadingPdf}
                 includeSoundtrackInVideo={includeSoundtrackInVideo}

@@ -442,7 +442,7 @@ export function useCelebrationRevealEngine({
   // Auto advance slide timer for story mode
   useEffect(() => {
     if (
-      !isDesktopReveal ||
+      effectiveViewMode !== 'story' ||
       loading ||
       !page ||
       showRevealIntro ||

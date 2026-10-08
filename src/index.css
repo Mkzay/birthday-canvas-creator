@@ -111,6 +111,14 @@
 
   html {
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Prevent iOS Safari 16px auto-zoom on mobile inputs */
+  @media (pointer: coarse) {
+    input, textarea, select {
+      font-size: 16px;
+    }
   }
 
   body {
@@ -124,9 +132,10 @@
   }
 
   /* Emil Kowalski Mobile Native: Prevent accidental button text selection on touch press */
-  button, [role="button"] {
+  button, [role="button"], a {
     -webkit-user-select: none;
     user-select: none;
+    -webkit-touch-callout: none;
   }
 }
 
@@ -208,6 +217,19 @@
 }
 
 @layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
   .shadow-card {
     box-shadow: 0 18px 55px rgba(18, 18, 23, 0.05);
   }
