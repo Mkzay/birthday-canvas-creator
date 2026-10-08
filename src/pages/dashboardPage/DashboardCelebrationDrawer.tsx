@@ -95,14 +95,14 @@ export function DashboardCelebrationDrawer({
         className="w-full sm:max-w-md p-0 bg-white border-l border-stone-200/90 shadow-2xl flex flex-col justify-between overflow-hidden z-50"
       >
         {/* Drawer Header (Clean, minimal, uncluttered) */}
-        <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between shrink-0 bg-stone-50/70">
+        <div className="px-5 py-3.5 border-b border-stone-200 flex items-center justify-between shrink-0 bg-stone-100">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-950">
               Celebration Inspector
             </span>
             <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                isLive ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-200 text-stone-700'
+              className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                isLive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-stone-200 text-stone-800'
               }`}
             >
               {isLive ? 'Active' : 'Delivered'}
@@ -113,7 +113,7 @@ export function DashboardCelebrationDrawer({
           <SheetClose asChild>
             <button
               type="button"
-              className="group relative flex h-8 w-8 items-center justify-center rounded-full border border-stone-200/90 bg-white text-stone-500 shadow-xs transition-all duration-200 hover:border-stone-400 hover:bg-stone-100 hover:text-slate-900 active:scale-95"
+              className="group relative flex h-8 w-8 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-600 shadow-xs transition-all duration-200 hover:border-stone-500 hover:bg-stone-100 hover:text-slate-900 active:scale-95"
               aria-label="Close celebration inspector"
             >
               <svg
@@ -122,7 +122,7 @@ export function DashboardCelebrationDrawer({
                 viewBox="0 0 12 12"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="transition-transform duration-200 group-hover:rotate-90 text-stone-600 group-hover:text-slate-950"
+                className="transition-transform duration-200 group-hover:rotate-90 text-stone-700 group-hover:text-slate-950"
               >
                 <path
                   d="M2 2L10 10M10 2L2 10"
@@ -141,7 +141,7 @@ export function DashboardCelebrationDrawer({
           
           {/* Framed Celebration Portrait (Shows Face & Head Clearly without Awkward Cropping) */}
           <div className="space-y-2.5">
-            <div className="relative w-full aspect-[4/3] sm:aspect-[16/11] bg-stone-100 rounded-3xl overflow-hidden border border-stone-200/80 shadow-xs group/photo">
+            <div className="relative w-full aspect-[4/3] sm:aspect-[16/11] bg-stone-100 rounded-3xl overflow-hidden border border-stone-300 shadow-xs group/photo">
               {page.cover_photo_url ? (
                 <img
                   src={resolveAssetUrl(page.cover_photo_url) || page.cover_photo_url}
@@ -183,24 +183,24 @@ export function DashboardCelebrationDrawer({
                 <h3 className="font-serif text-2xl font-bold tracking-tight text-slate-950">
                   {page.recipient_name}&apos;s Canvas
                 </h3>
-                <p className="text-xs text-stone-500 mt-0.5">
+                <p className="text-xs text-stone-700 font-medium mt-0.5">
                   {birthdayLabel} · {theme.emoji} {theme.name}
                 </p>
               </div>
 
-              <span className="font-semibold text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full text-xs shrink-0">
+              <span className="font-bold text-amber-950 bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-full text-xs shrink-0">
                 {isLive ? (daysLeft > 0 ? `${daysLeft} days left` : 'Closes today') : 'Preserved'}
               </span>
             </div>
           </div>
 
           {/* Milestone Status Context */}
-          <div className="rounded-2xl bg-gradient-to-br from-amber-50/70 to-rose-50/50 border border-amber-200/70 p-3.5 space-y-1.5">
-            <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+          <div className="rounded-2xl bg-amber-50 border border-amber-300 p-3.5 space-y-1.5">
+            <span className="font-bold text-slate-950 flex items-center gap-1.5 text-xs">
               <CalendarDays className="h-3.5 w-3.5 text-amber-700" />
               <span>Milestone Schedule</span>
             </span>
-            <p className="text-stone-600 leading-relaxed text-[11px]">
+            <p className="text-stone-700 leading-relaxed text-[11px] font-medium">
               {isLive
                 ? `Wishes, voice recordings, and memories are collecting before the reveal trigger on ${closesLabel}.`
                 : 'This celebration has been safely archived in your keepsake library.'}
@@ -209,22 +209,22 @@ export function DashboardCelebrationDrawer({
 
           {/* 1-Click WhatsApp Invite Hub */}
           {isLive && (
-            <div className="rounded-2xl border border-stone-200/90 bg-stone-50/80 p-4 space-y-3">
+            <div className="rounded-2xl border border-stone-300 bg-stone-50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-950">Guest Contribution Hub</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="text-[10px] font-bold text-emerald-950 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
                   Ready to Share
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xs">
-                <span className="flex-1 truncate pl-2 font-mono text-[11px] text-stone-500 select-all">
+              <div className="flex items-center gap-1.5 rounded-xl border border-stone-300 bg-white p-1.5 shadow-xs">
+                <span className="flex-1 truncate pl-2 font-mono text-[11px] text-stone-700 select-all font-medium">
                   {contributeUrl}
                 </span>
                 <Button
                   size="sm"
                   onClick={handleCopyLink}
-                  className="btn-press shrink-0 gap-1 rounded-lg bg-amber-500 text-slate-950 px-3 py-1.5 text-xs font-bold hover:bg-amber-400"
+                  className="btn-press shrink-0 gap-1 rounded-lg bg-amber-500 text-slate-950 px-3 py-1.5 text-xs font-bold hover:bg-amber-400 shadow-xs"
                 >
                   {copiedLink ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
@@ -245,32 +245,32 @@ export function DashboardCelebrationDrawer({
           <button
             type="button"
             onClick={() => setIsCollaboratorsOpen(true)}
-            className="w-full flex items-center justify-between rounded-2xl border border-stone-200/90 bg-white p-3 shadow-xs hover:border-amber-300 transition-colors text-left"
+            className="w-full flex items-center justify-between rounded-2xl border border-stone-300 bg-white p-3 shadow-xs hover:border-amber-400 transition-colors text-left"
           >
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-xl bg-amber-100/80 border border-amber-200 text-amber-900 flex items-center justify-center">
+              <div className="h-8 w-8 rounded-xl bg-amber-100 border border-amber-300 text-amber-950 flex items-center justify-center">
                 <Users className="h-4 w-4" />
               </div>
               <div>
                 <span className="font-bold text-xs text-slate-900 block">
                   Co-Organizer Team
                 </span>
-                <span className="text-[11px] text-stone-500 block">
+                <span className="text-[11px] text-stone-600 font-medium block">
                   {page.user_role === 'co_organizer'
                     ? 'You are co-organizing this canvas'
                     : 'Invite and manage co-organizers'}
                 </span>
               </div>
             </div>
-            <span className="text-xs font-semibold text-amber-800">
+            <span className="text-xs font-bold text-amber-900">
               Manage &rarr;
             </span>
           </button>
 
           {/* Quick Metrics Ticker */}
-          <div className="grid grid-cols-2 gap-3 rounded-2xl border border-stone-200/90 bg-white p-3.5 text-center shadow-xs">
+          <div className="grid grid-cols-2 gap-3 rounded-2xl border border-stone-300 bg-white p-3.5 text-center shadow-xs">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
                 Wishes Collected
               </span>
               <p className="mt-0.5 font-serif text-xl font-bold text-slate-950">
@@ -278,10 +278,10 @@ export function DashboardCelebrationDrawer({
               </p>
             </div>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
                 Soundtrack Mood
               </span>
-              <p className="mt-0.5 font-serif text-sm font-bold text-amber-800 truncate">
+              <p className="mt-0.5 font-serif text-sm font-bold text-amber-900 truncate">
                 {theme.mood || 'Acoustic'}
               </p>
             </div>
@@ -289,8 +289,8 @@ export function DashboardCelebrationDrawer({
 
           {/* Creator Participation Analytics */}
           {analyticsLoading ? (
-            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 text-center space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900/70">
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-center space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-950">
                 Loading Participation Analytics...
               </span>
               <div className="h-1.5 w-24 mx-auto bg-amber-200 rounded-full overflow-hidden">
@@ -298,26 +298,26 @@ export function DashboardCelebrationDrawer({
               </div>
             </div>
           ) : analytics ? (
-            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3.5 space-y-2.5">
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900/80">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-950">
                   Creator Participation Analytics
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-950">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Live Signal
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-xl bg-white/80 p-2 text-center border border-amber-100">
-                  <span className="text-stone-500 text-[10px] font-medium">Total Visitors</span>
+                <div className="rounded-xl bg-white p-2 text-center border border-amber-200 shadow-xs">
+                  <span className="text-stone-700 text-[10px] font-bold">Total Visitors</span>
                   <p className="font-serif font-bold text-slate-900 text-lg">{analytics.view_count}</p>
                 </div>
-                <div className="rounded-xl bg-white/80 p-2 text-center border border-amber-100">
-                  <span className="text-stone-500 text-[10px] font-medium">Contributors</span>
+                <div className="rounded-xl bg-white p-2 text-center border border-amber-200 shadow-xs">
+                  <span className="text-stone-700 text-[10px] font-bold">Contributors</span>
                   <p className="font-serif font-bold text-slate-900 text-lg">{analytics.contributor_count}</p>
                 </div>
-                <div className="rounded-xl bg-white/80 p-2 text-center border border-amber-100">
+                <div className="rounded-xl bg-white p-2 text-center border border-amber-200 shadow-xs">
                   <span className="text-stone-500 text-[10px] font-medium">Photo Memories</span>
                   <p className="font-serif font-bold text-slate-900 text-lg">{analytics.photo_message_count}</p>
                 </div>

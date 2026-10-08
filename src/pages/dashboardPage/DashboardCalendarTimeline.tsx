@@ -135,11 +135,11 @@ export function DashboardCalendarTimeline({
   }).length;
 
   return (
-    <section className="rounded-3xl border border-stone-200/90 bg-white p-4 sm:p-5 shadow-card space-y-4">
+    <section className="rounded-3xl border border-stone-300 bg-white p-4 sm:p-5 shadow-sm space-y-4">
       {/* Calendar Header with Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-stone-100 pb-3.5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-stone-200 pb-3.5">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-amber-200/80 bg-amber-50 text-base shadow-xs">
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-amber-300 bg-amber-50 text-base shadow-xs">
             📅
           </div>
           <div>
@@ -148,12 +148,12 @@ export function DashboardCalendarTimeline({
                 {format(currentMonth, 'MMMM yyyy')} Celebration Timeline
               </h3>
               {monthCelebrationsCount > 0 && (
-                <span className="rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-950">
                   {monthCelebrationsCount} {monthCelebrationsCount === 1 ? 'Milestone' : 'Milestones'}
                 </span>
               )}
             </div>
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-stone-700 font-medium">
               Click any pinned birthday chip to highlight and inspect its canvas below.
             </p>
           </div>
@@ -163,7 +163,7 @@ export function DashboardCalendarTimeline({
           <button
             type="button"
             onClick={handlePrevMonth}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 hover:text-slate-950 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-300 text-stone-800 hover:bg-stone-50 hover:text-slate-950 transition-colors"
             title="Previous Month"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -172,7 +172,7 @@ export function DashboardCalendarTimeline({
           <button
             type="button"
             onClick={handleResetMonth}
-            className="rounded-xl border border-stone-200 px-3 py-1.5 font-bold text-slate-700 hover:bg-stone-50 transition-colors"
+            className="rounded-xl border border-stone-300 px-3 py-1.5 font-bold text-slate-800 hover:bg-stone-50 transition-colors"
           >
             Current Month
           </button>
@@ -180,7 +180,7 @@ export function DashboardCalendarTimeline({
           <button
             type="button"
             onClick={handleNextMonth}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 hover:text-slate-950 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-300 text-stone-800 hover:bg-stone-50 hover:text-slate-950 transition-colors"
             title="Next Month"
           >
             <ChevronRight className="h-4 w-4" />
@@ -189,7 +189,7 @@ export function DashboardCalendarTimeline({
           <button
             type="button"
             onClick={() => setIsGridExpanded((prev) => !prev)}
-            className="ml-1.5 flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-1.5 font-semibold text-stone-700 hover:bg-stone-100 transition-colors"
+            className="ml-1.5 flex items-center gap-1 rounded-xl border border-stone-300 bg-stone-50 px-3 py-1.5 font-bold text-stone-800 hover:bg-stone-100 transition-colors"
           >
             <span>{isGridExpanded ? 'Collapse' : 'Full Month'}</span>
             {isGridExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -234,14 +234,14 @@ export function DashboardCalendarTimeline({
                   }}
                   className={`flex-1 min-w-[140px] sm:min-w-[160px] p-2.5 rounded-2xl border-2 cursor-pointer transition-all duration-200 text-left relative overflow-hidden shadow-xs hover:shadow-md ${
                     isSelected
-                      ? 'border-amber-500 bg-gradient-to-br from-amber-100/90 to-rose-100/80 -translate-y-0.5'
+                      ? 'border-amber-500 bg-gradient-to-br from-amber-100 to-rose-100 -translate-y-0.5 shadow-sm'
                       : isLive
-                      ? 'border-amber-300/90 bg-gradient-to-br from-amber-50/90 via-white to-rose-50/60 hover:border-amber-400'
-                      : 'border-stone-200 bg-stone-50/80'
+                      ? 'border-amber-400 bg-gradient-to-br from-amber-50 via-white to-rose-50 hover:border-amber-500'
+                      : 'border-stone-300 bg-stone-50'
                   }`}
                 >
                   <div className="flex items-center justify-between text-[10px] font-bold">
-                    <span className="uppercase text-amber-900">
+                    <span className="uppercase text-amber-950 font-bold">
                       {format(day, 'EEE · MMM d')}
                     </span>
                     {isLive ? (
@@ -256,10 +256,10 @@ export function DashboardCalendarTimeline({
                       <img
                         src={resolveAssetUrl(primaryPage.cover_photo_url) || primaryPage.cover_photo_url}
                         alt={primaryPage.recipient_name}
-                        className="h-8 w-8 rounded-lg object-cover object-top border border-amber-300/80 shadow-xs shrink-0"
+                        className="h-8 w-8 rounded-lg object-cover object-top border border-amber-300 shadow-xs shrink-0"
                       />
                     ) : (
-                      <div className="h-8 w-8 rounded-lg bg-amber-100/90 border border-amber-200/80 flex items-center justify-center text-sm shrink-0 shadow-xs">
+                      <div className="h-8 w-8 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-sm shrink-0 shadow-xs">
                         🎂
                       </div>
                     )}
@@ -267,11 +267,11 @@ export function DashboardCalendarTimeline({
                       <p className="truncate font-serif text-sm font-bold text-slate-950">
                         {primaryPage.recipient_name}
                       </p>
-                      <div className="flex items-center justify-between text-[10px] text-stone-500">
-                        <span className={isLive ? 'font-bold text-emerald-800' : 'font-semibold'}>
+                      <div className="flex items-center justify-between text-[10px] text-stone-600 font-medium">
+                        <span className={isLive ? 'font-bold text-emerald-800' : 'font-semibold text-stone-700'}>
                           {isLive ? 'Collecting' : 'Delivered'}
                         </span>
-                        <span className="font-medium text-stone-600">
+                        <span className="font-semibold text-stone-700">
                           {primaryPage.message_count || 0} {(primaryPage.message_count || 0) === 1 ? 'wish' : 'wishes'}
                         </span>
                       </div>
@@ -288,16 +288,16 @@ export function DashboardCalendarTimeline({
                 onClick={() => onSelectDate(isSelected ? null : day)}
                 className={`flex-1 min-w-[65px] sm:min-w-[75px] p-2 rounded-2xl border text-center cursor-pointer transition-colors ${
                   isSelected
-                    ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold'
+                    ? 'border-2 border-amber-500 bg-amber-100 text-amber-950 font-bold shadow-xs'
                     : isCurrentDay
-                    ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-semibold'
-                    : 'border-stone-200/70 bg-stone-50/40 text-stone-400 hover:bg-stone-50 hover:text-stone-700'
+                    ? 'border-2 border-emerald-400 bg-emerald-50 text-emerald-950 font-bold'
+                    : 'border-stone-300 bg-white text-stone-800 hover:bg-stone-50 hover:border-stone-400'
                 }`}
               >
-                <span className="text-[10px] uppercase font-bold text-stone-400">
+                <span className={`text-[10px] uppercase font-bold ${isCurrentDay ? 'text-emerald-800' : 'text-stone-600'}`}>
                   {format(day, 'EEE')}
                 </span>
-                <p className={`mt-0.5 text-xs font-bold ${isCurrentDay ? 'text-emerald-700' : ''}`}>
+                <p className={`mt-0.5 text-xs font-bold ${isCurrentDay ? 'text-emerald-800' : 'text-slate-900'}`}>
                   {format(day, 'd')}
                 </p>
               </div>
@@ -310,7 +310,7 @@ export function DashboardCalendarTimeline({
           <button
             type="button"
             onClick={() => handleScroll(-220)}
-            className="h-6 w-6 rounded-full border border-stone-200 bg-stone-50/80 text-stone-500 hover:bg-stone-100 hover:text-slate-950 flex items-center justify-center shrink-0 transition-colors"
+            className="h-6 w-6 rounded-full border border-stone-300 bg-stone-50 text-stone-600 hover:bg-stone-100 hover:text-slate-950 flex items-center justify-center shrink-0 transition-colors"
             title="Scroll backward"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
@@ -323,7 +323,7 @@ export function DashboardCalendarTimeline({
             className="flex-1 py-2 cursor-pointer group/track flex items-center select-none"
             title="Click or drag anywhere along the track to scrub through the month"
           >
-            <div className="w-full h-1.5 bg-stone-100 group-hover/track:bg-stone-200/80 rounded-full overflow-hidden relative border border-stone-200/70 transition-colors">
+            <div className="w-full h-1.5 bg-stone-200 group-hover/track:bg-stone-300 rounded-full overflow-hidden relative border border-stone-300 transition-colors">
               <div
                 className={`h-full rounded-full transition-all ${
                   isDragging
@@ -341,7 +341,7 @@ export function DashboardCalendarTimeline({
           <button
             type="button"
             onClick={() => handleScroll(220)}
-            className="h-6 w-6 rounded-full border border-stone-200 bg-stone-50/80 text-stone-500 hover:bg-stone-100 hover:text-slate-950 flex items-center justify-center shrink-0 transition-colors"
+            className="h-6 w-6 rounded-full border border-stone-300 bg-stone-50 text-stone-600 hover:bg-stone-100 hover:text-slate-950 flex items-center justify-center shrink-0 transition-colors"
             title="Scroll forward"
           >
             <ChevronRight className="h-3.5 w-3.5" />
@@ -351,8 +351,8 @@ export function DashboardCalendarTimeline({
 
       {/* FULL MONTH CALENDAR MATRIX (TOGGLEABLE) */}
       {isGridExpanded && (
-        <div className="pt-3 border-t border-stone-100">
-          <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-bold text-stone-400 mb-2">
+        <div className="pt-3 border-t border-stone-200">
+          <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-bold text-stone-700 mb-2">
             <span>SUN</span>
             <span>MON</span>
             <span>TUE</span>
@@ -380,16 +380,16 @@ export function DashboardCalendarTimeline({
                   }}
                   className={`min-h-[64px] p-1.5 rounded-xl border cursor-pointer transition-all ${
                     dayPages.length > 0
-                      ? 'border-amber-300 bg-gradient-to-br from-amber-50 via-white to-rose-50 shadow-xs'
+                      ? 'border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-rose-50 shadow-xs'
                       : isSelected
-                      ? 'border-amber-500 bg-amber-50'
+                      ? 'border-2 border-amber-500 bg-amber-100'
                       : isCurrentDay
-                      ? 'border-emerald-300 bg-emerald-50/60'
-                      : 'border-stone-200/70 bg-white hover:bg-stone-50'
+                      ? 'border-2 border-emerald-400 bg-emerald-50'
+                      : 'border border-stone-300 bg-white hover:bg-stone-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`font-bold ${isCurrentDay ? 'text-emerald-700' : 'text-slate-800'}`}>
+                    <span className={`font-bold ${isCurrentDay ? 'text-emerald-800' : 'text-slate-900'}`}>
                       {format(day, 'd')}
                     </span>
                     {dayPages.length > 0 && <span className="text-[10px]">🎂</span>}
@@ -398,7 +398,7 @@ export function DashboardCalendarTimeline({
                   {dayPages.map((page) => (
                     <p
                       key={page.id}
-                      className="mt-1 truncate font-serif text-[11px] font-bold text-amber-900"
+                      className="mt-1 truncate font-serif text-[11px] font-bold text-amber-950"
                     >
                       {page.recipient_name}
                     </p>

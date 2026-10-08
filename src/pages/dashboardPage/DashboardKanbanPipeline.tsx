@@ -162,15 +162,15 @@ export function DashboardKanbanPipeline({
 
         {/* View Density Switcher (Comfortable vs Compact) */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-stone-400 font-medium hidden md:inline">View density:</span>
-          <div className="inline-flex rounded-xl border border-stone-200 bg-white p-0.5 shadow-xs">
+          <span className="text-xs text-stone-600 font-bold hidden md:inline">View density:</span>
+          <div className="inline-flex rounded-xl border border-stone-300 bg-white p-0.5 shadow-xs">
             <button
               type="button"
               onClick={() => setDensity('comfortable')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                 density === 'comfortable'
-                  ? 'bg-amber-100 text-amber-900 shadow-xs'
-                  : 'text-stone-500 hover:text-slate-900'
+                  ? 'bg-amber-200 text-amber-950 border border-amber-300 shadow-xs'
+                  : 'text-stone-700 hover:text-slate-950 font-medium'
               }`}
               title="Comfortable view with large celebration portraits"
             >
@@ -180,10 +180,10 @@ export function DashboardKanbanPipeline({
             <button
               type="button"
               onClick={() => setDensity('compact')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                 density === 'compact'
-                  ? 'bg-amber-100 text-amber-900 shadow-xs'
-                  : 'text-stone-500 hover:text-slate-900'
+                  ? 'bg-amber-200 text-amber-950 border border-amber-300 shadow-xs'
+                  : 'text-stone-700 hover:text-slate-950 font-medium'
               }`}
               title="Compact view for managing many celebrations easily"
             >
@@ -198,13 +198,13 @@ export function DashboardKanbanPipeline({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-start">
         
         {/* COLUMN 1: DRAFTING & PLANNED */}
-        <div className="rounded-3xl border border-stone-200/90 bg-stone-100/90 p-4 shadow-xs flex flex-col max-h-[740px]">
-          <div className="sticky top-0 z-10 bg-stone-100/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-stone-200/70 mb-3">
-            <div className="flex items-center gap-2 font-bold text-xs text-stone-700">
-              <span className="h-2 w-2 rounded-full bg-stone-400" />
+        <div className="rounded-3xl border border-stone-300 bg-stone-100 p-4 shadow-sm flex flex-col max-h-[740px]">
+          <div className="sticky top-0 z-10 bg-stone-100/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-stone-300 mb-3">
+            <div className="flex items-center gap-2 font-bold text-xs text-stone-900">
+              <span className="h-2 w-2 rounded-full bg-stone-500" />
               <span>1. Drafting &amp; Planned</span>
             </div>
-            <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[11px] font-bold text-stone-600">
+            <span className="rounded-full bg-stone-200 border border-stone-300 px-2 py-0.5 text-[11px] font-bold text-stone-800">
               {filteredDrafting.length}
             </span>
           </div>
@@ -219,7 +219,7 @@ export function DashboardKanbanPipeline({
                   <div
                     key={page.id}
                     onClick={() => onSelectPage(page)}
-                    className="group cursor-pointer rounded-xl border border-stone-200 bg-white p-2.5 shadow-xs transition-all hover:border-amber-300 hover:shadow-sm flex items-center justify-between gap-2.5"
+                    className="group cursor-pointer rounded-xl border border-stone-300 bg-white p-2.5 shadow-xs transition-all hover:border-amber-400 hover:shadow-sm flex items-center justify-between gap-2.5"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="h-8 w-8 rounded-lg bg-stone-100 flex items-center justify-center text-base shrink-0 border border-stone-200">
@@ -236,7 +236,7 @@ export function DashboardKanbanPipeline({
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-stone-500">
+                        <span className="text-[10px] text-stone-600 font-semibold">
                           {format(bday, 'MMM d')} &middot; Draft
                         </span>
                       </div>
@@ -244,7 +244,7 @@ export function DashboardKanbanPipeline({
                     <Link
                       to={`/edit/${page.public_code}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-[11px] font-bold text-amber-800 hover:underline shrink-0"
+                      className="text-[11px] font-bold text-amber-900 hover:underline shrink-0"
                     >
                       Resume
                     </Link>
@@ -256,15 +256,15 @@ export function DashboardKanbanPipeline({
                 <div
                   key={page.id}
                   onClick={() => onSelectPage(page)}
-                  className="group cursor-pointer rounded-2xl border border-stone-200/90 bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-amber-300 space-y-2.5"
+                  className="group cursor-pointer rounded-2xl border border-stone-200 bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-amber-400 space-y-2.5"
                 >
                   <CelebrationCardCover page={page} theme={theme} />
 
                   <div className="flex items-center justify-between">
-                    <span className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-bold text-stone-600">
+                    <span className="rounded-full border border-stone-300 bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-700">
                       Draft
                     </span>
-                    <span className="text-xs text-stone-500 font-medium">
+                    <span className="text-xs text-stone-700 font-bold">
                       {format(bday, 'MMM d')}
                     </span>
                   </div>
@@ -273,17 +273,17 @@ export function DashboardKanbanPipeline({
                     <h4 className="font-serif text-base font-bold text-slate-950 group-hover:text-amber-800 transition-colors">
                       {page.recipient_name}&apos;s Birthday
                     </h4>
-                    <p className="mt-0.5 text-xs text-stone-500">
+                    <p className="mt-0.5 text-xs text-stone-600 font-medium">
                       {theme.emoji} {theme.name} Theme
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-stone-100 pt-2.5 text-xs">
-                    <span className="text-stone-400">Not published</span>
+                  <div className="flex items-center justify-between border-t border-stone-200 pt-2.5 text-xs">
+                    <span className="text-stone-500 font-medium">Not published</span>
                     <Link
                       to={`/edit/${page.public_code}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="font-bold text-slate-900 hover:text-amber-800"
+                      className="font-bold text-slate-950 hover:text-amber-800"
                     >
                       Resume Setup &rarr;
                     </Link>
@@ -293,7 +293,7 @@ export function DashboardKanbanPipeline({
             })}
 
             {filteredDrafting.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-stone-200 p-5 text-center text-xs text-stone-500">
+              <div className="rounded-2xl border border-dashed border-stone-300 p-5 text-center text-xs text-stone-600 font-medium">
                 No planned drafts
               </div>
             )}
@@ -301,13 +301,13 @@ export function DashboardKanbanPipeline({
         </div>
 
         {/* COLUMN 2: LIVE COLLECTING (ACTIVE) */}
-        <div className="rounded-3xl border border-amber-200/90 bg-amber-50/70 p-4 shadow-xs flex flex-col max-h-[740px]">
-          <div className="sticky top-0 z-10 bg-amber-50/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-amber-200/70 mb-3">
+        <div className="rounded-3xl border-2 border-amber-300 bg-amber-50 p-4 shadow-sm flex flex-col max-h-[740px]">
+          <div className="sticky top-0 z-10 bg-amber-50/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-amber-300 mb-3">
             <div className="flex items-center gap-2 font-bold text-xs text-amber-950">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>2. Live Collecting</span>
             </div>
-            <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+            <span className="rounded-full bg-amber-200 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-950">
               {filteredCollecting.length}
             </span>
           </div>
@@ -324,7 +324,7 @@ export function DashboardKanbanPipeline({
                   <div
                     key={page.id}
                     onClick={() => onSelectPage(page)}
-                    className="group cursor-pointer rounded-xl border border-amber-200 bg-white p-2.5 shadow-xs transition-all hover:border-amber-400 hover:shadow-sm flex items-center justify-between gap-2.5"
+                    className="group cursor-pointer rounded-xl border border-amber-300 bg-white p-2.5 shadow-xs transition-all hover:border-amber-500 hover:shadow-sm flex items-center justify-between gap-2.5"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center text-base shrink-0 border border-amber-200">
@@ -341,8 +341,8 @@ export function DashboardKanbanPipeline({
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10px] text-stone-500">
-                          <span className="font-bold text-emerald-700">
+                        <div className="flex items-center gap-1.5 text-[10px] text-stone-600 font-medium">
+                          <span className="font-bold text-emerald-800">
                             {daysLeft > 0 ? `${daysLeft}d left` : 'Today'}
                           </span>
                           <span>&middot;</span>
@@ -357,7 +357,7 @@ export function DashboardKanbanPipeline({
                           e.stopPropagation();
                           onShareWhatsApp(page);
                         }}
-                        className="rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700 transition-colors"
+                        className="rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700 transition-colors shadow-xs"
                         title="Share on WhatsApp"
                       >
                         WA
@@ -368,7 +368,7 @@ export function DashboardKanbanPipeline({
                           e.stopPropagation();
                           onCopyContribute(page);
                         }}
-                        className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-semibold text-stone-700 hover:bg-stone-100"
+                        className="rounded-md border border-stone-300 bg-stone-50 px-2 py-0.5 text-[10px] font-bold text-stone-800 hover:bg-stone-100"
                         title="Copy link"
                       >
                         Copy
@@ -382,15 +382,15 @@ export function DashboardKanbanPipeline({
                 <div
                   key={page.id}
                   onClick={() => onSelectPage(page)}
-                  className="group cursor-pointer rounded-2xl border-2 border-amber-300/90 bg-white p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-amber-400 space-y-2.5"
+                  className="group cursor-pointer rounded-2xl border-2 border-amber-400 bg-white p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg space-y-2.5"
                 >
                   <CelebrationCardCover page={page} theme={theme} />
 
                   <div className="flex items-center justify-between">
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                    <span className="rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-950">
                       {daysLeft > 0 ? `${daysLeft} days left` : 'Closes today'}
                     </span>
-                    <span className="text-xs font-bold text-rose-500">
+                    <span className="text-xs font-bold text-rose-600">
                       {format(bday, 'MMM d')}
                     </span>
                   </div>
@@ -399,7 +399,7 @@ export function DashboardKanbanPipeline({
                     <h4 className="font-serif text-base font-bold text-slate-950 group-hover:text-amber-800 transition-colors">
                       {page.recipient_name}&apos;s Celebration
                     </h4>
-                    <p className="mt-0.5 text-xs text-stone-500">
+                    <p className="mt-0.5 text-xs text-stone-600 font-medium">
                       {theme.emoji} {theme.name}
                     </p>
                   </div>
@@ -407,21 +407,21 @@ export function DashboardKanbanPipeline({
                   {/* Progress Indicator */}
                   <div className="space-y-1">
                     <div className="flex justify-between text-[11px]">
-                      <span className="font-medium text-stone-600">
+                      <span className="font-semibold text-stone-700">
                         {page.message_count || 0} {(page.message_count || 0) === 1 ? 'wish' : 'wishes'} collected
                       </span>
-                      <span className="font-bold text-amber-800">Collecting</span>
+                      <span className="font-bold text-amber-900">Collecting</span>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
                       <div
-                        className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                        className="h-full rounded-full bg-emerald-600 transition-all duration-500"
                         style={{ width: `${Math.min(100, Math.max(15, (page.message_count || 0) * 10))}%` }}
                       />
                     </div>
                   </div>
 
                   {/* 1-Click Action Hub */}
-                  <div className="flex items-center justify-between border-t border-stone-100 pt-2.5 text-xs">
+                  <div className="flex items-center justify-between border-t border-stone-200 pt-2.5 text-xs">
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
@@ -440,14 +440,14 @@ export function DashboardKanbanPipeline({
                           e.stopPropagation();
                           onCopyContribute(page);
                         }}
-                        className="rounded-lg border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-semibold text-stone-700 hover:bg-stone-100"
+                        className="rounded-lg border border-stone-300 bg-stone-50 px-2 py-1 text-[11px] font-bold text-stone-800 hover:bg-stone-100"
                         title="Copy invite link"
                       >
                         Copy
                       </button>
                     </div>
 
-                    <span className="font-bold text-amber-800 group-hover:underline">
+                    <span className="font-bold text-amber-900 group-hover:underline">
                       Inspect &rarr;
                     </span>
                   </div>
@@ -456,7 +456,7 @@ export function DashboardKanbanPipeline({
             })}
 
             {filteredCollecting.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-amber-200 p-5 text-center text-xs text-stone-500">
+              <div className="rounded-2xl border border-dashed border-amber-300 p-5 text-center text-xs text-amber-900/80 font-medium">
                 No active wish collections
               </div>
             )}
@@ -464,13 +464,13 @@ export function DashboardKanbanPipeline({
         </div>
 
         {/* COLUMN 3: REVEAL READY / SEALED */}
-        <div className="rounded-3xl border border-rose-200/90 bg-rose-50/70 p-4 shadow-xs flex flex-col max-h-[740px]">
-          <div className="sticky top-0 z-10 bg-rose-50/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-rose-200/70 mb-3">
+        <div className="rounded-3xl border-2 border-rose-300 bg-rose-50 p-4 shadow-sm flex flex-col max-h-[740px]">
+          <div className="sticky top-0 z-10 bg-rose-50/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-rose-300 mb-3">
             <div className="flex items-center gap-2 font-bold text-xs text-rose-950">
               <span className="h-2 w-2 rounded-full bg-rose-500" />
               <span>3. Reveal Ready</span>
             </div>
-            <span className="rounded-full bg-rose-200/80 px-2 py-0.5 text-[11px] font-bold text-rose-900">
+            <span className="rounded-full bg-rose-200 border border-rose-300 px-2 py-0.5 text-[11px] font-bold text-rose-950">
               {filteredRevealReady.length}
             </span>
           </div>
@@ -485,7 +485,7 @@ export function DashboardKanbanPipeline({
                   <div
                     key={page.id}
                     onClick={() => onSelectPage(page)}
-                    className="group cursor-pointer rounded-xl border border-rose-200 bg-white p-2.5 shadow-xs transition-all hover:border-rose-400 hover:shadow-sm flex items-center justify-between gap-2.5"
+                    className="group cursor-pointer rounded-xl border border-rose-300 bg-white p-2.5 shadow-xs transition-all hover:border-rose-500 hover:shadow-sm flex items-center justify-between gap-2.5"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="h-8 w-8 rounded-lg bg-rose-50 flex items-center justify-center text-base shrink-0 border border-rose-200">
@@ -502,7 +502,7 @@ export function DashboardKanbanPipeline({
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-stone-500">
+                        <span className="text-[10px] text-stone-600 font-medium">
                           Ready &middot; {page.message_count || 0} wishes
                         </span>
                       </div>
@@ -510,7 +510,7 @@ export function DashboardKanbanPipeline({
                     <Link
                       to={`/birthday/${page.public_code}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="rounded-md bg-slate-950 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-slate-800 shrink-0"
+                      className="rounded-md bg-slate-950 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-slate-800 shrink-0 shadow-xs"
                     >
                       Reveal
                     </Link>
@@ -522,12 +522,12 @@ export function DashboardKanbanPipeline({
                 <div
                   key={page.id}
                   onClick={() => onSelectPage(page)}
-                  className="group cursor-pointer rounded-2xl border-2 border-rose-300 bg-white p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg space-y-2.5"
+                  className="group cursor-pointer rounded-2xl border-2 border-rose-400 bg-white p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg space-y-2.5"
                 >
                   <CelebrationCardCover page={page} theme={theme} />
 
                   <div className="flex items-center justify-between">
-                    <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-800">
+                    <span className="rounded-full border border-rose-300 bg-rose-100 px-2.5 py-0.5 text-[10px] font-bold text-rose-950">
                       Birthday Arrived!
                     </span>
                     <span className="text-xs font-bold text-rose-600">
@@ -539,12 +539,12 @@ export function DashboardKanbanPipeline({
                     <h4 className="font-serif text-base font-bold text-slate-950 group-hover:text-rose-600 transition-colors">
                       {page.recipient_name}&apos;s Surprise
                     </h4>
-                    <p className="mt-0.5 text-xs text-stone-500">
+                    <p className="mt-0.5 text-xs text-stone-600 font-medium">
                       {page.message_count || 0} memories safely collected
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-stone-100 pt-2.5 text-xs">
+                  <div className="flex items-center justify-between border-t border-stone-200 pt-2.5 text-xs">
                     <Link
                       to={`/birthday/${page.public_code}`}
                       onClick={(e) => e.stopPropagation()}
@@ -553,7 +553,7 @@ export function DashboardKanbanPipeline({
                       Trigger Reveal
                     </Link>
 
-                    <span className="font-bold text-slate-900 group-hover:underline">
+                    <span className="font-bold text-slate-950 group-hover:underline">
                       Open &rarr;
                     </span>
                   </div>
@@ -562,7 +562,7 @@ export function DashboardKanbanPipeline({
             })}
 
             {filteredRevealReady.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-rose-200 p-5 text-center text-xs text-stone-500">
+              <div className="rounded-2xl border border-dashed border-rose-300 p-5 text-center text-xs text-rose-900/80 font-medium">
                 No celebrations awaiting reveal
               </div>
             )}
@@ -570,13 +570,13 @@ export function DashboardKanbanPipeline({
         </div>
 
         {/* COLUMN 4: DELIVERED KEEPSAKES */}
-        <div className="rounded-3xl border border-stone-200/90 bg-stone-100/90 p-4 shadow-xs flex flex-col max-h-[740px]">
-          <div className="sticky top-0 z-10 bg-stone-100/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-stone-200/70 mb-3">
-            <div className="flex items-center gap-2 font-bold text-xs text-stone-700">
-              <Gift className="h-3.5 w-3.5 text-stone-500" />
+        <div className="rounded-3xl border border-stone-300 bg-stone-100 p-4 shadow-sm flex flex-col max-h-[740px]">
+          <div className="sticky top-0 z-10 bg-stone-100/95 backdrop-blur-xs pb-3 pt-0.5 flex items-center justify-between border-b border-stone-300 mb-3">
+            <div className="flex items-center gap-2 font-bold text-xs text-stone-900">
+              <Gift className="h-3.5 w-3.5 text-stone-600" />
               <span>4. Delivered Keepsakes</span>
             </div>
-            <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[11px] font-bold text-stone-600">
+            <span className="rounded-full bg-stone-200 border border-stone-300 px-2 py-0.5 text-[11px] font-bold text-stone-800">
               {filteredDelivered.length}
             </span>
           </div>
@@ -591,7 +591,7 @@ export function DashboardKanbanPipeline({
                   <div
                     key={page.id}
                     onClick={() => onSelectPage(page)}
-                    className="group cursor-pointer rounded-xl border border-stone-200 bg-white p-2.5 shadow-xs transition-all hover:border-amber-300 hover:shadow-sm flex items-center justify-between gap-2.5"
+                    className="group cursor-pointer rounded-xl border border-stone-300 bg-white p-2.5 shadow-xs transition-all hover:border-amber-400 hover:shadow-sm flex items-center justify-between gap-2.5"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="h-8 w-8 rounded-lg bg-stone-100 flex items-center justify-center text-base shrink-0 border border-stone-200">
@@ -608,7 +608,7 @@ export function DashboardKanbanPipeline({
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-stone-500">
+                        <span className="text-[10px] text-stone-600 font-medium">
                           {format(bday, 'MMM d, yyyy')} &middot; {page.message_count || 0} wishes
                         </span>
                       </div>
@@ -616,7 +616,7 @@ export function DashboardKanbanPipeline({
                     <Link
                       to={`/birthday/${page.public_code}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-[11px] font-bold text-slate-900 hover:underline shrink-0"
+                      className="text-[11px] font-bold text-slate-950 hover:underline shrink-0"
                     >
                       Revisit
                     </Link>
@@ -628,13 +628,13 @@ export function DashboardKanbanPipeline({
                 <div
                   key={page.id}
                   onClick={() => onSelectPage(page)}
-                  className="group cursor-pointer rounded-2xl border border-stone-200/90 bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md space-y-2.5"
+                  className="group cursor-pointer rounded-2xl border border-stone-200 bg-white p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md space-y-2.5"
                 >
                   <CelebrationCardCover page={page} theme={theme} />
 
-                  <div className="flex items-center justify-between text-xs text-stone-500">
+                  <div className="flex items-center justify-between text-xs text-stone-600 font-medium">
                     <span>{format(bday, 'MMM d, yyyy')}</span>
-                    <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-700">
+                    <span className="rounded-full border border-stone-300 bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-800">
                       Keepsake
                     </span>
                   </div>
@@ -643,7 +643,7 @@ export function DashboardKanbanPipeline({
                     <h4 className="font-serif text-base font-bold text-slate-950 group-hover:text-amber-800 transition-colors">
                       {page.recipient_name}&apos;s Birthday
                     </h4>
-                    <p className="mt-0.5 text-xs text-stone-500">
+                    <p className="mt-0.5 text-xs text-stone-600 font-medium">
                       {page.message_count || 0} memories preserved
                     </p>
                   </div>

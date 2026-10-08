@@ -332,11 +332,11 @@ const Dashboard = () => {
   const displayName = profile?.display_name || user?.email?.split('@')[0] || 'Creator';
 
   return (
-    <div className="relative h-screen bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 flex overflow-hidden">
-      {/* Background Celebratory Glows */}
-      <div className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-amber-200/35 to-rose-200/20 blur-3xl" />
-      <div className="pointer-events-none absolute -right-40 top-20 h-[520px] w-[520px] rounded-full bg-gradient-to-bl from-rose-200/30 to-amber-200/25 blur-3xl" />
-      <div className="pointer-events-none absolute left-1/3 top-1/2 h-[360px] w-[360px] rounded-full bg-amber-100/30 blur-3xl" />
+    <div className="relative h-[100dvh] min-h-[100dvh] bg-[#FAF7F2] text-slate-900 selection:bg-amber-200 selection:text-amber-900 flex overflow-hidden">
+      {/* Background Celebratory Glows with richer saturated warmth */}
+      <div className="pointer-events-none absolute -left-40 top-0 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-amber-400/30 via-rose-300/25 to-amber-200/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 top-20 h-[540px] w-[540px] rounded-full bg-gradient-to-bl from-rose-400/25 via-pink-300/20 to-amber-300/20 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/3 top-1/2 h-[380px] w-[380px] rounded-full bg-amber-200/35 blur-3xl" />
 
       {/* 1. PERSISTENT STUDIO APP SHELL SIDEBAR (Desktop) */}
       <DashboardSidebar
@@ -353,7 +353,7 @@ const Dashboard = () => {
 
       {/* MOBILE SIDEBAR DRAWER (When on phone / tablet) */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-        <SheetContent side="left" hideDefaultClose className="p-0 w-80 bg-[#FAF7F2] text-slate-900 border-r border-stone-200">
+        <SheetContent side="left" hideDefaultClose className="p-0 w-80 bg-[#FAF7F2] text-slate-900 border-r border-stone-300">
           <DashboardSidebar
             isMobileDrawer
             user={user}
@@ -375,17 +375,17 @@ const Dashboard = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         
         {/* Top Command Bar (Search moved to main area, sidebar toggle added) */}
-        <header className="bg-white/85 backdrop-blur-md border-b border-stone-200/90 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">
+        <header className="bg-white/95 backdrop-blur-md border-b border-stone-300 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">
           <div className="flex items-center gap-3">
             {/* Custom On-Brand Menu Button on Mobile/Tablet */}
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-700 hover:bg-stone-50 transition-colors shadow-xs active:scale-95"
+              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-300 bg-white text-stone-800 hover:bg-stone-50 transition-colors shadow-xs active:scale-95"
               aria-label="Open sidebar menu"
               title="Open menu"
             >
-              <BrandMenuIcon className="h-4 w-4 text-stone-700" />
+              <BrandMenuIcon className="h-4 w-4 text-stone-800" />
             </button>
 
             {/* Studio Context Title */}
@@ -393,8 +393,8 @@ const Dashboard = () => {
               <span className="font-serif font-bold text-slate-950 text-sm sm:text-base tracking-tight">
                 Celebration Atelier
               </span>
-              <span className="hidden sm:inline-block h-1 w-1 rounded-full bg-stone-300" />
-              <span className="hidden sm:inline-block text-[11px] text-stone-500 font-medium">
+              <span className="hidden sm:inline-block h-1 w-1 rounded-full bg-stone-400" />
+              <span className="hidden sm:inline-block text-[11px] text-stone-700 font-semibold">
                 {stats.totalPages} {stats.totalPages === 1 ? 'Milestone' : 'Milestones'} Total
               </span>
             </div>
@@ -402,18 +402,18 @@ const Dashboard = () => {
 
           {/* Quick Metrics & User Chip */}
           <div className="flex items-center gap-3 text-xs shrink-0">
-            <div className="hidden sm:flex items-center gap-4 border-r border-stone-200 pr-4">
+            <div className="hidden sm:flex items-center gap-4 border-r border-stone-300 pr-4">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
                   Live
                 </span>
-                <p className="font-serif font-bold text-emerald-800 text-sm">
+                <p className="font-serif font-bold text-emerald-700 text-sm">
                   {stats.activePages} Collecting
                 </p>
               </div>
-              <div className="w-px h-6 bg-stone-200" />
+              <div className="w-px h-6 bg-stone-300" />
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
                   Wishes
                 </span>
                 <p className="font-serif font-bold text-slate-950 text-sm">
@@ -448,9 +448,9 @@ const Dashboard = () => {
                 <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
                   Welcome back, <span className="italic text-rose-500">{displayName}</span>
                 </h1>
-                <span className="font-handwriting text-xl text-amber-800">creator atelier</span>
+                <span className="font-handwriting text-xl text-amber-900 font-semibold">creator atelier</span>
               </div>
-              <p className="mt-1 text-xs sm:text-sm text-stone-500 max-w-xl leading-relaxed">
+              <p className="mt-1 text-xs sm:text-sm text-stone-700 max-w-xl leading-relaxed font-medium">
                 Track upcoming birthday milestones on the calendar, gather heartfelt memories, and orchestrate slide reveals.
               </p>
             </div>
@@ -460,7 +460,7 @@ const Dashboard = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-2 rounded-2xl border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 shadow-xs"
+                  className="gap-2 rounded-2xl border-stone-300 bg-white px-3.5 py-2 text-xs font-bold text-stone-800 hover:bg-stone-50 shadow-xs"
                 >
                   <Palette className="h-3.5 w-3.5 text-amber-600" />
                   Custom Themes
@@ -469,7 +469,7 @@ const Dashboard = () => {
               <Link to="/create">
                 <Button
                   size="sm"
-                  className="btn-press gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/20 hover:brightness-105 active:scale-[0.98] transition-all"
+                  className="btn-press gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/25 hover:brightness-105 active:scale-[0.98] transition-all"
                 >
                   <Sparkles className="h-4 w-4 text-amber-100" />
                   Craft Canvas
@@ -480,16 +480,16 @@ const Dashboard = () => {
 
           {pages.length === 0 ? (
             /* Empty State */
-            <div className="relative overflow-hidden rounded-[2.5rem] border border-stone-200/90 bg-white p-8 sm:p-14 text-center shadow-card">
-              <div className="pointer-events-none absolute -left-12 -top-12 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
-              <div className="pointer-events-none absolute -right-12 -bottom-12 h-44 w-44 rounded-full bg-rose-500/10 blur-2xl" />
-              <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-amber-200/80 bg-amber-50/80 text-4xl shadow-sm">
+            <div className="relative overflow-hidden rounded-[2.5rem] border border-stone-300 bg-white p-8 sm:p-14 text-center shadow-card">
+              <div className="pointer-events-none absolute -left-12 -top-12 h-44 w-44 rounded-full bg-amber-500/15 blur-2xl" />
+              <div className="pointer-events-none absolute -right-12 -bottom-12 h-44 w-44 rounded-full bg-rose-500/15 blur-2xl" />
+              <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-amber-300 bg-amber-50 text-4xl shadow-sm">
                 🎂
               </div>
               <h3 className="relative mt-6 font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
                 No birthday canvases yet
               </h3>
-              <p className="relative mx-auto mt-2 max-w-md text-sm text-stone-600 leading-relaxed">
+              <p className="relative mx-auto mt-2 max-w-md text-sm text-stone-700 leading-relaxed font-medium">
                 Start by creating a keepsake canvas for someone special. Pick a soundtrack, collect wishes from friends and family, and reveal it on their day.
               </p>
               <div className="relative mt-7 inline-flex">
@@ -514,20 +514,20 @@ const Dashboard = () => {
               />
 
               {/* STUDIO SEARCH & FILTER BAR (Directly above the celebration cards) */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-stone-200/90 rounded-2xl p-2.5 sm:px-4 sm:py-3 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-stone-300 rounded-2xl p-2.5 sm:px-4 sm:py-3 shadow-xs">
                 <div className="relative flex-1 max-w-md">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-500" />
                   <Input
                     placeholder="Search celebrations, recipients, or milestones..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-9 w-full rounded-xl border border-stone-200/80 bg-stone-50/80 pl-10 pr-8 text-xs text-slate-900 placeholder:text-stone-400 focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/15 transition-all"
+                    className="h-9 w-full rounded-xl border border-stone-300 bg-stone-50/80 pl-10 pr-8 text-xs font-medium text-slate-950 placeholder:text-stone-500 focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-500/20 transition-all"
                   />
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full hover:bg-stone-200/70 text-stone-400 hover:text-stone-700 flex items-center justify-center transition-colors text-xs"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full hover:bg-stone-200 text-stone-500 hover:text-stone-800 flex items-center justify-center transition-colors text-xs font-bold"
                       aria-label="Clear search"
                     >
                       ✕
@@ -535,12 +535,12 @@ const Dashboard = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-stone-500">
-                  <span className="font-semibold text-slate-700">
+                <div className="flex items-center gap-2 text-xs text-stone-600">
+                  <span className="font-bold text-slate-900">
                     {searchedPages.length} {searchedPages.length === 1 ? 'Celebration' : 'Celebrations'}
                   </span>
                   {searchQuery && (
-                    <span className="text-[11px] bg-amber-50 text-amber-800 border border-amber-200 rounded-full px-2 py-0.5 font-medium">
+                    <span className="text-[11px] bg-amber-100 text-amber-950 border border-amber-300 rounded-full px-2.5 py-0.5 font-bold">
                       filtered
                     </span>
                   )}
@@ -564,17 +564,17 @@ const Dashboard = () => {
 
           {/* SAVED CELEBRATIONS SECTION (IF ANY) */}
           {savedPages.length > 0 && (
-            <section className="pt-8 border-t border-stone-200/80 space-y-4">
+            <section className="pt-8 border-t border-stone-300 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-amber-900">
                     Saved Keepsakes
                   </span>
                   <h3 className="font-serif text-xl font-bold text-slate-950">
                     Celebrations you&apos;re keeping
                   </h3>
                 </div>
-                <span className="rounded-full bg-stone-100 border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600">
+                <span className="rounded-full bg-stone-100 border border-stone-300 px-2.5 py-0.5 text-xs font-bold text-stone-800">
                   {savedPages.length} Saved
                 </span>
               </div>
@@ -585,16 +585,16 @@ const Dashboard = () => {
                   return (
                     <div
                       key={page.id}
-                      className="rounded-2xl border border-stone-200 bg-white p-4 shadow-xs flex items-center justify-between gap-3"
+                      className="rounded-2xl border border-stone-300 bg-white p-4 shadow-sm flex items-center justify-between gap-3"
                     >
                       <div className="min-w-0">
-                        <span className="text-[10px] text-stone-400 font-bold uppercase">
+                        <span className="text-[10px] text-stone-600 font-bold uppercase">
                           {format(bday, 'MMM d, yyyy')}
                         </span>
                         <h4 className="font-serif font-bold text-slate-950 truncate">
                           {page.recipient_name}&apos;s Canvas
                         </h4>
-                        <p className="text-xs text-stone-500">
+                        <p className="text-xs text-stone-600 font-medium">
                           {page.message_count || 0} wishes collected
                         </p>
                       </div>
@@ -603,14 +603,14 @@ const Dashboard = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 text-xs text-stone-500 hover:text-rose-600"
+                          className="h-8 text-xs font-bold text-stone-600 hover:text-rose-600"
                           onClick={() => setSavedPagePendingRemove(page)}
                         >
                           Remove
                         </Button>
                         <Button
                           size="sm"
-                          className="h-8 rounded-xl bg-slate-950 text-white text-xs font-semibold px-3"
+                          className="h-8 rounded-xl bg-slate-950 text-white text-xs font-bold px-3 shadow-xs hover:bg-slate-900"
                           onClick={() => navigate(`/birthday/${page.public_code}`)}
                         >
                           Open

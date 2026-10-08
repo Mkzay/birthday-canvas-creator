@@ -275,46 +275,46 @@ export function DashboardSidebar({
         ) : (
           <nav className="px-3 space-y-6 text-xs">
             <div className="space-y-1">
-              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-700">
                 Celebrations
               </span>
               <Link
                 to="/dashboard"
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all ${
                   isDashboard
-                    ? 'bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs'
-                    : 'text-stone-600 hover:bg-white hover:text-slate-950 font-medium'
+                    ? 'bg-white border border-stone-300 text-slate-950 font-bold shadow-xs'
+                    : 'text-stone-700 hover:bg-white hover:text-slate-950 font-semibold'
                 }`}
               >
                 <span className="flex items-center gap-2.5">
                   <CalendarDays className="h-4 w-4 text-amber-700" />
                   <span>Timeline &amp; Pipeline</span>
                 </span>
-                <span className="text-[11px] font-bold bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200/80">
+                <span className="text-[11px] font-bold bg-amber-100 text-amber-950 px-2 py-0.5 rounded-md border border-amber-300">
                   {totalPagesCount}
                 </span>
               </Link>
               <Link
                 to="/dashboard"
-                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 font-medium transition-all"
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-700 hover:bg-white hover:text-slate-950 font-semibold transition-all"
               >
                 <span className="flex items-center gap-2.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Live Collecting</span>
                 </span>
-                <span className="text-[11px] text-stone-500 font-bold">
+                <span className="text-[11px] text-stone-700 font-bold">
                   {activePagesCount}
                 </span>
               </Link>
               <Link
                 to="/dashboard"
-                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-600 hover:bg-white hover:text-slate-950 font-medium transition-all"
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-stone-700 hover:bg-white hover:text-slate-950 font-semibold transition-all"
               >
                 <span className="flex items-center gap-2.5">
-                  <Trophy className="h-4 w-4 text-stone-400" />
+                  <Trophy className="h-4 w-4 text-amber-600" />
                   <span>Delivered Keepsakes</span>
                 </span>
-                <span className="text-[11px] text-stone-500 font-bold">
+                <span className="text-[11px] text-stone-700 font-bold">
                   {deliveredPagesCount}
                 </span>
               </Link>
@@ -322,15 +322,15 @@ export function DashboardSidebar({
 
             {/* Design Tools */}
             <div className="space-y-1">
-              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-700">
                 Creation Atelier
               </span>
               <Link
                 to="/themes"
                 className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all ${
                   isThemes
-                    ? 'bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs'
-                    : 'text-stone-600 hover:bg-white hover:text-slate-950 font-medium'
+                    ? 'bg-white border border-stone-300 text-slate-950 font-bold shadow-xs'
+                    : 'text-stone-700 hover:bg-white hover:text-slate-950 font-semibold'
                 }`}
               >
                 <Palette className="h-4 w-4 text-amber-700" />
@@ -340,8 +340,8 @@ export function DashboardSidebar({
                 to="/billing"
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all ${
                   isBilling
-                    ? 'bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs'
-                    : 'text-stone-600 hover:bg-white hover:text-slate-950 font-medium'
+                    ? 'bg-white border border-stone-300 text-slate-950 font-bold shadow-xs'
+                    : 'text-stone-700 hover:bg-white hover:text-slate-950 font-semibold'
                 }`}
               >
                 <span className="flex items-center gap-2.5">
@@ -349,11 +349,11 @@ export function DashboardSidebar({
                   <span>{isProUser ? 'Atelier Perks' : 'Studio Perks'}</span>
                 </span>
                 {!isProUser ? (
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
+                  <span className="text-[10px] font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
                     Upgrade
                   </span>
                 ) : (
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  <span className="text-[10px] font-bold text-emerald-950 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
                     Active
                   </span>
                 )}
@@ -362,8 +362,8 @@ export function DashboardSidebar({
                 to="/settings"
                 className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all ${
                   isSettings
-                    ? 'bg-white border border-stone-200/90 text-slate-950 font-bold shadow-xs'
-                    : 'text-stone-600 hover:bg-white hover:text-slate-950 font-medium'
+                    ? 'bg-white border border-stone-300 text-slate-950 font-bold shadow-xs'
+                    : 'text-stone-700 hover:bg-white hover:text-slate-950 font-semibold'
                 }`}
               >
                 <Settings className="h-4 w-4 text-amber-700" />
@@ -374,8 +374,8 @@ export function DashboardSidebar({
                   to="/admin"
                   className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all ${
                     isAdmin
-                      ? 'bg-purple-50/80 border border-purple-200 text-purple-950 font-bold shadow-xs'
-                      : 'text-stone-600 hover:bg-white hover:text-purple-950 font-medium'
+                      ? 'bg-purple-100 border border-purple-300 text-purple-950 font-bold shadow-xs'
+                      : 'text-stone-700 hover:bg-white hover:text-purple-950 font-semibold'
                   }`}
                 >
                   <ShieldCheck className="h-4 w-4 text-purple-700" />
