@@ -14,7 +14,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import BirthdayCountdown from '@/components/BirthdayCountdown';
 import BirthdayShareCard from '@/components/BirthdayShareCard';
+import { toast } from 'sonner';
 import { resolveAssetUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import AnimatedBackground from '@/components/AnimatedBackground';
@@ -72,6 +73,9 @@ const BirthdayPage = ({
   const { pageId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const location = useLocation();
+  const autoExportTriggeredRef = useRef(false);
 
   // Shared UI states
   const [expandedPhoto, setExpandedPhoto] = useState<ExpandedPhoto>(null);
@@ -167,6 +171,21 @@ const BirthdayPage = ({
     messages,
     ytId: soundtrack.ytId,
   });
+
+  // Automatically trigger video keepsake reel export when invoked with ?export=video or ?action=export-video
+  useEffect(() => {
+    if (!celebrationData.loading && celebrationData.page && messages.length > 0 && !autoExportTriggeredRef.current) {
+      const search = new URLSearchParams(location.search);
+      if (search.get('export') === 'video' || search.get('action') === 'export-video') {
+        autoExportTriggeredRef.current = true;
+        toast.info('Preparing animated story video reel...');
+        const timer = setTimeout(() => {
+          void keepsakeExport.handleDownloadVideoKeepsake();
+        }, 900);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [celebrationData.loading, celebrationData.page, messages.length, location.search, keepsakeExport]);
 
   // Seam 4: Celebration Reveal Timeline & Story Progression Engine
   const revealEngine = useCelebrationRevealEngine({

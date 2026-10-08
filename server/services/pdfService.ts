@@ -1,11 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont, type RGB } from "pdf-lib";
 import QRCode from "qrcode";
 import sanitizeHtml from "sanitize-html";
 import sharp from "sharp";
 
 export interface PdfThemePalette {
+  name: string;
+  isDark: boolean;
+  fontFamily: "serif" | "sans";
   primary: [number, number, number];
   accent: [number, number, number];
   background: [number, number, number];
@@ -17,67 +20,124 @@ export interface PdfThemePalette {
 
 const THEME_PALETTES: Record<string, PdfThemePalette> = {
   elegant: {
-    primary: [0.12, 0.14, 0.18],
-    accent: [0.85, 0.65, 0.25],
+    name: "Elegant",
+    isDark: false,
+    fontFamily: "serif",
+    primary: [0.18, 0.12, 0.08],
+    accent: [0.85, 0.65, 0.22],
     background: [0.985, 0.98, 0.97],
     cardBackground: [1, 1, 1],
+    textDark: [0.18, 0.12, 0.08],
+    textMuted: [0.52, 0.46, 0.4],
+    border: [0.9, 0.86, 0.8],
+  },
+  playful: {
+    name: "Playful",
+    isDark: false,
+    fontFamily: "sans",
+    primary: [0.32, 0.08, 0.28],
+    accent: [0.92, 0.28, 0.6],
+    background: [0.99, 0.965, 0.98],
+    cardBackground: [1, 1, 1],
+    textDark: [0.26, 0.08, 0.24],
+    textMuted: [0.55, 0.42, 0.52],
+    border: [0.94, 0.85, 0.92],
+  },
+  minimalist: {
+    name: "Minimalist",
+    isDark: false,
+    fontFamily: "sans",
+    primary: [0.12, 0.14, 0.18],
+    accent: [0.4, 0.48, 0.58],
+    background: [0.98, 0.985, 0.99],
+    cardBackground: [1, 1, 1],
     textDark: [0.1, 0.12, 0.16],
-    textMuted: [0.45, 0.48, 0.52],
-    border: [0.9, 0.88, 0.84],
+    textMuted: [0.48, 0.52, 0.56],
+    border: [0.88, 0.9, 0.93],
   },
-  champagne: {
-    primary: [0.2, 0.15, 0.12],
-    accent: [0.88, 0.72, 0.35],
-    background: [0.99, 0.98, 0.96],
-    cardBackground: [1, 1, 1],
-    textDark: [0.18, 0.14, 0.1],
-    textMuted: [0.5, 0.46, 0.42],
-    border: [0.92, 0.88, 0.82],
-  },
-  midnight: {
-    primary: [0.08, 0.1, 0.16],
-    accent: [0.4, 0.65, 0.95],
-    background: [0.97, 0.98, 0.99],
-    cardBackground: [1, 1, 1],
-    textDark: [0.08, 0.1, 0.16],
-    textMuted: [0.42, 0.46, 0.52],
-    border: [0.86, 0.89, 0.94],
-  },
-  lavender: {
-    primary: [0.22, 0.16, 0.28],
-    accent: [0.65, 0.45, 0.8],
+  retro: {
+    name: "Retro",
+    isDark: false,
+    fontFamily: "sans",
+    primary: [0.24, 0.1, 0.36],
+    accent: [0.06, 0.68, 0.82],
     background: [0.98, 0.97, 0.99],
     cardBackground: [1, 1, 1],
-    textDark: [0.18, 0.12, 0.24],
-    textMuted: [0.48, 0.42, 0.52],
-    border: [0.9, 0.86, 0.94],
+    textDark: [0.2, 0.08, 0.32],
+    textMuted: [0.5, 0.42, 0.58],
+    border: [0.9, 0.84, 0.94],
   },
-  rose: {
-    primary: [0.28, 0.12, 0.16],
-    accent: [0.85, 0.4, 0.5],
-    background: [0.99, 0.97, 0.98],
+  tropical: {
+    name: "Tropical",
+    isDark: false,
+    fontFamily: "sans",
+    primary: [0.06, 0.22, 0.14],
+    accent: [0.14, 0.68, 0.4],
+    background: [0.965, 0.985, 0.97],
     cardBackground: [1, 1, 1],
-    textDark: [0.22, 0.1, 0.14],
-    textMuted: [0.52, 0.42, 0.46],
-    border: [0.94, 0.86, 0.9],
-  },
-  emerald: {
-    primary: [0.08, 0.2, 0.14],
-    accent: [0.2, 0.65, 0.4],
-    background: [0.97, 0.99, 0.98],
-    cardBackground: [1, 1, 1],
-    textDark: [0.08, 0.18, 0.12],
-    textMuted: [0.42, 0.5, 0.46],
+    textDark: [0.06, 0.2, 0.12],
+    textMuted: [0.4, 0.52, 0.44],
     border: [0.86, 0.92, 0.88],
   },
+  cosmic: {
+    name: "Cosmic",
+    isDark: true,
+    fontFamily: "sans",
+    primary: [0.95, 0.94, 0.99],
+    accent: [0.65, 0.48, 0.98],
+    background: [0.06, 0.05, 0.14],
+    cardBackground: [0.12, 0.1, 0.22],
+    textDark: [0.95, 0.94, 0.99],
+    textMuted: [0.72, 0.7, 0.85],
+    border: [0.26, 0.22, 0.42],
+  },
   sunset: {
-    primary: [0.28, 0.14, 0.1],
-    accent: [0.92, 0.45, 0.25],
-    background: [0.99, 0.975, 0.96],
+    name: "Sunset",
+    isDark: false,
+    fontFamily: "sans",
+    primary: [0.28, 0.1, 0.08],
+    accent: [0.94, 0.42, 0.2],
+    background: [0.99, 0.965, 0.94],
     cardBackground: [1, 1, 1],
-    textDark: [0.22, 0.12, 0.08],
-    textMuted: [0.52, 0.44, 0.4],
-    border: [0.94, 0.88, 0.84],
+    textDark: [0.26, 0.1, 0.08],
+    textMuted: [0.54, 0.42, 0.38],
+    border: [0.94, 0.86, 0.82],
+  },
+  ocean: {
+    name: "Ocean",
+    isDark: false,
+    fontFamily: "sans",
+    primary: [0.06, 0.18, 0.28],
+    accent: [0.06, 0.64, 0.88],
+    background: [0.95, 0.98, 0.99],
+    cardBackground: [1, 1, 1],
+    textDark: [0.06, 0.18, 0.26],
+    textMuted: [0.42, 0.52, 0.58],
+    border: [0.85, 0.91, 0.95],
+  },
+  candyland: {
+    name: "Candyland",
+    isDark: false,
+    fontFamily: "sans",
+    primary: [0.32, 0.08, 0.26],
+    accent: [0.94, 0.36, 0.68],
+    background: [0.99, 0.965, 0.975],
+    cardBackground: [1, 1, 1],
+    textDark: [0.28, 0.06, 0.22],
+    textMuted: [0.55, 0.4, 0.52],
+    border: [0.95, 0.86, 0.92],
+  },
+  midnight: {
+    name: "Midnight",
+    isDark: true,
+    fontFamily: "serif",
+    primary: [0.96, 0.97, 0.99],
+    accent: [0.48, 0.55, 0.98],
+    background: [0.04, 0.05, 0.09],
+    cardBackground: [0.09, 0.11, 0.18],
+    textDark: [0.96, 0.97, 0.99],
+    textMuted: [0.68, 0.72, 0.82],
+    border: [0.2, 0.24, 0.38],
   },
 };
 
@@ -132,6 +192,69 @@ export function wrapPdfText(text: string, maxCharsPerLine: number): string[] {
   return lines;
 }
 
+function renderContainedText(
+  page: PDFPage,
+  text: string,
+  boxX: number,
+  boxTopY: number,
+  boxWidth: number,
+  maxAvailableHeight: number,
+  font: PDFFont,
+  options?: {
+    color?: RGB;
+    preferredSize?: number;
+    minSize?: number;
+    baseCharsPerLine?: number;
+  }
+): number {
+  const sanitized = cleanPdfText(text);
+  if (!sanitized) return boxTopY;
+
+  let fontSize = options?.preferredSize || 13;
+  const minFontSize = options?.minSize || 10;
+  const textColor = options?.color || rgb(0.12, 0.12, 0.14);
+
+  // Dynamic calculation to ensure text stays completely inside the box
+  let lines: string[] = [];
+  let lineHeight = fontSize * 1.45;
+
+  while (fontSize >= minFontSize) {
+    lineHeight = fontSize * 1.45;
+    const estCharWidth = fontSize * 0.52;
+    const charsPerLine = Math.max(20, Math.floor(boxWidth / estCharWidth));
+    lines = wrapPdfText(sanitized, charsPerLine);
+    const totalNeededHeight = lines.length * lineHeight;
+
+    if (totalNeededHeight <= maxAvailableHeight || fontSize <= minFontSize) {
+      break;
+    }
+    fontSize -= 0.75;
+  }
+
+  const maxLinesAllowed = Math.max(1, Math.floor(maxAvailableHeight / lineHeight));
+  if (lines.length > maxLinesAllowed) {
+    lines = lines.slice(0, maxLinesAllowed);
+    const lastIdx = lines.length - 1;
+    if (lines[lastIdx]) {
+      lines[lastIdx] = `${lines[lastIdx].replace(/[.,;:!?\s]+$/, "")}...`;
+    }
+  }
+
+  let cursorY = boxTopY;
+  for (const line of lines) {
+    page.drawText(line, {
+      x: boxX,
+      y: cursorY,
+      size: fontSize,
+      font,
+      color: textColor,
+    });
+    cursorY -= lineHeight;
+  }
+
+  return cursorY;
+}
+
 function formatAlbumDate(rawDate?: unknown): string {
   if (!rawDate) return "Special Occasion";
   try {
@@ -166,8 +289,8 @@ function formatAlbumDate(rawDate?: unknown): string {
 
 async function fetchAndProcessImage(
   urlOrPath: string,
-  maxWidth = 600,
-  maxHeight = 600
+  maxWidth = 700,
+  maxHeight = 700
 ): Promise<Buffer | null> {
   if (!urlOrPath) return null;
 
@@ -260,7 +383,7 @@ export async function buildBrandedPagePdf(
   const isLandscape = options?.orientation === "landscape";
   const doc = await PDFDocument.create();
 
-  // Typography system matching web app experience
+  // Typography system
   const titleFont = await doc.embedFont(StandardFonts.HelveticaBold);
   const bodyFont = await doc.embedFont(StandardFonts.Helvetica);
   const obliqueFont = await doc.embedFont(StandardFonts.HelveticaOblique);
@@ -276,11 +399,12 @@ export async function buildBrandedPagePdf(
   const celebrationUrl = publicCode ? `${siteUrl}/birthday/${publicCode}` : siteUrl;
 
   const palette = getThemePalette(page.theme);
+  const headingFont = palette.fontFamily === "serif" ? serifBoldFont : titleFont;
 
   // Dimensions: Portrait A4 (595x842 pt) vs Landscape 16:9 Presentation Deck (960x540 pt)
   const pageWidth = isLandscape ? 960 : 595;
   const pageHeight = isLandscape ? 540 : 842;
-  const margin = isLandscape ? 36 : 42;
+  const margin = isLandscape ? 32 : 38;
 
   const uniqueContributors = Array.from(
     new Set(
@@ -305,7 +429,7 @@ export async function buildBrandedPagePdf(
     const p = doc.addPage([pageWidth, pageHeight]);
     pageIndex += 1;
 
-    // Background fill
+    // Full bleed background fill
     p.drawRectangle({
       x: 0,
       y: 0,
@@ -314,7 +438,7 @@ export async function buildBrandedPagePdf(
       color: rgb(...palette.background),
     });
 
-    // Top thin theme accent line
+    // Top theme accent header stripe
     p.drawRectangle({
       x: 0,
       y: pageHeight - 5,
@@ -335,11 +459,10 @@ export async function buildBrandedPagePdf(
 
   if (isLandscape) {
     // 16:9 Widescreen Cover Slide
-    const leftWidth = coverBuffer ? 520 : 880;
-    const cardHeight = 460;
-    const cardY = 38;
+    const leftWidth = coverBuffer ? 520 : 896;
+    const cardHeight = 480;
+    const cardY = 28;
 
-    // Left Editorial Card
     coverPage.drawRectangle({
       x: margin,
       y: cardY,
@@ -350,7 +473,6 @@ export async function buildBrandedPagePdf(
       borderWidth: 1,
     });
 
-    // Top eyebrow tag
     coverPage.drawText("FIRST PAGE OUT OF THE ENVELOPE", {
       x: margin + 28,
       y: cardY + cardHeight - 38,
@@ -359,12 +481,11 @@ export async function buildBrandedPagePdf(
       color: rgb(...palette.accent),
     });
 
-    // Grand Birthday Heading
     coverPage.drawText("Happy Birthday,", {
       x: margin + 28,
       y: cardY + cardHeight - 78,
       size: 26,
-      font: serifBoldFont,
+      font: headingFont,
       color: rgb(...palette.primary),
     });
 
@@ -372,7 +493,7 @@ export async function buildBrandedPagePdf(
       x: margin + 28,
       y: cardY + cardHeight - 120,
       size: 38,
-      font: titleFont,
+      font: headingFont,
       color: rgb(...palette.primary),
     });
 
@@ -384,11 +505,11 @@ export async function buildBrandedPagePdf(
       color: rgb(...palette.textMuted),
     });
 
-    // Organizer Note (if present)
+    // Organizer Note
     const bentoMetricsY = cardY + 28;
     if (creatorMessage) {
-      const orgBoxY = cardY + 110;
-      const orgBoxHeight = 110;
+      const orgBoxY = cardY + 114;
+      const orgBoxHeight = 114;
       coverPage.drawRectangle({
         x: margin + 28,
         y: orgBoxY,
@@ -407,25 +528,26 @@ export async function buildBrandedPagePdf(
         color: rgb(...palette.accent),
       });
 
-      const quoteLines = wrapPdfText(`"${creatorMessage}"`, 55).slice(0, 4);
-      let qCursor = orgBoxY + orgBoxHeight - 42;
-      for (const line of quoteLines) {
-        coverPage.drawText(line, {
-          x: margin + 42,
-          y: qCursor,
-          size: 10.5,
-          font: serifItalicFont,
+      renderContainedText(
+        coverPage,
+        `"${creatorMessage}"`,
+        margin + 42,
+        orgBoxY + orgBoxHeight - 42,
+        leftWidth - 84,
+        64,
+        serifItalicFont,
+        {
           color: rgb(...palette.textDark),
-        });
-        qCursor -= 16;
-      }
+          preferredSize: 11,
+          minSize: 9.5,
+        }
+      );
     }
 
     // Bottom Celebration Metrics Bento
     const metricBoxWidth = (leftWidth - 56 - 16) / 2;
-    const metricBoxHeight = 62;
+    const metricBoxHeight = 68;
 
-    // Tile 1: Wishes Gathered
     coverPage.drawRectangle({
       x: margin + 28,
       y: bentoMetricsY,
@@ -445,12 +567,11 @@ export async function buildBrandedPagePdf(
     coverPage.drawText(String(messages.length), {
       x: margin + 40,
       y: bentoMetricsY + 16,
-      size: 22,
-      font: titleFont,
+      size: 24,
+      font: headingFont,
       color: rgb(...palette.primary),
     });
 
-    // Tile 2: Reveal Date
     coverPage.drawRectangle({
       x: margin + 28 + metricBoxWidth + 16,
       y: bentoMetricsY,
@@ -469,7 +590,7 @@ export async function buildBrandedPagePdf(
     });
     coverPage.drawText(birthdayDateLabel, {
       x: margin + 28 + metricBoxWidth + 28,
-      y: bentoMetricsY + 18,
+      y: bentoMetricsY + 20,
       size: 11,
       font: titleFont,
       color: rgb(...palette.primary),
@@ -493,21 +614,19 @@ export async function buildBrandedPagePdf(
           borderWidth: 1,
         });
 
-        // Photo inner image
         const imgPadding = 12;
         const imgWidth = photoCardWidth - imgPadding * 2;
-        const imgHeight = photoCardHeight - 48;
+        const imgHeight = photoCardHeight - 52;
         coverPage.drawImage(coverImg, {
           x: photoCardX + imgPadding,
-          y: cardY + 36,
+          y: cardY + 40,
           width: imgWidth,
           height: imgHeight,
         });
 
-        // Bottom caption tag
         coverPage.drawText(`${recipientName}'s birthday cover`, {
           x: photoCardX + imgPadding + 6,
-          y: cardY + 16,
+          y: cardY + 18,
           size: 9.5,
           font: titleFont,
           color: rgb(...palette.textMuted),
@@ -517,10 +636,10 @@ export async function buildBrandedPagePdf(
       }
     }
   } else {
-    // Portrait A4 Cover Page
+    // Portrait A4 Cover Page - Fully utilizing vertical space
     coverPage.drawText("W I S H C A N V A S", {
       x: margin,
-      y: pageHeight - 52,
+      y: pageHeight - 48,
       size: 11,
       font: titleFont,
       color: rgb(...palette.accent),
@@ -528,20 +647,19 @@ export async function buildBrandedPagePdf(
 
     coverPage.drawText("MEMORIES & BLESSINGS KEEPSAKE BOOK", {
       x: margin,
-      y: pageHeight - 68,
+      y: pageHeight - 64,
       size: 8.5,
       font: bodyFont,
       color: rgb(...palette.textMuted),
     });
 
-    let currentCursor = pageHeight - 95;
+    let currentCursor = pageHeight - 90;
 
-    // Hero Cover Photo
     if (coverBuffer) {
       try {
         const coverImg = await doc.embedJpg(coverBuffer);
-        const imgWidth = 320;
-        const imgHeight = 270;
+        const imgWidth = 340;
+        const imgHeight = 290;
         const imgX = (pageWidth - imgWidth) / 2;
         const imgY = currentCursor - imgHeight;
 
@@ -562,7 +680,7 @@ export async function buildBrandedPagePdf(
           height: imgHeight,
         });
 
-        currentCursor = imgY - 32;
+        currentCursor = imgY - 34;
       } catch (err) {
         console.warn("Failed to embed portrait cover image:", err);
       }
@@ -573,34 +691,31 @@ export async function buildBrandedPagePdf(
     coverPage.drawText("Happy Birthday,", {
       x: margin,
       y: currentCursor,
-      size: 20,
-      font: serifBoldFont,
+      size: 22,
+      font: headingFont,
       color: rgb(...palette.accent),
     });
 
     coverPage.drawText(recipientName, {
       x: margin,
-      y: currentCursor - 38,
-      size: 34,
-      font: titleFont,
+      y: currentCursor - 40,
+      size: 36,
+      font: headingFont,
       color: rgb(...palette.primary),
     });
 
     coverPage.drawText(`Celebrated on ${birthdayDateLabel}`, {
       x: margin,
-      y: currentCursor - 62,
-      size: 11,
+      y: currentCursor - 66,
+      size: 11.5,
       font: bodyFont,
       color: rgb(...palette.textMuted),
     });
 
-    currentCursor -= 95;
+    currentCursor -= 100;
 
-    // Organizer Foreword Card
     if (creatorMessage) {
-      const qLines = wrapPdfText(`"${creatorMessage}"`, 64).slice(0, 5);
-      const noteHeight = qLines.length * 17 + 34;
-
+      const noteHeight = 110;
       coverPage.drawRectangle({
         x: margin,
         y: currentCursor - noteHeight,
@@ -614,32 +729,34 @@ export async function buildBrandedPagePdf(
       coverPage.drawText("A NOTE FROM THE ORGANIZER", {
         x: margin + 18,
         y: currentCursor - 18,
-        size: 8,
+        size: 8.5,
         font: titleFont,
         color: rgb(...palette.accent),
       });
 
-      let qc = currentCursor - 36;
-      for (const line of qLines) {
-        coverPage.drawText(line, {
-          x: margin + 18,
-          y: qc,
-          size: 11,
-          font: serifItalicFont,
+      renderContainedText(
+        coverPage,
+        `"${creatorMessage}"`,
+        margin + 18,
+        currentCursor - 38,
+        pageWidth - margin * 2 - 36,
+        64,
+        serifItalicFont,
+        {
           color: rgb(...palette.textDark),
-        });
-        qc -= 17;
-      }
+          preferredSize: 11.5,
+          minSize: 10,
+        }
+      );
 
-      currentCursor -= noteHeight + 20;
+      currentCursor -= noteHeight + 24;
     }
 
     // Celebration Bento Tiles on Cover
     const tileWidth = (pageWidth - margin * 2 - 16) / 2;
-    const tileHeight = 64;
+    const tileHeight = 72;
     const tileY = Math.max(50, currentCursor - tileHeight);
 
-    // Tile 1
     coverPage.drawRectangle({
       x: margin,
       y: tileY,
@@ -650,21 +767,20 @@ export async function buildBrandedPagePdf(
       borderWidth: 0.8,
     });
     coverPage.drawText("WISHES GATHERED", {
-      x: margin + 16,
+      x: margin + 18,
       y: tileY + tileHeight - 20,
-      size: 8,
+      size: 8.5,
       font: titleFont,
       color: rgb(...palette.textMuted),
     });
     coverPage.drawText(String(messages.length), {
-      x: margin + 16,
-      y: tileY + 16,
-      size: 22,
-      font: titleFont,
+      x: margin + 18,
+      y: tileY + 18,
+      size: 24,
+      font: headingFont,
       color: rgb(...palette.primary),
     });
 
-    // Tile 2
     coverPage.drawRectangle({
       x: margin + tileWidth + 16,
       y: tileY,
@@ -677,32 +793,30 @@ export async function buildBrandedPagePdf(
     coverPage.drawText("REVEAL DATE", {
       x: margin + tileWidth + 30,
       y: tileY + tileHeight - 20,
-      size: 8,
+      size: 8.5,
       font: titleFont,
       color: rgb(...palette.textMuted),
     });
     coverPage.drawText(birthdayDateLabel, {
       x: margin + tileWidth + 30,
-      y: tileY + 18,
-      size: 11,
+      y: tileY + 20,
+      size: 11.5,
       font: titleFont,
       color: rgb(...palette.primary),
     });
   }
 
   // =========================================================================
-  // SLIDE 2 / PAGE 2: STATS & LIVE CANVAS QR OVERVIEW
+  // OVERVIEW SLIDE / PAGE: STATS & LIVE EXPERIENCE QR
   // =========================================================================
   const statsPage = createBasePage();
-  const qrBuffer = await generateQrBuffer(celebrationUrl, 240);
+  const qrBuffer = await generateQrBuffer(celebrationUrl, 260);
 
   if (isLandscape) {
-    // 16:9 Overview Slide
     const leftW = 440;
-    const cardH = 460;
-    const cardY = 38;
+    const cardH = 480;
+    const cardY = 28;
 
-    // Left Narrative & Bento Card
     statsPage.drawRectangle({
       x: margin,
       y: cardY,
@@ -715,7 +829,7 @@ export async function buildBrandedPagePdf(
 
     statsPage.drawText("THE SHAPE OF THE CELEBRATION", {
       x: margin + 28,
-      y: cardY + cardH - 38,
+      y: cardY + cardH - 36,
       size: 9.5,
       font: titleFont,
       color: rgb(...palette.accent),
@@ -723,21 +837,20 @@ export async function buildBrandedPagePdf(
 
     statsPage.drawText("Collected with love.", {
       x: margin + 28,
-      y: cardY + cardH - 74,
+      y: cardY + cardH - 72,
       size: 28,
-      font: serifBoldFont,
+      font: headingFont,
       color: rgb(...palette.primary),
     });
 
     statsPage.drawText("Before the story started, loved ones left little pieces of themselves here. This is what made it into the envelope.", {
       x: margin + 28,
-      y: cardY + cardH - 104,
+      y: cardY + cardH - 100,
       size: 10,
       font: bodyFont,
       color: rgb(...palette.textMuted),
     });
 
-    // 3 Bento Stats Rows
     const statsData = [
       { label: "Wishes written", value: String(messages.length), note: "Each written with this exact milestone in mind." },
       { label: "Photos added", value: String(totalPhotos), note: "Real snapshots that make the story grounded." },
@@ -750,7 +863,7 @@ export async function buildBrandedPagePdf(
         x: margin + 28,
         y: bCursor,
         width: leftW - 56,
-        height: 64,
+        height: 68,
         color: rgb(...palette.background),
         borderColor: rgb(...palette.border),
         borderWidth: 0.8,
@@ -760,30 +873,30 @@ export async function buildBrandedPagePdf(
         x: margin + 44,
         y: bCursor + 22,
         size: 26,
-        font: titleFont,
+        font: headingFont,
         color: rgb(...palette.primary),
       });
 
       statsPage.drawText(stat.label.toUpperCase(), {
-        x: margin + 110,
-        y: bCursor + 38,
+        x: margin + 114,
+        y: bCursor + 40,
         size: 9,
         font: titleFont,
         color: rgb(...palette.primary),
       });
 
       statsPage.drawText(stat.note, {
-        x: margin + 110,
-        y: bCursor + 20,
+        x: margin + 114,
+        y: bCursor + 22,
         size: 8.5,
         font: bodyFont,
         color: rgb(...palette.textMuted),
       });
 
-      bCursor -= 76;
+      bCursor -= 80;
     }
 
-    // Right Column: Interactive Live Canvas QR Card & Contributor Roll
+    // Right Column
     const rightX = margin + leftW + 20;
     const rightW = pageWidth - margin - rightX;
 
@@ -799,7 +912,7 @@ export async function buildBrandedPagePdf(
 
     try {
       const qrImg = await doc.embedPng(qrBuffer);
-      const qrSize = 130;
+      const qrSize = 136;
       const qrX = rightX + (rightW - qrSize) / 2;
       const qrY = cardY + cardH - qrSize - 40;
 
@@ -829,7 +942,6 @@ export async function buildBrandedPagePdf(
       console.warn("Failed to embed landscape QR code:", err);
     }
 
-    // Contributor Roll Call
     const rollHeaderY = cardY + 160;
     statsPage.drawText("CONTRIBUTORS & WELL-WISHERS", {
       x: rightX + 28,
@@ -856,8 +968,8 @@ export async function buildBrandedPagePdf(
     // Portrait Overview Page
     statsPage.drawText("THE SHAPE OF THE CELEBRATION", {
       x: margin,
-      y: pageHeight - 50,
-      size: 9,
+      y: pageHeight - 48,
+      size: 9.5,
       font: titleFont,
       color: rgb(...palette.accent),
     });
@@ -865,23 +977,22 @@ export async function buildBrandedPagePdf(
     statsPage.drawText("Collected with love.", {
       x: margin,
       y: pageHeight - 74,
-      size: 26,
-      font: serifBoldFont,
+      size: 28,
+      font: headingFont,
       color: rgb(...palette.primary),
     });
 
-    statsPage.drawText(`A heartfelt collective keepsake assembled for ${recipientName}.`, {
+    statsPage.drawText(`A heartfelt collective tribute lovingly assembled for ${recipientName}.`, {
       x: margin,
       y: pageHeight - 94,
-      size: 10,
+      size: 10.5,
       font: bodyFont,
       color: rgb(...palette.textMuted),
     });
 
-    // 3 Stat Tiles
     const statBoxWidth = (pageWidth - margin * 2 - 20) / 3;
-    const statBoxHeight = 65;
-    const statY = pageHeight - 175;
+    const statBoxHeight = 72;
+    const statY = pageHeight - 185;
 
     const statsData = [
       { label: "Loved Ones", value: String(uniqueContributors.length || messages.length) },
@@ -903,24 +1014,23 @@ export async function buildBrandedPagePdf(
 
       statsPage.drawText(stat.value, {
         x: boxX + 16,
-        y: statY + 34,
-        size: 22,
-        font: titleFont,
+        y: statY + 38,
+        size: 24,
+        font: headingFont,
         color: rgb(...palette.primary),
       });
 
       statsPage.drawText(stat.label, {
         x: boxX + 16,
-        y: statY + 16,
-        size: 9,
+        y: statY + 18,
+        size: 9.5,
         font: bodyFont,
         color: rgb(...palette.textMuted),
       });
     });
 
-    // Interactive QR Section
-    const qrBoxY = pageHeight - 330;
-    const qrBoxHeight = 125;
+    const qrBoxY = pageHeight - 345;
+    const qrBoxHeight = 135;
 
     statsPage.drawRectangle({
       x: margin,
@@ -934,18 +1044,18 @@ export async function buildBrandedPagePdf(
 
     try {
       const qrImg = await doc.embedPng(qrBuffer);
-      const qrSize = 100;
+      const qrSize = 108;
 
       statsPage.drawImage(qrImg, {
         x: margin + 14,
-        y: qrBoxY + 12,
+        y: qrBoxY + 13,
         width: qrSize,
         height: qrSize,
       });
 
       statsPage.drawText("Scan to Experience the Live Celebration", {
-        x: margin + 130,
-        y: qrBoxY + 88,
+        x: margin + 134,
+        y: qrBoxY + 96,
         size: 13,
         font: titleFont,
         color: rgb(...palette.primary),
@@ -957,27 +1067,26 @@ export async function buildBrandedPagePdf(
         "browse original high-resolution photos, and enjoy the ambient soundtrack.",
       ];
 
-      let qrTextCursor = qrBoxY + 66;
+      let qrTextCursor = qrBoxY + 72;
       for (const line of qrExplainer) {
         statsPage.drawText(line, {
-          x: margin + 130,
+          x: margin + 134,
           y: qrTextCursor,
-          size: 9,
+          size: 9.5,
           font: bodyFont,
           color: rgb(...palette.textMuted),
         });
-        qrTextCursor -= 14;
+        qrTextCursor -= 15;
       }
     } catch (err) {
       console.warn("Failed to embed portrait QR code:", err);
     }
 
-    // Contributor Roll Call
-    const rollCallY = pageHeight - 380;
+    const rollCallY = pageHeight - 400;
     statsPage.drawText("Contributors & Well-Wishers", {
       x: margin,
       y: rollCallY,
-      size: 13,
+      size: 13.5,
       font: titleFont,
       color: rgb(...palette.primary),
     });
@@ -985,24 +1094,23 @@ export async function buildBrandedPagePdf(
     const rollCallLines = wrapPdfText(
       uniqueContributors.map((c) => c.replace(/\b\w/g, (l) => l.toUpperCase())).join(", ") || "All friends and family",
       78
-    ).slice(0, 10);
+    ).slice(0, 12);
 
-    let rollCursor = rollCallY - 22;
+    let rollCursor = rollCallY - 24;
     for (const line of rollCallLines) {
       statsPage.drawText(line, {
         x: margin,
         y: rollCursor,
-        size: 9.5,
+        size: 10,
         font: bodyFont,
         color: rgb(...palette.textDark),
       });
-      rollCursor -= 16;
+      rollCursor -= 17;
     }
   }
 
   // =========================================================================
-  // PAGES 3+: AUTHENTIC PERSONAL LETTER KEEPSAKE SPREADS
-  // Mirroring the exact anatomy of DesktopStorySection.tsx & DesktopWishPhotoGrid.tsx
+  // WISH SPREAD PAGES
   // =========================================================================
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i];
@@ -1024,12 +1132,12 @@ export async function buildBrandedPagePdf(
       // ---------------------------------------------------------------------
       // 16:9 Widescreen Letter Slide
       // ---------------------------------------------------------------------
-      const cardHeight = 460;
-      const cardY = 38;
+      const cardHeight = 480;
+      const cardY = 28;
 
       if (!hasPhotos && !hasAudio) {
-        // Scenario 1: Centerpiece Grand Letter Card
-        const cardWidth = 720;
+        // Grand Centered Letter Card (fills canvas width & height)
+        const cardWidth = 760;
         const cardX = (pageWidth - cardWidth) / 2;
 
         wishPage.drawRectangle({
@@ -1044,18 +1152,17 @@ export async function buildBrandedPagePdf(
 
         // Top Header Bar
         wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
-          x: cardX + 32,
+          x: cardX + 36,
           y: cardY + cardHeight - 36,
           size: 9.5,
           font: titleFont,
           color: rgb(...palette.textMuted),
         });
 
-        // Wish Pill Badge
         const badgeText = `Wish #${String(i + 1).padStart(2, "0")}`;
-        const badgeW = 76;
+        const badgeW = 78;
         wishPage.drawRectangle({
-          x: cardX + cardWidth - 32 - badgeW,
+          x: cardX + cardWidth - 36 - badgeW,
           y: cardY + cardHeight - 44,
           width: badgeW,
           height: 22,
@@ -1064,56 +1171,56 @@ export async function buildBrandedPagePdf(
           borderWidth: 0.8,
         });
         wishPage.drawText(badgeText, {
-          x: cardX + cardWidth - 32 - badgeW + 10,
+          x: cardX + cardWidth - 36 - badgeW + 10,
           y: cardY + cardHeight - 37,
           size: 9,
           font: monoFont,
           color: rgb(...palette.primary),
         });
 
-        // Hairline rule
         wishPage.drawLine({
-          start: { x: cardX + 32, y: cardY + cardHeight - 54 },
-          end: { x: cardX + cardWidth - 32, y: cardY + cardHeight - 54 },
+          start: { x: cardX + 36, y: cardY + cardHeight - 54 },
+          end: { x: cardX + cardWidth - 36, y: cardY + cardHeight - 54 },
           thickness: 0.5,
           color: rgb(...palette.border),
         });
 
         // Sender Name
         wishPage.drawText(senderName, {
-          x: cardX + 32,
+          x: cardX + 36,
           y: cardY + cardHeight - 92,
           size: 28,
-          font: titleFont,
+          font: headingFont,
           color: rgb(...palette.primary),
         });
 
-        // Serif Italic Quoted Message
+        // Contained Quoted Message Hero
         const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you the happiest birthday filled with joy and blessings!"';
-        const lines = wrapPdfText(quoteText, 56).slice(0, 11);
-        let msgCursor = cardY + cardHeight - 140;
-        for (const line of lines) {
-          wishPage.drawText(line, {
-            x: cardX + 32,
-            y: msgCursor,
-            size: 14,
-            font: serifItalicFont,
+        renderContainedText(
+          wishPage,
+          quoteText,
+          cardX + 36,
+          cardY + cardHeight - 136,
+          cardWidth - 72,
+          cardHeight - 210,
+          serifItalicFont,
+          {
             color: rgb(...palette.textDark),
-          });
-          msgCursor -= 22;
-        }
+            preferredSize: 16,
+            minSize: 11,
+          }
+        );
 
         // Footer Bar
         wishPage.drawLine({
-          start: { x: cardX + 32, y: cardY + 54 },
-          end: { x: cardX + cardWidth - 32, y: cardY + 54 },
+          start: { x: cardX + 36, y: cardY + 54 },
+          end: { x: cardX + cardWidth - 36, y: cardY + 54 },
           thickness: 0.5,
           color: rgb(...palette.border),
         });
 
-        // Personal letter keepsake pill
         wishPage.drawRectangle({
-          x: cardX + 32,
+          x: cardX + 36,
           y: cardY + 22,
           width: 140,
           height: 22,
@@ -1122,7 +1229,7 @@ export async function buildBrandedPagePdf(
           borderWidth: 0.8,
         });
         wishPage.drawText("Personal letter keepsake", {
-          x: cardX + 42,
+          x: cardX + 46,
           y: cardY + 29,
           size: 8.5,
           font: titleFont,
@@ -1137,12 +1244,11 @@ export async function buildBrandedPagePdf(
           color: rgb(...palette.textMuted),
         });
       } else if (!hasPhotos && hasAudio) {
-        // Scenario 2: Letter Card (Left) + Voice Note Card (Right)
-        const leftWidth = 480;
+        // Split: Left Letter Card + Right Voice Note Card
+        const leftWidth = 500;
         const rightWidth = 380;
         const rightX = margin + leftWidth + 20;
 
-        // Left Letter Card
         wishPage.drawRectangle({
           x: margin,
           y: cardY,
@@ -1154,7 +1260,7 @@ export async function buildBrandedPagePdf(
         });
 
         wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
-          x: margin + 28,
+          x: margin + 30,
           y: cardY + cardHeight - 36,
           size: 9,
           font: titleFont,
@@ -1162,9 +1268,9 @@ export async function buildBrandedPagePdf(
         });
 
         const badgeText = `Wish #${String(i + 1).padStart(2, "0")}`;
-        const badgeW = 74;
+        const badgeW = 76;
         wishPage.drawRectangle({
-          x: margin + leftWidth - 28 - badgeW,
+          x: margin + leftWidth - 30 - badgeW,
           y: cardY + cardHeight - 44,
           width: badgeW,
           height: 22,
@@ -1173,7 +1279,7 @@ export async function buildBrandedPagePdf(
           borderWidth: 0.8,
         });
         wishPage.drawText(badgeText, {
-          x: margin + leftWidth - 28 - badgeW + 8,
+          x: margin + leftWidth - 30 - badgeW + 8,
           y: cardY + cardHeight - 37,
           size: 9,
           font: monoFont,
@@ -1181,37 +1287,39 @@ export async function buildBrandedPagePdf(
         });
 
         wishPage.drawLine({
-          start: { x: margin + 28, y: cardY + cardHeight - 52 },
-          end: { x: margin + leftWidth - 28, y: cardY + cardHeight - 52 },
+          start: { x: margin + 30, y: cardY + cardHeight - 52 },
+          end: { x: margin + leftWidth - 30, y: cardY + cardHeight - 52 },
           thickness: 0.5,
           color: rgb(...palette.border),
         });
 
         wishPage.drawText(senderName, {
-          x: margin + 28,
+          x: margin + 30,
           y: cardY + cardHeight - 88,
           size: 24,
-          font: titleFont,
+          font: headingFont,
           color: rgb(...palette.primary),
         });
 
         const quoteText = rawContent ? `"${rawContent}"` : '"Sent with warmest affection."';
-        const lines = wrapPdfText(quoteText, 45).slice(0, 11);
-        let msgCursor = cardY + cardHeight - 128;
-        for (const line of lines) {
-          wishPage.drawText(line, {
-            x: margin + 28,
-            y: msgCursor,
-            size: 13,
-            font: serifItalicFont,
+        renderContainedText(
+          wishPage,
+          quoteText,
+          margin + 30,
+          cardY + cardHeight - 126,
+          leftWidth - 60,
+          cardHeight - 200,
+          serifItalicFont,
+          {
             color: rgb(...palette.textDark),
-          });
-          msgCursor -= 20;
-        }
+            preferredSize: 14,
+            minSize: 10.5,
+          }
+        );
 
-        // Voice note enclosed tag
+        // Voice note enclosed pill
         wishPage.drawRectangle({
-          x: margin + 28,
+          x: margin + 30,
           y: cardY + 22,
           width: 130,
           height: 22,
@@ -1220,7 +1328,7 @@ export async function buildBrandedPagePdf(
           borderWidth: 0.8,
         });
         wishPage.drawText("Voice note enclosed", {
-          x: margin + 38,
+          x: margin + 40,
           y: cardY + 29,
           size: 8.5,
           font: titleFont,
@@ -1240,9 +1348,9 @@ export async function buildBrandedPagePdf(
 
         try {
           const qrImg = await doc.embedPng(qrBuffer);
-          const qrSize = 130;
+          const qrSize = 136;
           const qrX = rightX + (rightWidth - qrSize) / 2;
-          const qrY = cardY + cardHeight - qrSize - 70;
+          const qrY = cardY + cardHeight - qrSize - 74;
 
           wishPage.drawImage(qrImg, {
             x: qrX,
@@ -1254,15 +1362,15 @@ export async function buildBrandedPagePdf(
           wishPage.drawText("Voice Note Keepsake", {
             x: rightX + 32,
             y: cardY + cardHeight - 44,
-            size: 14,
+            size: 15,
             font: titleFont,
             color: rgb(...palette.primary),
           });
 
           wishPage.drawText(`Spoken with love by ${senderName}`, {
             x: rightX + 32,
-            y: cardY + cardHeight - 62,
-            size: 9.5,
+            y: cardY + cardHeight - 64,
+            size: 10,
             font: bodyFont,
             color: rgb(...palette.textMuted),
           });
@@ -1270,7 +1378,7 @@ export async function buildBrandedPagePdf(
           wishPage.drawText("Scan to Listen to this Wish", {
             x: rightX + 32,
             y: qrY - 30,
-            size: 11,
+            size: 11.5,
             font: titleFont,
             color: rgb(...palette.primary),
           });
@@ -1278,7 +1386,7 @@ export async function buildBrandedPagePdf(
           wishPage.drawText("Point your smartphone camera to stream the spoken voice note directly.", {
             x: rightX + 32,
             y: qrY - 48,
-            size: 8.5,
+            size: 9,
             font: bodyFont,
             color: rgb(...palette.textMuted),
           });
@@ -1286,12 +1394,11 @@ export async function buildBrandedPagePdf(
           console.warn("Failed to embed wish audio QR code:", err);
         }
       } else {
-        // Scenario 3: Letter Card (Left) + Framed Photo Grid (Right)
+        // Split: Left Letter Card + Right Framed Photo Grid
         const leftWidth = 460;
         const rightWidth = pageWidth - margin * 2 - leftWidth - 20;
         const rightX = margin + leftWidth + 20;
 
-        // Left Letter Card
         wishPage.drawRectangle({
           x: margin,
           y: cardY,
@@ -1303,7 +1410,7 @@ export async function buildBrandedPagePdf(
         });
 
         wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
-          x: margin + 28,
+          x: margin + 30,
           y: cardY + cardHeight - 36,
           size: 9,
           font: titleFont,
@@ -1311,9 +1418,9 @@ export async function buildBrandedPagePdf(
         });
 
         const badgeText = `Wish #${String(i + 1).padStart(2, "0")}`;
-        const badgeW = 74;
+        const badgeW = 76;
         wishPage.drawRectangle({
-          x: margin + leftWidth - 28 - badgeW,
+          x: margin + leftWidth - 30 - badgeW,
           y: cardY + cardHeight - 44,
           width: badgeW,
           height: 22,
@@ -1322,7 +1429,7 @@ export async function buildBrandedPagePdf(
           borderWidth: 0.8,
         });
         wishPage.drawText(badgeText, {
-          x: margin + leftWidth - 28 - badgeW + 8,
+          x: margin + leftWidth - 30 - badgeW + 8,
           y: cardY + cardHeight - 37,
           size: 9,
           font: monoFont,
@@ -1330,44 +1437,46 @@ export async function buildBrandedPagePdf(
         });
 
         wishPage.drawLine({
-          start: { x: margin + 28, y: cardY + cardHeight - 52 },
-          end: { x: margin + leftWidth - 28, y: cardY + cardHeight - 52 },
+          start: { x: margin + 30, y: cardY + cardHeight - 52 },
+          end: { x: margin + leftWidth - 30, y: cardY + cardHeight - 52 },
           thickness: 0.5,
           color: rgb(...palette.border),
         });
 
         wishPage.drawText(senderName, {
-          x: margin + 28,
+          x: margin + 30,
           y: cardY + cardHeight - 88,
           size: 24,
-          font: titleFont,
+          font: headingFont,
           color: rgb(...palette.primary),
         });
 
         const quoteText = rawContent ? `"${rawContent}"` : '"Sent with warmest affection."';
-        const lines = wrapPdfText(quoteText, 44).slice(0, 11);
-        let msgCursor = cardY + cardHeight - 126;
-        for (const line of lines) {
-          wishPage.drawText(line, {
-            x: margin + 28,
-            y: msgCursor,
-            size: 13,
-            font: serifItalicFont,
+        renderContainedText(
+          wishPage,
+          quoteText,
+          margin + 30,
+          cardY + cardHeight - 124,
+          leftWidth - 60,
+          cardHeight - 195,
+          serifItalicFont,
+          {
             color: rgb(...palette.textDark),
-          });
-          msgCursor -= 20;
-        }
+            preferredSize: 13.5,
+            minSize: 10.5,
+          }
+        );
 
         // Footer Bar
         wishPage.drawLine({
-          start: { x: margin + 28, y: cardY + 54 },
-          end: { x: margin + leftWidth - 28, y: cardY + 54 },
+          start: { x: margin + 30, y: cardY + 54 },
+          end: { x: margin + leftWidth - 30, y: cardY + 54 },
           thickness: 0.5,
           color: rgb(...palette.border),
         });
 
         wishPage.drawRectangle({
-          x: margin + 28,
+          x: margin + 30,
           y: cardY + 22,
           width: 140,
           height: 22,
@@ -1376,7 +1485,7 @@ export async function buildBrandedPagePdf(
           borderWidth: 0.8,
         });
         wishPage.drawText("Personal letter keepsake", {
-          x: margin + 38,
+          x: margin + 40,
           y: cardY + 29,
           size: 8.5,
           font: titleFont,
@@ -1385,7 +1494,7 @@ export async function buildBrandedPagePdf(
 
         if (hasAudio) {
           wishPage.drawText("Voice note enclosed", {
-            x: margin + leftWidth - 140,
+            x: margin + leftWidth - 145,
             y: cardY + 29,
             size: 8,
             font: titleFont,
@@ -1393,7 +1502,7 @@ export async function buildBrandedPagePdf(
           });
         }
 
-        // Right Photo Grid
+        // Right Photo Grid - Fully Utilizing Card Height
         if (wishPhotos.length === 1) {
           const photoBuffer = await fetchAndProcessImage(wishPhotos[0].url, 700, 700);
           if (photoBuffer) {
@@ -1411,10 +1520,10 @@ export async function buildBrandedPagePdf(
 
               const pPad = 12;
               const pW = rightWidth - pPad * 2;
-              const pH = cardHeight - 48;
+              const pH = cardHeight - 52;
               wishPage.drawImage(img, {
                 x: rightX + pPad,
-                y: cardY + 36,
+                y: cardY + 40,
                 width: pW,
                 height: pH,
               });
@@ -1422,7 +1531,7 @@ export async function buildBrandedPagePdf(
               const cap = wishPhotos[0].caption || "Photo memory";
               wishPage.drawText(cap.slice(0, 48), {
                 x: rightX + pPad + 6,
-                y: cardY + 16,
+                y: cardY + 18,
                 size: 9.5,
                 font: titleFont,
                 color: rgb(...palette.textMuted),
@@ -1503,244 +1612,332 @@ export async function buildBrandedPagePdf(
       }
     } else {
       // ---------------------------------------------------------------------
-      // Portrait A4 Letter Spread Page
-      // Authentically modeled on DesktopStorySection Personal Letter Keepsake
+      // Portrait A4 Letter Spread Page - Full Space Utilization
       // ---------------------------------------------------------------------
       const cardWidth = pageWidth - margin * 2;
-      const cardTopY = pageHeight - 50;
 
-      // Header rule
-      wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
-        x: margin,
-        y: cardTopY,
-        size: 9,
-        font: titleFont,
-        color: rgb(...palette.accent),
-      });
+      if (!hasPhotos) {
+        // Single Grand Editorial Letter Spread (No photos)
+        // Spans height 720 pt (from y = 60 to y = 780), zero empty void!
+        const cardY = 60;
+        const cardH = 720;
 
-      const badgeText = `Wish #${String(i + 1).padStart(2, "0")}`;
-      const badgeW = 70;
-      wishPage.drawRectangle({
-        x: pageWidth - margin - badgeW,
-        y: cardTopY - 7,
-        width: badgeW,
-        height: 20,
-        color: rgb(...palette.cardBackground),
-        borderColor: rgb(...palette.border),
-        borderWidth: 0.8,
-      });
-      wishPage.drawText(badgeText, {
-        x: pageWidth - margin - badgeW + 8,
-        y: cardTopY - 1,
-        size: 8.5,
-        font: monoFont,
-        color: rgb(...palette.primary),
-      });
-
-      wishPage.drawLine({
-        start: { x: margin, y: cardTopY - 16 },
-        end: { x: pageWidth - margin, y: cardTopY - 16 },
-        thickness: 0.5,
-        color: rgb(...palette.border),
-      });
-
-      // Sender Name
-      const nameY = cardTopY - 44;
-      wishPage.drawText(senderName, {
-        x: margin,
-        y: nameY,
-        size: 22,
-        font: titleFont,
-        color: rgb(...palette.primary),
-      });
-
-      wishPage.drawText(`Shared with love for ${recipientName}`, {
-        x: margin,
-        y: nameY - 16,
-        size: 9,
-        font: bodyFont,
-        color: rgb(...palette.textMuted),
-      });
-
-      // Letter Quoted Message Hero Card
-      const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you abundant joy, good health, and peace on your birthday!"';
-      const maxMsgLines = hasPhotos ? 8 : 16;
-      const lines = wrapPdfText(quoteText, 58).slice(0, maxMsgLines);
-      const letterBoxHeight = Math.max(90, lines.length * 18 + 40);
-      const letterBoxY = nameY - 32 - letterBoxHeight;
-
-      wishPage.drawRectangle({
-        x: margin,
-        y: letterBoxY,
-        width: cardWidth,
-        height: letterBoxHeight,
-        color: rgb(...palette.cardBackground),
-        borderColor: rgb(...palette.border),
-        borderWidth: 1,
-      });
-
-      let msgCursor = letterBoxY + letterBoxHeight - 28;
-      for (const line of lines) {
-        wishPage.drawText(line, {
-          x: margin + 24,
-          y: msgCursor,
-          size: 12,
-          font: serifItalicFont,
-          color: rgb(...palette.textDark),
-        });
-        msgCursor -= 18;
-      }
-
-      let bottomCursor = letterBoxY - 16;
-
-      // Photo Section (if present)
-      if (wishPhotos.length === 1) {
-        const pData = wishPhotos[0];
-        const photoBuffer = await fetchAndProcessImage(pData.url, 600, 450);
-        if (photoBuffer) {
-          try {
-            const img = await doc.embedJpg(photoBuffer);
-            const pWidth = 320;
-            const pHeight = Math.min(220, Math.max(140, bottomCursor - 100));
-            const pX = (pageWidth - pWidth) / 2;
-            const pY = bottomCursor - pHeight;
-
-            wishPage.drawRectangle({
-              x: pX - 4,
-              y: pY - 4,
-              width: pWidth + 8,
-              height: pHeight + 8,
-              color: rgb(...palette.cardBackground),
-              borderColor: rgb(...palette.border),
-              borderWidth: 1,
-            });
-
-            wishPage.drawImage(img, {
-              x: pX,
-              y: pY,
-              width: pWidth,
-              height: pHeight,
-            });
-
-            if (pData.caption) {
-              wishPage.drawText(pData.caption.slice(0, 60), {
-                x: pX,
-                y: pY - 14,
-                size: 8.5,
-                font: obliqueFont,
-                color: rgb(...palette.textMuted),
-              });
-            }
-
-            bottomCursor = pY - 24;
-          } catch (err) {
-            console.warn("Failed to embed portrait photo:", err);
-          }
-        }
-      } else if (wishPhotos.length >= 2) {
-        const [p1, p2] = wishPhotos;
-        const b1 = p1 ? await fetchAndProcessImage(p1.url, 400, 320) : null;
-        const b2 = p2 ? await fetchAndProcessImage(p2.url, 400, 320) : null;
-
-        const pWidth = 240;
-        const pHeight = 160;
-        const pY = bottomCursor - pHeight;
-
-        if (b1) {
-          try {
-            const img1 = await doc.embedJpg(b1);
-            wishPage.drawRectangle({
-              x: margin - 3,
-              y: pY - 3,
-              width: pWidth + 6,
-              height: pHeight + 6,
-              color: rgb(...palette.cardBackground),
-              borderColor: rgb(...palette.border),
-              borderWidth: 0.8,
-            });
-            wishPage.drawImage(img1, {
-              x: margin,
-              y: pY,
-              width: pWidth,
-              height: pHeight,
-            });
-          } catch (err) {
-            console.warn("Failed to embed pair photo 1:", err);
-          }
-        }
-
-        if (b2) {
-          try {
-            const img2 = await doc.embedJpg(b2);
-            const p2X = pageWidth - margin - pWidth;
-            wishPage.drawRectangle({
-              x: p2X - 3,
-              y: pY - 3,
-              width: pWidth + 6,
-              height: pHeight + 6,
-              color: rgb(...palette.cardBackground),
-              borderColor: rgb(...palette.border),
-              borderWidth: 0.8,
-            });
-            wishPage.drawImage(img2, {
-              x: p2X,
-              y: pY,
-              width: pWidth,
-              height: pHeight,
-            });
-          } catch (err) {
-            console.warn("Failed to embed pair photo 2:", err);
-          }
-        }
-
-        bottomCursor = pY - 20;
-      }
-
-      // Voice Note Pill (if present)
-      if (hasAudio) {
-        const audioY = Math.max(54, bottomCursor - 28);
         wishPage.drawRectangle({
           x: margin,
-          y: audioY,
+          y: cardY,
           width: cardWidth,
-          height: 24,
+          height: cardH,
           color: rgb(...palette.cardBackground),
-          borderColor: rgb(...palette.accent),
+          borderColor: rgb(...palette.border),
+          borderWidth: 1,
+        });
+
+        // Top Header
+        wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
+          x: margin + 32,
+          y: cardY + cardH - 36,
+          size: 9.5,
+          font: titleFont,
+          color: rgb(...palette.accent),
+        });
+
+        const badgeText = `Wish #${String(i + 1).padStart(2, "0")}`;
+        const badgeW = 76;
+        wishPage.drawRectangle({
+          x: margin + cardWidth - 32 - badgeW,
+          y: cardY + cardH - 44,
+          width: badgeW,
+          height: 22,
+          color: rgb(...palette.background),
+          borderColor: rgb(...palette.border),
           borderWidth: 0.8,
         });
-
-        wishPage.drawText("Audio voice note recorded. Scan the QR code on page 2 to listen.", {
-          x: margin + 14,
-          y: audioY + 7,
-          size: 8.5,
-          font: titleFont,
+        wishPage.drawText(badgeText, {
+          x: margin + cardWidth - 32 - badgeW + 10,
+          y: cardY + cardH - 37,
+          size: 9,
+          font: monoFont,
           color: rgb(...palette.primary),
         });
+
+        wishPage.drawLine({
+          start: { x: margin + 32, y: cardY + cardH - 54 },
+          end: { x: margin + cardWidth - 32, y: cardY + cardH - 54 },
+          thickness: 0.5,
+          color: rgb(...palette.border),
+        });
+
+        // Sender Name
+        wishPage.drawText(senderName, {
+          x: margin + 32,
+          y: cardY + cardH - 96,
+          size: 30,
+          font: headingFont,
+          color: rgb(...palette.primary),
+        });
+
+        wishPage.drawText(`Shared with heartfelt love for ${recipientName}`, {
+          x: margin + 32,
+          y: cardY + cardH - 118,
+          size: 10,
+          font: bodyFont,
+          color: rgb(...palette.textMuted),
+        });
+
+        // Contained Quoted Message Hero (takes entire center)
+        const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you abundant joy, good health, and peace on your birthday!"';
+        renderContainedText(
+          wishPage,
+          quoteText,
+          margin + 32,
+          cardY + cardH - 165,
+          cardWidth - 64,
+          cardH - 250,
+          serifItalicFont,
+          {
+            color: rgb(...palette.textDark),
+            preferredSize: 16,
+            minSize: 11,
+          }
+        );
+
+        // Audio tag if present
+        if (hasAudio) {
+          wishPage.drawRectangle({
+            x: margin + 32,
+            y: cardY + 68,
+            width: cardWidth - 64,
+            height: 26,
+            color: rgb(...palette.background),
+            borderColor: rgb(...palette.accent),
+            borderWidth: 0.8,
+          });
+          wishPage.drawText("Audio voice note recorded. Scan the QR code on page 2 to listen.", {
+            x: margin + 46,
+            y: cardY + 76,
+            size: 9,
+            font: titleFont,
+            color: rgb(...palette.primary),
+          });
+        }
+
+        // Footer Bar
+        wishPage.drawLine({
+          start: { x: margin + 32, y: cardY + 54 },
+          end: { x: margin + cardWidth - 32, y: cardY + 54 },
+          thickness: 0.5,
+          color: rgb(...palette.border),
+        });
+
+        wishPage.drawText("Personal letter keepsake", {
+          x: margin + 32,
+          y: cardY + 26,
+          size: 8.5,
+          font: obliqueFont,
+          color: rgb(...palette.textMuted),
+        });
+
+        wishPage.drawText(`${pageIndex}`, {
+          x: margin + cardWidth - 32 - 16,
+          y: cardY + 26,
+          size: 9.5,
+          font: bodyFont,
+          color: rgb(...palette.textMuted),
+        });
+      } else {
+        // Message + Photos: Split the 842 pt page evenly into Letter Card + Photo Card(s)
+        const topCardY = 440;
+        const topCardH = 360;
+
+        wishPage.drawRectangle({
+          x: margin,
+          y: topCardY,
+          width: cardWidth,
+          height: topCardH,
+          color: rgb(...palette.cardBackground),
+          borderColor: rgb(...palette.border),
+          borderWidth: 1,
+        });
+
+        // Top Header
+        wishPage.drawText(`LETTER ${i + 1} OF ${messages.length}`, {
+          x: margin + 24,
+          y: topCardY + topCardH - 30,
+          size: 9,
+          font: titleFont,
+          color: rgb(...palette.accent),
+        });
+
+        const badgeText = `Wish #${String(i + 1).padStart(2, "0")}`;
+        const badgeW = 72;
+        wishPage.drawRectangle({
+          x: margin + cardWidth - 24 - badgeW,
+          y: topCardY + topCardH - 37,
+          width: badgeW,
+          height: 20,
+          color: rgb(...palette.background),
+          borderColor: rgb(...palette.border),
+          borderWidth: 0.8,
+        });
+        wishPage.drawText(badgeText, {
+          x: margin + cardWidth - 24 - badgeW + 8,
+          y: topCardY + topCardH - 31,
+          size: 8.5,
+          font: monoFont,
+          color: rgb(...palette.primary),
+        });
+
+        wishPage.drawLine({
+          start: { x: margin + 24, y: topCardY + topCardH - 46 },
+          end: { x: margin + cardWidth - 24, y: topCardY + topCardH - 46 },
+          thickness: 0.5,
+          color: rgb(...palette.border),
+        });
+
+        // Sender Name
+        wishPage.drawText(senderName, {
+          x: margin + 24,
+          y: topCardY + topCardH - 74,
+          size: 22,
+          font: headingFont,
+          color: rgb(...palette.primary),
+        });
+
+        const quoteText = rawContent ? `"${rawContent}"` : '"Wishing you abundant joy, good health, and peace on your birthday!"';
+        renderContainedText(
+          wishPage,
+          quoteText,
+          margin + 24,
+          topCardY + topCardH - 105,
+          cardWidth - 48,
+          topCardH - 145,
+          serifItalicFont,
+          {
+            color: rgb(...palette.textDark),
+            preferredSize: 13,
+            minSize: 10,
+          }
+        );
+
+        if (hasAudio) {
+          wishPage.drawText("Voice note enclosed - scan QR code on page 2", {
+            x: margin + 24,
+            y: topCardY + 16,
+            size: 8,
+            font: titleFont,
+            color: rgb(...palette.accent),
+          });
+        }
+
+        // Bottom Photo Card Section: fills from y = 54 to y = 420 (Height: 366 pt!)
+        const photoSectionY = 54;
+        const photoSectionH = 366;
+
+        if (wishPhotos.length === 1) {
+          const photoBuffer = await fetchAndProcessImage(wishPhotos[0].url, 700, 600);
+          if (photoBuffer) {
+            try {
+              const img = await doc.embedJpg(photoBuffer);
+              wishPage.drawRectangle({
+                x: margin,
+                y: photoSectionY,
+                width: cardWidth,
+                height: photoSectionH,
+                color: rgb(...palette.cardBackground),
+                borderColor: rgb(...palette.border),
+                borderWidth: 1,
+              });
+
+              const pPad = 12;
+              const pW = cardWidth - pPad * 2;
+              const pH = photoSectionH - 44;
+
+              wishPage.drawImage(img, {
+                x: margin + pPad,
+                y: photoSectionY + 32,
+                width: pW,
+                height: pH,
+              });
+
+              wishPage.drawText((wishPhotos[0].caption || "Photo memory").slice(0, 60), {
+                x: margin + pPad + 6,
+                y: photoSectionY + 14,
+                size: 9,
+                font: titleFont,
+                color: rgb(...palette.textMuted),
+              });
+            } catch (err) {
+              console.warn("Failed to embed portrait single photo:", err);
+            }
+          }
+        } else if (wishPhotos.length >= 2) {
+          const [p1, p2] = wishPhotos;
+          const b1 = p1 ? await fetchAndProcessImage(p1.url, 500, 500) : null;
+          const b2 = p2 ? await fetchAndProcessImage(p2.url, 500, 500) : null;
+          const halfWidth = (cardWidth - 14) / 2;
+
+          if (b1) {
+            try {
+              const img1 = await doc.embedJpg(b1);
+              wishPage.drawRectangle({
+                x: margin,
+                y: photoSectionY,
+                width: halfWidth,
+                height: photoSectionH,
+                color: rgb(...palette.cardBackground),
+                borderColor: rgb(...palette.border),
+                borderWidth: 1,
+              });
+              wishPage.drawImage(img1, {
+                x: margin + 8,
+                y: photoSectionY + 32,
+                width: halfWidth - 16,
+                height: photoSectionH - 44,
+              });
+              wishPage.drawText((p1.caption || "Photo memory").slice(0, 35), {
+                x: margin + 12,
+                y: photoSectionY + 14,
+                size: 8.5,
+                font: titleFont,
+                color: rgb(...palette.textMuted),
+              });
+            } catch (err) {
+              console.warn("Failed to embed pair photo 1:", err);
+            }
+          }
+
+          if (b2) {
+            try {
+              const img2 = await doc.embedJpg(b2);
+              const p2X = margin + halfWidth + 14;
+              wishPage.drawRectangle({
+                x: p2X,
+                y: photoSectionY,
+                width: halfWidth,
+                height: photoSectionH,
+                color: rgb(...palette.cardBackground),
+                borderColor: rgb(...palette.border),
+                borderWidth: 1,
+              });
+              wishPage.drawImage(img2, {
+                x: p2X + 8,
+                y: photoSectionY + 32,
+                width: halfWidth - 16,
+                height: photoSectionH - 44,
+              });
+              wishPage.drawText((p2.caption || "Photo memory").slice(0, 35), {
+                x: p2X + 12,
+                y: photoSectionY + 14,
+                size: 8.5,
+                font: titleFont,
+                color: rgb(...palette.textMuted),
+              });
+            } catch (err) {
+              console.warn("Failed to embed pair photo 2:", err);
+            }
+          }
+        }
       }
-
-      // Elegant Footer Bar
-      wishPage.drawLine({
-        start: { x: margin, y: 34 },
-        end: { x: pageWidth - margin, y: 34 },
-        thickness: 0.5,
-        color: rgb(...palette.border),
-      });
-
-      wishPage.drawText("Personal letter keepsake", {
-        x: margin,
-        y: 20,
-        size: 8,
-        font: obliqueFont,
-        color: rgb(...palette.textMuted),
-      });
-
-      wishPage.drawText(`${pageIndex}`, {
-        x: pageWidth - margin - 16,
-        y: 20,
-        size: 9,
-        font: bodyFont,
-        color: rgb(...palette.textMuted),
-      });
     }
   }
 
@@ -1753,8 +1950,8 @@ export async function buildBrandedPagePdf(
   closingPage.drawText("Preserved Forever", {
     x: margin,
     y: colophonY,
-    size: 24,
-    font: serifBoldFont,
+    size: 26,
+    font: headingFont,
     color: rgb(...palette.primary),
   });
 
@@ -1772,7 +1969,7 @@ export async function buildBrandedPagePdf(
     })}.`,
   ];
 
-  let closeCursor = colophonY - 30;
+  let closeCursor = colophonY - 32;
   for (const line of closingLines) {
     closingPage.drawText(cleanPdfText(line), {
       x: margin,

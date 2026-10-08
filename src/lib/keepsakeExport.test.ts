@@ -48,6 +48,18 @@ describe('keepsakeExport utilities', () => {
       assert.ok(palette.accent);
       assert.ok(palette.background);
       assert.ok(palette.cardBackground);
+      assert.equal(palette.isDark, false);
+      assert.equal(palette.fontFamily, 'serif');
+    });
+
+    it('identifies dark themes like midnight and cosmic', () => {
+      const midnight = getPdfThemePalette('midnight');
+      assert.equal(midnight.isDark, true);
+      assert.equal(midnight.fontFamily, 'serif');
+
+      const cosmic = getPdfThemePalette('cosmic');
+      assert.equal(cosmic.isDark, true);
+      assert.equal(cosmic.fontFamily, 'sans');
     });
 
     it('returns fallback palette for unknown themes', () => {

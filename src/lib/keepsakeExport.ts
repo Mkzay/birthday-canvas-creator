@@ -1,4 +1,7 @@
 export interface PdfThemePalette {
+  name: string;
+  isDark: boolean;
+  fontFamily: 'serif' | 'sans';
   primary: [number, number, number];
   accent: [number, number, number];
   background: [number, number, number];
@@ -10,67 +13,124 @@ export interface PdfThemePalette {
 
 const THEME_PALETTES: Record<string, PdfThemePalette> = {
   elegant: {
-    primary: [0.12, 0.14, 0.18], // Slate charcoal
-    accent: [0.85, 0.65, 0.25], // Champagne gold
-    background: [0.985, 0.98, 0.97], // Warm parchment
-    cardBackground: [1, 1, 1], // Pure white card
+    name: 'Elegant',
+    isDark: false,
+    fontFamily: 'serif',
+    primary: [0.18, 0.12, 0.08],
+    accent: [0.85, 0.65, 0.22],
+    background: [0.985, 0.98, 0.97],
+    cardBackground: [1, 1, 1],
+    textDark: [0.18, 0.12, 0.08],
+    textMuted: [0.52, 0.46, 0.4],
+    border: [0.9, 0.86, 0.8],
+  },
+  playful: {
+    name: 'Playful',
+    isDark: false,
+    fontFamily: 'sans',
+    primary: [0.32, 0.08, 0.28],
+    accent: [0.92, 0.28, 0.6],
+    background: [0.99, 0.965, 0.98],
+    cardBackground: [1, 1, 1],
+    textDark: [0.26, 0.08, 0.24],
+    textMuted: [0.55, 0.42, 0.52],
+    border: [0.94, 0.85, 0.92],
+  },
+  minimalist: {
+    name: 'Minimalist',
+    isDark: false,
+    fontFamily: 'sans',
+    primary: [0.12, 0.14, 0.18],
+    accent: [0.4, 0.48, 0.58],
+    background: [0.98, 0.985, 0.99],
+    cardBackground: [1, 1, 1],
     textDark: [0.1, 0.12, 0.16],
-    textMuted: [0.45, 0.48, 0.52],
-    border: [0.9, 0.88, 0.84],
+    textMuted: [0.48, 0.52, 0.56],
+    border: [0.88, 0.9, 0.93],
   },
-  champagne: {
-    primary: [0.2, 0.15, 0.12], // Deep bronze
-    accent: [0.88, 0.72, 0.35], // Warm gold
-    background: [0.99, 0.98, 0.96],
-    cardBackground: [1, 1, 1],
-    textDark: [0.18, 0.14, 0.1],
-    textMuted: [0.5, 0.46, 0.42],
-    border: [0.92, 0.88, 0.82],
-  },
-  midnight: {
-    primary: [0.08, 0.1, 0.16], // Deep midnight navy
-    accent: [0.4, 0.65, 0.95], // Celestial blue
-    background: [0.97, 0.98, 0.99],
-    cardBackground: [1, 1, 1],
-    textDark: [0.08, 0.1, 0.16],
-    textMuted: [0.42, 0.46, 0.52],
-    border: [0.86, 0.89, 0.94],
-  },
-  lavender: {
-    primary: [0.22, 0.16, 0.28], // Regal plum
-    accent: [0.65, 0.45, 0.8], // Soft lavender
+  retro: {
+    name: 'Retro',
+    isDark: false,
+    fontFamily: 'sans',
+    primary: [0.24, 0.1, 0.36],
+    accent: [0.06, 0.68, 0.82],
     background: [0.98, 0.97, 0.99],
     cardBackground: [1, 1, 1],
-    textDark: [0.18, 0.12, 0.24],
-    textMuted: [0.48, 0.42, 0.52],
-    border: [0.9, 0.86, 0.94],
+    textDark: [0.2, 0.08, 0.32],
+    textMuted: [0.5, 0.42, 0.58],
+    border: [0.9, 0.84, 0.94],
   },
-  rose: {
-    primary: [0.28, 0.12, 0.16], // Deep ruby
-    accent: [0.85, 0.4, 0.5], // Soft rose
-    background: [0.99, 0.97, 0.98],
+  tropical: {
+    name: 'Tropical',
+    isDark: false,
+    fontFamily: 'sans',
+    primary: [0.06, 0.22, 0.14],
+    accent: [0.14, 0.68, 0.4],
+    background: [0.965, 0.985, 0.97],
     cardBackground: [1, 1, 1],
-    textDark: [0.22, 0.1, 0.14],
-    textMuted: [0.52, 0.42, 0.46],
-    border: [0.94, 0.86, 0.9],
-  },
-  emerald: {
-    primary: [0.08, 0.2, 0.14], // Deep forest
-    accent: [0.2, 0.65, 0.4], // Emerald
-    background: [0.97, 0.99, 0.98],
-    cardBackground: [1, 1, 1],
-    textDark: [0.08, 0.18, 0.12],
-    textMuted: [0.42, 0.5, 0.46],
+    textDark: [0.06, 0.2, 0.12],
+    textMuted: [0.4, 0.52, 0.44],
     border: [0.86, 0.92, 0.88],
   },
+  cosmic: {
+    name: 'Cosmic',
+    isDark: true,
+    fontFamily: 'sans',
+    primary: [0.95, 0.94, 0.99],
+    accent: [0.65, 0.48, 0.98],
+    background: [0.06, 0.05, 0.14],
+    cardBackground: [0.12, 0.1, 0.22],
+    textDark: [0.95, 0.94, 0.99],
+    textMuted: [0.72, 0.7, 0.85],
+    border: [0.26, 0.22, 0.42],
+  },
   sunset: {
-    primary: [0.28, 0.14, 0.1], // Terra cotta
-    accent: [0.92, 0.45, 0.25], // Sunset coral
-    background: [0.99, 0.975, 0.96],
+    name: 'Sunset',
+    isDark: false,
+    fontFamily: 'sans',
+    primary: [0.28, 0.1, 0.08],
+    accent: [0.94, 0.42, 0.2],
+    background: [0.99, 0.965, 0.94],
     cardBackground: [1, 1, 1],
-    textDark: [0.22, 0.12, 0.08],
-    textMuted: [0.52, 0.44, 0.4],
-    border: [0.94, 0.88, 0.84],
+    textDark: [0.26, 0.1, 0.08],
+    textMuted: [0.54, 0.42, 0.38],
+    border: [0.94, 0.86, 0.82],
+  },
+  ocean: {
+    name: 'Ocean',
+    isDark: false,
+    fontFamily: 'sans',
+    primary: [0.06, 0.18, 0.28],
+    accent: [0.06, 0.64, 0.88],
+    background: [0.95, 0.98, 0.99],
+    cardBackground: [1, 1, 1],
+    textDark: [0.06, 0.18, 0.26],
+    textMuted: [0.42, 0.52, 0.58],
+    border: [0.85, 0.91, 0.95],
+  },
+  candyland: {
+    name: 'Candyland',
+    isDark: false,
+    fontFamily: 'sans',
+    primary: [0.32, 0.08, 0.26],
+    accent: [0.94, 0.36, 0.68],
+    background: [0.99, 0.965, 0.975],
+    cardBackground: [1, 1, 1],
+    textDark: [0.28, 0.06, 0.22],
+    textMuted: [0.55, 0.4, 0.52],
+    border: [0.95, 0.86, 0.92],
+  },
+  midnight: {
+    name: 'Midnight',
+    isDark: true,
+    fontFamily: 'serif',
+    primary: [0.96, 0.97, 0.99],
+    accent: [0.48, 0.55, 0.98],
+    background: [0.04, 0.05, 0.09],
+    cardBackground: [0.09, 0.11, 0.18],
+    textDark: [0.96, 0.97, 0.99],
+    textMuted: [0.68, 0.72, 0.82],
+    border: [0.2, 0.24, 0.38],
   },
 };
 
@@ -170,14 +230,14 @@ export function getKeepsakeCanvasDimensions(format: KeepsakeVisualFormat): Keeps
     return {
       width: 960,
       height: 540,
-      margin: 36,
+      margin: 32,
       aspectRatio: '16:9',
     };
   }
   return {
     width: 595,
     height: 842,
-    margin: 42,
+    margin: 38,
     aspectRatio: 'A4',
   };
 }
