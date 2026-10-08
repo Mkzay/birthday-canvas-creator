@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   formatKeepsakeDate,
-  generateWishesCsv,
+  getKeepsakeCanvasDimensions,
   getPdfThemePalette,
   sanitizePdfText,
 } from './keepsakeExport';
@@ -57,28 +57,19 @@ describe('keepsakeExport utilities', () => {
     });
   });
 
-  describe('generateWishesCsv', () => {
-    it('generates a valid CSV with headers and escaped fields', () => {
-      const page = {
-        recipient_name: 'Ayomikun',
-        birthday_date: '2026-05-12',
-      };
-      const messages = [
-        {
-          sender_name: 'Jessica "Jess" Doe',
-          message: 'Happy birthday!\nHope you have a blast, cheers!',
-          created_at: '2026-05-10T12:00:00Z',
-          photos: [{ url: 'https://example.com/p1.jpg', caption: 'Party photo' }],
-          audio_url: 'https://example.com/audio.mp3',
-        },
-      ];
+  describe('getKeepsakeCanvasDimensions', () => {
+    it('returns A4 dimensions for portrait PDF export', () => {
+      const dims = getKeepsakeCanvasDimensions('pdf');
+      assert.equal(dims.width, 595);
+      assert.equal(dims.height, 842);
+      assert.equal(dims.aspectRatio, 'A4');
+    });
 
-      const csv = generateWishesCsv(page, messages);
-      assert.ok(csv.startsWith('\uFEFF')); // UTF-8 BOM for Excel
-      assert.ok(csv.includes('Sender Name,Date,Message,Photos Count,Voice Note'));
-      assert.ok(csv.includes('"Jessica ""Jess"" Doe"'));
-      assert.ok(csv.includes('1')); // Photos Count
-      assert.ok(csv.includes('Yes')); // Voice Note
+    it('returns 16:9 widescreen dimensions for presentation slides export', () => {
+      const dims = getKeepsakeCanvasDimensions('slides');
+      assert.equal(dims.width, 960);
+      assert.equal(dims.height, 540);
+      assert.equal(dims.aspectRatio, '16:9');
     });
   });
 });

@@ -156,40 +156,28 @@ export function wrapTextForPdf(text: string, maxCharsPerLine: number): string[] 
   return lines;
 }
 
-export function generateWishesCsv(
-  page: Record<string, unknown>,
-  messages: Array<Record<string, unknown>>,
-): string {
-  const headers = ['Sender Name', 'Date', 'Message', 'Photos Count', 'Voice Note'];
+export type KeepsakeVisualFormat = 'pdf' | 'slides';
 
-  const rows = messages.map((msg) => {
-    const sender = String(msg.sender_name || 'Anonymous').trim();
-    const date = msg.created_at ? new Date(String(msg.created_at)).toISOString().split('T')[0] : '';
-    const rawMessage = String(msg.message || '')
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const photosCount = Array.isArray(msg.photos)
-      ? msg.photos.length
-      : msg.photo_url
-        ? 1
-        : 0;
-    const hasAudio = msg.audio_url ? 'Yes' : 'No';
+export interface KeepsakeCanvasDimensions {
+  width: number;
+  height: number;
+  margin: number;
+  aspectRatio: string;
+}
 
-    const escapeCsvField = (field: string | number) => {
-      const str = String(field);
-      return `"${str.replace(/"/g, '""')}"`;
+export function getKeepsakeCanvasDimensions(format: KeepsakeVisualFormat): KeepsakeCanvasDimensions {
+  if (format === 'slides') {
+    return {
+      width: 960,
+      height: 540,
+      margin: 36,
+      aspectRatio: '16:9',
     };
-
-    return [
-      escapeCsvField(sender),
-      escapeCsvField(date),
-      escapeCsvField(rawMessage),
-      photosCount,
-      escapeCsvField(hasAudio),
-    ].join(',');
-  });
-
-  // Include UTF-8 BOM so spreadsheet viewers render accents cleanly
-  return `\uFEFF${headers.join(',')}\r\n${rows.join('\r\n')}`;
+  }
+  return {
+    width: 595,
+    height: 842,
+    margin: 42,
+    aspectRatio: 'A4',
+  };
 }

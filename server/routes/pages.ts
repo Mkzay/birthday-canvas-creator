@@ -754,38 +754,25 @@ pagesRouter.get("/:id/export", requireAuth, validateParams(pageIdParamSchema), a
   const slug = String(page.recipient_name || "birthday-page").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "birthday-page";
 
   const requestedFormat = typeof request.query.format === "string" ? request.query.format.toLowerCase() : "pdf";
-  if (requestedFormat === "json") {
-    response.setHeader("Content-Disposition", `attachment; filename="${slug}-wishcanvas-archive.json"`);
-    response.json({
-      exportType: "wishcanvas-page-v1",
-      exportedAt: new Date().toISOString(),
-      page,
-      messages,
+  const siteUrl = getClientOriginForRequest(request);
+
+  if (requestedFormat === "slides") {
+    const pdfBytes = await buildBrandedPagePdf(pageRows[0], messages, {
+      orientation: "landscape",
+      siteUrl,
     });
+    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader("Content-Disposition", `attachment; filename="${slug}-story-presentation-deck.pdf"`);
+    response.send(Buffer.from(pdfBytes));
     return;
   }
 
-  if (requestedFormat === "csv") {
-    const headers = ["Sender Name", "Date", "Message", "Photos Count", "Voice Note"];
-    const rows = messages.map((msg) => {
-      const sender = String(msg.sender_name || "Anonymous").trim();
-      const date = msg.created_at ? new Date(String(msg.created_at)).toISOString().split("T")[0] : "";
-      const rawMessage = String(msg.message || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-      const photosCount = Array.isArray(msg.photos) ? msg.photos.length : (msg.photo_url ? 1 : 0);
-      const hasAudio = msg.audio_url ? "Yes" : "No";
-      const escapeField = (f: string | number) => `"${String(f).replace(/"/g, '""')}"`;
-      return [escapeField(sender), escapeField(date), escapeField(rawMessage), photosCount, escapeField(hasAudio)].join(",");
-    });
-    const csvContent = `\uFEFF${headers.join(",")}\r\n${rows.join("\r\n")}`;
-    response.setHeader("Content-Type", "text/csv; charset=utf-8");
-    response.setHeader("Content-Disposition", `attachment; filename="${slug}-wishes-guestbook.csv"`);
-    response.send(csvContent);
-    return;
-  }
-
-  const pdfBytes = await buildBrandedPagePdf(pageRows[0], messages);
+  const pdfBytes = await buildBrandedPagePdf(pageRows[0], messages, {
+    orientation: "portrait",
+    siteUrl,
+  });
   response.setHeader("Content-Type", "application/pdf");
-  response.setHeader("Content-Disposition", `attachment; filename="${slug}-wishcanvas-keepsake.pdf"`);
+  response.setHeader("Content-Disposition", `attachment; filename="${slug}-editorial-keepsake-book.pdf"`);
   response.send(Buffer.from(pdfBytes));
 });
 
