@@ -46,6 +46,7 @@ const routeModuleLoaders = {
   SettingsPage: () => import("./pages/SettingsPage"),
   AcceptInvitePage: () => import("./pages/AcceptInvitePage"),
   NotFound: () => import("./pages/NotFound"),
+  LegalPage: () => import("./pages/LegalPage"),
 };
 
 type RouteModuleKey = keyof typeof routeModuleLoaders;
@@ -113,6 +114,7 @@ const UpgradePage = lazyImport(routeModuleLoaders.UpgradePage, "UpgradePage");
 const SettingsPage = lazyImport(routeModuleLoaders.SettingsPage, "SettingsPage");
 const AcceptInvitePage = lazyImport(routeModuleLoaders.AcceptInvitePage, "AcceptInvitePage");
 const NotFound = lazyImport(routeModuleLoaders.NotFound, "NotFound");
+const LegalPage = lazyImport(routeModuleLoaders.LegalPage, "LegalPage");
 
 const queryClient = new QueryClient();
 
@@ -212,7 +214,7 @@ const SeoController = () => {
       return;
     }
 
-    setTitle("WishCanvas");
+    setTitle(pathname === "/privacy" ? "Privacy Policy" : pathname === "/terms" ? "Terms of Service" : "WishCanvas");
     robots.setAttribute("content", "noindex,nofollow");
     canonical.setAttribute("href", `${origin}${pathname}`);
     upsertMeta('meta[property="og:title"]', "property", "og:title", `${APP_NAME}`);
@@ -315,7 +317,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           <SeoController />
           <RoutePrefetchController />
           <Suspense fallback={<RouteLoader />}>
@@ -340,6 +342,8 @@ const App = () => (
               <Route path="/upgrade/*" element={<Navigate to="/billing" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/organize/:token" element={<AcceptInvitePage />} />
+              <Route path="/privacy" element={<LegalPage />} />
+              <Route path="/terms" element={<LegalPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

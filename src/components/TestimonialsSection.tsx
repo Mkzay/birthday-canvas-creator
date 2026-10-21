@@ -63,7 +63,7 @@ const TestimonialsSection = () => {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-12 border-b border-stone-200/70">
           <div>
             <span className="text-xs font-black uppercase tracking-[0.25em] text-amber-800">
-              Real Stories From Real People
+              Celebration ideas
             </span>
             <h2 className="mt-3 font-playfair text-3xl font-extrabold tracking-tight text-slate-950 sm:text-5xl leading-[1.1]">
               Celebrations They Will <br />
@@ -72,7 +72,7 @@ const TestimonialsSection = () => {
           </div>
 
           <div className="font-caveat text-xl sm:text-2xl text-slate-600 select-none sm:text-right">
-            Real memories, real tears of joy ◡̈
+            Illustrative stories with sample names and photos
           </div>
         </div>
 
@@ -146,12 +146,12 @@ const TestimonialsSection = () => {
         <div className="mt-14 flex flex-wrap items-center justify-center gap-6 rounded-2xl border border-stone-200/80 bg-white p-5 text-center shadow-xs">
           <div className="flex items-center gap-2">
             <Heart className="h-4 w-4 text-rose-500 fill-rose-500" />
-            <span className="text-xs font-bold text-slate-900">Over 10,000 birthday moments created</span>
+            <span className="text-xs font-bold text-slate-900">Birthday messages in one place</span>
           </div>
           <span className="hidden sm:inline text-stone-300">•</span>
           <div className="flex items-center gap-2">
             <Volume2 className="h-4 w-4 text-amber-600" />
-            <span className="text-xs font-bold text-slate-900">45,000+ voice blessings delivered</span>
+            <span className="text-xs font-bold text-slate-900">Photos and voice notes from loved ones</span>
           </div>
           <span className="hidden sm:inline text-stone-300">•</span>
           <div className="font-caveat text-base text-slate-600">

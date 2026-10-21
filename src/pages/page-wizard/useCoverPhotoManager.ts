@@ -16,7 +16,7 @@ export interface UseCoverPhotoManagerReturn {
   coverInputRef: React.RefObject<HTMLInputElement | null>;
   handleCoverPhotoSelect: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleRemoveCoverPhoto: () => void;
-  uploadCoverPhoto: (pageId: string, fallbackUrl?: string | null) => Promise<string | null>;
+  uploadCoverPhoto: (pageId: string, fallbackUrl?: string | null, claimToken?: string) => Promise<string | null>;
 }
 
 export function useCoverPhotoManager({
@@ -86,7 +86,7 @@ export function useCoverPhotoManager({
     }
   };
 
-  const uploadCoverPhoto = async (pageId: string, fallbackUrl: string | null = null): Promise<string | null> => {
+  const uploadCoverPhoto = async (pageId: string, fallbackUrl: string | null = null, claimToken?: string): Promise<string | null> => {
     if (!coverPhotoFile) {
       return fallbackUrl;
     }
@@ -94,6 +94,7 @@ export function useCoverPhotoManager({
     const formData = new FormData();
     formData.append('file', coverPhotoFile);
     formData.append('pageId', pageId);
+    if (claimToken) formData.append('claimToken', claimToken);
 
     try {
       const data = await apiForm<{ url: string }>('/uploads/cover', formData);

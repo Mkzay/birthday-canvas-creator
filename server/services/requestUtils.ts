@@ -134,10 +134,6 @@ export function isAllowedOrigin(origin: string, allowedOrigins: string[]): boole
     return true;
   }
 
-  if (/^https:\/\/.*\.vercel\.app$/i.test(normalizedRequestOrigin)) {
-    return true;
-  }
-
   return false;
 }
 

@@ -1,4 +1,5 @@
 import express from "express";
+import { reconcilePoolPayout } from '../services/payoutService';
 import { requireAuth } from "../auth";
 import { sql } from "../db";
 import type { AuthedRequest } from "../types";
@@ -321,9 +322,9 @@ billingRouter.post(
           checkout_id: sessionData.checkout_id || lookupKey,
           reference: sessionData.reference || lookupKey,
           status: "succeeded",
-          amount: sessionData.amount || sessionData.pricing?.amount || getProAmountBachsDecimal(),
-          currency: sessionData.currency || sessionData.pricing?.currency || PRO_OFFER_CURRENCY,
-          customer: sessionData.customer || { email: user.email, name: user.displayName },
+          amount: sessionData.amount ?? sessionData.pricing?.amount,
+          currency: sessionData.currency ?? sessionData.pricing?.currency,
+          customer: sessionData.customer,
           metadata: sessionData.metadata,
         },
         {
@@ -333,6 +334,11 @@ billingRouter.post(
           rawPayload: sessionData,
         },
       );
+
+      if (result.status === 'ignored') {
+        response.status(400).json({ error: 'Payment details could not be validated.', code: 'PAYMENT_NOT_SUCCESS' });
+        return;
+      }
 
       if (result.status === "conflict") {
         response.status(403).json({ error: "Payment reference does not belong to this user.", code: "PAYMENT_ACCOUNT_MISMATCH" });
@@ -403,6 +409,21 @@ export const handlePaystackWebhook: express.RequestHandler = async (request, res
     eventPayload = JSON.parse(rawBody) as PaystackWebhookEvent;
   } catch {
     response.status(400).json({ error: "Invalid webhook payload." });
+    return;
+  }
+
+  if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(eventPayload.event || '')) {
+    const reference = eventPayload.data?.reference;
+    if (!reference) {
+      response.status(400).json({ error: 'Transfer reference is required.' });
+      return;
+    }
+    try {
+      const result = await reconcilePoolPayout(reference);
+      response.json({ ok: true, ...result });
+    } catch {
+      response.status(502).json({ error: 'Could not reconcile transfer; retry the webhook.' });
+    }
     return;
   }
 

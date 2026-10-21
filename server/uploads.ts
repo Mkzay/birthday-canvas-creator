@@ -3,7 +3,7 @@ import path from "node:path";
 import multer from "multer";
 import sharp from "sharp";
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { createCloudinaryStorage } from './cloudinaryStorage';
 
 export const hasCloudinary = Boolean(
   process.env.CLOUDINARY_CLOUD_NAME &&
@@ -61,14 +61,7 @@ function buildFilename(originalName: string) {
 
 const createUploadStorage = (folderName: string, diskRoot: string, isAudio = false) => {
   if (hasCloudinary) {
-    return new CloudinaryStorage({
-      cloudinary: cloudinary,
-      params: {
-        folder: 'birthday-app/' + folderName,
-        resource_type: isAudio ? 'video' : 'auto',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- CloudinaryStorage params requires loose params object
-      } as any,
-    });
+    return createCloudinaryStorage(folderName, isAudio);
   }
 
   return multer.diskStorage({
@@ -100,6 +93,7 @@ function audioFileFilter(
   // Accept standard audio/* types plus common mobile voice-note formats
   const isAudio =
     type.startsWith("audio/") ||
+    type === "video/mp4" ||
     type === "video/3gpp" ||
     type === "video/3gpp2";
 

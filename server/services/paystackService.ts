@@ -42,6 +42,7 @@ export type PaystackPaymentData = {
   amount: number;
   currency: string;
   reference: string;
+  fees?: number;
   customer?: { email?: string };
   metadata?: {
     userId?: string;
@@ -51,6 +52,7 @@ export type PaystackPaymentData = {
     contributorName?: string;
     contributorEmail?: string;
     contributionAmountKobo?: number;
+    purchaseType?: string;
   };
 };
 
@@ -107,7 +109,8 @@ export function calculatePoolContributionCharge(contributionAmountKobo: number) 
 export function calculatePaystackFeeKobo(totalChargeKobo: number): number {
   const normalizedCharge = Math.max(0, Math.trunc(totalChargeKobo));
   const percentageComponent = percentageFeeKobo(normalizedCharge, PAYSTACK_TRANSACTION_FEE_BPS);
-  return Math.min(PAYSTACK_TRANSACTION_MAX_FEE_KOBO, percentageComponent + PAYSTACK_TRANSACTION_FLAT_FEE_KOBO);
+  const flatFee = normalizedCharge < 250000 ? 0 : PAYSTACK_TRANSACTION_FLAT_FEE_KOBO;
+  return Math.min(PAYSTACK_TRANSACTION_MAX_FEE_KOBO, percentageComponent + flatFee);
 }
 
 export function calculateNetReceivedKobo(totalChargeKobo: number) {
@@ -266,7 +269,10 @@ export async function processPaystackSuccessfulPayment(
 ): Promise<ProcessPaystackPaymentResult> {
   const expectedAmount = getProAmountKobo();
   const paidAmount = Number(payment.amount || 0);
-  if (payment.status !== "success" || paidAmount < expectedAmount) {
+  if (payment.status !== "success" || !Number.isSafeInteger(paidAmount) || paidAmount < expectedAmount ||
+      paidAmount > 500000000 || payment.currency !== PRO_OFFER_CURRENCY ||
+      payment.metadata?.planTier !== 'pro' || payment.metadata?.purchaseType !== 'one_time' ||
+      payment.metadata?.purpose === 'pool_gift') {
     return { status: "ignored", userId: null };
   }
 
@@ -276,6 +282,8 @@ export async function processPaystackSuccessfulPayment(
   const metadataUserId = typeof payment.metadata?.userId === "string"
     ? payment.metadata.userId
     : "";
+
+  if (!metadataUserId && !normalizedEmail) return { status: 'conflict', userId: null };
 
   if (options.expectedUserEmail && normalizedEmail && normalizedEmail !== options.expectedUserEmail.toLowerCase()) {
     return { status: "conflict", userId: null };
@@ -323,7 +331,7 @@ export async function processPaystackSuccessfulPayment(
       ${String(payment.currency || PRO_OFFER_CURRENCY)},
       ${payment.status},
       ${options.source},
-      ${JSON.stringify(options.rawPayload)}::jsonb,
+      ${JSON.stringify({ reference: payment.reference, status: payment.status, amount: paidAmount, currency: payment.currency, source: options.source })}::jsonb,
       NOW(),
       NOW()
     )
@@ -347,6 +355,7 @@ export async function processPaystackSuccessfulPayment(
         raw_payload = EXCLUDED.raw_payload,
         verified_at = NOW(),
         updated_at = NOW()
+    WHERE billing_payments.provider = EXCLUDED.provider AND billing_payments.user_id = EXCLUDED.user_id
     RETURNING user_id
   `;
 
@@ -374,7 +383,8 @@ export async function upsertSuccessfulPoolContributionFromPayment(
   payment: PaystackPaymentData,
   rawPayload: unknown,
 ): Promise<PoolContributionUpsertResult> {
-  if (!payment || payment.status !== "success") {
+  if (!payment || payment.status !== "success" || payment.currency !== PRO_OFFER_CURRENCY ||
+      !Number.isSafeInteger(payment.amount) || payment.amount <= 0 || payment.amount > 500000000 || !payment.reference) {
     return { ok: false, code: "PAYMENT_NOT_SUCCESS", message: "Payment was not completed." };
   }
 
@@ -382,11 +392,11 @@ export async function upsertSuccessfulPoolContributionFromPayment(
   const paymentPageId = typeof payment.metadata?.pageId === "string" ? payment.metadata.pageId : "";
   const resolvedPaymentPageId = paymentPageId ? await resolvePageId(paymentPageId) : null;
 
-  if (paymentPurpose !== "pool_gift" && !paymentPageId) {
+  if (paymentPurpose !== "pool_gift" || !paymentPageId) {
     return { ok: false, code: "PAYMENT_TYPE_MISMATCH", message: "Payment is not a pool gift." };
   }
 
-  if (resolvedPaymentPageId && resolvedPaymentPageId !== resolvedPageId) {
+  if (!resolvedPaymentPageId || resolvedPaymentPageId !== resolvedPageId) {
     return { ok: false, code: "PAYMENT_PAGE_MISMATCH", message: "Payment does not belong to this page." };
   }
 
@@ -402,6 +412,9 @@ export async function upsertSuccessfulPoolContributionFromPayment(
   `;
 
   const existingContribution = existingContributionRows[0];
+  if (!existingContribution) {
+    return { ok: false, code: 'PAYMENT_NOT_SUCCESS', message: 'Checkout reference was not initialized here; contact support for reconciliation.' };
+  }
   const existingPageId = existingContribution?.page_id ? String(existingContribution.page_id) : null;
   if (existingPageId && existingPageId !== resolvedPageId) {
     return { ok: false, code: "PAYMENT_REFERENCE_CONFLICT", message: "Payment reference belongs to another page." };
@@ -410,16 +423,22 @@ export async function upsertSuccessfulPoolContributionFromPayment(
   const metadataContributionAmountKobo = sanitizeAmountKobo(payment.metadata?.contributionAmountKobo);
   const fallbackContributionAmountKobo = Number(existingContribution?.contribution_amount_kobo || 0)
     || metadataContributionAmountKobo
-    || Number(existingContribution?.amount_kobo || 0)
-    || totalChargeKobo;
+    || 0;
 
   const contributionCharge = calculatePoolContributionCharge(fallbackContributionAmountKobo);
   const contributionAmountKobo = contributionCharge.contributionAmountKobo;
   const platformFeeKobo = Number(existingContribution?.platform_fee_kobo || 0) || contributionCharge.platformFeeKobo;
   const finalTotalChargeKobo = totalChargeKobo || Number(existingContribution?.total_charge_kobo || 0) || contributionCharge.totalChargeKobo;
-  const settlement = calculateNetReceivedKobo(finalTotalChargeKobo);
+  const expectedCharge = Number(existingContribution?.total_charge_kobo || contributionCharge.totalChargeKobo);
+  if (!contributionAmountKobo || totalChargeKobo !== expectedCharge ||
+      expectedCharge !== contributionCharge.totalChargeKobo) {
+    return { ok: false, code: 'PAYMENT_NOT_SUCCESS', message: 'Payment amount does not match the initialized gift.' };
+  }
+  const settlement = Number.isSafeInteger(payment.fees) && payment.fees! >= 0 && payment.fees! <= finalTotalChargeKobo
+    ? { paystackFeeKobo: payment.fees!, netReceivedKobo: finalTotalChargeKobo - payment.fees! }
+    : calculateNetReceivedKobo(finalTotalChargeKobo);
 
-  await sql`
+  const credited = await sql`
     INSERT INTO pool_contributions (
       page_id,
       provider,
@@ -450,7 +469,7 @@ export async function upsertSuccessfulPoolContributionFromPayment(
       ${contributorName},
       ${contributorEmail},
       'success',
-      ${JSON.stringify(rawPayload)}::jsonb,
+      ${JSON.stringify({ reference: payment.reference, amount: finalTotalChargeKobo, currency: payment.currency, fees: settlement.paystackFeeKobo })}::jsonb,
       NOW(),
       NOW()
     )
@@ -468,21 +487,13 @@ export async function upsertSuccessfulPoolContributionFromPayment(
       payment_metadata = EXCLUDED.payment_metadata,
       verified_at = NOW(),
       updated_at = NOW()
+    WHERE pool_contributions.page_id = EXCLUDED.page_id
+    RETURNING page_id
   `;
 
-  await sql`
-    UPDATE birthday_pages bp
-    SET pooled_amount_kobo = COALESCE(agg.total_kobo, 0),
-        updated_at = NOW()
-    FROM (
-      SELECT page_id, SUM(COALESCE(net_received_kobo, amount_kobo))::bigint AS total_kobo
-      FROM pool_contributions
-      WHERE page_id = ${resolvedPageId}
-        AND status = 'success'
-      GROUP BY page_id
-    ) AS agg
-    WHERE bp.id = ${resolvedPageId}
-  `;
+  if (!credited[0]) return { ok: false, code: 'PAYMENT_REFERENCE_CONFLICT', message: 'Payment reference belongs to another page.' };
+
+  // The database trigger refreshes the balance under the page lock in the credit transaction.
 
   return { ok: true, code: "SUCCESS" };
 }

@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { createTestDatabase } from './testSupport/postgres';
+const database = await createTestDatabase();
+after(() => database.close());
+const { runRetentionCleanup } = await import('./retention');
+const userId = '00000000-0000-4000-8000-000000000021';
+await database.query("INSERT INTO users(id,email,password_hash) VALUES ($1,'retention@example.invalid','test-only')", [userId]);
+await database.query("INSERT INTO email_tokens(user_id,token_hash,purpose,expires_at) VALUES ($1,'old-token','verify_email',NOW()-INTERVAL '31 days'),($1,'live-token','verify_email',NOW()+INTERVAL '1 day')", [userId]);
+await database.query("INSERT INTO billing_payments(provider,provider_reference,user_id,email,amount_kobo,status,raw_payload,created_at) VALUES ('paystack','old-paid',$1,'retention@example.invalid',500000,'success','{\"sensitive\":true}',NOW()-INTERVAL '31 days')", [userId]);
+test('retention preview is read-only and execution removes only expired/transient data', async () => {
+  const preview = await runRetentionCleanup();
+  assert.equal(preview.applied, false);
+  assert.equal(preview.emailTokens, 1);
+  assert.equal((await database.query<{ count: number }>('SELECT COUNT(*)::int AS count FROM email_tokens')).rows[0].count, 2);
+  const applied = await runRetentionCleanup({ apply: true });
+  assert.equal(applied.applied, true);
+  assert.equal((await database.query<{ token_hash: string }>('SELECT token_hash FROM email_tokens')).rows[0].token_hash, 'live-token');
+  const payments = (await database.query<{ provider_reference: string; raw_payload: unknown; amount_kobo: number }>('SELECT provider_reference,raw_payload,amount_kobo FROM billing_payments')).rows;
+  assert.equal(payments.length, 1);
+  assert.equal(payments[0].raw_payload, null);
+  assert.equal(payments[0].amount_kobo, 500000);
+});

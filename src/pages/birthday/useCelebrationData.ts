@@ -264,6 +264,7 @@ export function useCelebrationData({
     setReleasingPoolPayout(true);
     try {
       const payout = await apiFetch<{
+        status: 'success' | 'processing' | 'failed';
         amount_kobo?: number;
         payout_fee_kobo?: number;
         gross_pool_amount_kobo?: number;
@@ -274,6 +275,12 @@ export function useCelebrationData({
 
       const amountKobo = Number(payout.amount_kobo || poolSummary.pooled_amount_kobo || 0);
       const payoutFeeKobo = Number(payout.payout_fee_kobo || 0);
+      if (payout.status !== 'success') {
+        if (payout.status === 'processing') toast.info('Your payout is processing. It will show as released once the payment provider confirms it.');
+        else toast.error('The transfer failed. Contact support before trying again.');
+        await fetchData();
+        return;
+      }
       toast.success(
         payoutFeeKobo > 0
           ? `Payout released: ${formatNairaFromKobo(amountKobo)} (2% payout fee: ${formatNairaFromKobo(payoutFeeKobo)})`
@@ -282,7 +289,10 @@ export function useCelebrationData({
       setPoolSummary((current) => ({ ...current, is_released: true }));
       await fetchData();
     } catch (error) {
-      if (error instanceof ApiError && error.code === 'PAYOUT_TOO_EARLY') {
+      if (error instanceof ApiError && (error.code === 'PAYOUT_RECONCILIATION_REQUIRED' || error.code === 'PAYOUT_IN_PROGRESS')) {
+        toast.info('Your payout is awaiting confirmation. Do not send another transfer; contact hello@wishcanvas.app for help.');
+        await fetchData();
+      } else if (error instanceof ApiError && error.code === 'PAYOUT_TOO_EARLY') {
         toast.error('Payout can be released only after reveal time');
       } else if (error instanceof ApiError && error.code === 'PAYOUT_EMPTY') {
         toast.error('No pooled amount available yet');

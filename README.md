@@ -1,121 +1,37 @@
 # WishCanvas
 
-WishCanvas is a Vite + React app with an Express API backed by Neon Postgres.
+WishCanvas uses React, Vite, Tailwind CSS 4, Express and Neon Postgres. See [launch readiness](LAUNCH_READINESS.md) and [policy decisions](POLICY_REVIEW.md).
 
-## Stack
+## Development
 
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- Express
-- Neon Postgres
+Use Node 24 LTS (minimum 22.12). Install with `npm ci`, copy .env.example to .env and configure secrets privately, then run `npm run dev`. The client runs on localhost:8080 and proxies the API to localhost:3001.
 
-## Local development
+Starting the API initializes database migrations against DATABASE_URL. Use a separate development database.
 
-1. Install dependencies:
+## Production
 
-```sh
-npm install
-```
+The checked-in vercel.json proxies /api and /uploads to birthday-canvas-creator.onrender.com. Vercel builds with `npm run build`; Render starts with `npm run start`. Install development dependencies during frontend builds.
 
-2. Configure environment variables in `.env`:
+Prefer the existing same-origin proxy with VITE_API_ORIGIN unset. Cross-site API requests instead require COOKIE_SAME_SITE=none and COOKIE_SECURE=true. Set NODE_ENV=production and configure DATABASE_URL, JWT_SECRET, CLIENT_URL/CLIENT_URLS, Resend/email sender, Cloudinary, payment/webhook secrets and CRON_SECRET on the API host.
 
-```sh
-DATABASE_URL=...
-JWT_SECRET=...
-API_PORT=3001
-CLIENT_URL=http://localhost:8080
-VITE_API_ORIGIN=http://localhost:3001
-PAYSTACK_SECRET_KEY=...
-```
+Only explicit trusted frontend origins are allowed. Use Cloudinary for durable production media; local uploads need a persistent disk at UPLOADS_ROOT. Ephemeral files disappear on redeploy. Verify playback after restarting.
 
-3. Start the client and API together:
+Pro costs ₦5,000 once per account. Paystack webhook: POST /api/billing/paystack/webhook. Test/sandbox credentials do not accept real payments.
 
-```sh
-npm run dev
-```
+## Scheduled operations
 
-The frontend runs on `http://localhost:8080` and proxies `/api` and `/uploads` to the Express server on `http://localhost:3001`.
+The birthday workflow runs daily at 00:05 UTC. The new retention workflow runs at 00:35 UTC and derives its endpoint from BIRTHDAY_NOTIFY_URL. Both use repository secrets BIRTHDAY_NOTIFY_URL and CRON_SECRET, matching the API secret. Deploy the retention endpoint before enabling that workflow.
 
-## Deploying with Vercel + Railway
+Retention removes eligible application records after 30 days and closed-account financial records after seven years, excluding legal holds. Hosting logs/backups depend on provider plans.
 
-Use Vercel for the frontend and Railway for the Express API.
+## Verification and support
 
-### Railway
+- `npm run check`: tests, lint, TypeScript and build.
+- `npm audit`: full dependency advisory check.
+- `npm run preflight -- --services`: read-only connectivity/configuration checks; no email or payment initiation.
+- `npm run retention:preview`: read-only cleanup counts.
+- `npm run retention:apply`: deletes eligible records in configured DATABASE_URL.
 
-1. Create a Railway service from this repo.
-2. Set the start command to:
+Integration tests use isolated PostgreSQL and mocked external providers. They do not send mail, transfer funds or use the configured database.
 
-```sh
-npm run start
-```
-
-3. Configure these environment variables in Railway:
-
-```sh
-DATABASE_URL=...
-JWT_SECRET=...
-CLIENT_URLS=https://your-production-domain.com,https://your-vercel-preview.vercel.app
-ALLOW_VERCEL_PREVIEWS=true
-# Cross-origin SPA (Vercel) + API (Railway): required
-COOKIE_SAME_SITE=none
-COOKIE_SECURE=true
-# Same-site deployments can omit these (defaults: SameSite=Strict, Secure in production)
-PAYSTACK_SECRET_KEY=...
-UPLOADS_ROOT=/data/uploads
-```
-
-Notes:
-
-- Railway provides `PORT` automatically.
-- If you use file uploads in production, mount a Railway volume and point `UPLOADS_ROOT` at that mounted path. Without persistent storage, uploaded photos and audio will be lost on redeploy or restart.
-- `CLIENT_URLS` accepts a comma-separated list of allowed frontend origins.
-- Configure a Paystack webhook to `POST` to `/api/billing/paystack/webhook` on your API domain. Example: `https://your-railway-service.up.railway.app/api/billing/paystack/webhook`.
-- Pro is currently a fixed one-time unlock of `N5,000` (500000 kobo).
-- Useful billing endpoints:
-	- `GET /api/billing/pro-offer`
-	- `POST /api/billing/paystack/initialize`
-	- `POST /api/billing/paystack/verify`
-	- `POST /api/billing/paystack/webhook`
-
-### Birthday email cron with GitHub Actions
-
-This repo includes a scheduled GitHub Actions workflow at `.github/workflows/birthday-notify-cron.yml`.
-
-Set these repository secrets in GitHub:
-
-- `BIRTHDAY_NOTIFY_URL`: your cron endpoint URL, e.g. `https://your-api-domain/api/system/notify-birthdays/cron`
-- `CRON_SECRET`: must match the `CRON_SECRET` env var on your API service
-
-The workflow runs daily at `00:05 UTC` and can also be run manually from the Actions tab.
-
-### Vercel
-
-1. Create a Vercel project from this repo.
-2. Set this frontend environment variable:
-
-```sh
-VITE_API_ORIGIN=https://your-railway-service.up.railway.app
-```
-
-3. Keep the existing `vercel.json` rewrite so React Router routes resolve to `index.html`.
-
-### Cross-domain auth
-
-Authentication uses cookies. For Vercel and Railway to work together:
-
-- the frontend must call the Railway API using `VITE_API_ORIGIN`
-- the backend must allow the frontend origin in `CLIENT_URLS`
-- **Cross-site** browser requests to the API need `COOKIE_SAME_SITE=none` and `COOKIE_SECURE=true` (Set-Cookie is still on the API host; the browser will send it on credentialed XHR/fetch to that host).
-- **Same-site** (e.g. API proxies under one domain) can rely on defaults: `SameSite=Strict` and `Secure` in production.
-
-## Scripts
-
-- `npm run dev` starts the Vite client and the Express API together
-- `npm run dev:client` starts only the frontend
-- `npm run dev:server` starts only the API
-- `npm run start` starts only the API in a deployment environment
-- `npm run lint` runs ESLint
-- `npm run typecheck` runs TypeScript checks for client, Vite config, and server
-- `npm run build` builds the frontend
+Pending gift checkouts block payout and account/canvas deletion. Support must reconcile each original reference with Paystack; an uncertain checkout must not be marked failed just to unblock payout. New checkouts reserve their reference before contacting Paystack. Unknown provider outcomes stay pending. Automated refunds are not implemented; handle them through the provider dashboard and retain the reference.

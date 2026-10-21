@@ -355,7 +355,7 @@ const CreatePage = () => {
       });
 
       if (coverPhoto) {
-        const coverUrl = await uploadCoverPhoto(data.id);
+        const coverUrl = await uploadCoverPhoto(data.id, null, data.claim_token);
         if (!coverUrl) {
           setSaving(false);
           return;

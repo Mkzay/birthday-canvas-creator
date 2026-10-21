@@ -144,7 +144,14 @@ export async function processBachsSuccessfulPayment(
   },
 ): Promise<ProcessBachsPaymentResult> {
   const reference = paymentData.reference || paymentData.checkout_id || paymentData.charge_id;
-  if (!reference) {
+  const amount = paymentData.amount;
+  const paidAmountKobo = typeof amount === 'string' && /^\d+(?:\.\d{1,2})?$/.test(amount)
+    ? Math.round(Number(amount) * 100) : NaN;
+  const status = String(paymentData.status || '').toLowerCase();
+  if (!reference || !['success', 'succeeded', 'completed', 'paid'].includes(status) ||
+      paymentData.currency !== PRO_OFFER_CURRENCY || !Number.isSafeInteger(paidAmountKobo) ||
+      paidAmountKobo < PRO_ONE_TIME_AMOUNT_KOBO || paidAmountKobo > 500000000 ||
+      paymentData.metadata?.planTier !== 'pro' || paymentData.metadata?.purchaseType !== 'one_time') {
     return { status: "ignored", userId: null };
   }
 
@@ -154,6 +161,8 @@ export async function processBachsSuccessfulPayment(
   const metadataUserId = typeof paymentData.metadata?.userId === "string"
     ? String(paymentData.metadata.userId).trim()
     : "";
+
+  if (!metadataUserId && !normalizedEmail) return { status: 'conflict', userId: null };
 
   if (options.expectedUserEmail && normalizedEmail && normalizedEmail !== options.expectedUserEmail.toLowerCase()) {
     return { status: "conflict", userId: null };
@@ -178,9 +187,6 @@ export async function processBachsSuccessfulPayment(
     return { status: "user-not-found", userId: null };
   }
 
-  const parsedAmountNaira = parseFloat(paymentData.amount || "5000.00");
-  const paidAmountKobo = Number.isFinite(parsedAmountNaira) ? Math.round(parsedAmountNaira * 100) : PRO_ONE_TIME_AMOUNT_KOBO;
-
   const paymentRows = await sql`
     INSERT INTO billing_payments (
       provider,
@@ -204,7 +210,7 @@ export async function processBachsSuccessfulPayment(
       ${String(paymentData.currency || PRO_OFFER_CURRENCY)},
       ${String(paymentData.status || 'success')},
       ${options.source},
-      ${JSON.stringify(options.rawPayload)}::jsonb,
+      ${JSON.stringify({ reference, status: paymentData.status, amount: paidAmountKobo, currency: paymentData.currency, source: options.source })}::jsonb,
       NOW(),
       NOW()
     )
@@ -228,6 +234,7 @@ export async function processBachsSuccessfulPayment(
         raw_payload = EXCLUDED.raw_payload,
         verified_at = NOW(),
         updated_at = NOW()
+    WHERE billing_payments.provider = EXCLUDED.provider AND billing_payments.user_id = EXCLUDED.user_id
     RETURNING user_id
   `;
 

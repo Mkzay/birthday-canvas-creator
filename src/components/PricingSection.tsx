@@ -85,7 +85,7 @@ const PricingSection = () => {
             <div>
               <div className="flex items-center justify-between">
                 <span className="rounded-full bg-amber-50 border border-amber-200/80 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-amber-900 shadow-xs">
-                  Pro Canvas
+                  Pro Account
                 </span>
                 <span className="text-xs font-bold text-amber-800">One-time payment</span>
               </div>
@@ -93,10 +93,10 @@ const PricingSection = () => {
               <div className="mt-6">
                 <div className="flex items-baseline gap-1">
                   <span className="font-playfair text-4xl sm:text-5xl font-extrabold text-slate-950">₦5,000</span>
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">/ single canvas</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">/ account, once</span>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-slate-600 font-medium">
-                  Pay once when you are ready to reveal. No recurring charges and zero hidden fees.
+                  Upgrade your account once. Pro applies to all your canvases, with no recurring subscription.
                 </p>
               </div>
 
@@ -139,7 +139,7 @@ const PricingSection = () => {
         {/* Reassurance Footer Banner */}
         <div className="mt-12 text-center">
           <p className="font-caveat text-lg sm:text-xl text-slate-600">
-            One birthday, one flat price, memories saved forever ◡̈
+            One account upgrade, every birthday celebration ◡̈
           </p>
         </div>
 

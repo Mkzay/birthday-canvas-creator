@@ -105,7 +105,7 @@ const AuthPage = () => {
   // Sync mode from search params if present
   useEffect(() => {
     const mode = searchParams.get('mode');
-    if (mode === 'signup' || claimToken) {
+    if (mode === 'signup' || (claimToken && mode !== 'login')) {
       setIsLogin(false);
       setForgotMode(false);
       setResetEmailSent(false);
@@ -266,11 +266,12 @@ const AuthPage = () => {
           try {
             await apiFetch<{ success: boolean }>('/pages/claim', {
               method: 'POST',
-              body: JSON.stringify({ claimToken }),
+              body: JSON.stringify({ claimToken, publicCode: claimPublicCode }),
             });
             toast.success('Your celebration canvas has been claimed!');
           } catch (claimErr) {
             console.error('Failed to claim page on sign-in:', claimErr);
+            toast.error('Signed in, but your canvas could not be claimed. Open your claim link to try again.');
           }
         }
 

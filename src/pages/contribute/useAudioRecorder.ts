@@ -33,21 +33,29 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const discardRecordingRef = useRef(false);
+  const startingRef = useRef(false);
 
-  // Clean up object URLs and stream tracks on unmount
+  // Revoke each preview when replaced or unmounted.
   useEffect(() => {
     return () => {
       if (wishAudioPreviewUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(wishAudioPreviewUrl);
       }
-      if (recordingTimerRef.current !== null) {
-        window.clearInterval(recordingTimerRef.current);
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
     };
   }, [wishAudioPreviewUrl]);
+
+  useEffect(() => () => {
+    discardRecordingRef.current = true;
+    const recorder = mediaRecorderRef.current;
+    if (recorder) {
+      recorder.onstop = null;
+      recorder.ondataavailable = null;
+      if (recorder.state !== 'inactive') recorder.stop();
+    }
+    if (recordingTimerRef.current !== null) window.clearInterval(recordingTimerRef.current);
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
 
   const clearAudio = useCallback(() => {
     if (wishAudioPreviewUrl?.startsWith('blob:')) {
@@ -71,9 +79,9 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       return;
     }
 
-    const maxSize = 25 * 1024 * 1024; // 25MB
+    const maxSize = 8 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast.error('Audio file must be smaller than 25MB');
+      toast.error('Audio file must be smaller than 8MB');
       return;
     }
 
@@ -87,8 +95,10 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   }, [wishAudioPreviewUrl]);
 
   const startRecording = useCallback(async () => {
+    if (startingRef.current || mediaRecorderRef.current?.state === 'recording') return;
+    startingRef.current = true;
     try {
-      if (!navigator.mediaDevices?.getUserMedia) {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
         toast.error('Voice recording is not supported in this browser.');
         return;
       }
@@ -114,6 +124,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      discardRecordingRef.current = false;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -122,18 +133,18 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       };
 
       mediaRecorder.onstop = () => {
-        const blobType = mimeType || 'audio/webm';
+        const blobType = mediaRecorder.mimeType || mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
-        const extension = blobType.startsWith('audio/mp4') ? 'm4a' : 'webm';
+        const extension = blobType.includes('mp4') ? 'm4a' : blobType.includes('ogg') ? 'ogg' : 'webm';
         const audioFile = new File([audioBlob], `voice-note.${extension}`, { type: blobType });
 
-        if (wishAudioPreviewUrl?.startsWith('blob:')) {
-          URL.revokeObjectURL(wishAudioPreviewUrl);
+        if (!discardRecordingRef.current && audioBlob.size > 0 && audioBlob.size <= 8 * 1024 * 1024) {
+          setWishAudio(audioFile);
+          setWishAudioPreviewUrl(URL.createObjectURL(audioBlob));
+          setExistingAudioUrl(null);
+        } else if (!discardRecordingRef.current && audioBlob.size > 8 * 1024 * 1024) {
+          toast.error('Recording exceeds 8MB. Please record a shorter voice note.');
         }
-
-        setWishAudio(audioFile);
-        setWishAudioPreviewUrl(URL.createObjectURL(audioBlob));
-        setExistingAudioUrl(null);
 
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
@@ -163,10 +174,17 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         });
       }, 1000);
     } catch (error) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      if (recordingTimerRef.current !== null) window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+      setIsRecording(false);
       console.error('Error accessing microphone:', error);
       toast.error('Could not access microphone. Please check your permissions.');
+    } finally {
+      startingRef.current = false;
     }
-  }, [wishAudioPreviewUrl]);
+  }, []);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -177,6 +195,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   const cancelRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
       // Discard recorded chunks
+      discardRecordingRef.current = true;
       audioChunksRef.current = [];
       mediaRecorderRef.current.stop();
     }

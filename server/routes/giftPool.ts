@@ -1,4 +1,6 @@
 import express from "express";
+import { randomUUID } from 'node:crypto';
+import { reconcilePoolPayout } from '../services/payoutService';
 import { requireAuth, requireAdmin } from "../auth";
 import { sql } from "../db";
 import type { AuthedRequest } from "../types";
@@ -111,11 +113,21 @@ giftPoolRouter.post(
       return;
     }
 
+    if (!page.is_owner) {
+      response.status(403).json({ error: 'Only the canvas owner can release pooled funds.', code: 'PAYOUT_OWNER_REQUIRED' });
+      return;
+    }
+
     if (!page.is_revealed) {
       response.status(403).json({ error: "Payout can only be released after reveal time.", code: "PAYOUT_TOO_EARLY" });
       return;
     }
 
+    const pendingCheckouts = await sql`SELECT id FROM pool_contributions WHERE page_id=${String(page.id)} AND status='pending' LIMIT 1`;
+    if (pendingCheckouts[0]) {
+      response.status(409).json({ error: 'Gift checkouts still need settlement before payout. Contact hello@wishcanvas.app for reconciliation.', code: 'PAYOUT_CHECKOUT_PENDING' });
+      return;
+    }
     const payout = calculatePoolPayout(Number(page.pooled_amount_kobo || 0));
     if (!payout.grossPoolBalanceKobo || payout.grossPoolBalanceKobo <= 0) {
       response.status(400).json({ error: "No pooled amount available for release.", code: "PAYOUT_EMPTY" });
@@ -189,10 +201,16 @@ giftPoolRouter.post(
         ${request.user!.id},
         NOW()
       )
+      ON CONFLICT DO NOTHING
       RETURNING id
     `;
+    if (!lockRows[0]) {
+      response.status(409).json({ error: 'Payout is already processing, or gift checkouts still need settlement. Contact hello@wishcanvas.app if this persists.', code: 'PAYOUT_IN_PROGRESS' });
+      return;
+    }
     const payoutRecordId = lockRows[0].id;
 
+    let transferSubmitted = false;
     try {
       const recipientData = await paystackRequest<{ recipient_code: string }>("/transferrecipient", {
         method: "POST",
@@ -205,7 +223,8 @@ giftPoolRouter.post(
         }),
       });
 
-      const transferData = await paystackRequest<{ reference: string; transfer_code: string }>("/transfer", {
+      transferSubmitted = true;
+      const transferData = await paystackRequest<{ reference: string; transfer_code: string; status: string }>("/transfer", {
         method: "POST",
         body: JSON.stringify({
           source: "balance",
@@ -216,17 +235,20 @@ giftPoolRouter.post(
         }),
       });
 
+      if (transferData.reference !== transferRef) throw new Error('Transfer reference mismatch; reconciliation required');
+      const payoutStatus = transferData.status === 'success' ? 'success'
+        : ['failed', 'reversed'].includes(transferData.status) ? 'failed' : 'processing';
       await sql`
         UPDATE pool_payouts
-        SET status = 'success',
+        SET status = ${payoutStatus},
             provider_reference = ${transferData.reference || transferRef},
-            response_payload = ${JSON.stringify({ transfer: transferData, recipient: recipientData })}::jsonb,
+            response_payload = ${JSON.stringify({ reference: transferRef, status: transferData.status, transfer_code: transferData.transfer_code, recipient_code: recipientData.recipient_code })}::jsonb,
             updated_at = NOW()
         WHERE id = ${payoutRecordId}
       `;
 
       response.json({
-        status: "success",
+        status: payoutStatus,
         amount_kobo: payout.payoutAmountKobo,
         gross_pool_amount_kobo: payout.grossPoolBalanceKobo,
         payout_fee_kobo: payout.payoutFeeKobo,
@@ -243,14 +265,17 @@ giftPoolRouter.post(
       });
       await sql`
         UPDATE pool_payouts
-        SET status = 'failed',
+        SET status = ${transferSubmitted ? 'processing' : 'failed'},
             response_payload = ${JSON.stringify({ error: classifiedError.rawMessage, code: classifiedError.code })}::jsonb,
             updated_at = NOW()
         WHERE id = ${payoutRecordId}
       `;
       response.status(classifiedError.status).json({
-        error: exposeErrorToClient(error, classifiedError.message),
-        code: classifiedError.code,
+        error: transferSubmitted
+          ? 'The payout outcome could not be confirmed. Do not retry; support will reconcile the existing reference.'
+          : 'Recipient setup failed before a transfer was submitted. Check the bank details and try again.',
+        code: transferSubmitted ? 'PAYOUT_RECONCILIATION_REQUIRED' : 'PAYOUT_RECIPIENT_SETUP_FAILED',
+        reference: transferRef,
       });
     }
   },
@@ -259,6 +284,30 @@ giftPoolRouter.post(
 // ==========================================
 // Public Contributor Crowdfunding Routes
 // ==========================================
+
+giftPoolRouter.post(
+  '/pages/:id/pool/reconcile-payout', requireAuth, poolPayoutReleaseLimiter, validateParams(pageIdParamSchema),
+  async (request: AuthedRequest, response) => {
+    const pages = await privatePageQuery(String(request.params.id), request.user!.id);
+    if (!pages[0]?.is_owner) {
+      response.status(403).json({ error: 'Only the canvas owner can reconcile pooled funds.' });
+      return;
+    }
+    const attempts = await sql`
+      SELECT provider_reference FROM pool_payouts WHERE page_id = ${pages[0].id}
+        AND provider = 'paystack' AND status = 'processing' ORDER BY created_at DESC LIMIT 1
+    `;
+    if (!attempts[0]?.provider_reference) {
+      response.status(404).json({ error: 'No pending payout to reconcile.' });
+      return;
+    }
+    try {
+      response.json(await reconcilePoolPayout(String(attempts[0].provider_reference)));
+    } catch {
+      response.status(502).json({ error: 'The transfer is still unconfirmed. Contact support with its reference.' });
+    }
+  },
+);
 
 giftPoolRouter.get(
   "/public/pages/:id/pool/summary",
@@ -434,6 +483,15 @@ giftPoolRouter.post(
       return;
     }
 
+    const payoutStarted = await sql`
+      SELECT id FROM pool_payouts WHERE page_id = ${resolvedPageId}
+        AND provider = 'paystack' AND status IN ('processing', 'success') LIMIT 1
+    `;
+    if (payoutStarted[0]) {
+      response.status(409).json({ error: "This gift pool is closed because payout has started", code: "POOL_CLOSED" });
+      return;
+    }
+
     const contributionAmountKobo = sanitizeAmountKobo(request.body.amountKobo);
     if (!contributionAmountKobo || contributionAmountKobo < 100) {
       response.status(400).json({ error: "Minimum amount is 100 kobo", code: "INVALID_AMOUNT" });
@@ -450,26 +508,8 @@ giftPoolRouter.post(
       const contributorEmail = sanitizeEmail(request.body.contributorEmail) || undefined;
       const contributionCharge = calculatePoolContributionCharge(contributionAmountKobo);
 
-      const data = await paystackRequest<{ authorization_url: string; reference: string }>("/transaction/initialize", {
-        method: "POST",
-        body: JSON.stringify({
-          email: contributorEmail || "hello@wishcanvas.app",
-          amount: contributionCharge.totalChargeKobo,
-          currency: "NGN",
-          callback_url: callbackUrl,
-          metadata: {
-            purpose: "pool_gift",
-            pageId: resolvedPageId,
-            pageCode: String(page.public_code || resolvedPageId),
-            contributorName,
-            contributorEmail: contributorEmail || null,
-            contributionAmountKobo: contributionCharge.contributionAmountKobo,
-            platformFeeKobo: contributionCharge.platformFeeKobo,
-            totalChargeKobo: contributionCharge.totalChargeKobo,
-          },
-        }),
-      });
-
+      // Reserve before contacting the provider: deletion/payout must see in-flight checkouts.
+      const checkoutRef = `wishcanvas_gift_${randomUUID().replace(/-/g, '')}`;
       await sql`
         INSERT INTO pool_contributions (
           page_id,
@@ -488,7 +528,7 @@ giftPoolRouter.post(
         VALUES (
           ${resolvedPageId},
           'paystack',
-          ${data.reference},
+          ${checkoutRef},
           ${contributionCharge.totalChargeKobo},
           ${contributionCharge.contributionAmountKobo},
           ${contributionCharge.platformFeeKobo},
@@ -504,17 +544,27 @@ giftPoolRouter.post(
           })}::jsonb,
           NOW()
         )
-        ON CONFLICT (provider_reference)
-        DO UPDATE SET
-          amount_kobo = EXCLUDED.amount_kobo,
-          contribution_amount_kobo = EXCLUDED.contribution_amount_kobo,
-          platform_fee_kobo = EXCLUDED.platform_fee_kobo,
-          total_charge_kobo = EXCLUDED.total_charge_kobo,
-          contributor_name = EXCLUDED.contributor_name,
-          contributor_email = EXCLUDED.contributor_email,
-          payment_metadata = EXCLUDED.payment_metadata,
-          updated_at = NOW()
       `;
+
+      const data = await paystackRequest<{ authorization_url: string; reference: string }>("/transaction/initialize", {
+        method: "POST",
+        body: JSON.stringify({
+          reference: checkoutRef,
+          email: contributorEmail || "hello@wishcanvas.app",
+          amount: contributionCharge.totalChargeKobo,
+          currency: "NGN",
+          callback_url: callbackUrl,
+          metadata: {
+            purpose: "pool_gift", pageId: resolvedPageId,
+            pageCode: String(page.public_code || resolvedPageId), contributorName,
+            contributorEmail: contributorEmail || null,
+            contributionAmountKobo: contributionCharge.contributionAmountKobo,
+            platformFeeKobo: contributionCharge.platformFeeKobo,
+            totalChargeKobo: contributionCharge.totalChargeKobo,
+          },
+        }),
+      });
+      if (data.reference !== checkoutRef) throw new Error('Checkout reference mismatch; support reconciliation required');
 
       response.json({
         authorizationUrl: data.authorization_url,
@@ -526,6 +576,11 @@ giftPoolRouter.post(
     } catch (error) {
       const message = error instanceof Error ? error.message : "pool-initialize-failed";
       logRequestFailure("pool-initialize", { pageId: resolvedPageId, message });
+
+      if (message.includes('POOL_CLOSED')) {
+        response.status(409).json({ error: 'This gift pool is closed.', code: 'POOL_CLOSED' });
+        return;
+      }
 
       if (message === "PAYSTACK_NOT_CONFIGURED") {
         response.status(500).json({ error: "Paystack is not configured on the server." });

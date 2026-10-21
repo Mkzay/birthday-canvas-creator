@@ -220,6 +220,7 @@ export const publicMessageEditBodySchema = z.object({
 
 export const uploadPageIdBodySchema = z.object({
   pageId: z.string().min(1).max(80),
+  claimToken: z.string().max(120).optional(),
 });
 
 export const systemTestEmailBodySchema = z.object({

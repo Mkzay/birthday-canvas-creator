@@ -1,8 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600;1,700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
 @layer base {
   :root {
@@ -200,7 +199,8 @@
   }
 
   .panel-card {
-    @apply rounded-[2rem] border shadow-card;
+    @apply rounded-[2rem] border;
+    box-shadow: 0 18px 55px rgba(18, 18, 23, 0.05);
     border-color: hsl(var(--border) / 0.6);
     background: hsl(var(--card) / 0.92);
   }

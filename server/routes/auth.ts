@@ -103,6 +103,23 @@ authRouter.post("/signup", authSignupLimiter, validateBody(signupBodySchema), as
   const password = request.body.password as string;
   const displayName = sanitizeDisplayName(request.body.displayName);
 
+  // Public links and an unverified email are not proof of canvas ownership.
+  let claimPage: Record<string, unknown> | undefined;
+  if (request.body.publicCode || request.body.claimToken) {
+    const claims = await sql`
+      SELECT id, claim_token_hash
+      FROM birthday_pages
+      WHERE public_code = ${request.body.publicCode || null} AND user_id IS NULL
+      LIMIT 1
+    `;
+    claimPage = claims[0];
+    if (!request.body.claimToken || !claimPage?.claim_token_hash ||
+        !(await verifyPassword(request.body.claimToken, String(claimPage.claim_token_hash)))) {
+      response.status(403).json({ error: "Invalid or expired claim token." });
+      return;
+    }
+  }
+
   const existing = await sql`
     SELECT id
     FROM users
@@ -123,19 +140,17 @@ authRouter.post("/signup", authSignupLimiter, validateBody(signupBodySchema), as
   `;
   const createdUser = rows[0];
 
-  // Automatically claim any guest canvases created with this email
-  try {
+  if (claimPage) {
     await sql`
       UPDATE birthday_pages
       SET user_id = ${createdUser.id},
           guest_email = NULL,
           claim_token_hash = NULL,
           updated_at = NOW()
-      WHERE (LOWER(guest_email) = LOWER(${email}) OR (public_code = ${request.body.publicCode || null} AND user_id IS NULL))
+      WHERE id = ${claimPage.id}
+        AND claim_token_hash = ${claimPage.claim_token_hash}
         AND user_id IS NULL
     `;
-  } catch (claimErr) {
-    console.error("Failed to auto-claim guest canvas on signup:", claimErr);
   }
 
   if (isMailerConfigured()) {
@@ -262,6 +277,13 @@ authRouter.post("/verify/confirm", authVerifyConfirmLimiter, validateBody(tokenB
     response.status(404).json({ error: "User not found." });
     return;
   }
+
+  // Email-based recovery is safe only after mailbox ownership is verified.
+  await sql`
+    UPDATE birthday_pages
+    SET user_id = ${rows[0].id}, guest_email = NULL, claim_token_hash = NULL, updated_at = NOW()
+    WHERE LOWER(guest_email) = LOWER(${rows[0].email}) AND user_id IS NULL
+  `;
 
   if (isMailerConfigured()) {
     try {
@@ -424,7 +446,20 @@ authRouter.patch("/password", requireAuth, validateBody(passwordChangeBodySchema
 authRouter.delete("/me/data", requireAuth, async (request: AuthedRequest, response) => {
   const userId = request.user!.id;
 
+  const unsettled = await sql`
+    SELECT bp.id FROM birthday_pages bp WHERE bp.user_id = ${userId}
+      AND gift_pool_unsettled(bp.id) LIMIT 1
+  `;
+  if (unsettled[0]) {
+    response.status(409).json({ error: 'Your account has an unsettled gift pool. Contact hello@wishcanvas.app to settle or refund it before deletion.', code: 'UNSETTLED_GIFT_POOL' });
+    return;
+  }
+
   const fileRows = await sql`
+    SELECT avatar_url AS url FROM users WHERE id = ${userId} AND avatar_url IS NOT NULL
+    UNION ALL
+    SELECT icon_url AS url FROM custom_themes WHERE user_id = ${userId} AND icon_url IS NOT NULL
+    UNION ALL
     SELECT cover_photo_url AS url
     FROM birthday_pages
     WHERE user_id = ${userId}
@@ -453,12 +488,33 @@ authRouter.delete("/me/data", requireAuth, async (request: AuthedRequest, respon
     WHERE bp.user_id = ${userId}
   `;
 
+  try {
+  await sql.transaction([
+    sql`SELECT id FROM users WHERE id=${userId} FOR UPDATE`,
+    sql`SELECT id FROM birthday_pages WHERE user_id=${userId} ORDER BY id FOR UPDATE`,
+    sql`INSERT INTO financial_records(provider,provider_reference,record_type,amount_kobo,currency,status,occurred_at,expires_at)
+      SELECT provider,provider_reference,'pro',amount_kobo,currency,status,created_at,NOW()+INTERVAL '7 years'
+      FROM billing_payments WHERE user_id = ${userId}
+      ON CONFLICT(provider,provider_reference,record_type) DO NOTHING`,
+    sql`INSERT INTO financial_records(provider,provider_reference,record_type,amount_kobo,currency,status,occurred_at,expires_at)
+      SELECT pc.provider,pc.provider_reference,'pool_gift',pc.amount_kobo,'NGN',pc.status,pc.created_at,NOW()+INTERVAL '7 years'
+      FROM pool_contributions pc JOIN birthday_pages bp ON bp.id=pc.page_id WHERE bp.user_id=${userId}
+      ON CONFLICT(provider,provider_reference,record_type) DO NOTHING`,
+    sql`INSERT INTO financial_records(provider,provider_reference,record_type,amount_kobo,currency,status,occurred_at,expires_at)
+      SELECT pp.provider,pp.provider_reference,'pool_payout',pp.amount_kobo,'NGN',pp.status,pp.created_at,NOW()+INTERVAL '7 years'
+      FROM pool_payouts pp JOIN birthday_pages bp ON bp.id=pp.page_id WHERE bp.user_id=${userId} AND pp.provider_reference IS NOT NULL
+      ON CONFLICT(provider,provider_reference,record_type) DO NOTHING`,
+    sql`UPDATE billing_payments SET email=NULL, raw_payload=NULL, updated_at=NOW() WHERE user_id=${userId}`,
+    sql`DELETE FROM users WHERE id=${userId}`,
+  ]);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('UNSETTLED_GIFT_POOL')) {
+      response.status(409).json({ error: 'Settle pending gift payments before deleting your account. Contact hello@wishcanvas.app.', code: 'UNSETTLED_GIFT_POOL' });
+      return;
+    }
+    throw error;
+  }
   await Promise.all(fileRows.map((row) => removeFileByUrl(row.url)));
-
-  await sql`
-    DELETE FROM users
-    WHERE id = ${userId}
-  `;
 
   clearSessionCookie(response);
   response.status(204).end();

@@ -127,8 +127,8 @@ const HeroSection = () => {
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm font-extrabold text-slate-900">10,000+</p>
-                  <p className="text-xs text-slate-500 font-medium">Heartfelt Celebrations</p>
+                  <p className="text-sm font-extrabold text-slate-900">Bring everyone together</p>
+                  <p className="text-xs text-slate-500 font-medium">Messages, photos and voice notes</p>
                 </div>
               </div>
 

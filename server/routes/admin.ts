@@ -2,6 +2,7 @@ import express from "express";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import { sql } from "../db";
+import { runRetentionCleanup } from '../retention';
 import { requireAdmin } from "../auth";
 import type { AuthedRequest } from "../types";
 import { validateBody } from "../validateRequest";
@@ -25,6 +26,16 @@ import { exposeErrorToClient } from "../errors";
 
 export const adminRouter = express.Router();
 export const systemRouter = express.Router();
+
+systemRouter.post('/retention/cron', systemBirthdayCronLimiter, async (request, response) => {
+  const expected = Buffer.from(process.env.CRON_SECRET?.trim() || '');
+  const supplied = Buffer.from(typeof request.headers['x-cron-secret'] === 'string' ? request.headers['x-cron-secret'] : '');
+  if (!expected.length || expected.length !== supplied.length || !crypto.timingSafeEqual(expected, supplied)) {
+    response.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  response.json(await runRetentionCleanup({ apply: request.body?.dryRun !== true }));
+});
 
 export async function buildHealthPayload() {
   const startedAt = Date.now();
@@ -65,6 +76,7 @@ export async function buildHealthPayload() {
 
   return {
     ok,
+    release: process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || null,
     checks: { db, uploads },
     services: {
       email_configured: isMailerConfigured(),

@@ -4,6 +4,7 @@ const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is not configured");
+
 }
 
 export const sql = neon(databaseUrl);
@@ -692,5 +693,90 @@ export async function initializeDatabase() {
       INSERT INTO _schema_migrations (version) VALUES (2)
       ON CONFLICT (version) DO NOTHING;
     `;
+  }
+  const v3Migration = await sql`SELECT version FROM _schema_migrations WHERE version = 3 LIMIT 1`;
+  if (v3Migration.length === 0) {
+    // Fail safely if historical active payouts conflict; never silently discard money records.
+    await sql.transaction([
+      sql`ALTER TABLE billing_payments DROP CONSTRAINT IF EXISTS billing_payments_provider_check`,
+      sql`ALTER TABLE billing_payments ADD CONSTRAINT billing_payments_provider_check CHECK (provider IN ('paystack', 'bachs'))`,
+      sql`ALTER TABLE pool_payouts DROP CONSTRAINT IF EXISTS pool_payouts_status_check`,
+      sql`ALTER TABLE pool_payouts ADD CONSTRAINT pool_payouts_status_check CHECK (status IN ('processing', 'success', 'failed', 'superseded'))`,
+      sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_pool_payouts_one_active ON pool_payouts(page_id) WHERE provider = 'paystack' AND status IN ('processing', 'success')`,
+      sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_pool_payouts_reference ON pool_payouts(provider_reference) WHERE provider = 'paystack'`,
+      sql`INSERT INTO _schema_migrations (version) VALUES (3) ON CONFLICT (version) DO NOTHING`,
+    ]);
+  }
+  const v4Migration = await sql`SELECT version FROM _schema_migrations WHERE version = 4 LIMIT 1`;
+  if (v4Migration.length === 0) {
+    await sql.transaction([
+      sql`CREATE TABLE IF NOT EXISTS financial_records (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider TEXT NOT NULL, provider_reference TEXT NOT NULL, record_type TEXT NOT NULL,
+        amount_kobo INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'NGN', status TEXT NOT NULL,
+        occurred_at TIMESTAMPTZ NOT NULL, expires_at TIMESTAMPTZ NOT NULL,
+        legal_hold BOOLEAN NOT NULL DEFAULT FALSE,
+        UNIQUE(provider, provider_reference, record_type)
+      )`,
+      sql`CREATE INDEX IF NOT EXISTS idx_financial_records_expiry ON financial_records(expires_at) WHERE legal_hold = FALSE`,
+      sql`INSERT INTO _schema_migrations(version) VALUES (4) ON CONFLICT(version) DO NOTHING`,
+    ]);
+  }
+  const v5Migration = await sql`SELECT version FROM _schema_migrations WHERE version = 5 LIMIT 1`;
+  if (v5Migration.length === 0) {
+    await sql.transaction([
+      sql`CREATE OR REPLACE FUNCTION gift_pool_unsettled(target UUID) RETURNS BOOLEAN LANGUAGE sql AS $$
+        SELECT EXISTS(SELECT 1 FROM pool_contributions WHERE page_id=target AND status='pending')
+          OR EXISTS(SELECT 1 FROM pool_payouts WHERE page_id=target AND provider='paystack' AND status='processing')
+          OR EXISTS(SELECT 1 FROM birthday_pages bp WHERE bp.id=target AND bp.pooled_amount_kobo >
+            COALESCE((SELECT SUM(gross_pool_amount_kobo) FROM pool_payouts WHERE page_id=target AND provider='paystack' AND status='success'),0))
+      $$`,
+      sql`CREATE OR REPLACE FUNCTION guard_gift_pool_deletion() RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE target UUID;
+        BEGIN
+          IF TG_TABLE_NAME='users' THEN
+            FOR target IN SELECT id FROM birthday_pages WHERE user_id=OLD.id ORDER BY id FOR UPDATE LOOP
+              IF gift_pool_unsettled(target) THEN RAISE EXCEPTION 'UNSETTLED_GIFT_POOL'; END IF;
+            END LOOP;
+          ELSE
+            IF TG_OP='UPDATE' AND (NOT NEW.owner_deleted OR OLD.owner_deleted) THEN RETURN NEW; END IF;
+            IF gift_pool_unsettled(OLD.id) THEN RAISE EXCEPTION 'UNSETTLED_GIFT_POOL'; END IF;
+          END IF;
+          IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+          RETURN NEW;
+        END $$`,
+      sql`CREATE TRIGGER guard_account_finances BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION guard_gift_pool_deletion()`,
+      sql`CREATE TRIGGER guard_canvas_finances BEFORE DELETE OR UPDATE OF owner_deleted ON birthday_pages FOR EACH ROW EXECUTE FUNCTION guard_gift_pool_deletion()`,
+      sql`CREATE OR REPLACE FUNCTION lock_gift_pool_payment() RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE hidden BOOLEAN;
+        BEGIN
+          SELECT owner_deleted INTO hidden FROM birthday_pages WHERE id=NEW.page_id FOR UPDATE;
+          IF NOT FOUND OR hidden THEN RAISE EXCEPTION 'POOL_CLOSED'; END IF;
+          IF TG_OP='INSERT' AND NEW.status='pending' AND EXISTS(
+            SELECT 1 FROM pool_payouts WHERE page_id=NEW.page_id AND provider='paystack' AND status IN ('processing','success')
+          ) THEN RAISE EXCEPTION 'POOL_CLOSED'; END IF;
+          RETURN NEW;
+        END $$`,
+      sql`CREATE TRIGGER lock_gift_pool_payment BEFORE INSERT OR UPDATE ON pool_contributions FOR EACH ROW EXECUTE FUNCTION lock_gift_pool_payment()`,
+      sql`CREATE OR REPLACE FUNCTION refresh_gift_pool_balance() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+          UPDATE birthday_pages SET pooled_amount_kobo=COALESCE((SELECT SUM(COALESCE(net_received_kobo,amount_kobo))
+            FROM pool_contributions WHERE page_id=NEW.page_id AND status='success'),0), updated_at=NOW() WHERE id=NEW.page_id;
+          RETURN NEW;
+        END $$`,
+      sql`CREATE TRIGGER refresh_gift_pool_balance AFTER INSERT OR UPDATE ON pool_contributions FOR EACH ROW EXECUTE FUNCTION refresh_gift_pool_balance()`,
+      sql`CREATE OR REPLACE FUNCTION guard_gift_pool_payout() RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE balance INTEGER; hidden BOOLEAN;
+        BEGIN
+          IF NEW.provider <> 'paystack' THEN RETURN NEW; END IF;
+          SELECT pooled_amount_kobo,owner_deleted INTO balance,hidden FROM birthday_pages WHERE id=NEW.page_id FOR UPDATE;
+          IF NOT FOUND OR hidden THEN RETURN NULL; END IF;
+          IF EXISTS(SELECT 1 FROM pool_contributions WHERE page_id=NEW.page_id AND status='pending')
+            OR NEW.gross_pool_amount_kobo IS DISTINCT FROM balance THEN RETURN NULL; END IF;
+          RETURN NEW;
+        END $$`,
+      sql`CREATE TRIGGER guard_gift_pool_payout BEFORE INSERT ON pool_payouts FOR EACH ROW EXECUTE FUNCTION guard_gift_pool_payout()`,
+      sql`INSERT INTO _schema_migrations(version) VALUES (5) ON CONFLICT(version) DO NOTHING`,
+    ]);
   }
 }

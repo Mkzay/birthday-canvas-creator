@@ -794,12 +794,26 @@ pagesRouter.delete("/:id", requireAuth, validateParams(pageIdParamSchema), async
 
   const resolvedPageId = pageRows[0].id;
 
+  const unsettled = await sql`SELECT gift_pool_unsettled(${String(resolvedPageId)}::uuid) AS unsettled`;
+  if (unsettled[0]?.unsettled) {
+    response.status(409).json({ error: 'Settle pending gift payments before deleting this canvas. Contact hello@wishcanvas.app.', code: 'UNSETTLED_GIFT_POOL' });
+    return;
+  }
+
+  try {
   await sql`
     UPDATE birthday_pages
     SET owner_deleted = TRUE, updated_at = NOW()
     WHERE id = ${resolvedPageId}
       AND user_id = ${request.user!.id}
   `;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('UNSETTLED_GIFT_POOL')) {
+      response.status(409).json({ error: 'This canvas has unsettled gift payments.', code: 'UNSETTLED_GIFT_POOL' });
+      return;
+    }
+    throw error;
+  }
 
   response.status(204).end();
 });
@@ -984,6 +998,26 @@ pagesRouter.post("/invites/:token/accept", requireAuth, async (request: AuthedRe
 });
 
 // Upload handlers for canvas cover and custom soundtrack
+async function discardMediaUpload(file: Express.Multer.File) {
+  if (file.path.startsWith("http")) await removeFileByUrl(file.path);
+  else await fs.rm(file.path, { force: true });
+}
+
+async function authorizeGuestMediaUpload(
+  request: AuthedRequest,
+  response: express.Response,
+  page: { user_id: string | null; claim_token_hash: string | null },
+  file: Express.Multer.File,
+) {
+  if (page.user_id) return true; // Owner/co-organizer checked in the SELECT below.
+  const token = request.body.claimToken;
+  if (typeof token === "string" && token.length <= 120 && page.claim_token_hash &&
+      await verifyPassword(token, page.claim_token_hash)) return true;
+  await discardMediaUpload(file);
+  response.status(403).json({ error: "A valid private claim token is required to edit this guest canvas." });
+  return false;
+}
+
 export const handleCoverUpload: express.RequestHandler = async (request: AuthedRequest, response) => {
   const pageIdOrCode = String(request.body.pageId || "");
   const file = request.file;
@@ -1001,7 +1035,7 @@ export const handleCoverUpload: express.RequestHandler = async (request: AuthedR
   let rows: Array<Record<string, unknown>> = [];
   if (request.user) {
     rows = await sql`
-      SELECT id, cover_photo_url
+      SELECT id, user_id, claim_token_hash, cover_photo_url
       FROM birthday_pages
       WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
         AND (
@@ -1018,7 +1052,7 @@ export const handleCoverUpload: express.RequestHandler = async (request: AuthedR
     `;
   } else {
     rows = await sql`
-      SELECT id, cover_photo_url
+      SELECT id, user_id, claim_token_hash, cover_photo_url
       FROM birthday_pages
       WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
         AND user_id IS NULL
@@ -1027,13 +1061,15 @@ export const handleCoverUpload: express.RequestHandler = async (request: AuthedR
     `;
   }
 
-  const page = rows[0] as undefined | { id: string; cover_photo_url: string | null };
+  const page = rows[0] as undefined | { id: string; user_id: string | null; claim_token_hash: string | null; cover_photo_url: string | null };
 
   if (!page) {
-    if (!file.path.startsWith("http")) { await fs.rm(file.path, { force: true }); }
+    await discardMediaUpload(file);
     response.status(404).json({ error: "Page not found" });
     return;
   }
+
+  if (!(await authorizeGuestMediaUpload(request, response, page, file))) return;
 
   const url = file.path.startsWith("http")
     ? file.path
@@ -1066,7 +1102,7 @@ export const handleSoundtrackUpload: express.RequestHandler = async (request: Au
   let rows: Array<Record<string, unknown>> = [];
   if (request.user) {
     rows = await sql`
-      SELECT id, custom_audio_url
+      SELECT id, user_id, claim_token_hash, custom_audio_url
       FROM birthday_pages
       WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
         AND (
@@ -1083,7 +1119,7 @@ export const handleSoundtrackUpload: express.RequestHandler = async (request: Au
     `;
   } else {
     rows = await sql`
-      SELECT id, custom_audio_url
+      SELECT id, user_id, claim_token_hash, custom_audio_url
       FROM birthday_pages
       WHERE (id::text = ${pageIdOrCode} OR public_code = ${pageIdOrCode})
         AND user_id IS NULL
@@ -1092,12 +1128,15 @@ export const handleSoundtrackUpload: express.RequestHandler = async (request: Au
     `;
   }
 
-  const page = rows[0] as undefined | { id: string; custom_audio_url: string | null };
+  const page = rows[0] as undefined | { id: string; user_id: string | null; claim_token_hash: string | null; custom_audio_url: string | null };
 
   if (!page) {
+    await discardMediaUpload(file);
     response.status(404).json({ error: "Page not found" });
     return;
   }
+
+  if (!(await authorizeGuestMediaUpload(request, response, page, file))) return;
 
   await removeFileByUrl(page.custom_audio_url);
   const url = file.path.startsWith("http")
