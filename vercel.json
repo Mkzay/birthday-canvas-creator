@@ -45,7 +45,7 @@
         {
           "type": "header",
           "key": "User-Agent",
-          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
       "destination": "https://birthday-canvas-creator.onrender.com/api/og/:pageId"
@@ -56,7 +56,7 @@
         {
           "type": "header",
           "key": "User-Agent",
-          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
       "destination": "https://birthday-canvas-creator.onrender.com/api/og/:pageId"
@@ -67,7 +67,7 @@
         {
           "type": "header",
           "key": "User-Agent",
-          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
       "destination": "https://birthday-canvas-creator.onrender.com/api/og/:pageId?view=contribute"
@@ -78,7 +78,7 @@
         {
           "type": "header",
           "key": "User-Agent",
-          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|twitterbot|LinkedInBot|WhatsApp|whatsapp|Slackbot|TelegramBot|Discordbot|Applebot|Pinterest|Embedly|Iframely|vkShare).*"
         }
       ],
       "destination": "https://birthday-canvas-creator.onrender.com/api/og/:pageId?view=contribute"
